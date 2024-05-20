@@ -1,0 +1,21 @@
+syntax = "proto3";
+package brume;
+
+import "base.proto";
+
+service OrganizationService {
+  rpc GetOrganization(GetOrganizationRequest) returns (Organization) {}
+  rpc CreateOrganization(CreateOrganizationRequest) returns (Organization) {}
+  rpc GetUserOrganizations(base.Empty) returns (ListOrganization) {}
+}
+
+message GetOrganizationRequest { string id = 1; }
+
+message CreateOrganizationRequest { string name = 1; }
+
+message ListOrganization { repeated Organization organizations = 1; }
+
+message Organization {
+  string id = 1;
+  string name = 2;
+}

@@ -64,6 +64,10 @@
         "editor.formatOnSave": true
     },
 
+    "protoc": {
+        "options": ["--proto_path=brume/proto"]
+    },
+
     "typescript.preferences.importModuleSpecifier": "non-relative",
     "editor.tabSize": 4
 }

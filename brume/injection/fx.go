@@ -4,6 +4,7 @@ import (
 	"brume.dev/internal/db"
 	brumelog "brume.dev/internal/log"
 	"github.com/ipfans/fxlogger"
+	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
@@ -11,9 +12,10 @@ type GlobalInjector struct {
 	Injector *fx.App
 }
 
-func NewGlobalInjector() *GlobalInjector {
+func NewMasterInjector() *GlobalInjector {
+	log.Info().Msg("Initializing master injector")
+
 	app := fx.New(
-		fx.Invoke(brumelog.InitLogger),
 		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger())),
 		fx.Invoke(db.InitDB),
 	)
@@ -24,5 +26,7 @@ func NewGlobalInjector() *GlobalInjector {
 }
 
 func (g *GlobalInjector) Run() {
+	log.Info().Msg("Running the application")
+
 	g.Injector.Run()
 }

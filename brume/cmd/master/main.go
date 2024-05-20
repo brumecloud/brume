@@ -1,10 +1,15 @@
 package main
 
-import "brume.dev/injection"
-
-// entrypoint for the master node of a brume cluster
+import (
+	"brume.dev/injection"
+	brumelog "brume.dev/internal/log"
+	"github.com/rs/zerolog/log"
+)
 
 func main() {
-	injector := injection.NewGlobalInjector()
+	brumelog.InitLogger()
+	log.Info().Msg("Brume v0.1")
+
+	injector := injection.NewMasterInjector()
 	injector.Run()
 }
