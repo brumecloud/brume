@@ -1,9 +1,10 @@
 package injection
 
 import (
+	"brume.dev/internal/db"
+	brumelog "brume.dev/internal/log"
+	"github.com/ipfans/fxlogger"
 	"go.uber.org/fx"
-	"go.uber.org/fx/fxevent"
-	"go.uber.org/zap"
 )
 
 type GlobalInjector struct {
@@ -12,9 +13,9 @@ type GlobalInjector struct {
 
 func NewGlobalInjector() *GlobalInjector {
 	app := fx.New(
-		fx.WithLogger(func(log *zap.Logger) fxevent.Logger {
-			return &fxevent.ZapLogger{Logger: log}
-		}),
+		fx.Invoke(brumelog.InitLogger),
+		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger())),
+		fx.Invoke(db.InitDB),
 	)
 
 	return &GlobalInjector{
@@ -22,6 +23,6 @@ func NewGlobalInjector() *GlobalInjector {
 	}
 }
 
-func (g *GlobalInjector) Launch() {
+func (g *GlobalInjector) Run() {
 	g.Injector.Run()
 }

@@ -6,7 +6,7 @@ import (
 )
 
 type Channel struct {
-	id       string
+	name     string
 	handlers map[string][]Handler
 }
 
@@ -21,26 +21,35 @@ type Event struct {
 	data       any
 }
 
-func NewChannel(id string) *Channel {
+type EventResult struct {
+	error   error
+	success interface{}
+}
+
+func NewChannel(name string) *Channel {
 	return &Channel{
-		id: id,
+		name: name,
 	}
 }
 
 // publish is instant, error are sent through the error channel
-func (c *Channel) Publish(event Event) chan error {
-	error_chan := make(chan error)
+func (c *Channel) Publish(event Event) chan EventResult {
+	error_chan := make(chan EventResult)
 	go c.process_event(event, error_chan)
 	return error_chan
 }
 
-func (c *Channel) process_event(event Event, error_chan chan error) {
+func (c *Channel) process_event(event Event, error_chan chan EventResult) {
 	all_handlers := c.handlers[event.event_type]
 
 	if all_handlers == nil {
-		error_chan <- errors.New("No handler registered for this event")
+		res := EventResult{
+			error: errors.New("no handler registered for this event"),
+		}
+		error_chan <- res
 	}
 
+	// event have priority and can cancel the propagation
 	slices.SortFunc(all_handlers, func(a, b Handler) int {
 		return a.priority - b.priority
 	})
@@ -48,7 +57,10 @@ func (c *Channel) process_event(event Event, error_chan chan error) {
 	for _, handler := range all_handlers {
 		stop_prop, err := handler.f(event.data)
 		if err != nil {
-			error_chan <- err
+			res := EventResult{
+				error: err,
+			}
+			error_chan <- res
 		}
 		if stop_prop {
 			break

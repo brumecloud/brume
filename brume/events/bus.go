@@ -5,7 +5,7 @@ import (
 )
 
 // all the event bus of the app
-// org:app:domain is the structure
+// domain is the structure
 type GlobalBus struct {
 	channels map[string]Channel
 }
