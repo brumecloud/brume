@@ -1,8 +1,8 @@
 package main
 
 import (
-	"brume.dev/injection"
-	brumelog "brume.dev/internal/log"
+	"github.com/brume/brume/injection"
+	brumelog "github.com/brume/brume/internal/log"
 	"github.com/rs/zerolog/log"
 )
 

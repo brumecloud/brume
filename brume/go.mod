@@ -1,4 +1,4 @@
-module brume.dev
+module github.com/brume/brume
 
 go 1.21.2
 

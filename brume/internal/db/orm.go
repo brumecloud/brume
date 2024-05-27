@@ -3,7 +3,7 @@ package db
 import (
 	"time"
 
-	org "brume.dev/org"
+	org "github.com/brume/brume/org"
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

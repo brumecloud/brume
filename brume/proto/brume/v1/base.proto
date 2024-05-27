@@ -1,4 +1,4 @@
 syntax = "proto3";
-package base;
+package brume.v1;
 
 message Empty {}

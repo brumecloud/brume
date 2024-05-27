@@ -1,12 +1,14 @@
 syntax = "proto3";
-package brume;
+package brume.v1;
 
-import "base.proto";
+option go_package = "github.com/brume/brume/internal/gen/proto/brume/v1";
+
+import "brume/v1/base.proto";
 
 service OrganizationService {
   rpc GetOrganization(GetOrganizationRequest) returns (Organization) {}
   rpc CreateOrganization(CreateOrganizationRequest) returns (Organization) {}
-  rpc GetUserOrganizations(base.Empty) returns (ListOrganization) {}
+  rpc GetUserOrganizations(Empty) returns (ListOrganization) {}
 }
 
 message GetOrganizationRequest { string id = 1; }
