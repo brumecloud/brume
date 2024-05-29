@@ -20,6 +20,61 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type Organization struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id   string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+}
+
+func (x *Organization) Reset() {
+	*x = Organization{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_brume_v1_organization_proto_msgTypes[0]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Organization) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Organization) ProtoMessage() {}
+
+func (x *Organization) ProtoReflect() protoreflect.Message {
+	mi := &file_brume_v1_organization_proto_msgTypes[0]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Organization.ProtoReflect.Descriptor instead.
+func (*Organization) Descriptor() ([]byte, []int) {
+	return file_brume_v1_organization_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Organization) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Organization) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
 type GetOrganizationRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -31,7 +86,7 @@ type GetOrganizationRequest struct {
 func (x *GetOrganizationRequest) Reset() {
 	*x = GetOrganizationRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_brume_v1_organization_proto_msgTypes[0]
+		mi := &file_brume_v1_organization_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -44,7 +99,7 @@ func (x *GetOrganizationRequest) String() string {
 func (*GetOrganizationRequest) ProtoMessage() {}
 
 func (x *GetOrganizationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_brume_v1_organization_proto_msgTypes[0]
+	mi := &file_brume_v1_organization_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +112,7 @@ func (x *GetOrganizationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrganizationRequest.ProtoReflect.Descriptor instead.
 func (*GetOrganizationRequest) Descriptor() ([]byte, []int) {
-	return file_brume_v1_organization_proto_rawDescGZIP(), []int{0}
+	return file_brume_v1_organization_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetOrganizationRequest) GetId() string {
@@ -78,7 +133,7 @@ type CreateOrganizationRequest struct {
 func (x *CreateOrganizationRequest) Reset() {
 	*x = CreateOrganizationRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_brume_v1_organization_proto_msgTypes[1]
+		mi := &file_brume_v1_organization_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -91,7 +146,7 @@ func (x *CreateOrganizationRequest) String() string {
 func (*CreateOrganizationRequest) ProtoMessage() {}
 
 func (x *CreateOrganizationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_brume_v1_organization_proto_msgTypes[1]
+	mi := &file_brume_v1_organization_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -104,7 +159,7 @@ func (x *CreateOrganizationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOrganizationRequest.ProtoReflect.Descriptor instead.
 func (*CreateOrganizationRequest) Descriptor() ([]byte, []int) {
-	return file_brume_v1_organization_proto_rawDescGZIP(), []int{1}
+	return file_brume_v1_organization_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CreateOrganizationRequest) GetName() string {
@@ -125,7 +180,7 @@ type ListOrganization struct {
 func (x *ListOrganization) Reset() {
 	*x = ListOrganization{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_brume_v1_organization_proto_msgTypes[2]
+		mi := &file_brume_v1_organization_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -138,7 +193,7 @@ func (x *ListOrganization) String() string {
 func (*ListOrganization) ProtoMessage() {}
 
 func (x *ListOrganization) ProtoReflect() protoreflect.Message {
-	mi := &file_brume_v1_organization_proto_msgTypes[2]
+	mi := &file_brume_v1_organization_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -151,7 +206,7 @@ func (x *ListOrganization) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOrganization.ProtoReflect.Descriptor instead.
 func (*ListOrganization) Descriptor() ([]byte, []int) {
-	return file_brume_v1_organization_proto_rawDescGZIP(), []int{2}
+	return file_brume_v1_organization_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ListOrganization) GetOrganizations() []*Organization {
@@ -161,82 +216,27 @@ func (x *ListOrganization) GetOrganizations() []*Organization {
 	return nil
 }
 
-type Organization struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Id   string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-}
-
-func (x *Organization) Reset() {
-	*x = Organization{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_brume_v1_organization_proto_msgTypes[3]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *Organization) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Organization) ProtoMessage() {}
-
-func (x *Organization) ProtoReflect() protoreflect.Message {
-	mi := &file_brume_v1_organization_proto_msgTypes[3]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Organization.ProtoReflect.Descriptor instead.
-func (*Organization) Descriptor() ([]byte, []int) {
-	return file_brume_v1_organization_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *Organization) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *Organization) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
 var File_brume_v1_organization_proto protoreflect.FileDescriptor
 
 var file_brume_v1_organization_proto_rawDesc = []byte{
 	0x0a, 0x1b, 0x62, 0x72, 0x75, 0x6d, 0x65, 0x2f, 0x76, 0x31, 0x2f, 0x6f, 0x72, 0x67, 0x61, 0x6e,
 	0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x08, 0x62,
 	0x72, 0x75, 0x6d, 0x65, 0x2e, 0x76, 0x31, 0x1a, 0x13, 0x62, 0x72, 0x75, 0x6d, 0x65, 0x2f, 0x76,
-	0x31, 0x2f, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x28, 0x0a, 0x16,
-	0x47, 0x65, 0x74, 0x4f, 0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x22, 0x2f, 0x0a, 0x19, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65,
-	0x4f, 0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x50, 0x0a, 0x10, 0x4c, 0x69, 0x73, 0x74, 0x4f,
-	0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x3c, 0x0a, 0x0d, 0x6f,
-	0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x01, 0x20, 0x03,
-	0x28, 0x0b, 0x32, 0x16, 0x2e, 0x62, 0x72, 0x75, 0x6d, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4f, 0x72,
-	0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x0d, 0x6f, 0x72, 0x67, 0x61,
-	0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x32, 0x0a, 0x0c, 0x4f, 0x72, 0x67,
-	0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d,
-	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x32, 0x80, 0x02,
+	0x31, 0x2f, 0x62, 0x61, 0x73, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x32, 0x0a, 0x0c,
+	0x4f, 0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x0e, 0x0a, 0x02,
+	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x12, 0x12, 0x0a, 0x04,
+	0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65,
+	0x22, 0x28, 0x0a, 0x16, 0x47, 0x65, 0x74, 0x4f, 0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x22, 0x2f, 0x0a, 0x19, 0x43, 0x72,
+	0x65, 0x61, 0x74, 0x65, 0x4f, 0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x50, 0x0a, 0x10, 0x4c,
+	0x69, 0x73, 0x74, 0x4f, 0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12,
+	0x3c, 0x0a, 0x0d, 0x6f, 0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73,
+	0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x62, 0x72, 0x75, 0x6d, 0x65, 0x2e, 0x76,
+	0x31, 0x2e, 0x4f, 0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x0d,
+	0x6f, 0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x32, 0x80, 0x02,
 	0x0a, 0x13, 0x4f, 0x72, 0x67, 0x61, 0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x65,
 	0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x4d, 0x0a, 0x0f, 0x47, 0x65, 0x74, 0x4f, 0x72, 0x67, 0x61,
 	0x6e, 0x69, 0x7a, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x20, 0x2e, 0x62, 0x72, 0x75, 0x6d, 0x65,
@@ -280,20 +280,20 @@ func file_brume_v1_organization_proto_rawDescGZIP() []byte {
 
 var file_brume_v1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_brume_v1_organization_proto_goTypes = []interface{}{
-	(*GetOrganizationRequest)(nil),    // 0: brume.v1.GetOrganizationRequest
-	(*CreateOrganizationRequest)(nil), // 1: brume.v1.CreateOrganizationRequest
-	(*ListOrganization)(nil),          // 2: brume.v1.ListOrganization
-	(*Organization)(nil),              // 3: brume.v1.Organization
+	(*Organization)(nil),              // 0: brume.v1.Organization
+	(*GetOrganizationRequest)(nil),    // 1: brume.v1.GetOrganizationRequest
+	(*CreateOrganizationRequest)(nil), // 2: brume.v1.CreateOrganizationRequest
+	(*ListOrganization)(nil),          // 3: brume.v1.ListOrganization
 	(*Empty)(nil),                     // 4: brume.v1.Empty
 }
 var file_brume_v1_organization_proto_depIdxs = []int32{
-	3, // 0: brume.v1.ListOrganization.organizations:type_name -> brume.v1.Organization
-	0, // 1: brume.v1.OrganizationService.GetOrganization:input_type -> brume.v1.GetOrganizationRequest
-	1, // 2: brume.v1.OrganizationService.CreateOrganization:input_type -> brume.v1.CreateOrganizationRequest
+	0, // 0: brume.v1.ListOrganization.organizations:type_name -> brume.v1.Organization
+	1, // 1: brume.v1.OrganizationService.GetOrganization:input_type -> brume.v1.GetOrganizationRequest
+	2, // 2: brume.v1.OrganizationService.CreateOrganization:input_type -> brume.v1.CreateOrganizationRequest
 	4, // 3: brume.v1.OrganizationService.GetUserOrganizations:input_type -> brume.v1.Empty
-	3, // 4: brume.v1.OrganizationService.GetOrganization:output_type -> brume.v1.Organization
-	3, // 5: brume.v1.OrganizationService.CreateOrganization:output_type -> brume.v1.Organization
-	2, // 6: brume.v1.OrganizationService.GetUserOrganizations:output_type -> brume.v1.ListOrganization
+	0, // 4: brume.v1.OrganizationService.GetOrganization:output_type -> brume.v1.Organization
+	0, // 5: brume.v1.OrganizationService.CreateOrganization:output_type -> brume.v1.Organization
+	3, // 6: brume.v1.OrganizationService.GetUserOrganizations:output_type -> brume.v1.ListOrganization
 	4, // [4:7] is the sub-list for method output_type
 	1, // [1:4] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -309,7 +309,7 @@ func file_brume_v1_organization_proto_init() {
 	file_brume_v1_base_proto_init()
 	if !protoimpl.UnsafeEnabled {
 		file_brume_v1_organization_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetOrganizationRequest); i {
+			switch v := v.(*Organization); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -321,7 +321,7 @@ func file_brume_v1_organization_proto_init() {
 			}
 		}
 		file_brume_v1_organization_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CreateOrganizationRequest); i {
+			switch v := v.(*GetOrganizationRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -333,7 +333,7 @@ func file_brume_v1_organization_proto_init() {
 			}
 		}
 		file_brume_v1_organization_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListOrganization); i {
+			switch v := v.(*CreateOrganizationRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -345,7 +345,7 @@ func file_brume_v1_organization_proto_init() {
 			}
 		}
 		file_brume_v1_organization_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Organization); i {
+			switch v := v.(*ListOrganization); i {
 			case 0:
 				return &v.state
 			case 1:

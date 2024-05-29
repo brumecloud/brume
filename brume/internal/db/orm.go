@@ -3,7 +3,8 @@ package db
 import (
 	"time"
 
-	org "github.com/brume/brume/org"
+	org "github.com/brume/brume/account/org"
+	user "github.com/brume/brume/account/user"
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -11,6 +12,7 @@ import (
 
 var AllModels = []interface{}{
 	&org.Organization{},
+	&user.User{},
 }
 
 type DB struct {
