@@ -11,9 +11,11 @@ func main() {
 
 	login := cmd.NewLoginCommand()
 	org := cmd.NewOrgCommand()
+	master := cmd.NewMasterCommand()
 
 	root.AddCommand(login)
 	root.AddCommand(org)
+	root.AddCommand(master)
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)

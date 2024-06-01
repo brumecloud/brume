@@ -89,7 +89,7 @@ func emailPassword() error {
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
 	s.Start()
 	s.Suffix = " Logging in..."
-	time.Sleep(1 * time.Second)
+	// time.Sleep(1 * time.Second)
 	res := loginUsingClient(_email, _pass)
 	s.Stop()
 
@@ -103,6 +103,9 @@ func emailPassword() error {
 
 func loginUsingClient(email string, password string) error {
 	clt := GetBrumeClient()
-	_, err := clt.PasswordLogin(email, password)
+	token, err := clt.PasswordLogin(email, password)
+
+	fmt.Println(token)
+
 	return err
 }

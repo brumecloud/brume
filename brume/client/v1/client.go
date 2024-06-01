@@ -24,13 +24,7 @@ func NewClient(cfg BrumeClientConfig) (*BrumeClient, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-	conn, err := grpc.NewClient(address, opts...)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer conn.Close()
+	conn, err := grpc.Dial(address, opts...)
 
 	authn := gen.NewAuthentificationClient(conn)
 

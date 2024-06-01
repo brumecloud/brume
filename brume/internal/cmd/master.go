@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/brume/brume/injection"
+	"github.com/brume/brume/internal/injection"
 	brumelog "github.com/brume/brume/internal/log"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"

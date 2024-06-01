@@ -3,6 +3,7 @@ package injection
 import (
 	"github.com/brume/brume/internal/db"
 	brumelog "github.com/brume/brume/internal/log"
+	"github.com/brume/brume/internal/router"
 	"github.com/ipfans/fxlogger"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
@@ -18,6 +19,8 @@ func NewMasterInjector() *GlobalInjector {
 	app := fx.New(
 		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger())),
 		fx.Invoke(db.InitDB),
+		fx.Provide(router.NewRouter),
+		fx.Invoke(func(router *router.Router) {}),
 	)
 
 	return &GlobalInjector{
