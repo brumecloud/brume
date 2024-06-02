@@ -1,16 +1,20 @@
 package user
 
 import (
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type User struct {
 	gorm.Model
-	ID       uint   `gorm:"primaryKey"`
-	Email    string `gorm:"unique"`
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Email    string    `gorm:"unique"`
 	Name     string
 	Password string
+
+	// user only have one organization
+	OrganizationID uuid.UUID
 }
 
 func (u *User) HashPassword() error {
@@ -28,5 +32,6 @@ func (u *User) CheckPassword(password string) error {
 }
 
 func (u *User) BeforeCreate(tx *gorm.DB) error {
+	u.ID = uuid.New()
 	return u.HashPassword()
 }

@@ -22,6 +22,7 @@ func NewRouter(lc fx.Lifecycle, db *db.DB) *Router {
 
 	// Register services
 	v1.RegisterAuthentificationServer(grpcServer, server.NewAuthentificationServer(db))
+	v1.RegisterOrganizationServiceServer(grpcServer, server.NewOrganizationServer(db))
 
 	reflection.Register(grpcServer)
 

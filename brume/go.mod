@@ -7,6 +7,7 @@ require (
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfans/fxlogger v0.2.0 // indirect
 	github.com/jinzhu/gorm v1.9.16 // indirect

@@ -72,13 +72,28 @@ func (db *DB) migrate() {
 	// to add a model to migrate add it to the AllModels slice
 	db.Gorm.AutoMigrate(AllModels...)
 
+	brume := &org.Organization{
+		Name: "brume",
+	}
+
+	if err := db.Gorm.First(&org.Organization{}, "name = ?", "brume").Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Info().Msg("No organization found in database, creating brume")
+		db.Gorm.Create(brume)
+		log.Info().Msg("Organization seeded")
+	} else {
+		log.Info().Msg("Organization found, skipping seeding")
+	}
+
+	admin := &user.User{
+		Email:          "admin@brume.dev",
+		Password:       "adminpass",
+		OrganizationID: brume.ID,
+	}
+
 	if err := db.Gorm.First(&user.User{}, "email = ?", "admin@brume.dev").Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Info().Msg("No user found in database, creating admin@brume.dev")
-		user := &user.User{
-			Email:    "admin@brume.dev",
-			Password: "adminpass",
-		}
-		db.Gorm.Create(user)
+
+		db.Gorm.Create(admin)
 		log.Info().Msg("Admin user seeded")
 	} else {
 		log.Info().Msg("Admin user found, skipping seeding")
