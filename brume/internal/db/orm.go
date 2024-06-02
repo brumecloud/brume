@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"time"
 
 	org "github.com/brume/brume/account/org"
@@ -16,7 +17,7 @@ var AllModels = []interface{}{
 }
 
 type DB struct {
-	gorm *gorm.DB
+	Gorm *gorm.DB
 }
 
 type Model struct {
@@ -53,10 +54,10 @@ func openDB(dsn string) (*DB, error) {
 	}
 
 	db := &DB{
-		gorm: gorm,
+		Gorm: gorm,
 	}
 
-	sqlDB, err := db.gorm.DB()
+	sqlDB, err := db.Gorm.DB()
 	if err != nil {
 		return nil, err
 	}
@@ -69,5 +70,17 @@ func openDB(dsn string) (*DB, error) {
 
 func (db *DB) migrate() {
 	// to add a model to migrate add it to the AllModels slice
-	db.gorm.AutoMigrate(AllModels...)
+	db.Gorm.AutoMigrate(AllModels...)
+
+	if err := db.Gorm.First(&user.User{}, "email = ?", "admin@brume.dev").Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Info().Msg("No user found in database, creating admin@brume.dev")
+		user := &user.User{
+			Email:    "admin@brume.dev",
+			Password: "adminpass",
+		}
+		db.Gorm.Create(user)
+		log.Info().Msg("Admin user seeded")
+	} else {
+		log.Info().Msg("Admin user found, skipping seeding")
+	}
 }

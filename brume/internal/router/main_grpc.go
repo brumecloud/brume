@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 
+	"github.com/brume/brume/internal/db"
 	v1 "github.com/brume/brume/internal/gen/brume/v1"
 	"github.com/brume/brume/internal/server"
 	"github.com/rs/zerolog/log"
@@ -14,13 +15,13 @@ import (
 
 type Router struct{}
 
-func NewRouter(lc fx.Lifecycle) *Router {
+func NewRouter(lc fx.Lifecycle, db *db.DB) *Router {
 	log.Info().Msg("Creating the router")
 
 	grpcServer := grpc.NewServer()
 
 	// Register services
-	v1.RegisterAuthentificationServer(grpcServer, server.NewAuthentificationServer())
+	v1.RegisterAuthentificationServer(grpcServer, server.NewAuthentificationServer(db))
 
 	reflection.Register(grpcServer)
 

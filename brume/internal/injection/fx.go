@@ -18,6 +18,7 @@ func NewMasterInjector() *GlobalInjector {
 
 	app := fx.New(
 		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger())),
+		fx.Provide(db.InitDB),
 		fx.Invoke(db.InitDB),
 		fx.Provide(router.NewRouter),
 		fx.Invoke(func(router *router.Router) {}),

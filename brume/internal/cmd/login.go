@@ -9,15 +9,18 @@ import (
 
 	"github.com/briandowns/spinner"
 	"github.com/manifoldco/promptui"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
 func NewLoginCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "login",
-		Short: "Login to Brume service",
-		RunE:  runLogin(),
-		Args:  cobra.NoArgs,
+		Use:           "login",
+		Short:         "Login to Brume service",
+		RunE:          runLogin(),
+		Args:          cobra.NoArgs,
+		SilenceErrors: false,
+		SilenceUsage:  true,
 	}
 
 	return cmd
@@ -79,6 +82,7 @@ func emailPassword() error {
 	}
 
 	_pass, err := passwordPrompt.Run()
+
 	if err != nil {
 		return err
 	}
@@ -90,22 +94,32 @@ func emailPassword() error {
 	s.Start()
 	s.Suffix = " Logging in..."
 	// time.Sleep(1 * time.Second)
-	res := loginUsingClient(_email, _pass)
+	token, err := loginUsingClient(_email, _pass)
 	s.Stop()
 
-	if res != nil {
-		return res
+	if err != nil {
+		return err
 	}
+
+	log.Debug().Str("token", token)
 
 	fmt.Println("Login successful 🎉")
 	return nil
 }
 
-func loginUsingClient(email string, password string) error {
+func loginUsingClient(email string, password string) (string, error) {
 	clt := GetBrumeClient()
 	token, err := clt.PasswordLogin(email, password)
 
-	fmt.Println(token)
+	if err != nil {
+		return "", err
+	}
 
-	return err
+	err = SetToken(token)
+
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
