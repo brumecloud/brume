@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,8 +36,8 @@ func GetToken() (string, error) {
 	token, err := os.ReadFile(tokenPath)
 
 	if err != nil {
-		fmt.Printf("Failed to read token from file (%s) \n", tokenPath)
-		return "", err
+		fmt.Printf("Failed to read token from .bruem/creds file (%s) \n", tokenPath)
+		return "", errors.New("failed to read authentication token (have you run brume login?)")
 	}
 
 	return string(token), nil

@@ -12,6 +12,7 @@ type BrumeClient struct {
 	conn *grpc.ClientConn
 
 	authn gen.AuthentificationClient
+	orgs  gen.OrganizationServiceClient
 }
 
 type BrumeClientConfig struct {
@@ -27,10 +28,12 @@ func NewClient(cfg BrumeClientConfig) (*BrumeClient, error) {
 	conn, err := grpc.Dial(address, opts...)
 
 	authn := gen.NewAuthentificationClient(conn)
+	orgs := gen.NewOrganizationServiceClient(conn)
 
 	client := &BrumeClient{
 		conn:  conn,
 		authn: authn,
+		orgs:  orgs,
 	}
 
 	return client, err

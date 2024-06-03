@@ -18,6 +18,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rodaine/table v1.2.0 // indirect
 	github.com/rs/zerolog v1.32.0 // indirect
 	github.com/spf13/cobra v1.8.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

@@ -3,8 +3,11 @@ package server
 import (
 	"context"
 
+	"github.com/brume/brume/account/org"
+	"github.com/brume/brume/account/user"
 	"github.com/brume/brume/internal/db"
 	v1 "github.com/brume/brume/internal/gen/brume/v1"
+	"github.com/rs/zerolog/log"
 )
 
 type OrganizationServer struct {
@@ -23,6 +26,37 @@ func (s *OrganizationServer) CreateOrganization(ctx context.Context, req *v1.Cre
 	return nil, nil
 }
 
-func (s *OrganizationServer) GetUserOrganizations(context.Context, *v1.Empty) (*v1.ListOrganization, error) {
-	return nil, nil
+func (s *OrganizationServer) GetUserOrganizations(ctx context.Context, _ *v1.Empty) (*v1.ListOrganization, error) {
+	userEmail := ctx.Value("user")
+
+	var user *user.User
+	err := s.db.Gorm.First(&user, "email = ?", userEmail).Error
+
+	log.Debug().Str("email", user.Email).Msg("get user")
+
+	if err != nil {
+		return nil, err
+	}
+
+	var orgs []*org.Organization
+	err = s.db.Gorm.Find(&orgs, "id = ?", user.OrganizationID).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	orgsV1 := make([]*v1.Organization, len(orgs))
+
+	for i, org := range orgs {
+		orgsV1[i] = &v1.Organization{
+			Name: org.Name,
+			Id:   org.ID.String(),
+		}
+	}
+
+	resp := &v1.ListOrganization{
+		Organizations: orgsV1,
+	}
+
+	return resp, nil
 }
