@@ -8,9 +8,6 @@ import (
 )
 
 type Claims struct {
-	sub string
-	aud string
-
 	jwt.RegisteredClaims
 }
 
@@ -18,10 +15,10 @@ var SECRET_KEY = "brume-secret"
 
 func NewToken(user *user.User) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
-		sub: user.Email,
-		aud: "brume",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			Issuer:    "brume",
+			Subject:   user.Email,
 		},
 	})
 

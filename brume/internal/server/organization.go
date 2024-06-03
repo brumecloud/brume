@@ -5,7 +5,6 @@ import (
 
 	"github.com/brume/brume/internal/db"
 	v1 "github.com/brume/brume/internal/gen/brume/v1"
-	"github.com/rs/zerolog/log"
 )
 
 type OrganizationServer struct {
@@ -25,4 +24,5 @@ func (s *OrganizationServer) CreateOrganization(ctx context.Context, req *v1.Cre
 }
 
 func (s *OrganizationServer) GetUserOrganizations(context.Context, *v1.Empty) (*v1.ListOrganization, error) {
+	return nil, nil
 }

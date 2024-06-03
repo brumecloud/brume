@@ -6,6 +6,7 @@ import (
 
 	"github.com/brume/brume/internal/db"
 	v1 "github.com/brume/brume/internal/gen/brume/v1"
+	"github.com/brume/brume/internal/router/interceptor"
 	"github.com/brume/brume/internal/server"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
@@ -18,7 +19,7 @@ type Router struct{}
 func NewRouter(lc fx.Lifecycle, db *db.DB) *Router {
 	log.Info().Msg("Creating the router")
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(interceptor.AuthentificationInterceptor))
 
 	// Register services
 	v1.RegisterAuthentificationServer(grpcServer, server.NewAuthentificationServer(db))
