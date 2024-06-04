@@ -10,7 +10,7 @@ import (
 func NewMasterCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "master",
-		Short: "Configure the Brume master node",
+		Short: "Run the Brume master node",
 		RunE:  runMaster(),
 		Args:  cobra.NoArgs,
 	}

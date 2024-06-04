@@ -1,0 +1,25 @@
+syntax = "proto3";
+package brume.v1;
+
+option go_package = "github.com/brume/brume/internal/gen/proto/brume/v1";
+
+import "brume/v1/base.proto";
+
+message Project {
+  string id = 1;
+  string name = 2;
+}
+
+message Service {
+  string id = 1;
+  string name = 2;
+}
+
+service ProjectService {
+  rpc CreateProject(CreateProjectRequest) returns (Project) {}
+  rpc ListProject(Empty) returns (ListProject) {}
+}
+
+message CreateProjectRequest { string name = 1; }
+
+message ListProject { repeated Project projects = 1; }

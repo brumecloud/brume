@@ -9,13 +9,12 @@ import (
 func main() {
 	root := cmd.NewRootCommand()
 
+	project := cmd.NewProjectCmd()
+	node := cmd.NewNodeCmd()
 	login := cmd.NewLoginCommand()
-	org := cmd.NewOrgCommand()
 	master := cmd.NewMasterCommand()
 
-	root.AddCommand(login)
-	root.AddCommand(org)
-	root.AddCommand(master)
+	root.AddCommand(project, login, master, node)
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
