@@ -3,9 +3,9 @@ package server
 import (
 	"context"
 
-	"github.com/brume/brume/account/org"
-	"github.com/brume/brume/account/user"
-	"github.com/brume/brume/internal/db"
+	"brume.dev/account/org"
+	"brume.dev/account/user/model"
+	"brume.dev/internal/db"
 	v1 "github.com/brume/brume/internal/gen/brume/v1"
 	"github.com/rs/zerolog/log"
 )

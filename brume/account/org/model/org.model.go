@@ -1,7 +1,7 @@
-package org
+package org_model
 
 import (
-	"github.com/brume/brume/account/user"
+	user "brume.dev/account/user/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

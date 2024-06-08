@@ -1,13 +1,13 @@
-package router
+package grpc_router
 
 import (
 	"context"
 	"net"
 
-	"github.com/brume/brume/internal/db"
-	v1 "github.com/brume/brume/internal/gen/brume/v1"
-	"github.com/brume/brume/internal/router/interceptor"
-	"github.com/brume/brume/internal/server"
+	"brume.dev/internal/db"
+	v1 "brume.dev/internal/gen/brume/v1"
+	"brume.dev/internal/router/grpc_router/interceptor"
+	"brume.dev/internal/server"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"

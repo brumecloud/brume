@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/brume/brume/internal/cmd"
+	"brume.dev/internal/cmd"
 )
 
 func main() {

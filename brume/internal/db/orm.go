@@ -4,8 +4,10 @@ import (
 	"errors"
 	"time"
 
-	org "github.com/brume/brume/account/org"
-	user "github.com/brume/brume/account/user"
+	org "brume.dev/account/org/model"
+	user "brume.dev/account/user/model"
+	"brume.dev/project/model"
+	"brume.dev/services/model"
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -14,6 +16,8 @@ import (
 var AllModels = []interface{}{
 	&org.Organization{},
 	&user.User{},
+	&services.Service{},
+	&project.Project{},
 }
 
 type DB struct {

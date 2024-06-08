@@ -1,9 +1,9 @@
-package server
+package common
 
 import (
 	"time"
 
-	"github.com/brume/brume/account/user"
+	"brume.dev/account/user"
 	"github.com/golang-jwt/jwt/v5"
 )
 

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	project_cmd "github.com/brume/brume/internal/cmd/project"
+	project_cmd "brume.dev/internal/cmd/project"
 	"github.com/spf13/cobra"
 )
 

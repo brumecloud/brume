@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	client "github.com/brume/brume/client/v1"
+	client "brume.dev/client/v1"
 )
 
 func GetBrumeClient() *client.BrumeClient {

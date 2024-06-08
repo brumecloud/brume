@@ -1,18 +1,24 @@
 syntax = "proto3";
 package brume.v1;
 
-option go_package = "github.com/brume/brume/internal/gen/proto/brume/v1";
+option go_package = "brume.dev/internal/gen/proto/brume/v1";
 
 import "brume/v1/base.proto";
 
 message Project {
   string id = 1;
   string name = 2;
+  string description = 3;
+  string project_variables = 4;
+
+  repeated Service services = 5;
 }
 
 message Service {
   string id = 1;
   string name = 2;
+  string builder = 3;
+  string executor = 4;
 }
 
 service ProjectService {

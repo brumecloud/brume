@@ -1,9 +1,9 @@
 package injection
 
 import (
-	"github.com/brume/brume/internal/db"
-	brumelog "github.com/brume/brume/internal/log"
-	"github.com/brume/brume/internal/router"
+	"brume.dev/internal/db"
+	brumelog "brume.dev/internal/log"
+	"brume.dev/internal/router"
 	"github.com/ipfans/fxlogger"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"

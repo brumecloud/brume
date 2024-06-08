@@ -3,7 +3,7 @@ package client_v1
 import (
 	"context"
 
-	gen "github.com/brume/brume/internal/gen/brume/v1"
+	gen "brume.dev/internal/gen/brume/v1"
 )
 
 // Authentificate with Brume server using email and password

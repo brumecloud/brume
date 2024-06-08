@@ -3,7 +3,7 @@ package client_v1
 import (
 	"fmt"
 
-	gen "github.com/brume/brume/internal/gen/brume/v1"
+	gen "brume.dev/internal/gen/brume/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
