@@ -24,10 +24,11 @@ func NewMasterInjector() *GlobalInjector {
 		fx.Provide(db.InitDB),
 		fx.Invoke(db.InitDB),
 
-		fx_graphql.GraphQLModule,
-		fx_grpc.GRPCModule,
 		fx_common.CommonModule,
 		fx_org.OrgModule,
+
+		fx_graphql.GraphQLModule,
+		fx_grpc.GRPCModule,
 	)
 
 	return &GlobalInjector{
