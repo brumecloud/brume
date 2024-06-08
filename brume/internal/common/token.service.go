@@ -3,7 +3,7 @@ package common
 import (
 	"time"
 
-	"brume.dev/account/user"
+	user "brume.dev/account/user/model"
 	"github.com/golang-jwt/jwt/v5"
 )
 

@@ -9,6 +9,7 @@ import (
 )
 
 type GRPCAuthentificationServer struct {
+	v1.AuthentificationServer
 	authService *common.AuthentificationService
 }
 

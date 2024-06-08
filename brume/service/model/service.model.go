@@ -1,4 +1,4 @@
-package services_model
+package service_model
 
 import (
 	"github.com/google/uuid"

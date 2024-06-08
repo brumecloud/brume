@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"brume.dev/internal/server"
+	"brume.dev/internal/common"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -34,7 +34,7 @@ func AuthentificationInterceptor(ctx context.Context, req any, info *grpc.UnaryS
 		return nil, fmt.Errorf("authorization header should start with Bearer")
 	}
 
-	claims, err := server.VerifyToken(authHeader[1])
+	claims, err := common.VerifyToken(authHeader[1])
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify token: %w", err)

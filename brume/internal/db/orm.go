@@ -6,8 +6,8 @@ import (
 
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
-	"brume.dev/project/model"
-	"brume.dev/services/model"
+	project "brume.dev/project/model"
+	service "brume.dev/service/model"
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -16,7 +16,7 @@ import (
 var AllModels = []interface{}{
 	&org.Organization{},
 	&user.User{},
-	&services.Service{},
+	&service.Service{},
 	&project.Project{},
 }
 

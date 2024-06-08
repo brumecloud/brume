@@ -3,7 +3,7 @@ package common
 import (
 	"errors"
 
-	"brume.dev/account/user"
+	user "brume.dev/account/user/model"
 	"brume.dev/internal/db"
 	"github.com/rs/zerolog/log"
 )
