@@ -1,3 +1,11 @@
 {
-    "extends": "@total-typescript/tsconfig/bundler/dom/app"
+  "extends": "@total-typescript/tsconfig/bundler/dom/app",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@shadcn/*": ["./src/components/ui/*"],
+      "src/*": ["./src/*"]
+    }
+  }
 }
