@@ -1,5 +1,5 @@
 import Logo from "@/assets/logo.png";
-import { BarChart3, Cog, SquareActivity } from "lucide-react";
+import { BarChart3, Cog, HardDrive, Satellite } from "lucide-react";
 
 export const GenerateMenu = () => {
   return (
@@ -10,20 +10,28 @@ export const GenerateMenu = () => {
       </span>
       <div className="flex flex-col gap-y-2">
         <div className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+          <HardDrive
+            strokeWidth={1.5}
+            height={20}
+            className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
+          />
+          Compute
+        </div>
+        <div className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+          <Satellite
+            strokeWidth={1.5}
+            height={20}
+            className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
+          />
+          Network
+        </div>
+        <div className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
           <BarChart3
             strokeWidth={1.5}
             height={20}
             className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
           />
           Monitoring
-        </div>
-        <div className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
-          <SquareActivity
-            strokeWidth={1.5}
-            height={20}
-            className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
-          />
-          Activity
         </div>
         <div className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
           <Cog
