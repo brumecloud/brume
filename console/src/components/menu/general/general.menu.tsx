@@ -1,5 +1,6 @@
 import Logo from "@/assets/logo.png";
-import { BarChart3, Cog, HardDrive, Satellite } from "lucide-react";
+import { BarChart3, Cog, FolderOpenDot, HardDrive, Satellite } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export const GenerateMenu = () => {
   return (
@@ -9,38 +10,56 @@ export const GenerateMenu = () => {
         <h2 className="text-sm font-semibold">Brume Cloud</h2>
       </span>
       <div className="flex flex-col gap-y-2">
-        <div className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+        <Link
+          to="/projects"
+          className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+          <FolderOpenDot
+            strokeWidth={1.5}
+            height={20}
+            className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
+          />
+          Projects
+        </Link>
+        <Link
+          to="/compute"
+          className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
           <HardDrive
             strokeWidth={1.5}
             height={20}
             className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
           />
           Compute
-        </div>
-        <div className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+        </Link>
+        <Link
+          to="/network"
+          className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
           <Satellite
             strokeWidth={1.5}
             height={20}
             className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
           />
           Network
-        </div>
-        <div className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+        </Link>
+        <Link
+          to="/monitoring"
+          className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
           <BarChart3
             strokeWidth={1.5}
             height={20}
             className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
           />
           Monitoring
-        </div>
-        <div className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+        </Link>
+        <Link
+          to="/settings"
+          className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
           <Cog
             strokeWidth={1.5}
             height={20}
             className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
           />
           Settings
-        </div>
+        </Link>
       </div>
     </div>
   );
