@@ -25,10 +25,13 @@ func NewGraphQLServer(lc fx.Lifecycle) *GraphQLServer {
 		Schema:     &schema,
 		Pretty:     true,
 		Playground: true,
-		GraphiQL:   true,
 	})
 
+	// graphql server
 	http.Handle("/graphql", h)
+
+	// graphiql server
+	http.Handle("/", http.FileServer(http.Dir("./static/graphiql")))
 
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {

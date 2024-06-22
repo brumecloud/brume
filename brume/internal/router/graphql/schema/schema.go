@@ -1,15 +1,22 @@
 package graphql_schema
 
 import (
+	"brume.dev/internal/router/graphql/types"
 	"github.com/graphql-go/graphql"
 )
 
 func NewSchema() (graphql.Schema, error) {
 	fields := graphql.Fields{
-		"hello": &graphql.Field{
-			Type: graphql.String,
+		"project": &graphql.Field{
+			Type: graphql.NewList(graphql_types.ProjectType),
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				return "Hello World!", nil
+				return make([]interface{}, 0), nil
+			},
+		},
+		"compute": &graphql.Field{
+			Type: graphql.NewList(graphql_types.ComputeType),
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				return make([]interface{}, 0), nil
 			},
 		},
 	}
