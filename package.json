@@ -1,8 +1,8 @@
 {
-    "name": "brume",
-    "version": "0.0.1",
-    "private": true,
-    "homepage": "https://brume.dev/",
-    "packageManager": "pnpm@8.14.3",
-    "script": {}
+  "name": "brume",
+  "version": "0.0.1",
+  "private": true,
+  "homepage": "https://brume.dev/",
+  "packageManager": "pnpm@8.14.3",
+  "script": {}
 }

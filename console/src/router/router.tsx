@@ -1,3 +1,4 @@
+import { Login } from "@/pages/login";
 import { Routes, Route } from "react-router-dom";
 
 import { ConsoleLayout } from "./layout/console.layout";
@@ -11,7 +12,7 @@ export enum RouteParams {
 export function Router() {
   return (
     <Routes>
-      <Route path="/login" element={<h1>Login</h1>} />
+      <Route path="/login" element={<Login />} />
       <Route path="/" element={<ConsoleLayout />}>
         <Route path="/" element={<PageLayout />}>
           <Route path="/projects" element={<h1>Projects</h1>} />

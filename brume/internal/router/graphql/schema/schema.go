@@ -7,6 +7,12 @@ import (
 
 func NewSchema() (graphql.Schema, error) {
 	fields := graphql.Fields{
+		"me": &graphql.Field{
+			Type: graphql_types.UserType,
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				return make([]interface{}, 0), nil
+			},
+		},
 		"project": &graphql.Field{
 			Type: graphql.NewList(graphql_types.ProjectType),
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
