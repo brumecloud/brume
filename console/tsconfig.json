@@ -2,6 +2,9 @@
   "extends": "@total-typescript/tsconfig/bundler/dom/app",
   "compilerOptions": {
     "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
+    "module": "Preserve",
+    "verbatimModuleSyntax": true,
     "paths": {
       "@/*": ["./src/*"],
       "@shadcn/*": ["./src/components/ui/*"],
