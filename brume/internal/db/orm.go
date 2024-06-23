@@ -90,8 +90,10 @@ func (db *DB) migrate() {
 
 	admin := &user.User{
 		Email:          "admin@brume.dev",
+		Name:           "Brume Admin",
 		Password:       "adminpass",
 		OrganizationID: brume.ID,
+		Avatar:         "https://avatars.githubusercontent.com/u/34143515?v=4",
 	}
 
 	if err := db.Gorm.First(&user.User{}, "email = ?", "admin@brume.dev").Error; errors.Is(err, gorm.ErrRecordNotFound) {

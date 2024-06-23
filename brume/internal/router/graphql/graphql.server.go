@@ -6,8 +6,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 
-	"brume.dev/account/user"
+	"brume.dev/internal/common"
 	resolver "brume.dev/internal/router/graphql/resolver"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
@@ -39,12 +40,41 @@ func readGraphQLSchema() string {
 	return string(schemaFileContent)
 }
 
-func NewGraphQLServer(lc fx.Lifecycle, userService *user.UserService) *GraphQLServer {
+func AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Debug().Str("authN", r.Header.Get("Authorization")).Msg("Authentication middleware")
+
+		bearerToken := r.Header.Get("Authorization")
+
+		if bearerToken == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		token := strings.Split(bearerToken, " ")[1]
+
+		claims, err := common.VerifyToken(token)
+
+		if err != nil {
+			w.WriteHeader(http.StatusForbidden)
+			log.Debug().Err(err).Msg("Failed to verify token")
+			w.Write([]byte("Unauthorized"))
+			return
+		}
+
+		println("claims", claims.Subject)
+
+		ctx := context.WithValue(r.Context(), "user", claims.Subject)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func NewGraphQLServer(lc fx.Lifecycle, rootResolver *resolver.RootResolver) *GraphQLServer {
 	log.Info().Msg("Creating the GraphQL server")
 
 	schemaFileContent := readGraphQLSchema()
 
-	schema := graphql.MustParseSchema(schemaFileContent, &resolver.RootResolver{})
+	schema := graphql.MustParseSchema(schemaFileContent, rootResolver)
 
 	cors := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
@@ -56,9 +86,9 @@ func NewGraphQLServer(lc fx.Lifecycle, userService *user.UserService) *GraphQLSe
 	})
 
 	// graphql server
-	http.Handle("/graphql", cors.Handler(&relay.Handler{
+	http.Handle("/graphql", cors.Handler(AuthMiddleware((&relay.Handler{
 		Schema: schema,
-	}))
+	}))))
 
 	// graphiql server
 	http.Handle("/", http.FileServer(http.Dir("./static/graphiql")))

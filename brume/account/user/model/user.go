@@ -12,6 +12,7 @@ type User struct {
 	Email    string    `gorm:"unique"`
 	Name     string
 	Password string
+	Avatar   string
 
 	// user only have one organization
 	OrganizationID uuid.UUID

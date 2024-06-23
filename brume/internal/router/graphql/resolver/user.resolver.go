@@ -1,25 +1,26 @@
 package resolver
 
 import (
+	"context"
+
 	user "brume.dev/account/user/model"
-	"github.com/google/uuid"
 )
 
 type UserResolver struct {
 	u *user.User
 }
 
-func (*QueryResolver) Me() (*UserResolver, error) {
+func (q *QueryResolver) Me(ctx context.Context) (*UserResolver, error) {
+	email := ctx.Value("user").(string)
+	user, err := q.userService.GetUserByEmail(email)
+
 	return &UserResolver{
-		u: &user.User{
-			ID:   uuid.MustParse("70fd7b3a-8e44-47e0-b5d0-5c1b08e43ae6"),
-			Name: "Paul Planchon",
-		},
-	}, nil
+		u: user,
+	}, err
 }
 
 func (r *UserResolver) Avatar() string {
-	return string("https://avatars.githubusercontent.com/u/34143515?v=4")
+	return r.u.Avatar
 }
 
 func (r *UserResolver) Name() string {
