@@ -1,12 +1,38 @@
-import { ApolloClient, InMemoryCache, ApolloProvider } from "@apollo/client";
+import { ApolloClient, InMemoryCache, ApolloProvider, ApolloLink, HttpLink } from "@apollo/client";
+import { onError } from "@apollo/client/link/error";
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { toast } from "sonner";
 
 import App from "./App";
 import "./index.css";
 
-const graphqlClient = new ApolloClient({
+const httpLink = new HttpLink({
   uri: "http://localhost:9877/graphql",
+  credentials: "include",
+});
+
+const errorLink = onError(({ graphQLErrors, networkError }) => {
+  if (graphQLErrors)
+    graphQLErrors.map(({ message, locations, path }) =>
+      console.log(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`)
+    );
+  if (networkError) {
+    localStorage.setItem(
+      "error",
+      JSON.stringify({
+        title: "Network Error",
+        message: networkError.message,
+      })
+    );
+    window.location = "/login?error=true";
+  }
+});
+
+const finalLink = errorLink.concat(httpLink);
+
+const graphqlClient = new ApolloClient({
+  link: finalLink,
   cache: new InMemoryCache(),
 });
 

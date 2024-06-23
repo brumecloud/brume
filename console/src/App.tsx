@@ -7,7 +7,12 @@ function App() {
   return (
     <BrowserRouter>
       <Router />
-      <Toaster />
+      <Toaster
+        richColors
+        toastOptions={{
+          duration: 4000,
+        }}
+      />
     </BrowserRouter>
   );
 }
