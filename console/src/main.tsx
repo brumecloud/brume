@@ -1,8 +1,7 @@
-import { ApolloClient, InMemoryCache, ApolloProvider, ApolloLink, HttpLink } from "@apollo/client";
+import { ApolloClient, InMemoryCache, ApolloProvider, HttpLink } from "@apollo/client";
 import { onError } from "@apollo/client/link/error";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { toast } from "sonner";
 
 import App from "./App";
 import "./index.css";
@@ -25,7 +24,7 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
         message: networkError.message,
       })
     );
-    window.location = "/login?error=true";
+    window.location.pathname = "/login?error=true";
   }
 });
 

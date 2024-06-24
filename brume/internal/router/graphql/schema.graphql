@@ -1,13 +1,39 @@
-schema {
-  query: Query
+type User {
+  id: String!
+  name: String!
+  avatar: String!
 }
+
+# type Project {
+#   id: String!
+#   services: [Service!]!
+# }
+
+# type Services {
+#   id: String!
+#   name: String!
+#   builder: Builder!
+#   runner: Runner!
+# }
+
+# type Builder {
+#   id: String!
+# }
+
+# type Runner {
+#   id: String!
+# }
+
+# type Logs {
+#   message: String!
+#   severity: String!
+#   timestamp: String!
+# }
 
 type Query {
   me: User!
 }
 
-type User {
-  id: String!
-  name: String!
-  avatar: String!
+schema {
+  query: Query
 }

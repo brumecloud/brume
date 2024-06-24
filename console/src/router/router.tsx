@@ -1,4 +1,5 @@
 import { Login } from "@/pages/login";
+import { Projects } from "@/pages/projects";
 import { Routes, Route } from "react-router-dom";
 
 import { ConsoleLayout } from "./layout/console.layout";
@@ -15,7 +16,7 @@ export function Router() {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<ConsoleLayout />}>
         <Route path="/" element={<PageLayout />}>
-          <Route path="/projects" element={<h1>Projects</h1>} />
+          <Route path="/overview" element={<Projects />} />
           <Route path="/compute" element={<h1>Compute</h1>} />
           <Route path="/network" element={<h1>Network</h1>} />
           <Route path="/monitoring" element={<h1>Monitoring</h1>} />

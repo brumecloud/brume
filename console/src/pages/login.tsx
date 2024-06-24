@@ -28,7 +28,7 @@ export const Login = () => {
       .then((res) => res.text())
       .then((token) => {
         Cookies.set("access_token", token);
-        window.location = "/";
+        window.location.pathname = "/";
       });
   };
 
