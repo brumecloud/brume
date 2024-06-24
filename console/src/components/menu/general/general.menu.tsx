@@ -1,6 +1,7 @@
 import Logo from "@/assets/logo.png";
+import { cn } from "@/utils";
 import { BarChart3, Cog, FolderOpenDot, HardDrive, Satellite } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 export const GenerateMenu = () => {
   return (
@@ -10,56 +11,81 @@ export const GenerateMenu = () => {
         <h2 className="text-sm font-semibold">Brume Cloud</h2>
       </span>
       <div className="flex flex-col gap-y-2">
-        <Link
+        <NavLink
           to="/overview"
-          className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+          className={({ isActive }) =>
+            cn(
+              "flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer",
+              isActive && "font-medium"
+            )
+          }>
           <FolderOpenDot
             strokeWidth={1.5}
             height={20}
             className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
           />
           Overview
-        </Link>
-        <Link
+        </NavLink>
+        <NavLink
           to="/compute"
-          className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+          className={({ isActive }) =>
+            cn(
+              "flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer",
+              isActive && "font-medium"
+            )
+          }>
           <HardDrive
             strokeWidth={1.5}
             height={20}
             className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
           />
           Compute
-        </Link>
-        <Link
+        </NavLink>
+        <NavLink
           to="/network"
-          className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+          className={({ isActive }) =>
+            cn(
+              "flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer",
+              isActive && "font-medium"
+            )
+          }>
           <Satellite
             strokeWidth={1.5}
             height={20}
             className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
           />
           Network
-        </Link>
-        <Link
+        </NavLink>
+        <NavLink
           to="/monitoring"
-          className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+          className={({ isActive }) =>
+            cn(
+              "flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer",
+              isActive && "font-medium"
+            )
+          }>
           <BarChart3
             strokeWidth={1.5}
             height={20}
             className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
           />
           Monitoring
-        </Link>
-        <Link
+        </NavLink>
+        <NavLink
           to="/settings"
-          className="flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer">
+          className={({ isActive }) =>
+            cn(
+              "flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer",
+              isActive && "font-medium"
+            )
+          }>
           <Cog
             strokeWidth={1.5}
             height={20}
             className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
           />
           Settings
-        </Link>
+        </NavLink>
       </div>
     </div>
   );

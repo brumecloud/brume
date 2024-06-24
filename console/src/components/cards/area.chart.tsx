@@ -16,8 +16,8 @@ type TooltipData = DateValue;
 const stock = browserUsage(50, Math.random(), new Date().getTime());
 export const background = "#ffffff";
 export const background2 = "#ffffff";
-export const accentColor = "#5663da";
-export const accentColorDark = "#1741e7";
+export const accentColor = "#569cda";
+export const accentColorDark = "#4999de";
 
 // util
 const formatDate = timeFormat("%b %d, '%y");
