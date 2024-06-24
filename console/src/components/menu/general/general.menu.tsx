@@ -19,12 +19,19 @@ export const GenerateMenu = () => {
               isActive && "font-medium"
             )
           }>
-          <FolderOpenDot
-            strokeWidth={1.5}
-            height={20}
-            className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
-          />
-          Overview
+          {({ isActive }) => (
+            <>
+              <FolderOpenDot
+                strokeWidth={1.5}
+                height={20}
+                className={cn(
+                  "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
+                  isActive && "bg-gradient-to-r from-[#aac8e6] to-[#437ae1] text-white"
+                )}
+              />
+              Overview
+            </>
+          )}
         </NavLink>
         <NavLink
           to="/compute"
@@ -34,12 +41,19 @@ export const GenerateMenu = () => {
               isActive && "font-medium"
             )
           }>
-          <HardDrive
-            strokeWidth={1.5}
-            height={20}
-            className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
-          />
-          Compute
+          {({ isActive }) => (
+            <>
+              <HardDrive
+                strokeWidth={1.5}
+                height={20}
+                className={cn(
+                  "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
+                  isActive && "bg-gradient-to-r from-[#f0bc81] to-[#ee8866] text-white"
+                )}
+              />
+              Compute
+            </>
+          )}
         </NavLink>
         <NavLink
           to="/network"
@@ -49,12 +63,19 @@ export const GenerateMenu = () => {
               isActive && "font-medium"
             )
           }>
-          <Satellite
-            strokeWidth={1.5}
-            height={20}
-            className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
-          />
-          Network
+          {({ isActive }) => (
+            <>
+              <Satellite
+                strokeWidth={1.5}
+                height={20}
+                className={cn(
+                  "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
+                  isActive && "bg-gradient-to-r from-[#9be4ad] to-[#61b531] text-white"
+                )}
+              />
+              Network
+            </>
+          )}
         </NavLink>
         <NavLink
           to="/monitoring"
@@ -64,12 +85,19 @@ export const GenerateMenu = () => {
               isActive && "font-medium"
             )
           }>
-          <BarChart3
-            strokeWidth={1.5}
-            height={20}
-            className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
-          />
-          Monitoring
+          {({ isActive }) => (
+            <>
+              <BarChart3
+                strokeWidth={1.5}
+                height={20}
+                className={cn(
+                  "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
+                  isActive && "bg-gradient-to-r from-[#b9aae6] to-[#8a66ee] text-white"
+                )}
+              />
+              Monitoring
+            </>
+          )}
         </NavLink>
         <NavLink
           to="/settings"
@@ -79,12 +107,19 @@ export const GenerateMenu = () => {
               isActive && "font-medium"
             )
           }>
-          <Cog
-            strokeWidth={1.5}
-            height={20}
-            className="h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm"
-          />
-          Settings
+          {({ isActive }) => (
+            <>
+              <Cog
+                strokeWidth={1.5}
+                height={20}
+                className={cn(
+                  "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
+                  isActive && "bg-gradient-to-r from-[#dfa6d8] to-[#c3226d] text-white"
+                )}
+              />
+              Settings
+            </>
+          )}
         </NavLink>
       </div>
     </div>
