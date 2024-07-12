@@ -1,7 +1,9 @@
 import { CollapsibleWrapper } from "@/components/collapsable";
+import { projectState } from "@/state/project.state";
 import { cn } from "@/utils";
-import { BookKey, Cpu, Gauge, NotepadText, SquareTerminal } from "lucide-react";
+import { BookKey, Cpu, Gauge, NotepadText, Plus, SquareTerminal } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSnapshot } from "valtio";
 
 import { ServiceMenu } from "./service.menu";
 
@@ -58,9 +60,16 @@ const ProjectView = ({ title, projectId, isOpen }: ProjectViewProps) => {
 };
 
 export const ProjectMenu = () => {
+  const snap = useSnapshot(projectState);
   return (
     <div className="flex flex-col gap-y-3">
-      <h2 className="select-none text-sm text-gray-500">Projects</h2>
+      <div className="flex flex-row justify-between">
+        <h2 className="select-none text-sm text-gray-400">Projects</h2>
+        <Plus
+          className="h-5 w-5 cursor-pointer p-[3px] text-gray-300 transition-all hover:text-gray-500"
+          onClick={() => snap.setProjectModalOpen(true)}
+        />
+      </div>
       <ProjectView title="Portfolio" projectId="porfolio" isOpen={true} />
       <ProjectView title="GenAI chatbot" projectId="genai-chatbot" isOpen={false} />
     </div>

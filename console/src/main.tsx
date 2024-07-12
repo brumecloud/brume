@@ -35,7 +35,6 @@ const graphqlClient = new ApolloClient({
   cache: new InMemoryCache(),
 });
 
-// biome-ignore lint/style/noNonNullAssertion: main root
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ApolloProvider client={graphqlClient}>
