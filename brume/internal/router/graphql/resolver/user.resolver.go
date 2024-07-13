@@ -4,7 +4,6 @@ import (
 	"context"
 
 	user "brume.dev/account/user/model"
-	"github.com/google/uuid"
 )
 
 type UserResolver struct {
@@ -30,14 +29,16 @@ func (r *UserResolver) Name() string {
 	return r.u.Name
 }
 
-func (r *UserResolver) Projects() []*ProjectResolver {
-	projectResolved, err := r.q.Project(struct{ ID uuid.UUID }{ID: uuid.New()})
+func (r *UserResolver) Projects() ([]*ProjectResolver, error) {
+	betterUser, _ := r.q.userService.GetUserProjects(r.u)
 
-	if err != nil {
-		return nil
+	projects := make([]*ProjectResolver, len(betterUser.Projects))
+
+	for i, p := range betterUser.Projects {
+		projects[i] = &ProjectResolver{p, r.q}
 	}
 
-	return []*ProjectResolver{projectResolved}
+	return projects, nil
 }
 
 func (r *UserResolver) ID() string {

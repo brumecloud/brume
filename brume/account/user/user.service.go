@@ -26,3 +26,9 @@ func (s *UserService) GetUserByEmail(email string) (*user.User, error) {
 
 	return user, nil
 }
+
+func (s *UserService) GetUserProjects(user *user.User) (*user.User, error) {
+	err := s.db.Gorm.Preload("Projects").First(&user, "id = ?", user.ID).Error
+
+	return user, err
+}

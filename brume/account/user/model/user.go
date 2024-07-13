@@ -1,6 +1,7 @@
 package user_model
 
 import (
+	project "brume.dev/project/model"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -16,6 +17,8 @@ type User struct {
 
 	// user only have one organization
 	OrganizationID uuid.UUID
+
+	Projects []*project.Project `gorm:"many2many:user_projects;"`
 }
 
 func (u *User) HashPassword() error {

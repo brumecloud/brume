@@ -13,8 +13,8 @@ import (
 
 func SeedAll(db *DB) error {
 	brume := SeedOrganization(db)
-	admin := SeedAdminUser(db, brume)
-	SeedProjects(db)
+	projects := SeedProjects(db)
+	admin := SeedAdminUser(db, brume, projects)
 
 	_ = admin
 
@@ -37,13 +37,14 @@ func SeedOrganization(db *DB) *org.Organization {
 	return brume
 }
 
-func SeedAdminUser(db *DB, brume *org.Organization) *user.User {
+func SeedAdminUser(db *DB, brume *org.Organization, projects []*project.Project) *user.User {
 	admin := &user.User{
 		Email:          "admin@brume.dev",
 		Name:           "Brume Admin",
 		Password:       "adminpass",
 		OrganizationID: brume.ID,
 		Avatar:         "https://avatars.githubusercontent.com/u/34143515?v=4",
+		Projects:       projects,
 	}
 
 	if err := db.Gorm.First(admin, "email = ?", "admin@brume.dev").Error; errors.Is(err, gorm.ErrRecordNotFound) {
@@ -58,7 +59,9 @@ func SeedAdminUser(db *DB, brume *org.Organization) *user.User {
 	return admin
 }
 
-func SeedProjects(db *DB) {
+func SeedProjects(db *DB) []*project.Project {
+	projects := make([]*project.Project, 2)
+
 	stringID := "aaaaaaaa-91d1-4b9a-be84-b340e40614d3"
 	id, _ := uuid.Parse(stringID)
 	firstProject := &project.Project{
@@ -74,6 +77,8 @@ func SeedProjects(db *DB) {
 		log.Info().Msg("Porfolio project created")
 	}
 
+	projects[0] = firstProject
+
 	stringID = "bbbbbbbb-91d1-4b9a-be84-b340e40614d3"
 	id, _ = uuid.Parse(stringID)
 	secondProject := &project.Project{
@@ -88,4 +93,8 @@ func SeedProjects(db *DB) {
 		db.Gorm.Create(secondProject)
 		log.Info().Msg("GenAI project created")
 	}
+
+	projects[1] = secondProject
+
+	return projects
 }
