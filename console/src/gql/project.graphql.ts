@@ -9,3 +9,13 @@ export const ProjectFragment = gql`
     }
   }
 `;
+
+export const CreateProject = gql`
+  mutation CreateProject($name: String!, $description: String) {
+    createProject(name: $name, description: $description) {
+      id
+      name
+      description
+    }
+  }
+`;

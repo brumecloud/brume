@@ -16,7 +16,8 @@ type QueryResolver struct {
 }
 
 type MutationResolver struct {
-	userService *user.UserService
+	userService    *user.UserService
+	projectService *project.ProjectService
 }
 
 func NewRootResolver(userService *user.UserService, projectService *project.ProjectService) *RootResolver {
@@ -35,6 +36,7 @@ func (r *RootResolver) Query() *QueryResolver {
 
 func (r *RootResolver) Mutation() *MutationResolver {
 	return &MutationResolver{
-		userService: r.userService,
+		userService:    r.userService,
+		projectService: r.projectService,
 	}
 }

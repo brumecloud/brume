@@ -11,31 +11,15 @@ type Project {
   description: String!
 }
 
-# type Services {
-#   id: String!
-#   name: String!
-#   builder: Builder!
-#   runner: Runner!
-# }
-
-# type Builder {
-#   id: String!
-# }
-
-# type Runner {
-#   id: String!
-# }
-
-# type Logs {
-#   message: String!
-#   severity: String!
-#   timestamp: String!
-# }
-
 type Query {
   me: User!
 }
 
+type Mutation {
+  createProject(name: String!, description: String): Project
+}
+
 schema {
   query: Query
+  mutation: Mutation
 }

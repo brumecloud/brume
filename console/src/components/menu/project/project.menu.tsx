@@ -79,7 +79,7 @@ export const ProjectMenu = () => {
     return (
       <>
         {projects.map((project) => (
-          <ProjectView title={project.name} projectId={project.id} isOpen={true} />
+          <ProjectView key={project.id} title={project.name} projectId={project.id} isOpen={false} />
         ))}
       </>
     );
