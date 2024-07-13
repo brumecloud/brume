@@ -13,8 +13,6 @@ export const Login = () => {
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    console.log(email, password);
-
     fetch("http://localhost:9877/login", {
       method: "POST",
       headers: {

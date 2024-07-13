@@ -1,28 +1,35 @@
 package resolver
 
-import "brume.dev/account/user"
+import (
+	"brume.dev/account/user"
+	"brume.dev/project"
+)
 
 type RootResolver struct {
-	userService *user.UserService
+	userService    *user.UserService
+	projectService *project.ProjectService
 }
 
 type QueryResolver struct {
-	userService *user.UserService
+	userService    *user.UserService
+	projectService *project.ProjectService
 }
 
 type MutationResolver struct {
 	userService *user.UserService
 }
 
-func NewRootResolver(userService *user.UserService) *RootResolver {
+func NewRootResolver(userService *user.UserService, projectService *project.ProjectService) *RootResolver {
 	return &RootResolver{
-		userService: userService,
+		userService:    userService,
+		projectService: projectService,
 	}
 }
 
 func (r *RootResolver) Query() *QueryResolver {
 	return &QueryResolver{
-		userService: r.userService,
+		userService:    r.userService,
+		projectService: r.projectService,
 	}
 }
 

@@ -2,12 +2,14 @@ type User {
   id: String!
   name: String!
   avatar: String!
+  projects: [Project!]!
 }
 
-# type Project {
-#   id: String!
-#   services: [Service!]!
-# }
+type Project {
+  id: String!
+  name: String!
+  description: String!
+}
 
 # type Services {
 #   id: String!

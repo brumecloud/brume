@@ -17,14 +17,21 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
       console.log(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`)
     );
   if (networkError) {
-    localStorage.setItem(
-      "error",
-      JSON.stringify({
-        title: "Network Error",
-        message: networkError.message,
-      })
-    );
-    window.location.pathname = "/login?error=true";
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    if (networkError.statusCode === 401) {
+      localStorage.setItem(
+        "info",
+        JSON.stringify({ title: "Login Required", message: "Your session has expired" })
+      );
+      window.location.pathname = "/login";
+    } else {
+      localStorage.setItem(
+        "error",
+        JSON.stringify({ title: "Got an error from server", message: networkError.message })
+      );
+      window.location.pathname = "/login";
+    }
   }
 });
 

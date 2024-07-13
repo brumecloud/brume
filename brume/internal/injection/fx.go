@@ -8,6 +8,7 @@ import (
 	brumelog "brume.dev/internal/log"
 	fx_graphql "brume.dev/internal/router/graphql/fx"
 	fx_grpc "brume.dev/internal/router/grpc/fx"
+	fx_project "brume.dev/project/fx"
 	"github.com/ipfans/fxlogger"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
@@ -28,6 +29,7 @@ func NewMasterInjector() *GlobalInjector {
 		fx_common.CommonModule,
 		fx_org.OrgModule,
 		fx_user.UserModule,
+		fx_project.ProjectModule,
 
 		fx_graphql.GraphQLModule,
 		fx_grpc.GRPCModule,

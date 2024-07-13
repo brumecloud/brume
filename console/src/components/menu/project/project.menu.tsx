@@ -1,4 +1,6 @@
 import { CollapsibleWrapper } from "@/components/collapsable";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useProjects } from "@/hooks/useProjects";
 import { projectState } from "@/state/project.state";
 import { cn } from "@/utils";
 import { BookKey, Cpu, Gauge, NotepadText, Plus, SquareTerminal } from "lucide-react";
@@ -61,6 +63,28 @@ const ProjectView = ({ title, projectId, isOpen }: ProjectViewProps) => {
 
 export const ProjectMenu = () => {
   const snap = useSnapshot(projectState);
+  const { projects, loading } = useProjects();
+
+  const renderLoadingProject = () => {
+    return (
+      <>
+        <Skeleton className="h-[20px] w-full" />
+        <Skeleton className="h-[20px] w-full" />
+        <Skeleton className="h-[20px] w-full" />
+      </>
+    );
+  };
+
+  const renderProjects = () => {
+    return (
+      <>
+        {projects.map((project) => (
+          <ProjectView title={project.name} projectId={project.id} isOpen={true} />
+        ))}
+      </>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-y-3">
       <div className="flex flex-row justify-between">
@@ -70,8 +94,8 @@ export const ProjectMenu = () => {
           onClick={() => snap.setProjectModalOpen(true)}
         />
       </div>
-      <ProjectView title="Portfolio" projectId="porfolio" isOpen={true} />
-      <ProjectView title="GenAI chatbot" projectId="genai-chatbot" isOpen={false} />
+      {loading && renderLoadingProject()}
+      {!loading && renderProjects()}
     </div>
   );
 };
