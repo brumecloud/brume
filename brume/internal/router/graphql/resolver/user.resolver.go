@@ -4,7 +4,6 @@ import (
 	"context"
 
 	user "brume.dev/account/user/model"
-	"github.com/rs/zerolog/log"
 )
 
 type UserResolver struct {
@@ -48,28 +47,4 @@ func (r *UserResolver) Projects() ([]*ProjectResolver, error) {
 
 func (r *UserResolver) ID() string {
 	return r.u.ID.String()
-}
-
-func (m *MutationResolver) CreateProject(ctx context.Context, args *struct {
-	Name        string
-	Description *string
-}) (*ProjectResolver, error) {
-	email := ctx.Value("user").(string)
-	log.Info().Str("email", email).Str("name", args.Name).Str("description", *args.Description).Msg("Creating project for")
-
-	project, err := m.projectService.CreateProject(args.Name, *args.Description)
-	if err != nil {
-		return nil, err
-	}
-	user, err := m.userService.GetUserByEmail(email)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = m.userService.AddUserProject(user, project)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ProjectResolver{p: project}, nil
 }

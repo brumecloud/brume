@@ -12,6 +12,15 @@ export const ProjectFragment = gql`
   }
 `;
 
+export const PROJECT_BY_ID_QUERY = gql`
+  ${ProjectFragment}
+  query GetProjectById($projectId: String!) {
+    getProjectById(id: $projectId) {
+      ...ProjectFragment
+    }
+  }
+`;
+
 export const CREATE_PROJECT_MUTATION = gql`
   ${ProjectFragment}
   mutation CreateProject($name: String!, $description: String) {

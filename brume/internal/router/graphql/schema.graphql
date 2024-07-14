@@ -21,10 +21,12 @@ type Service {
 
 type Query {
   me: User!
+  getProjectById(id: String!): Project
 }
 
 type Mutation {
   createProject(name: String!, description: String): Project
+  addServiceToProject(projectId: String!, name: String!): Service
 }
 
 schema {

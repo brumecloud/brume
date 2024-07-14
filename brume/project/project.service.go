@@ -3,6 +3,7 @@ package project
 import (
 	"brume.dev/internal/db"
 	project "brume.dev/project/model"
+	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -51,6 +52,13 @@ func (s *ProjectService) GetProjectServices(project *project.Project) (*project.
 	err := s.db.Gorm.Preload("Services", func(db *gorm.DB) *gorm.DB {
 		return db.Order("created_at DESC")
 	}).First(&project, "id = ?", project.ID).Error
+
+	return project, err
+}
+
+func (s *ProjectService) AddServiceToProject(project *project.Project, service *service_model.Service) (*project.Project, error) {
+	project.Services = append(project.Services, service)
+	err := s.db.Gorm.Save(project).Error
 
 	return project, err
 }

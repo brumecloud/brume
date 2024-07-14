@@ -1,4 +1,10 @@
-import { ApolloClient, InMemoryCache, ApolloProvider, HttpLink } from "@apollo/client";
+import {
+  ApolloClient,
+  InMemoryCache,
+  ApolloProvider,
+  HttpLink,
+  defaultDataIdFromObject,
+} from "@apollo/client";
 import { onError } from "@apollo/client/link/error";
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -39,7 +45,17 @@ const finalLink = errorLink.concat(httpLink);
 
 const graphqlClient = new ApolloClient({
   link: finalLink,
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({
+    dataIdFromObject(responseObject) {
+      switch (responseObject.__typename) {
+        case "Project": {
+          return `Project:${responseObject.id}`;
+        }
+        default:
+          return defaultDataIdFromObject(responseObject);
+      }
+    },
+  }),
 });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

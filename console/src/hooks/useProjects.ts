@@ -22,6 +22,7 @@ export const useProjects = (): {
   error?: Error | null;
 } => {
   const { data, loading } = useQuery(PROJECTS_QUERY, {
+    // data will come from the me query
     fetchPolicy: "cache-only",
   });
 

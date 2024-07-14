@@ -17,7 +17,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useCreateProject } from "@/hooks/useCreateProject";
+import { useAddService } from "@/hooks/useAddService";
+import { useProject } from "@/hooks/useProject";
 import { modalState } from "@/state/modal.state";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -32,7 +33,8 @@ const serviceSchema = z.object({
 
 export const CreateServiceModal = () => {
   const snap = useSnapshot(modalState);
-  const { createProjectMutation, loading } = useCreateProject();
+  const { project } = useProject();
+  const { addServiceMutation, loading } = useAddService(project?.id || "");
 
   const form = useForm<z.infer<typeof serviceSchema>>({
     resolver: zodResolver(serviceSchema),
@@ -42,8 +44,11 @@ export const CreateServiceModal = () => {
   });
 
   const createService = (values: z.infer<typeof serviceSchema>) => {
-    createProjectMutation({
-      variables: values,
+    addServiceMutation({
+      variables: {
+        ...values,
+        projectId: project?.id,
+      },
     }).then(() => {
       formClose();
     });

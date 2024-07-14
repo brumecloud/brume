@@ -66,8 +66,6 @@ export const ProjectMenu = () => {
   const snap = useSnapshot(modalState);
   const { projects, loading } = useProjects();
 
-  console.log(projects);
-
   const renderLoadingProject = () => {
     return (
       <>
@@ -81,8 +79,8 @@ export const ProjectMenu = () => {
   const renderProjects = () => {
     return (
       <>
-        {projects.map((project) => (
-          <ProjectView key={project.id} project={project} isOpen={false} />
+        {projects.map((project, i) => (
+          <ProjectView key={project.id} project={project} isOpen={i == 0} />
         ))}
       </>
     );
