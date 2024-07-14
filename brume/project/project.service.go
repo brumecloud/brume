@@ -4,6 +4,7 @@ import (
 	"brume.dev/internal/db"
 	project "brume.dev/project/model"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type ProjectService struct {
@@ -42,6 +43,14 @@ func (s *ProjectService) CreateProject(name string, description string) (*projec
 	}
 
 	err := s.db.Gorm.Create(project).Error
+
+	return project, err
+}
+
+func (s *ProjectService) GetProjectServices(project *project.Project) (*project.Project, error) {
+	err := s.db.Gorm.Preload("Services", func(db *gorm.DB) *gorm.DB {
+		return db.Order("created_at DESC")
+	}).First(&project, "id = ?", project.ID).Error
 
 	return project, err
 }

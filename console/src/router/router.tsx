@@ -1,5 +1,6 @@
 import { Login } from "@/pages/login";
 import { Projects } from "@/pages/projects";
+import { ServicePage } from "@/pages/services";
 import { Routes, Route } from "react-router-dom";
 
 import { ConsoleLayout } from "./layout/console.layout";
@@ -26,7 +27,7 @@ export function Router() {
             <Route path="variables" element={<h1>Project Variables</h1>} />
             <Route path="logs" element={<h1>Project Logs</h1>} />
             <Route path="metrics" element={<h1>Project Metrics</h1>} />
-            <Route path="services" element={<h1>Project Services</h1>} />
+            <Route path="services" element={<ServicePage />} />
 
             <Route path={`services/:${RouteParams.ServiceID}`}>
               <Route path="builder" element={<h1>Service Builder</h1>} />

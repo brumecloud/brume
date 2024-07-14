@@ -1,22 +1,22 @@
 import { CollapsibleWrapper } from "@/components/collapsable";
+import type { Service } from "@/schemas/service.schema";
 import { cn } from "@/utils";
 import { Hammer, ServerCog, Network, Cog } from "lucide-react";
 import { Link } from "react-router-dom";
 
 type ServiceViewProps = {
   projectId: string;
-  projectName: string;
-  serviceId: string;
+  service: Service;
 };
 
-export const ServiceMenu = ({ projectId, projectName, serviceId }: ServiceViewProps) => {
+export const ServiceMenu = ({ projectId, service: { name, id } }: ServiceViewProps) => {
   const itemClassname = cn("flex flex-col gap-1 py-1 rounded");
 
   return (
-    <CollapsibleWrapper title={projectName} indent={0}>
+    <CollapsibleWrapper title={name} indent={0}>
       <div className={itemClassname}>
         <Link
-          to={`/${projectId}/services/${serviceId}/builder`}
+          to={`/${projectId}/services/${id}/builder`}
           className="flex select-none flex-row items-center gap-1 hover:cursor-pointer">
           <Hammer strokeWidth={1.5} height={20} />
           Builder
@@ -24,7 +24,7 @@ export const ServiceMenu = ({ projectId, projectName, serviceId }: ServiceViewPr
       </div>
       <div className={itemClassname}>
         <Link
-          to={`/${projectId}/services/${serviceId}/runner`}
+          to={`/${projectId}/services/${id}/runner`}
           className="flex select-none flex-row items-center gap-1 hover:cursor-pointer">
           <ServerCog strokeWidth={1.5} height={20} />
           Runner
@@ -32,7 +32,7 @@ export const ServiceMenu = ({ projectId, projectName, serviceId }: ServiceViewPr
       </div>
       <div className={itemClassname}>
         <Link
-          to={`/${projectId}/services/${serviceId}/network`}
+          to={`/${projectId}/services/${id}/network`}
           className="flex select-none flex-row items-center gap-1 hover:cursor-pointer">
           <Network strokeWidth={1.5} height={20} />
           Network
@@ -40,7 +40,7 @@ export const ServiceMenu = ({ projectId, projectName, serviceId }: ServiceViewPr
       </div>
       <div className={itemClassname}>
         <Link
-          to={`/${projectId}/services/${serviceId}/settings`}
+          to={`/${projectId}/services/${id}/settings`}
           className="flex select-none flex-row items-center gap-1 hover:cursor-pointer">
           <Cog strokeWidth={1.5} height={20} />
           Settings

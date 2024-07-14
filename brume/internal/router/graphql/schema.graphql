@@ -9,7 +9,15 @@ type Project {
   id: String!
   name: String!
   description: String!
+  services: [Service!]!
 }
+
+type Service {
+  id: String!
+  name: String!
+}
+
+# general graphQL stuff
 
 type Query {
   me: User!

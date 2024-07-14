@@ -9,7 +9,9 @@ export const ME_QUERY = gql`
       id
       name
       avatar
-      ...ProjectFragment
+      projects {
+        ...ProjectFragment
+      }
     }
   }
 `;

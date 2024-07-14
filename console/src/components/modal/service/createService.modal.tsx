@@ -17,7 +17,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useCreateProject } from "@/hooks/useCreateProject";
 import { modalState } from "@/state/modal.state";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,26 +24,24 @@ import { useForm } from "react-hook-form";
 import { useSnapshot } from "valtio";
 import { z } from "zod";
 
-const projectSchema = z.object({
+const serviceSchema = z.object({
   name: z.string().min(5, {
-    message: "Project name must be at least 5 characters",
+    message: "Service name must be at least 5 characters",
   }),
-  description: z.string().optional(),
 });
 
-export const CreateProjectModal = () => {
+export const CreateServiceModal = () => {
   const snap = useSnapshot(modalState);
   const { createProjectMutation, loading } = useCreateProject();
 
-  const form = useForm<z.infer<typeof projectSchema>>({
-    resolver: zodResolver(projectSchema),
+  const form = useForm<z.infer<typeof serviceSchema>>({
+    resolver: zodResolver(serviceSchema),
     defaultValues: {
       name: "",
-      description: "",
     },
   });
 
-  const createProject = (values: z.infer<typeof projectSchema>) => {
+  const createService = (values: z.infer<typeof serviceSchema>) => {
     createProjectMutation({
       variables: values,
     }).then(() => {
@@ -53,18 +50,18 @@ export const CreateProjectModal = () => {
   };
 
   const formClose = () => {
-    snap.setProjectModalOpen(false);
+    snap.setCreateServiceModalOpen(false);
     form.reset();
   };
 
   return (
     <Form {...form}>
-      <Dialog open={snap.projectModalOpen} onOpenChange={formClose}>
+      <Dialog open={snap.createServiceModalOpen} onOpenChange={formClose}>
         <DialogContent className="bg-white shadow-sm">
-          <form onSubmit={form.handleSubmit(createProject)}>
+          <form onSubmit={form.handleSubmit(createService)}>
             <DialogHeader>
-              <DialogTitle>New project</DialogTitle>
-              <DialogDescription>Created in seconds, deployed instantly</DialogDescription>
+              <DialogTitle>Add a new service</DialogTitle>
+              <DialogDescription>Your project would look very empty without some services</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center gap-4 py-4">
               <FormField
@@ -73,28 +70,11 @@ export const CreateProjectModal = () => {
                 disabled={loading}
                 render={({ field }) => (
                   <FormItem className="w-full">
-                    <FormLabel>Project</FormLabel>
+                    <FormLabel>Service</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Project name" className="w-full" />
+                      <Input {...field} placeholder="Service name" className="w-full" />
                     </FormControl>
-                    <FormDescription>This the global name of the project</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                disabled={loading}
-                render={({ field }) => (
-                  <FormItem className="w-full">
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} placeholder="Project description" className="w-full" />
-                    </FormControl>
-                    <FormDescription>
-                      Describe your project for everybody to understand what it does
-                    </FormDescription>
+                    <FormDescription>This is the name of the service</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -102,7 +82,7 @@ export const CreateProjectModal = () => {
             </div>
             <DialogFooter>
               <Button disabled={loading} type="submit" variant="default">
-                Do it!
+                Add it!
               </Button>
             </DialogFooter>
           </form>

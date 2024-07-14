@@ -7,7 +7,9 @@ const PROJECTS_QUERY = gql`
   ${ProjectFragment}
   query myProjects {
     me {
-      ...ProjectFragment
+      projects {
+        ...ProjectFragment
+      }
     }
   }
 `;

@@ -31,7 +31,11 @@ func (r *UserResolver) Name() string {
 }
 
 func (r *UserResolver) Projects() ([]*ProjectResolver, error) {
-	betterUser, _ := r.q.userService.GetUserProjects(r.u)
+	betterUser, err := r.q.userService.GetUserProjects(r.u)
+
+	if err != nil {
+		return make([]*ProjectResolver, 0), err
+	}
 
 	projects := make([]*ProjectResolver, len(betterUser.Projects))
 

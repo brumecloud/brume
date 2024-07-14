@@ -6,6 +6,7 @@ import (
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	project "brume.dev/project/model"
+	service "brume.dev/service/model"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
@@ -62,22 +63,44 @@ func SeedAdminUser(db *DB, brume *org.Organization, projects []*project.Project)
 func SeedProjects(db *DB) []*project.Project {
 	projects := make([]*project.Project, 2)
 
+	user_api := &service.Service{
+		Name: "User-API",
+		ID:   uuid.MustParse("2c77b616-fc35-4ab3-b4e9-0c57966dfd87"),
+	}
+	frontend := &service.Service{
+		Name: "Frontend",
+		ID:   uuid.MustParse("1c45217f-2f15-496d-a5cf-7860fec720e3"),
+	}
+
 	stringID := "aaaaaaaa-91d1-4b9a-be84-b340e40614d3"
 	id, _ := uuid.Parse(stringID)
 	firstProject := &project.Project{
 		Name:        "Porfolio",
 		Description: "This is a test project",
 		ID:          id,
+		Services:    []*service.Service{user_api, frontend},
 	}
 
 	if err := db.Gorm.First(firstProject, "id = ?", stringID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Info().Msg("Porfolio project not found, creating it")
 
-		db.Gorm.Create(firstProject)
+		firstProjectError := db.Gorm.Create(firstProject).Error
+		if firstProjectError != nil {
+			log.Error().Msg(firstProjectError.Error())
+		}
 		log.Info().Msg("Porfolio project created")
 	}
 
 	projects[0] = firstProject
+
+	open_ai := &service.Service{
+		Name: "OpenAI-API",
+		ID:   uuid.MustParse("a94cfd9e-5e61-4e5f-9fda-bb17d638a9ee"),
+	}
+	wrapper_api := &service.Service{
+		Name: "Wrapper",
+		ID:   uuid.MustParse("b29dcba3-a2d3-40a5-bb70-2bd01002a062"),
+	}
 
 	stringID = "bbbbbbbb-91d1-4b9a-be84-b340e40614d3"
 	id, _ = uuid.Parse(stringID)
@@ -85,6 +108,7 @@ func SeedProjects(db *DB) []*project.Project {
 		ID:          id,
 		Name:        "GenAI",
 		Description: "This is a test project",
+		Services:    []*service.Service{open_ai, wrapper_api},
 	}
 
 	if err := db.Gorm.First(secondProject, "id = ?", stringID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
