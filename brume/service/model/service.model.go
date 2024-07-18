@@ -1,8 +1,8 @@
 package service_model
 
 import (
+	executor_model "brume.dev/executor/model"
 	"github.com/google/uuid"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -10,8 +10,7 @@ type Service struct {
 	gorm.Model
 	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Name     string
-	Builder  datatypes.JSONType[BuilderJSON]
-	Executor datatypes.JSONType[ExecutorJSON]
+	Executor *executor_model.Executor `gorm:"foreignKey:ServiceId;references:ID"`
 
 	ProjectID uuid.UUID
 }

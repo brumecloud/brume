@@ -4,6 +4,7 @@ import (
 	"context"
 
 	service "brume.dev/service/model"
+	"github.com/rs/zerolog/log"
 )
 
 type ServiceResolver struct {
@@ -20,10 +21,15 @@ func (s *ServiceResolver) Id() string {
 }
 
 func (m *MutationResolver) AddServiceToProject(ctx context.Context, args struct {
-	Name      string
 	ProjectId string
+	Input     struct {
+		Name  string
+		Image string
+	}
 }) (*ServiceResolver, error) {
-	service, err := m.serviceService.CreateService(args.Name)
+	log.Info().Str("project ID", args.ProjectId).Str("service name", args.Input.Name).Str("docker image", args.Input.Image).Msg("Creating a new service")
+
+	service, err := m.serviceService.CreateService(args.Input.Name, args.Input.Image)
 	if err != nil {
 		return nil, err
 	}

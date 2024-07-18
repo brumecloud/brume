@@ -3,6 +3,7 @@ package injection
 import (
 	fx_org "brume.dev/account/org/fx"
 	fx_user "brume.dev/account/user/fx"
+	fx_executor "brume.dev/executor/fx"
 	fx_common "brume.dev/internal/common/fx"
 	"brume.dev/internal/db"
 	brumelog "brume.dev/internal/log"
@@ -32,6 +33,7 @@ func NewMasterInjector() *GlobalInjector {
 		fx_user.UserModule,
 		fx_project.ProjectModule,
 		fx_service.ServiceModule,
+		fx_executor.ExecutorService,
 
 		fx_graphql.GraphQLModule,
 		fx_grpc.GRPCModule,

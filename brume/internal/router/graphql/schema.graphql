@@ -19,6 +19,11 @@ type Service {
 
 # general graphQL stuff
 
+input CreateServiceInput {
+  name: String!
+  image: String!
+}
+
 type Query {
   me: User!
   getProjectById(id: String!): Project
@@ -26,7 +31,7 @@ type Query {
 
 type Mutation {
   createProject(name: String!, description: String): Project
-  addServiceToProject(projectId: String!, name: String!): Service
+  addServiceToProject(projectId: String!, input: CreateServiceInput!): Service
 }
 
 schema {

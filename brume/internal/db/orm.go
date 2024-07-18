@@ -5,6 +5,7 @@ import (
 
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
+	executor "brume.dev/executor/model"
 	project "brume.dev/project/model"
 	service "brume.dev/service/model"
 	"github.com/rs/zerolog/log"
@@ -15,6 +16,7 @@ var AllModels = []interface{}{
 	&user.User{},
 	&service.Service{},
 	&project.Project{},
+	&executor.Executor{},
 }
 
 type Model struct {

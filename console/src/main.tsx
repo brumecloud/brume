@@ -5,6 +5,7 @@ import {
   HttpLink,
   defaultDataIdFromObject,
 } from "@apollo/client";
+import { loadErrorMessages, loadDevMessages } from "@apollo/client/dev";
 import { onError } from "@apollo/client/link/error";
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -16,6 +17,9 @@ const httpLink = new HttpLink({
   uri: "http://localhost:9877/graphql",
   credentials: "include",
 });
+
+loadDevMessages();
+loadErrorMessages();
 
 const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors)
