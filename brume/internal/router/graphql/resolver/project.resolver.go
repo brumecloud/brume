@@ -69,6 +69,5 @@ func (m *MutationResolver) CreateProject(ctx context.Context, args *struct {
 		return nil, err
 	}
 
-	return &ProjectResolver{p: project}, nil
+	return &ProjectResolver{p: project, q: m.q}, nil
 }
-

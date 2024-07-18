@@ -14,12 +14,17 @@ export const useCreateProject = () => {
       };
       const projects: Project[] = meQuery.me.projects;
 
+      console.log(data.createProject);
+
       const newProject = ProjectSchema.safeParse(data.createProject);
+
       if (newProject.error) {
         // this is not possible
         throw newProject.error;
       }
+
       const updatedProjects = [newProject.data, ...projects];
+      console.log(updatedProjects);
       cache.writeQuery({
         query: ME_QUERY,
         data: {
