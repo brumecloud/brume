@@ -1,0 +1,10 @@
+root = "."
+
+[build]
+cmd = "go build -o bin/brume cmd/brume/main.go"
+bin = "./bin/brume"
+args_bin = ["master"]
+
+[screen]
+clear_on_rebuild = true
+keep_scroll = true

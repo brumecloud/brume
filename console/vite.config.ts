@@ -12,4 +12,12 @@ export default defineConfig({
       src: path.resolve(__dirname, "src"),
     },
   },
+  server: {
+    watch: {
+      usePolling: true,
+      interval: 500,
+    },
+    host: "0.0.0.0",
+    strictPort: true,
+  },
 });

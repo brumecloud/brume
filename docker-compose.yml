@@ -1,0 +1,71 @@
+version: "3"
+
+services:
+  master:
+    image: brume-master
+    build:
+      context: ./brume
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./brume:/brume
+    ports:
+      - 9877:9877
+    depends_on:
+      - postgres
+    networks:
+      brume-net:
+        aliases:
+          - brume
+  console:
+    image: brume-console
+    build:
+      context: console
+      dockerfile: Dockerfile.dev
+    ports:
+      - 5173:5173
+    volumes:
+      - ./console:/console
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_USER: brume
+      POSTGRES_PASSWORD: brumepass
+      POSTGRES_DB: brume
+      PGDATA: /data/postgres
+    volumes:
+      - postgres:/data/postgres
+    networks:
+      brume-net:
+        aliases:
+          - postgres
+  dozzle:
+    image: amir20/dozzle:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 8080:8080
+  clickhouse:
+    image: "clickhouse/clickhouse-server"
+    user: "101:101"
+    ports:
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - "./clickhouse/config.xml:/etc/clickhouse-server/config.d/config.xml"
+      - "./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml"
+    depends_on:
+      - clickhouse-keeper
+  clickhouse-keeper:
+    image: "clickhouse/clickhouse-keeper"
+    user: "101:101"
+    volumes:
+      - "./clickhouse/keeper.xml:/etc/clickhouse-keeper/keeper_config.xml"
+    ports:
+      - "127.0.0.1:9181:9181"
+
+networks:
+  brume-net:
+    driver: bridge
+
+volumes:
+  postgres:

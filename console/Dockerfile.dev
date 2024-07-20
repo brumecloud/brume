@@ -1,0 +1,10 @@
+FROM node:22-alpine as dev
+
+WORKDIR /console
+COPY . /console
+
+EXPOSE 5173
+
+RUN yarn install --frozen-lockfile
+
+CMD ["yarn", "dev"]

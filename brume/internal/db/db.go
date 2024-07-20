@@ -2,7 +2,7 @@ package db
 
 import (
 	"github.com/rs/zerolog/log"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -12,7 +12,7 @@ type DB struct {
 
 func InitDB() *DB {
 	log.Info().Msg("Initializing database connection")
-	db, err := openDB("brume.db")
+	db, err := openDB("user=brume password=brumepass dbname=brume host=postgres sslmode=disable")
 
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to open database connection")
@@ -28,7 +28,7 @@ func openDB(dsn string) (*DB, error) {
 	globalLogLevel := log.Logger.GetLevel()
 	dblogger := NewDBLogger(log.Level(globalLogLevel))
 
-	dialector := sqlite.Open(dsn)
+	dialector := postgres.Open(dsn)
 	gorm, err := gorm.Open(dialector, &gorm.Config{
 		Logger: dblogger,
 	})

@@ -131,7 +131,7 @@ func NewGraphQLServer(lc fx.Lifecycle, authentificationService *common.Authentif
 			log.Info().Msg("Launching GraphQL server")
 
 			var lis net.Listener
-			lis, err := net.Listen("tcp", "localhost:9877")
+			lis, err := net.Listen("tcp", "0.0.0.0:9877")
 
 			if err != nil {
 				panic(err)
