@@ -16,6 +16,7 @@ services:
       brume-net:
         aliases:
           - brume
+
   console:
     image: brume-console
     build:
@@ -25,6 +26,7 @@ services:
       - 5173:5173
     volumes:
       - ./console:/console
+
   postgres:
     image: postgres
     environment:
@@ -38,12 +40,14 @@ services:
       brume-net:
         aliases:
           - postgres
+
   dozzle:
     image: amir20/dozzle:latest
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - 8080:8080
+
   clickhouse:
     image: "clickhouse/clickhouse-server"
     user: "101:101"
@@ -55,6 +59,7 @@ services:
       - "./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml"
     depends_on:
       - clickhouse-keeper
+
   clickhouse-keeper:
     image: "clickhouse/clickhouse-keeper"
     user: "101:101"
