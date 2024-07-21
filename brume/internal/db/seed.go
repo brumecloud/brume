@@ -6,6 +6,7 @@ import (
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	project "brume.dev/project/model"
+	runner_model "brume.dev/runner/model"
 	service "brume.dev/service/model"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -66,10 +67,20 @@ func SeedProjects(db *DB) []*project.Project {
 	user_api := &service.Service{
 		Name: "User-API",
 		ID:   uuid.MustParse("2c77b616-fc35-4ab3-b4e9-0c57966dfd87"),
+		Runner: &runner_model.Runner{
+			ID:    uuid.MustParse("aeb51cc0-e6a7-4eb3-8199-3d6a94070548"),
+			Name:  "user-api-runner",
+			Image: "hello-world",
+		},
 	}
 	frontend := &service.Service{
 		Name: "Frontend",
 		ID:   uuid.MustParse("1c45217f-2f15-496d-a5cf-7860fec720e3"),
+		Runner: &runner_model.Runner{
+			ID:    uuid.MustParse("84127be1-524f-46cf-8f18-fc9e725a3a0f"),
+			Name:  "frontend-runner",
+			Image: "hello-world",
+		},
 	}
 
 	stringID := "aaaaaaaa-91d1-4b9a-be84-b340e40614d3"
@@ -96,10 +107,20 @@ func SeedProjects(db *DB) []*project.Project {
 	open_ai := &service.Service{
 		Name: "OpenAI-API",
 		ID:   uuid.MustParse("a94cfd9e-5e61-4e5f-9fda-bb17d638a9ee"),
+		Runner: &runner_model.Runner{
+			ID:    uuid.MustParse("b2e8637c-ebe2-49d2-92cc-9b103a5bbcbc"),
+			Name:  "wrapper-runner",
+			Image: "hello-world",
+		},
 	}
 	wrapper_api := &service.Service{
 		Name: "Wrapper",
 		ID:   uuid.MustParse("b29dcba3-a2d3-40a5-bb70-2bd01002a062"),
+		Runner: &runner_model.Runner{
+			ID:    uuid.MustParse("d1f3c453-28d6-4b20-85d9-5e1040e4a448"),
+			Name:  "wrapper-runner",
+			Image: "hello-world",
+		},
 	}
 
 	stringID = "bbbbbbbb-91d1-4b9a-be84-b340e40614d3"

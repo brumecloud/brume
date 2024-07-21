@@ -1,10 +1,22 @@
 root = "."
+tmp_dir = "tmp"
 
 [build]
 cmd = "go build -o bin/brume cmd/brume/main.go"
 bin = "./bin/brume"
 args_bin = ["master"]
+delay = 1000
+kill_delay = "0s"
+send_interrupt = false
+stop_on_error = true
+exclude_unchanged = false
+follow_symlink = false
+poll = true
+poll_interval = 500
 
 [screen]
 clear_on_rebuild = true
 keep_scroll = true
+
+[misc]
+clean_on_exit = true

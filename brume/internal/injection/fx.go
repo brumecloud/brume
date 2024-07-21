@@ -3,13 +3,13 @@ package injection
 import (
 	fx_org "brume.dev/account/org/fx"
 	fx_user "brume.dev/account/user/fx"
-	fx_executor "brume.dev/executor/fx"
 	fx_common "brume.dev/internal/common/fx"
 	"brume.dev/internal/db"
 	brumelog "brume.dev/internal/log"
 	fx_graphql "brume.dev/internal/router/graphql/fx"
 	fx_grpc "brume.dev/internal/router/grpc/fx"
 	fx_project "brume.dev/project/fx"
+	fx_runner "brume.dev/runner/fx"
 	fx_service "brume.dev/service/fx"
 	"github.com/ipfans/fxlogger"
 	"github.com/rs/zerolog/log"
@@ -33,7 +33,7 @@ func NewMasterInjector() *GlobalInjector {
 		fx_user.UserModule,
 		fx_project.ProjectModule,
 		fx_service.ServiceModule,
-		fx_executor.ExecutorService,
+		fx_runner.RunnerModule,
 
 		fx_graphql.GraphQLModule,
 		fx_grpc.GRPCModule,

@@ -1,7 +1,7 @@
 import { CollapsibleWrapper } from "@/components/collapsable";
 import type { Service } from "@/schemas/service.schema";
 import { cn } from "@/utils";
-import { Hammer, ServerCog, Network, Cog } from "lucide-react";
+import { Hammer, ServerCog, Cog, NotepadText } from "lucide-react";
 import { Link } from "react-router-dom";
 
 type ServiceViewProps = {
@@ -30,14 +30,22 @@ export const ServiceMenu = ({ projectId, service: { name, id } }: ServiceViewPro
           Runner
         </Link>
       </div>
-      <div className={itemClassname}>
+      {/* <div className={itemClassname}>
         <Link
           to={`/${projectId}/services/${id}/network`}
           className="flex select-none flex-row items-center gap-1 hover:cursor-pointer">
           <Network strokeWidth={1.5} height={20} />
           Network
         </Link>
-      </div>
+      </div> */}
+      {/* <div className={itemClassname}>
+        <Link
+          to={`/${projectId}/services/${id}/logs`}
+          className="flex select-none flex-row items-center gap-1 hover:cursor-pointer">
+          <NotepadText strokeWidth={1.5} height={20} />
+          Logs
+        </Link>
+      </div> */}
       <div className={itemClassname}>
         <Link
           to={`/${projectId}/services/${id}/settings`}

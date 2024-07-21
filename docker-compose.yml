@@ -48,25 +48,25 @@ services:
     ports:
       - 8080:8080
 
-  clickhouse:
-    image: "clickhouse/clickhouse-server"
-    user: "101:101"
-    ports:
-      - "127.0.0.1:8123:8123"
-      - "127.0.0.1:9000:9000"
-    volumes:
-      - "./clickhouse/config.xml:/etc/clickhouse-server/config.d/config.xml"
-      - "./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml"
-    depends_on:
-      - clickhouse-keeper
+  # clickhouse:
+  #   image: "clickhouse/clickhouse-server"
+  #   user: "101:101"
+  #   ports:
+  #     - "127.0.0.1:8123:8123"
+  #     - "127.0.0.1:9000:9000"
+  #   volumes:
+  #     - "./clickhouse/config.xml:/etc/clickhouse-server/config.d/config.xml"
+  #     - "./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml"
+  #   depends_on:
+  #     - clickhouse-keeper
 
-  clickhouse-keeper:
-    image: "clickhouse/clickhouse-keeper"
-    user: "101:101"
-    volumes:
-      - "./clickhouse/keeper.xml:/etc/clickhouse-keeper/keeper_config.xml"
-    ports:
-      - "127.0.0.1:9181:9181"
+  # clickhouse-keeper:
+  #   image: "clickhouse/clickhouse-keeper"
+  #   user: "101:101"
+  #   volumes:
+  #     - "./clickhouse/keeper.xml:/etc/clickhouse-keeper/keeper_config.xml"
+  #   ports:
+  #     - "127.0.0.1:9181:9181"
 
 networks:
   brume-net:

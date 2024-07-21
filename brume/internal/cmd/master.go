@@ -21,7 +21,7 @@ func NewMasterCommand() *cobra.Command {
 func runMaster() func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		brumelog.InitLogger()
-		log.Info().Msg("Brume v0.1")
+		log.Info().Msg("Brume v0.1 - Master Node")
 
 		injector := injection.NewMasterInjector()
 		injector.Run()

@@ -1,4 +1,4 @@
-package executor
+package runner
 
 type DockerExecutor struct{}
 
@@ -16,6 +16,6 @@ func (d *DockerExecutor) Check() (bool, error) {
 	return true, nil
 }
 
-func (d *DockerExecutor) CheckExecutor() (bool, error) {
+func (d *DockerExecutor) CheckRunner() (bool, error) {
 	return true, nil
 }

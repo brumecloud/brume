@@ -1,5 +1,9 @@
 import { Login } from "@/pages/login";
 import { Projects } from "@/pages/projects";
+import { BuilderPage } from "@/pages/service/builder";
+import { LogsPage } from "@/pages/service/logs";
+import { RunnerPage } from "@/pages/service/runner";
+import { SettingPage } from "@/pages/service/settings";
 import { ServicePage } from "@/pages/services";
 import { Routes, Route } from "react-router-dom";
 
@@ -30,10 +34,11 @@ export function Router() {
             <Route path="services" element={<ServicePage />} />
 
             <Route path={`services/:${RouteParams.ServiceID}`}>
-              <Route path="builder" element={<h1>Service Builder</h1>} />
-              <Route path="runner" element={<h1>Service Runner</h1>} />
+              <Route path="builder" element={<BuilderPage />} />
+              <Route path="runner" element={<RunnerPage />} />
               <Route path="network" element={<h1>Service Network</h1>} />
-              <Route path="settings" element={<h1>Service Settings</h1>} />
+              <Route path="logs" element={<LogsPage />} />
+              <Route path="settings" element={<SettingPage />} />
             </Route>
 
             <Route index element={<h1>Project Home</h1>} />
