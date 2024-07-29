@@ -29,7 +29,7 @@ export function Router() {
 
           <Route path={`/:${RouteParams.ProjectID}/`}>
             <Route path="variables" element={<h1>Project Variables</h1>} />
-            <Route path="logs" element={<h1>Project Logs</h1>} />
+            <Route path="logs" element={<LogsPage />} />
             <Route path="metrics" element={<h1>Project Metrics</h1>} />
             <Route path="services" element={<ServicePage />} />
 
@@ -37,7 +37,6 @@ export function Router() {
               <Route path="builder" element={<BuilderPage />} />
               <Route path="runner" element={<RunnerPage />} />
               <Route path="network" element={<h1>Service Network</h1>} />
-              <Route path="logs" element={<LogsPage />} />
               <Route path="settings" element={<SettingPage />} />
             </Route>
 
