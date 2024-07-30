@@ -45,7 +45,9 @@ export const LogLine = ({ data }: { data: GitHubEvent }) => {
             gridAutoRows: "auto",
           }}>
           <div>
-            <div className="scrollbar-hide h-full w-full min-w-[0px] cursor-default select-none truncate pr-2 text-xs">
+            <div
+              className="scrollbar-hide h-full w-full min-w-[0px] cursor-default select-none truncate pr-2 text-xs"
+              title="Info">
               <a className="block h-full w-2 rounded-[3px] bg-blue-200 hover:bg-blue-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"></a>
             </div>
           </div>
@@ -59,9 +61,7 @@ export const LogLine = ({ data }: { data: GitHubEvent }) => {
             </div>
           </div>
           <div>
-            <div
-              className="scrollbar-hide min-w-[0px] cursor-default select-none truncate pr-2 text-xs text-gray-600"
-              title="Filter by serviceId">
+            <div className="scrollbar-hide min-w-[0px] cursor-default select-none truncate pr-2 text-xs text-gray-600">
               <a
                 className="cursor:pointer hover:text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"
                 href={getRepoUrl(data.repo.url)}>
@@ -70,9 +70,7 @@ export const LogLine = ({ data }: { data: GitHubEvent }) => {
             </div>
           </div>
           <div>
-            <div
-              className="scrollbar-hide min-w-[0px] cursor-default select-none truncate pr-2 text-xs text-gray-600"
-              title="Filter by serviceId">
+            <div className="scrollbar-hide min-w-[0px] cursor-default select-none truncate pr-2 text-xs text-gray-600">
               <a
                 className="cursor:pointer hover:text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"
                 href={getRepoUrl(data.repo.url)}>
