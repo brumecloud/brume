@@ -17,6 +17,11 @@ type Service {
   name: String!
 }
 
+type Logs {
+  message: String!
+  level: String!
+}
+
 # general graphQL stuff
 
 input CreateServiceInput {
@@ -34,7 +39,12 @@ type Mutation {
   addServiceToProject(projectId: String!, input: CreateServiceInput!): Service
 }
 
+type Subscription {
+  serviceLogs(serviceId: String!): [Logs!]!
+}
+
 schema {
   query: Query
   mutation: Mutation
+  subscription: Subscription
 }

@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"brume.dev/account/user"
+	log "brume.dev/logs"
 	"brume.dev/project"
 	"brume.dev/service"
 )
@@ -9,9 +10,11 @@ import (
 type RootResolver struct {
 	q              *QueryResolver
 	m              *MutationResolver
+	s              *SubscriptionResolver
 	userService    *user.UserService
 	projectService *project.ProjectService
 	serviceService *service.ServiceService
+	logService     *log.LogService
 }
 
 type QueryResolver struct {
@@ -27,14 +30,20 @@ type MutationResolver struct {
 	serviceService *service.ServiceService
 }
 
-func NewRootResolver(userService *user.UserService, projectService *project.ProjectService, serviceService *service.ServiceService) *RootResolver {
+type SubscriptionResolver struct {
+	logService *log.LogService
+}
+
+func NewRootResolver(userService *user.UserService, projectService *project.ProjectService, serviceService *service.ServiceService, logService *log.LogService) *RootResolver {
 	r := &RootResolver{
 		userService:    userService,
 		projectService: projectService,
 		serviceService: serviceService,
+		logService:     logService,
 	}
 	r.q = r.NewQuery()
 	r.m = r.NewMutation(r.q)
+	r.s = r.NewSubscription()
 	return r
 }
 
@@ -55,10 +64,20 @@ func (r *RootResolver) NewMutation(q *QueryResolver) *MutationResolver {
 	}
 }
 
+func (r *RootResolver) NewSubscription() *SubscriptionResolver {
+	return &SubscriptionResolver{
+		logService: r.logService,
+	}
+}
+
 func (r *RootResolver) Query() *QueryResolver {
 	return r.q
 }
 
 func (r *RootResolver) Mutation() *MutationResolver {
 	return r.m
+}
+
+func (r *RootResolver) Subscription() *SubscriptionResolver {
+	return r.s
 }

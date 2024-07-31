@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"time"
@@ -13,6 +12,7 @@ import (
 	resolver "brume.dev/internal/router/graphql/resolver"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
+	"github.com/graph-gophers/graphql-transport-ws/graphqlws"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
@@ -48,12 +48,28 @@ func readGraphQLSchema() string {
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(r.Cookies()) == 0 || r.Cookies()[0].Name != "access_token" {
+		if len(r.Cookies()) == 0 {
+			log.Debug().Msg("Cookies not found")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
-		token := r.Cookies()[0].Value
+		token := ""
+
+		for _, cookie := range r.Cookies() {
+			if cookie.Name == "access_token" {
+				token = cookie.Value
+				break
+			}
+		}
+
+		if token == "" {
+			log.Debug().Msg("No token found in cookies")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		log.Info().Str("token", token)
 		claims, err := common.VerifyToken(token)
 
 		if err != nil {
@@ -83,10 +99,14 @@ func NewGraphQLServer(lc fx.Lifecycle, authentificationService *common.Authentif
 		MaxAge:           300,
 	})
 
-	// graphql server
-	http.Handle("/graphql", cors.Handler(AuthMiddleware((&relay.Handler{
+	relay := &relay.Handler{
 		Schema: schema,
-	}))))
+	}
+
+	wsRelay := graphqlws.NewHandlerFunc(schema, relay)
+
+	// graphql server
+	http.Handle("/graphql", cors.Handler(AuthMiddleware(wsRelay)))
 
 	http.Handle("/login", cors.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
@@ -130,15 +150,8 @@ func NewGraphQLServer(lc fx.Lifecycle, authentificationService *common.Authentif
 		OnStart: func(context.Context) error {
 			log.Info().Msg("Launching GraphQL server")
 
-			var lis net.Listener
-			lis, err := net.Listen("tcp", "0.0.0.0:9877")
-
-			if err != nil {
-				panic(err)
-			}
-
 			go func() {
-				if err := http.Serve(lis, nil); err != nil {
+				if err := http.ListenAndServe("0.0.0.0:9877", nil); err != nil {
 					panic(err)
 				}
 			}()

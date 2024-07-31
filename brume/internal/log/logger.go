@@ -18,7 +18,5 @@ func InitLogger() {
 	zerolog.DurationFieldUnit = time.Nanosecond
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 
-	_ = os.Mkdir("logs", os.ModePerm)
-
 	log.Logger = GetLogger()
 }

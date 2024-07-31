@@ -1,5 +1,6 @@
 import { LogsChart } from "@/components/logs/logs-chart.comp";
 import { LogsRender } from "@/components/logs/logs.comp";
+import { gql, useSubscription } from "@apollo/client";
 import { LightningBoltIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { ClockIcon, RefreshCcw } from "lucide-react";
 
@@ -26,6 +27,16 @@ const LogsHeader = () => {
 };
 
 export const LogsPage = () => {
+  const { data, loading } = useSubscription(gql`
+    subscription test {
+      serviceLogs(serviceId: "") {
+        message
+      }
+    }
+  `);
+
+  console.log(data, loading);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-row items-center gap-x-2 px-2 py-2 text-sm text-gray-700">

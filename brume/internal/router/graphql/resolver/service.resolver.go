@@ -46,3 +46,27 @@ func (m *MutationResolver) AddServiceToProject(ctx context.Context, args struct 
 
 	return &ServiceResolver{s: service}, err
 }
+
+func (s *SubscriptionResolver) ServiceLogs(ctx context.Context, args struct {
+	ServiceId string
+}) (chan []*LogResolver, error) {
+	log.Info().Msg("Getting logs for service")
+	c := make(chan []*LogResolver)
+	go func() {
+		logChan, _ := s.logService.GetDummyLogs()
+		for logs := range logChan {
+			lr := make([]*LogResolver, 5)
+
+			for _, log := range logs {
+				resolver := &LogResolver{
+					l: &log,
+				}
+				lr = append(lr, resolver)
+			}
+
+			c <- lr
+		}
+	}()
+
+	return c, nil
+}

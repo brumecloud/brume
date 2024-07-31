@@ -4,9 +4,13 @@ import {
   ApolloProvider,
   HttpLink,
   defaultDataIdFromObject,
+  split,
 } from "@apollo/client";
 import { loadErrorMessages, loadDevMessages } from "@apollo/client/dev";
 import { onError } from "@apollo/client/link/error";
+import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
+import { getMainDefinition } from "@apollo/client/utilities";
+import { createClient } from "graphql-ws";
 import React from "react";
 import ReactDOM from "react-dom/client";
 
@@ -45,10 +49,23 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
   }
 });
 
-const finalLink = errorLink.concat(httpLink);
+const wsLink = new GraphQLWsLink(
+  createClient({
+    url: "ws://localhost:9877/graphql",
+  })
+);
+
+const splitLink = split(
+  ({ query }) => {
+    const definition = getMainDefinition(query);
+    return definition.kind === "OperationDefinition" && definition.operation === "subscription";
+  },
+  wsLink,
+  httpLink
+);
 
 const graphqlClient = new ApolloClient({
-  link: finalLink,
+  link: splitLink,
   cache: new InMemoryCache({
     dataIdFromObject(responseObject) {
       switch (responseObject.__typename) {
