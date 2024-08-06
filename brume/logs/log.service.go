@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -19,23 +20,32 @@ func NewLogService(db *db.DB) *LogService {
 	}
 }
 
-func (l *LogService) GetDummyLogs() (chan []*log_model.Log, error) {
+func (l *LogService) GetDummyLogs(ctx context.Context) (chan []*log_model.Log, error) {
 	c := make(chan []*log_model.Log)
 	log.Info().Msg("Getting logs")
+
 	go func() {
-		for i := 0; i < 10; i++ {
+		defer close(c)
+		for i := 0; i < 100; i++ {
+			time.Sleep(100 * time.Millisecond)
 			lines := make([]*log_model.Log, 0)
 			log_line := &log_model.Log{
 				Message:   fmt.Sprintf("hello%d", i),
 				Level:     "info",
 				Timestamp: time.Now(),
 			}
-			lines = append(lines, log_line)
-			c <- lines
 
-			time.Sleep(100 * time.Millisecond)
+			lines = append(lines, log_line)
+			log.Info().Int("i", i).Msg("Sending")
+
+			select {
+			case <-ctx.Done():
+				return
+			case c <- lines:
+
+			}
 		}
-		close(c)
 	}()
+
 	return c, nil
 }

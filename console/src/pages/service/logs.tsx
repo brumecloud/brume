@@ -29,18 +29,20 @@ const LogsHeader = () => {
 export const LogsPage = () => {
   const { data, loading } = useSubscription(
     gql`
-      subscription test {
-        test
+      subscription Logs($serviceId: String!) {
+        serviceLogs(serviceId: $serviceId) {
+          level
+          message
+        }
       }
     `,
     {
       onSubscriptionComplete: () => {
-        console.log("sub finished");
+        console.log("Subscription finished");
       },
-      onSubscriptionData: (d) => {
-        console.log("got data", d);
+      variables: {
+        serviceId: "",
       },
-      shouldResubscribe: true
     }
   );
 

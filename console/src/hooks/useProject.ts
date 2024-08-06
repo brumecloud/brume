@@ -10,9 +10,10 @@ export const useProject = (): {
   error?: Error;
 } => {
   const { projectId } = useParams<RouteParams>();
+
   const { data, loading } = useQuery(PROJECT_BY_ID_QUERY, {
     variables: {
-      projectId,
+      projectId: projectId ?? "test",
     },
     // data can come from me query, or need to be fetch when direct link
     fetchPolicy: "cache-first",

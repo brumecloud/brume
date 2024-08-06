@@ -70,7 +70,7 @@ func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (s
 
 // ServiceLogs is the resolver for the serviceLogs field.
 func (r *subscriptionResolver) ServiceLogs(ctx context.Context, serviceID string) (<-chan []*log_model.Log, error) {
-	return r.LogService.GetDummyLogs()
+	return r.LogService.GetDummyLogs(ctx)
 }
 
 // ID is the resolver for the id field.

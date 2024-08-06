@@ -14,8 +14,10 @@ import (
 	"brume.dev/project"
 	"brume.dev/service"
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
@@ -71,10 +73,7 @@ func NewHTTPServer(lc fx.Lifecycle, authentificationService *common.Authentifica
 
 	cors := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
-		MaxAge:           300,
 	})
 
 	public_resolver := &public_graph.Resolver{
@@ -84,8 +83,16 @@ func NewHTTPServer(lc fx.Lifecycle, authentificationService *common.Authentifica
 		LogService:     logService,
 	}
 
-	public_gql := handler.NewDefaultServer(public_graph_generated.NewExecutableSchema(public_graph_generated.Config{Resolvers: public_resolver}))
-	public_gql.AddTransport(&transport.Websocket{})
+	public_gql := handler.New(public_graph_generated.NewExecutableSchema(public_graph_generated.Config{Resolvers: public_resolver}))
+
+	public_gql.AddTransport(transport.SSE{})
+	public_gql.AddTransport(transport.POST{})
+	public_gql.AddTransport(transport.Websocket{Upgrader: websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}})
+	public_gql.Use(extension.Introspection{})
 
 	http.Handle("/", cors.Handler(playground.Handler("Brume GQL Playground", "/graphql")))
 	http.Handle("/graphql", cors.Handler(AuthMiddleware(public_gql)))
