@@ -1,49 +1,31 @@
-package graphql_router
+package http_router
 
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
-	"os"
 	"time"
 
+	"brume.dev/account/user"
 	"brume.dev/internal/common"
-	resolver "brume.dev/internal/router/graphql/resolver"
-	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/graph-gophers/graphql-go/relay"
-	"github.com/graph-gophers/graphql-transport-ws/graphqlws"
+	public_graph "brume.dev/internal/router/public-gql/graph"
+	public_graph_generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
+	brume_log "brume.dev/logs"
+	"brume.dev/project"
+	"brume.dev/service"
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/transport"
+	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
-// for fx
-type GraphQLServer struct{}
+type BrumeHTTPServer struct{}
 
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
-}
-
-func readGraphQLSchema() string {
-	// open file scheam.graphql
-	schemaFile, err := os.Open("./internal/router/graphql/schema.graphql")
-
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to open schema file")
-		panic(err)
-	}
-
-	defer schemaFile.Close()
-	schemaFileContent, err := io.ReadAll(schemaFile)
-
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to read schema file")
-		panic(err)
-	}
-
-	return string(schemaFileContent)
 }
 
 func AuthMiddleware(next http.Handler) http.Handler {
@@ -84,29 +66,29 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func NewGraphQLServer(lc fx.Lifecycle, authentificationService *common.AuthentificationService, rootResolver *resolver.RootResolver) *GraphQLServer {
-	log.Info().Msg("Creating the GraphQL server")
-
-	schemaFileContent := readGraphQLSchema()
-
-	schema := graphql.MustParseSchema(schemaFileContent, rootResolver)
+func NewHTTPServer(lc fx.Lifecycle, authentificationService *common.AuthentificationService, userService *user.UserService, projectService *project.ProjectService, serviceService *service.ServiceService, logService *brume_log.LogService) *BrumeHTTPServer {
+	log.Info().Msg("Launching the HTTP Server")
 
 	cors := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	})
 
-	relay := &relay.Handler{
-		Schema: schema,
+	public_resolver := &public_graph.Resolver{
+		UserService:    userService,
+		ProjectService: projectService,
+		ServiceService: serviceService,
+		LogService:     logService,
 	}
 
-	wsRelay := graphqlws.NewHandlerFunc(schema, relay)
+	public_gql := handler.NewDefaultServer(public_graph_generated.NewExecutableSchema(public_graph_generated.Config{Resolvers: public_resolver}))
+	public_gql.AddTransport(&transport.Websocket{})
 
-	// graphql server
-	http.Handle("/graphql", cors.Handler(AuthMiddleware(wsRelay)))
+	http.Handle("/", cors.Handler(playground.Handler("Brume GQL Playground", "/graphql")))
+	http.Handle("/graphql", cors.Handler(AuthMiddleware(public_gql)))
 
 	http.Handle("/login", cors.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
@@ -143,9 +125,6 @@ func NewGraphQLServer(lc fx.Lifecycle, authentificationService *common.Authentif
 		}
 	})))
 
-	// graphiql server
-	http.Handle("/", http.FileServer(http.Dir("./static/graphiql")))
-
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			log.Info().Msg("Launching GraphQL server")
@@ -166,5 +145,5 @@ func NewGraphQLServer(lc fx.Lifecycle, authentificationService *common.Authentif
 		},
 	})
 
-	return &GraphQLServer{}
+	return &BrumeHTTPServer{}
 }

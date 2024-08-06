@@ -17,16 +17,6 @@ services:
         aliases:
           - brume
 
-  console:
-    image: brume-console
-    build:
-      context: console
-      dockerfile: Dockerfile.dev
-    ports:
-      - 80:5173
-    volumes:
-      - ./console:/console
-
   postgres:
     image: postgres
     environment:
@@ -46,7 +36,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
-      - 8080:8080
+      - 9000:8080
 
   # clickhouse:
   #   image: "clickhouse/clickhouse-server"

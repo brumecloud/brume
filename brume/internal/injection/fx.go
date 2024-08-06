@@ -6,8 +6,8 @@ import (
 	fx_common "brume.dev/internal/common/fx"
 	"brume.dev/internal/db"
 	brumelog "brume.dev/internal/log"
-	fx_graphql "brume.dev/internal/router/graphql/fx"
 	fx_grpc "brume.dev/internal/router/grpc/fx"
+	fx_http "brume.dev/internal/router/http/fx"
 	fx_log "brume.dev/logs/fx"
 	fx_project "brume.dev/project/fx"
 	fx_runner "brume.dev/runner/fx"
@@ -37,7 +37,7 @@ func NewMasterInjector() *GlobalInjector {
 		fx_runner.RunnerModule,
 		fx_log.LogModule,
 
-		fx_graphql.GraphQLModule,
+		fx_http.HttpModule,
 		fx_grpc.GRPCModule,
 	)
 

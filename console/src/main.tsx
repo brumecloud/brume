@@ -6,13 +6,12 @@ import {
   defaultDataIdFromObject,
   split,
 } from "@apollo/client";
-import { loadErrorMessages, loadDevMessages } from "@apollo/client/dev";
 import { onError } from "@apollo/client/link/error";
-import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
+import { WebSocketLink } from "@apollo/client/link/ws";
 import { getMainDefinition } from "@apollo/client/utilities";
-import { createClient } from "graphql-ws";
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { SubscriptionClient } from "subscriptions-transport-ws";
 
 import App from "./App";
 import "./index.css";
@@ -22,8 +21,8 @@ const httpLink = new HttpLink({
   credentials: "include",
 });
 
-loadDevMessages();
-loadErrorMessages();
+// loadDevMessages();
+// loadErrorMessages();
 
 const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors)
@@ -49,9 +48,11 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
   }
 });
 
-const wsLink = new GraphQLWsLink(
-  createClient({
-    url: "ws://localhost:9877/graphql",
+const wsLink = new WebSocketLink(
+  new SubscriptionClient("ws://localhost:9877/ws", {
+    timeout: 999999,
+    inactivityTimeout: 999999,
+    minTimeout: 99999,
   })
 );
 
@@ -65,7 +66,7 @@ const splitLink = split(
 );
 
 const graphqlClient = new ApolloClient({
-  link: splitLink,
+  link: errorLink.concat(splitLink),
   cache: new InMemoryCache({
     dataIdFromObject(responseObject) {
       switch (responseObject.__typename) {

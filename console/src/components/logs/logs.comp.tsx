@@ -68,26 +68,25 @@ export const LogsRender = () => {
   const [lastPage, setLastPage] = useState(1);
 
   const loadMoreLogs = useCallback(async () => {
-    try {
-      const newLogs = await octokit.request(`GET /events?per_page=100&page=${lastPage}`, {
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      });
-
-      setLogs((oldLogs) => [...oldLogs, ...newLogs.data]);
-      setLastPage((oldPage) => oldPage + 1);
-    } catch (e) {
-      console.error({ ...e });
-      toast.error(`Loading error (status ${e.response.status})`, {
-        description: e.response.data.message as string,
-      });
-    }
+    // try {
+    //   const newLogs = await octokit.request(`GET /events?per_page=100&page=${lastPage}`, {
+    //     headers: {
+    //       "X-GitHub-Api-Version": "2022-11-28",
+    //     },
+    //   });
+    //   setLogs((oldLogs) => [...oldLogs, ...newLogs.data]);
+    //   setLastPage((oldPage) => oldPage + 1);
+    // } catch (e) {
+    //   console.error({ ...e });
+    //   toast.error(`Loading error (status ${e.response.status})`, {
+    //     description: e.response.data.message as string,
+    //   });
+    // }
   }, [setLogs, lastPage]);
 
-  useEffect(() => {
-    loadMoreLogs();
-  }, []);
+  // useEffect(() => {
+  //   loadMoreLogs();
+  // }, []);
 
   return (
     <div className="h-full max-h-full cursor-text overflow-x-auto font-mono">

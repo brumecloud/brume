@@ -1,3 +1,4 @@
+# public brume GQL schema
 type User {
   id: String!
   name: String!
@@ -17,12 +18,10 @@ type Service {
   name: String!
 }
 
-type Logs {
+type Log {
   message: String!
   level: String!
 }
-
-# general graphQL stuff
 
 input CreateServiceInput {
   name: String!
@@ -31,20 +30,14 @@ input CreateServiceInput {
 
 type Query {
   me: User!
-  getProjectById(id: String!): Project
+  getProjectById(id: String!): Project!
 }
 
 type Mutation {
-  createProject(name: String!, description: String): Project
-  addServiceToProject(projectId: String!, input: CreateServiceInput!): Service
+  createProject(name: String!, description: String): Project!
+  addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
 }
 
 type Subscription {
-  serviceLogs(serviceId: String!): [Logs!]!
-}
-
-schema {
-  query: Query
-  mutation: Mutation
-  subscription: Subscription
+  serviceLogs(serviceId: String!): [Log]!
 }
