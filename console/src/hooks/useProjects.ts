@@ -1,5 +1,8 @@
 import { ProjectFragment } from "@/gql/project.graphql";
-import { ProjectSchema, type Project } from "@/schemas/project.schema";
+import {
+  ProjectSchema,
+  type Project,
+} from "@/schemas/project.schema";
 import { gql, useQuery } from "@apollo/client";
 import { z } from "zod";
 

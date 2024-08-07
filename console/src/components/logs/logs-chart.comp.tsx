@@ -1,4 +1,9 @@
-import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { Bar, BarChart } from "recharts";
 
 const chartData = [
@@ -80,8 +85,18 @@ export function LogsChart() {
       <ChartContainer config={chartConfig}>
         <BarChart accessibilityLayer data={chartData}>
           <ChartTooltip content={<ChartTooltipContent />} />
-          <Bar dataKey="desktop" stackId="a" fill="#5b8bf4" radius={[0, 0, 4, 4]} />
-          <Bar dataKey="mobile" stackId="a" fill="#f36b6b" radius={[4, 4, 0, 0]} />
+          <Bar
+            dataKey="desktop"
+            stackId="a"
+            fill="#5b8bf4"
+            radius={[0, 0, 4, 4]}
+          />
+          <Bar
+            dataKey="mobile"
+            stackId="a"
+            fill="#f36b6b"
+            radius={[4, 4, 0, 0]}
+          />
         </BarChart>
       </ChartContainer>
     </div>

@@ -36,7 +36,9 @@ const serviceSchema = z.object({
 export const CreateServiceModal = () => {
   const snap = useSnapshot(modalState);
   const { project } = useProject();
-  const { addServiceMutation, loading } = useAddService(project?.id || "");
+  const { addServiceMutation, loading } = useAddService(
+    project?.id || ""
+  );
 
   const form = useForm<z.infer<typeof serviceSchema>>({
     resolver: zodResolver(serviceSchema),
@@ -67,12 +69,17 @@ export const CreateServiceModal = () => {
 
   return (
     <Form {...form}>
-      <Dialog open={snap.createServiceModalOpen} onOpenChange={formClose}>
+      <Dialog
+        open={snap.createServiceModalOpen}
+        onOpenChange={formClose}>
         <DialogContent className="bg-white shadow-sm">
           <form onSubmit={form.handleSubmit(createService)}>
             <DialogHeader>
               <DialogTitle>Add a new service</DialogTitle>
-              <DialogDescription>Your project would look very empty without some services</DialogDescription>
+              <DialogDescription>
+                Your project would look very empty without some
+                services
+              </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4 py-4">
               <FormField
@@ -83,9 +90,15 @@ export const CreateServiceModal = () => {
                   <FormItem className="w-full">
                     <FormLabel>Service</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Service name" className="w-full" />
+                      <Input
+                        {...field}
+                        placeholder="Service name"
+                        className="w-full"
+                      />
                     </FormControl>
-                    <FormDescription>This is the name of the service</FormDescription>
+                    <FormDescription>
+                      This is the name of the service
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -93,10 +106,13 @@ export const CreateServiceModal = () => {
               <hr />
               <div className="flex items-center gap-x-2">
                 <Container className="w-5 text-slate-800" />
-                <p className="text-sm font-semibold text-slate-800">Docker Executor</p>
+                <p className="text-sm font-semibold text-slate-800">
+                  Docker Executor
+                </p>
               </div>
               <p className="text-sm font-normal text-slate-500">
-                Run any docker image (from docker.io) registry at the moment
+                Run any docker image (from docker.io) registry at the
+                moment
               </p>
               <FormField
                 control={form.control}
@@ -106,16 +122,26 @@ export const CreateServiceModal = () => {
                   <FormItem className="w-full">
                     <FormLabel>Image</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="image" className="w-full font-mono" />
+                      <Input
+                        {...field}
+                        placeholder="image"
+                        className="w-full font-mono"
+                      />
                     </FormControl>
-                    <FormDescription>This is the name of the docker.io image we will run</FormDescription>
+                    <FormDescription>
+                      This is the name of the docker.io image we will
+                      run
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
             <DialogFooter>
-              <Button disabled={loading} type="submit" variant="default">
+              <Button
+                disabled={loading}
+                type="submit"
+                variant="default">
                 Add it!
               </Button>
             </DialogFooter>

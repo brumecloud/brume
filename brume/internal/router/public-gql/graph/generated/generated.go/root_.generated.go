@@ -33,6 +33,7 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	Log() LogResolver
 	Mutation() MutationResolver
 	Project() ProjectResolver
 	Query() QueryResolver
@@ -46,8 +47,9 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Log struct {
-		Level   func(childComplexity int) int
-		Message func(childComplexity int) int
+		Level     func(childComplexity int) int
+		Message   func(childComplexity int) int
+		Timestamp func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -65,6 +67,7 @@ type ComplexityRoot struct {
 	Query struct {
 		GetProjectByID func(childComplexity int, id string) int
 		Me             func(childComplexity int) int
+		ServiceLogs    func(childComplexity int, serviceID string) int
 	}
 
 	Service struct {
@@ -116,6 +119,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Log.Message(childComplexity), true
+
+	case "Log.timestamp":
+		if e.complexity.Log.Timestamp == nil {
+			break
+		}
+
+		return e.complexity.Log.Timestamp(childComplexity), true
 
 	case "Mutation.addServiceToProject":
 		if e.complexity.Mutation.AddServiceToProject == nil {
@@ -187,6 +197,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.Me(childComplexity), true
+
+	case "Query.serviceLogs":
+		if e.complexity.Query.ServiceLogs == nil {
+			break
+		}
+
+		args, err := ec.field_Query_serviceLogs_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ServiceLogs(childComplexity, args["serviceId"].(string)), true
 
 	case "Service.id":
 		if e.complexity.Service.ID == nil {
@@ -388,6 +410,7 @@ type Service {
 type Log {
   message: String!
   level: String!
+  timestamp: String!
 }
 
 input CreateServiceInput {
@@ -398,6 +421,7 @@ input CreateServiceInput {
 type Query {
   me: User!
   getProjectById(id: String!): Project!
+  serviceLogs(serviceId: String!): [Log]!
 }
 
 type Mutation {

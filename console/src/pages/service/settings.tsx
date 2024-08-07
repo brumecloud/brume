@@ -5,7 +5,9 @@ export const SettingPage = () => {
   return (
     <div className="flex h-full flex-col px-32 pt-8">
       <div className="flex flex-col py-16">
-        <h2 className="h-full pb-2 text-2xl font-semibold">Settings</h2>
+        <h2 className="h-full pb-2 text-2xl font-semibold">
+          Settings
+        </h2>
         <p>Manage the service</p>
       </div>
       <div className="flex h-full flex-col">
@@ -28,8 +30,11 @@ export const SettingPage = () => {
           <div className="flex flex-col space-y-6 pt-4 text-red-900">
             <div>
               <p>
-                Deleting the service will delete all data associated to it :{" "}
-                <span className="font-semibold">all its artifacts, all its logs and metrics.</span>
+                Deleting the service will delete all data associated
+                to it :{" "}
+                <span className="font-semibold">
+                  all its artifacts, all its logs and metrics.
+                </span>
               </p>
               <p>This cannot be undone.</p>
             </div>

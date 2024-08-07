@@ -11,8 +11,16 @@ type Props = {
   prefix?: React.ReactNode;
 } & PropsWithChildren;
 
-export const CollapsibleWrapper = ({ children, title, initialIsOpen, indent = 2, prefix = null }: Props) => {
-  const [isOpen, setIsOpen] = useState<boolean>(initialIsOpen ?? false);
+export const CollapsibleWrapper = ({
+  children,
+  title,
+  initialIsOpen,
+  indent = 2,
+  prefix = null,
+}: Props) => {
+  const [isOpen, setIsOpen] = useState<boolean>(
+    initialIsOpen ?? false
+  );
 
   const onSectionTitleClick = () => {
     setIsOpen((prev) => !prev);
@@ -29,15 +37,21 @@ export const CollapsibleWrapper = ({ children, title, initialIsOpen, indent = 2,
           <Play
             fill="current"
             size={8}
-            className={cn(`fill-gray-800 text-gray-800 transition-transform`, {
-              "rotate-90": isOpen,
-            })}
+            className={cn(
+              `fill-gray-800 text-gray-800 transition-transform`,
+              {
+                "rotate-90": isOpen,
+              }
+            )}
           />
         </div>
       </div>
       <Collapsable
         isOpen={isOpen}
-        className={cn("box-border w-[calc(100%-1.5rem)]", indent && `pl-${indent}`)}>
+        className={cn(
+          "box-border w-[calc(100%-1.5rem)]",
+          indent && `pl-${indent}`
+        )}>
         {children}
       </Collapsable>
     </section>

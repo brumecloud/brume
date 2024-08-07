@@ -64,7 +64,9 @@ export const CreateProjectModal = () => {
           <form onSubmit={form.handleSubmit(createProject)}>
             <DialogHeader>
               <DialogTitle>New project</DialogTitle>
-              <DialogDescription>Created in seconds, deployed instantly</DialogDescription>
+              <DialogDescription>
+                Created in seconds, deployed instantly
+              </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center gap-4 py-4">
               <FormField
@@ -75,9 +77,15 @@ export const CreateProjectModal = () => {
                   <FormItem className="w-full">
                     <FormLabel>Project</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Project name" className="w-full" />
+                      <Input
+                        {...field}
+                        placeholder="Project name"
+                        className="w-full"
+                      />
                     </FormControl>
-                    <FormDescription>This the global name of the project</FormDescription>
+                    <FormDescription>
+                      This the global name of the project
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -90,10 +98,15 @@ export const CreateProjectModal = () => {
                   <FormItem className="w-full">
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea {...field} placeholder="Project description" className="w-full" />
+                      <Textarea
+                        {...field}
+                        placeholder="Project description"
+                        className="w-full"
+                      />
                     </FormControl>
                     <FormDescription>
-                      Describe your project for everybody to understand what it does
+                      Describe your project for everybody to
+                      understand what it does
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -101,7 +114,10 @@ export const CreateProjectModal = () => {
               />
             </div>
             <DialogFooter>
-              <Button disabled={loading} type="submit" variant="default">
+              <Button
+                disabled={loading}
+                type="submit"
+                variant="default">
                 Do it!
               </Button>
             </DialogFooter>

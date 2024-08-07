@@ -1,7 +1,16 @@
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Activity, HardDrive, Network, RocketIcon } from "lucide-react";
+import {
+  Activity,
+  HardDrive,
+  Network,
+  RocketIcon,
+} from "lucide-react";
 import { useState } from "react";
 
 export const RunnerPage = () => {
@@ -34,17 +43,21 @@ export const RunnerPage = () => {
             </div>
             <div className="pl-4">Status</div>
           </div>
-          <Alert variant="default" className="border-green-400 bg-green-50">
+          <Alert
+            variant="default"
+            className="border-green-400 bg-green-50">
             <RocketIcon className="h-4 w-4" color="green" />
-            <AlertTitle className="text-green-700">Service Healthy</AlertTitle>
+            <AlertTitle className="text-green-700">
+              Service Healthy
+            </AlertTitle>
             <AlertDescription className="text-green-800">
               Last health check showed that the service is healthy
             </AlertDescription>
           </Alert>
           <p className="text-sm font-medium">Healthcheck</p>
           <p className="text-sm">
-            To be counted as a success the endpoint must return a <span className="font-mono">OK 200</span>{" "}
-            status
+            To be counted as a success the endpoint must return a{" "}
+            <span className="font-mono">OK 200</span> status
           </p>
           <Input placeholder="http://localhost:8080/healthz" />
         </div>
@@ -55,24 +68,35 @@ export const RunnerPage = () => {
             </div>
             <div className="pl-4">Ressources</div>
           </div>
-          <div className="text-sm">Define limits & request for the service</div>
+          <div className="text-sm">
+            Define limits & request for the service
+          </div>
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">Request</p>
             <p className="text-sm italic">
-              This number represents what Brume needs to allocated in minimum for the service
+              This number represents what Brume needs to allocated in
+              minimum for the service
             </p>
             <div className="flex flex-row gap-3">
               <div>
                 <Label htmlFor="request-cpu" className="text-xs">
                   CPU
                 </Label>
-                <Input id="request-cpu" type="number" placeholder="0.1CPU" />
+                <Input
+                  id="request-cpu"
+                  type="number"
+                  placeholder="0.1CPU"
+                />
               </div>
               <div>
                 <Label htmlFor="request-cpu" className="text-xs">
                   Memory
                 </Label>
-                <Input id="request-cpu" type="number" placeholder="100Mb" />
+                <Input
+                  id="request-cpu"
+                  type="number"
+                  placeholder="100Mb"
+                />
               </div>
             </div>
           </div>
@@ -80,21 +104,30 @@ export const RunnerPage = () => {
             <p className="text-sm font-medium">Limits</p>
             <p className="text-sm italic">
               This number represents what Brume needs to allocated in{" "}
-              <span className="font-medium">maximum</span> for this service. If the value is exceded, the
-              service will be stopped
+              <span className="font-medium">maximum</span> for this
+              service. If the value is exceded, the service will be
+              stopped
             </p>
             <div className="flex flex-row gap-3">
               <div>
                 <Label htmlFor="request-cpu" className="text-xs">
                   CPU
                 </Label>
-                <Input id="request-cpu" type="number" placeholder="0.2CPU" />
+                <Input
+                  id="request-cpu"
+                  type="number"
+                  placeholder="0.2CPU"
+                />
               </div>
               <div>
                 <Label htmlFor="request-cpu" className="text-xs">
                   Memory
                 </Label>
-                <Input id="request-cpu" type="number" placeholder="150Mb" />
+                <Input
+                  id="request-cpu"
+                  type="number"
+                  placeholder="150Mb"
+                />
               </div>
             </div>
           </div>

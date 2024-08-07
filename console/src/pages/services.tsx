@@ -14,7 +14,9 @@ export const ServicePage = () => {
   return (
     <div>
       Project {project?.name}'s services
-      <Button onClick={() => snap.setCreateServiceModalOpen(true)}>Add a service</Button>
+      <Button onClick={() => snap.setCreateServiceModalOpen(true)}>
+        Add a service
+      </Button>
     </div>
   );
 };

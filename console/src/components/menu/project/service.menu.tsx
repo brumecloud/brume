@@ -9,7 +9,10 @@ type ServiceViewProps = {
   service: Service;
 };
 
-export const ServiceMenu = ({ projectId, service: { name, id } }: ServiceViewProps) => {
+export const ServiceMenu = ({
+  projectId,
+  service: { name, id },
+}: ServiceViewProps) => {
   const itemClassname = cn("flex flex-col gap-1 py-1 rounded");
 
   return (

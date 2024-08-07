@@ -6,7 +6,11 @@ type Props = {
   className?: string;
 } & PropsWithChildren;
 
-export const Collapsable = ({ children, isOpen, className }: Props) => {
+export const Collapsable = ({
+  children,
+  isOpen,
+  className,
+}: Props) => {
   return (
     <section
       className={cn(
@@ -17,7 +21,9 @@ export const Collapsable = ({ children, isOpen, className }: Props) => {
         },
         className
       )}>
-      <div className="h-full overflow-x-auto overflow-y-hidden">{children}</div>
+      <div className="h-full overflow-x-auto overflow-y-hidden">
+        {children}
+      </div>
     </section>
   );
 };

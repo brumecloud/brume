@@ -9,7 +9,10 @@ export function Projects() {
     <div className="mx-16">
       <div>
         <h1 className="select-none py-16 text-xl">
-          Hello <span className="font-bold italic transition-all ease-in">{me?.name}</span>
+          Hello{" "}
+          <span className="font-bold italic transition-all ease-in">
+            {me?.name}
+          </span>
         </h1>
       </div>
       <div className="flex flex-col gap-16">
@@ -20,8 +23,14 @@ export function Projects() {
           </h2>
           <div className="grid grid-cols-3 gap-x-4 gap-y-4">
             <ProjectCard name="Trace-API" url="trace-api.stratumn" />
-            <ProjectCard name="Account-API" url="account-api.stratumn" />
-            <ProjectCard name="Studio-API" url="studio-api.stratumn" />
+            <ProjectCard
+              name="Account-API"
+              url="account-api.stratumn"
+            />
+            <ProjectCard
+              name="Studio-API"
+              url="studio-api.stratumn"
+            />
             <ProjectCard name="Trace UI" url="trace.stratumn.com" />
             <ProjectCard name="Studio UI" url="studio.stratumn.com" />
           </div>

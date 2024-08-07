@@ -21,6 +21,7 @@ type Service {
 type Log {
   message: String!
   level: String!
+  timestamp: String!
 }
 
 input CreateServiceInput {
@@ -31,6 +32,7 @@ input CreateServiceInput {
 type Query {
   me: User!
   getProjectById(id: String!): Project!
+  serviceLogs(serviceId: String!): [Log]!
 }
 
 type Mutation {

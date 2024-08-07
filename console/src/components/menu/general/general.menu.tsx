@@ -1,13 +1,25 @@
 import Logo from "@/assets/logo.png";
 import { cn } from "@/utils";
-import { BarChart3, Cog, FolderOpenDot, HardDrive, Satellite } from "lucide-react";
+import {
+  BarChart3,
+  Cog,
+  FolderOpenDot,
+  HardDrive,
+  Satellite,
+} from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 
 export const GenerateMenu = () => {
   return (
     <div className="flex select-none flex-col gap-y-3">
       <span className="flex items-center gap-x-2">
-        <img src={Logo} alt="logo" height={25} width={25} className="rounded" />
+        <img
+          src={Logo}
+          alt="logo"
+          height={25}
+          width={25}
+          className="rounded"
+        />
         <h2 className="text-sm font-semibold">Brume Cloud</h2>
       </span>
       <div className="flex flex-col gap-y-2">
@@ -26,7 +38,8 @@ export const GenerateMenu = () => {
                 height={20}
                 className={cn(
                   "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
-                  isActive && "bg-gradient-to-r from-[#aac8e6] to-[#437ae1] text-white"
+                  isActive &&
+                    "bg-gradient-to-r from-[#aac8e6] to-[#437ae1] text-white"
                 )}
               />
               Overview
@@ -48,7 +61,8 @@ export const GenerateMenu = () => {
                 height={20}
                 className={cn(
                   "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
-                  isActive && "bg-gradient-to-r from-[#f0bc81] to-[#ee8866] text-white"
+                  isActive &&
+                    "bg-gradient-to-r from-[#f0bc81] to-[#ee8866] text-white"
                 )}
               />
               Compute
@@ -70,7 +84,8 @@ export const GenerateMenu = () => {
                 height={20}
                 className={cn(
                   "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
-                  isActive && "bg-gradient-to-r from-[#9be4ad] to-[#61b531] text-white"
+                  isActive &&
+                    "bg-gradient-to-r from-[#9be4ad] to-[#61b531] text-white"
                 )}
               />
               Network
@@ -92,7 +107,8 @@ export const GenerateMenu = () => {
                 height={20}
                 className={cn(
                   "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
-                  isActive && "bg-gradient-to-r from-[#b9aae6] to-[#8a66ee] text-white"
+                  isActive &&
+                    "bg-gradient-to-r from-[#b9aae6] to-[#8a66ee] text-white"
                 )}
               />
               Monitoring
@@ -114,7 +130,8 @@ export const GenerateMenu = () => {
                 height={20}
                 className={cn(
                   "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
-                  isActive && "bg-gradient-to-r from-[#dfa6d8] to-[#c3226d] text-white"
+                  isActive &&
+                    "bg-gradient-to-r from-[#dfa6d8] to-[#c3226d] text-white"
                 )}
               />
               Settings

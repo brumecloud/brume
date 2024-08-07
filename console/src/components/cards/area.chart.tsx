@@ -2,10 +2,17 @@ import { curveMonotoneX } from "@visx/curve";
 import { localPoint } from "@visx/event";
 import { LinearGradient } from "@visx/gradient";
 import { GridRows, GridColumns } from "@visx/grid";
-import browserUsage, { type DateValue } from "@visx/mock-data/lib/generators/genDateValue.js";
+import browserUsage, {
+  type DateValue,
+} from "@visx/mock-data/lib/generators/genDateValue.js";
 import { scaleTime, scaleLinear } from "@visx/scale";
 import { AreaClosed, Line, Bar } from "@visx/shape";
-import { withTooltip, Tooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
+import {
+  withTooltip,
+  Tooltip,
+  TooltipWithBounds,
+  defaultStyles,
+} from "@visx/tooltip";
 import type { WithTooltipProvidedProps } from "@visx/tooltip/lib/enhancers/withTooltip";
 import { max, extent, bisector } from "@visx/vendor/d3-array";
 import { timeFormat } from "@visx/vendor/d3-time-format";
@@ -25,12 +32,19 @@ const formatDate = timeFormat("%b %d, '%y");
 // accessors
 const getDate = (d: DateValue) => new Date(d.date);
 const getStockValue = (d: DateValue) => d.value;
-const bisectDate = bisector<DateValue, Date>((d) => new Date(d.date)).left;
+const bisectDate = bisector<DateValue, Date>(
+  (d) => new Date(d.date)
+).left;
 
 export type AreaProps = {
   width: number;
   height: number;
-  margin?: { top: number; right: number; bottom: number; left: number };
+  margin?: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
 };
 
 export const AreaChart = withTooltip<AreaProps, TooltipData>(
@@ -63,7 +77,10 @@ export const AreaChart = withTooltip<AreaProps, TooltipData>(
       () =>
         scaleLinear({
           range: [innerHeight + margin.top, margin.top + 20],
-          domain: [0, (max(stock, getStockValue) || 0) + innerHeight / 4],
+          domain: [
+            0,
+            (max(stock, getStockValue) || 0) + innerHeight / 4,
+          ],
           nice: true,
         }),
       [margin.top, innerHeight]
@@ -71,7 +88,11 @@ export const AreaChart = withTooltip<AreaProps, TooltipData>(
 
     // tooltip handler
     const handleTooltip = useCallback(
-      (event: React.TouchEvent<SVGRectElement> | React.MouseEvent<SVGRectElement>) => {
+      (
+        event:
+          | React.TouchEvent<SVGRectElement>
+          | React.MouseEvent<SVGRectElement>
+      ) => {
         const { x } = localPoint(event) || { x: 0 };
         const x0 = dateScale.invert(x);
         const index = bisectDate(stock, x0, 1);
@@ -79,7 +100,11 @@ export const AreaChart = withTooltip<AreaProps, TooltipData>(
         const d1 = stock[index];
         let d = d0;
         if (d1 && getDate(d1)) {
-          d = x0.valueOf() - getDate(d0).valueOf() > getDate(d1).valueOf() - x0.valueOf() ? d1 : d0;
+          d =
+            x0.valueOf() - getDate(d0).valueOf() >
+            getDate(d1).valueOf() - x0.valueOf()
+              ? d1
+              : d0;
         }
         showTooltip({
           tooltipData: d,
@@ -93,9 +118,24 @@ export const AreaChart = withTooltip<AreaProps, TooltipData>(
     return (
       <div>
         <svg width={width} height={height}>
-          <rect x={0} y={0} width={width} height={height} fill="url(#area-background-gradient)" />
-          <LinearGradient id="area-background-gradient" from={background} to={background2} />
-          <LinearGradient id="area-gradient" from={accentColor} to={accentColor} toOpacity={0.2} />
+          <rect
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            fill="url(#area-background-gradient)"
+          />
+          <LinearGradient
+            id="area-background-gradient"
+            from={background}
+            to={background2}
+          />
+          <LinearGradient
+            id="area-gradient"
+            from={accentColor}
+            to={accentColor}
+            toOpacity={0.2}
+          />
           <GridRows
             left={margin.left}
             scale={stockValueScale}

@@ -1,6 +1,9 @@
 import { PROJECT_BY_ID_QUERY } from "@/gql/project.graphql";
 import type { RouteParams } from "@/router/router";
-import { ProjectSchema, type Project } from "@/schemas/project.schema";
+import {
+  ProjectSchema,
+  type Project,
+} from "@/schemas/project.schema";
 import { useQuery } from "@apollo/client";
 import { useParams } from "react-router-dom";
 

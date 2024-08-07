@@ -4,7 +4,14 @@ import { useProjects } from "@/hooks/useProjects";
 import type { Project } from "@/schemas/project.schema";
 import { modalState } from "@/state/modal.state";
 import { cn } from "@/utils";
-import { BookKey, Cpu, Gauge, NotepadText, Plus, SquareTerminal } from "lucide-react";
+import {
+  BookKey,
+  Cpu,
+  Gauge,
+  NotepadText,
+  Plus,
+  SquareTerminal,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSnapshot } from "valtio";
 
@@ -15,7 +22,10 @@ type ProjectViewProps = {
   isOpen?: boolean;
 };
 
-const ProjectView = ({ project: { name, id, services }, isOpen }: ProjectViewProps) => {
+const ProjectView = ({
+  project: { name, id, services },
+  isOpen,
+}: ProjectViewProps) => {
   const itemClassname = cn("flex flex-col gap-1 py-1 rounded");
   return (
     <CollapsibleWrapper title={name} initialIsOpen={isOpen}>
@@ -35,7 +45,11 @@ const ProjectView = ({ project: { name, id, services }, isOpen }: ProjectViewPro
           </Link>
           <div className="ml-3 flex flex-col gap-y-1 border-l border-gray-200 pl-3 pt-1">
             {services.map((service) => (
-              <ServiceMenu key={service.id} projectId={id} service={service} />
+              <ServiceMenu
+                key={service.id}
+                projectId={id}
+                service={service}
+              />
             ))}
           </div>
         </div>
@@ -80,7 +94,11 @@ export const ProjectMenu = () => {
     return (
       <>
         {projects.map((project, i) => (
-          <ProjectView key={project.id} project={project} isOpen={i == 0} />
+          <ProjectView
+            key={project.id}
+            project={project}
+            isOpen={i == 0}
+          />
         ))}
       </>
     );
@@ -89,7 +107,9 @@ export const ProjectMenu = () => {
   return (
     <div className="flex flex-col gap-y-3">
       <div className="flex flex-row justify-between">
-        <h2 className="select-none text-sm text-gray-400">Projects</h2>
+        <h2 className="select-none text-sm text-gray-400">
+          Projects
+        </h2>
         <Plus
           className="h-5 w-5 cursor-pointer p-[3px] text-gray-300 transition-all hover:text-gray-500"
           onClick={() => snap.setProjectModalOpen(true)}

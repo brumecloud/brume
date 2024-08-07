@@ -6,6 +6,7 @@ package public_graph
 
 import (
 	"context"
+	"time"
 
 	user_model "brume.dev/account/user/model"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
@@ -15,6 +16,11 @@ import (
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 )
+
+// Timestamp is the resolver for the timestamp field.
+func (r *logResolver) Timestamp(ctx context.Context, obj *log_model.Log) (string, error) {
+	return obj.Timestamp.Format(time.RFC3339), nil
+}
 
 // CreateProject is the resolver for the createProject field.
 func (r *mutationResolver) CreateProject(ctx context.Context, name string, description *string) (*project_model.Project, error) {
@@ -63,6 +69,11 @@ func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project
 	return r.ProjectService.GetProjectByID(id)
 }
 
+// ServiceLogs is the resolver for the serviceLogs field.
+func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string) ([]*log_model.Log, error) {
+	return r.LogService.GetDummyLog(ctx)
+}
+
 // ID is the resolver for the id field.
 func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (string, error) {
 	return obj.ID.String(), nil
@@ -70,7 +81,7 @@ func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (s
 
 // ServiceLogs is the resolver for the serviceLogs field.
 func (r *subscriptionResolver) ServiceLogs(ctx context.Context, serviceID string) (<-chan []*log_model.Log, error) {
-	return r.LogService.GetDummyLogs(ctx)
+	return r.LogService.GetDummyLogsSub(ctx)
 }
 
 // ID is the resolver for the id field.
@@ -84,6 +95,9 @@ func (r *userResolver) Projects(ctx context.Context, obj *user_model.User) ([]*p
 
 	return betterUser.Projects, err
 }
+
+// Log returns generated.LogResolver implementation.
+func (r *Resolver) Log() generated.LogResolver { return &logResolver{r} }
 
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
@@ -103,6 +117,7 @@ func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subsc
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
+type logResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

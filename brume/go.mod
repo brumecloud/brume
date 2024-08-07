@@ -8,9 +8,7 @@ require (
 	github.com/fatih/color v1.17.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
-	github.com/graph-gophers/graphql-go v1.5.1-0.20240620044119-855a6b59d2a6
-	github.com/graph-gophers/graphql-transport-ws v0.0.2
-	github.com/graphql-go/graphql v0.8.1
+	github.com/gorilla/websocket v1.5.0
 	github.com/ipfans/fxlogger v0.2.0
 	github.com/manifoldco/promptui v0.9.0
 	github.com/rodaine/table v1.2.0
@@ -31,7 +29,6 @@ require (
 	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
-	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

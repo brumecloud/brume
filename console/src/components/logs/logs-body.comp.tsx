@@ -1,8 +1,21 @@
-import type { GitHubEvent } from "./logs.comp";
+import type { Log } from "@/schemas/log.schema";
 
-export const LogLine = ({ data }: { data: GitHubEvent }) => {
+export const LogLine = ({ data }: { data: Log }) => {
   function formatDate(date: Date): string {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
 
     const month = months[date.getMonth()];
     const day = date.getDate().toString().padStart(2, "0");
@@ -12,27 +25,6 @@ export const LogLine = ({ data }: { data: GitHubEvent }) => {
 
     return `${month} ${day} ${hours}:${minutes}:${seconds}`;
   }
-
-  const getMessage = (data: GitHubEvent) => {
-    if (data.payload.pull_request) {
-      return data.payload.pull_request.body;
-    }
-    if (data.payload.issue) {
-      return data.payload.issue.body;
-    }
-    if (data.payload.commits) {
-      return data.payload.commits[0]?.message;
-    }
-    if (data.payload.description) {
-      return data.payload.description;
-    }
-
-    return `event type: ${data.type} no message`;
-  };
-
-  const getRepoUrl = (apiUrl: string) => {
-    return `https://github.com/${apiUrl.split("repos/")[1]}`;
-  };
 
   return (
     <div className="group/logline group/logline relative w-full rounded border border-transparent py-[0.2em]">
@@ -56,7 +48,7 @@ export const LogLine = ({ data }: { data: GitHubEvent }) => {
               <a
                 title="Jul 28 2024, 11:33 AM (GMT+2)"
                 className="hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700">
-                {formatDate(new Date(data.created_at))}
+                {formatDate(new Date(data.timestamp))}
               </a>
             </div>
           </div>
@@ -64,8 +56,8 @@ export const LogLine = ({ data }: { data: GitHubEvent }) => {
             <div className="scrollbar-hide min-w-[0px] cursor-default select-none truncate pr-2 text-xs text-gray-600">
               <a
                 className="cursor:pointer hover:text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"
-                href={getRepoUrl(data.repo.url)}>
-                {data.actor.display_login}
+                href="#">
+                service id
               </a>
             </div>
           </div>
@@ -73,14 +65,14 @@ export const LogLine = ({ data }: { data: GitHubEvent }) => {
             <div className="scrollbar-hide min-w-[0px] cursor-default select-none truncate pr-2 text-xs text-gray-600">
               <a
                 className="cursor:pointer hover:text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"
-                href={getRepoUrl(data.repo.url)}>
-                {data.repo.name}
+                href="#">
+                {data.level}
               </a>
             </div>
           </div>
           <div>
             <div className="scrollbar-hide min-w-[0px] truncate whitespace-pre-wrap text-xs">
-              {getMessage(data)?.slice(0, 500)}
+              {data.message}
             </div>
           </div>
         </div>

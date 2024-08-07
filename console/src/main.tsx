@@ -6,7 +6,10 @@ import {
   defaultDataIdFromObject,
   split,
 } from "@apollo/client";
-import { loadErrorMessages, loadDevMessages } from "@apollo/client/dev";
+import {
+  loadErrorMessages,
+  loadDevMessages,
+} from "@apollo/client/dev";
 import { onError } from "@apollo/client/link/error";
 import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { getMainDefinition } from "@apollo/client/utilities";
@@ -28,7 +31,9 @@ loadErrorMessages();
 const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors)
     graphQLErrors.map(({ message, locations, path }) =>
-      console.log(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`)
+      console.log(
+        `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
+      )
     );
   if (networkError) {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -36,13 +41,19 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
     if (networkError.statusCode === 401) {
       localStorage.setItem(
         "info",
-        JSON.stringify({ title: "Login Required", message: "Your session has expired" })
+        JSON.stringify({
+          title: "Login Required",
+          message: "Your session has expired",
+        })
       );
       window.location.pathname = "/login";
     } else {
       localStorage.setItem(
         "error",
-        JSON.stringify({ title: "Got an error from server", message: networkError.message })
+        JSON.stringify({
+          title: "Got an error from server",
+          message: networkError.message,
+        })
       );
       window.location.pathname = "/login";
     }
@@ -63,7 +74,10 @@ const wsLink = new GraphQLWsLink(
 const splitLink = split(
   ({ query }) => {
     const definition = getMainDefinition(query);
-    return definition.kind === "OperationDefinition" && definition.operation === "subscription";
+    return (
+      definition.kind === "OperationDefinition" &&
+      definition.operation === "subscription"
+    );
   },
   wsLink,
   httpLink
@@ -85,9 +99,7 @@ const graphqlClient = new ApolloClient({
 });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <ApolloProvider client={graphqlClient}>
-      <App />
-    </ApolloProvider>
-  </React.StrictMode>
+  <ApolloProvider client={graphqlClient}>
+    <App />
+  </ApolloProvider>
 );

@@ -7,7 +7,6 @@ import (
 
 	"brume.dev/internal/db"
 	log_model "brume.dev/logs/model"
-	"github.com/rs/zerolog/log"
 )
 
 type LogService struct {
@@ -20,23 +19,39 @@ func NewLogService(db *db.DB) *LogService {
 	}
 }
 
-func (l *LogService) GetDummyLogs(ctx context.Context) (chan []*log_model.Log, error) {
+func (l *LogService) GetDummyLog(ctx context.Context) ([]*log_model.Log, error) {
+	lines := make([]*log_model.Log, 40)
+	for i := 0; i < 40; i++ {
+		log_line := &log_model.Log{
+			Message:   fmt.Sprintf("hello%d", i),
+			Level:     "info",
+			Timestamp: time.Now(),
+		}
+		lines[i] = log_line
+	}
+
+	return lines, nil
+}
+
+func (l *LogService) GetDummyLogsSub(ctx context.Context) (chan []*log_model.Log, error) {
 	c := make(chan []*log_model.Log)
-	log.Info().Msg("Getting logs")
 
 	go func() {
 		defer close(c)
-		for i := 0; i < 100; i++ {
-			time.Sleep(100 * time.Millisecond)
-			lines := make([]*log_model.Log, 0)
-			log_line := &log_model.Log{
-				Message:   fmt.Sprintf("hello%d", i),
-				Level:     "info",
-				Timestamp: time.Now(),
-			}
+		i := 0
+		for {
 
-			lines = append(lines, log_line)
-			log.Info().Int("i", i).Msg("Sending")
+			lines := make([]*log_model.Log, 0)
+			for j := 0; j < 1; j++ {
+
+				log_line := &log_model.Log{
+					Message:   fmt.Sprintf("hello sub%d %d", i, j),
+					Level:     "info",
+					Timestamp: time.Now(),
+				}
+
+				lines = append(lines, log_line)
+			}
 
 			select {
 			case <-ctx.Done():
@@ -44,6 +59,8 @@ func (l *LogService) GetDummyLogs(ctx context.Context) (chan []*log_model.Log, e
 			case c <- lines:
 
 			}
+			i++
+			time.Sleep(500 * time.Millisecond)
 		}
 	}()
 

@@ -1,8 +1,18 @@
 import { LogsChart } from "@/components/logs/logs-chart.comp";
 import { LogsRender } from "@/components/logs/logs.comp";
-import { gql, useSubscription } from "@apollo/client";
-import { LightningBoltIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import {
+  LOG_BY_SERVICE_ID,
+  LOG_BY_SERVICE_ID_SUB,
+} from "@/gql/log.graphql";
+import type { Log } from "@/schemas/log.schema";
+import { cn } from "@/utils";
+import { useQuery } from "@apollo/client";
+import {
+  LightningBoltIcon,
+  MagnifyingGlassIcon,
+} from "@radix-ui/react-icons";
 import { ClockIcon, RefreshCcw } from "lucide-react";
+import { useState } from "react";
 
 const LogsHeader = () => {
   return (
@@ -10,7 +20,8 @@ const LogsHeader = () => {
       className="border-b py-1 pl-2 text-sm font-normal text-gray-400"
       style={{
         display: "grid",
-        gridTemplateColumns: "auto minmax(0px, 120px) minmax(0px, 120px) minmax(0px, 200px) minmax(0px, 1fr)",
+        gridTemplateColumns:
+          "auto minmax(0px, 120px) minmax(0px, 120px) minmax(0px, 200px) minmax(0px, 1fr)",
         gridAutoRows: "auto",
       }}>
       <div>
@@ -27,26 +38,12 @@ const LogsHeader = () => {
 };
 
 export const LogsPage = () => {
-  const { data, loading } = useSubscription(
-    gql`
-      subscription Logs($serviceId: String!) {
-        serviceLogs(serviceId: $serviceId) {
-          level
-          message
-        }
-      }
-    `,
-    {
-      onSubscriptionComplete: () => {
-        console.log("Subscription finished");
-      },
-      variables: {
-        serviceId: "",
-      },
-    }
-  );
-
-  console.log(data, loading);
+  const { data, subscribeToMore } = useQuery(LOG_BY_SERVICE_ID, {
+    variables: {
+      serviceId: "service-id-here",
+    },
+  });
+  const [isLive, setIsLive] = useState(false);
 
   return (
     <div className="flex h-full flex-col">
@@ -61,16 +58,48 @@ export const LogsPage = () => {
           <ClockIcon size={14} />
           Time range
         </div>
-        <div className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center gap-x-1 rounded-md border border-gray-300 bg-white p-1 shadow-sm">
+        <div
+          title="Clear logs"
+          className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center gap-x-1 rounded-md border border-gray-300 bg-white p-1 shadow-sm">
           <RefreshCcw size={13} />
         </div>
-        <div className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center gap-x-1 rounded-md border border-gray-300 bg-white p-1 shadow-sm">
+        <div
+          title="Live logs"
+          className={cn(
+            isLive
+              ? "border-gray-100 bg-yellow-400 text-white shadow-md shadow-yellow-200"
+              : "border-gray-300 bg-white",
+            "flex h-[28px] w-[28px] cursor-pointer items-center justify-center gap-x-1 rounded-md border p-1 shadow-sm transition-all"
+          )}
+          onClick={() => setIsLive((l) => !l)}>
           <LightningBoltIcon />
         </div>
       </div>
       <LogsChart />
       <LogsHeader />
-      <LogsRender />
+      <LogsRender
+        logs={data?.serviceLogs ?? []}
+        isLive={isLive}
+        logsSubscription={() => {
+          if (isLive) {
+            return subscribeToMore({
+              document: LOG_BY_SERVICE_ID_SUB,
+              variables: { serviceId: "service-id-here" },
+              updateQuery: (prev, { subscriptionData }) => {
+                if (!subscriptionData.data) return prev;
+                const newLogs = subscriptionData.data.serviceLogs;
+                const data = prev.serviceLogs as Log[];
+
+                return {
+                  serviceLogs: [...data, ...newLogs],
+                };
+              },
+            });
+          } else {
+            return () => {};
+          }
+        }}
+      />
     </div>
   );
 };
