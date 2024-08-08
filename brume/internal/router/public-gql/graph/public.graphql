@@ -19,6 +19,7 @@ type Service {
 }
 
 type Log {
+  id: String!
   message: String!
   level: String!
   timestamp: String!

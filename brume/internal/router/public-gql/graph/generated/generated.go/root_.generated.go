@@ -47,6 +47,7 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Log struct {
+		ID        func(childComplexity int) int
 		Level     func(childComplexity int) int
 		Message   func(childComplexity int) int
 		Timestamp func(childComplexity int) int
@@ -105,6 +106,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	ec := executionContext{nil, e, 0, 0, nil}
 	_ = ec
 	switch typeName + "." + field {
+
+	case "Log.id":
+		if e.complexity.Log.ID == nil {
+			break
+		}
+
+		return e.complexity.Log.ID(childComplexity), true
 
 	case "Log.level":
 		if e.complexity.Log.Level == nil {
@@ -408,6 +416,7 @@ type Service {
 }
 
 type Log {
+  id: String!
   message: String!
   level: String!
   timestamp: String!

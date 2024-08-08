@@ -7,6 +7,7 @@ import (
 
 	"brume.dev/internal/db"
 	log_model "brume.dev/logs/model"
+	"github.com/google/uuid"
 )
 
 type LogService struct {
@@ -20,8 +21,8 @@ func NewLogService(db *db.DB) *LogService {
 }
 
 func (l *LogService) GetDummyLog(ctx context.Context) ([]*log_model.Log, error) {
-	lines := make([]*log_model.Log, 40)
-	for i := 0; i < 40; i++ {
+	lines := make([]*log_model.Log, 100)
+	for i := 0; i < 100; i++ {
 		log_line := &log_model.Log{
 			Message:   fmt.Sprintf("hello%d", i),
 			Level:     "info",
@@ -43,9 +44,15 @@ func (l *LogService) GetDummyLogsSub(ctx context.Context) (chan []*log_model.Log
 
 			lines := make([]*log_model.Log, 0)
 			for j := 0; j < 1; j++ {
+				randomID, err := uuid.NewRandom()
+
+				if err != nil {
+					panic(err)
+				}
 
 				log_line := &log_model.Log{
-					Message:   fmt.Sprintf("hello sub%d %d", i, j),
+					ID:        randomID,
+					Message:   fmt.Sprintf("hello sub%d", i),
 					Level:     "info",
 					Timestamp: time.Now(),
 				}

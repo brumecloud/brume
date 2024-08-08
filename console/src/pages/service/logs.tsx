@@ -5,6 +5,7 @@ import {
   LOG_BY_SERVICE_ID_SUB,
 } from "@/gql/log.graphql";
 import type { Log } from "@/schemas/log.schema";
+import { liveLogs } from "@/state/live-log.state";
 import { cn } from "@/utils";
 import { useQuery } from "@apollo/client";
 import {
@@ -12,7 +13,7 @@ import {
   MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import { ClockIcon, RefreshCcw } from "lucide-react";
-import { useState } from "react";
+import { useSnapshot } from "valtio";
 
 const LogsHeader = () => {
   return (
@@ -43,7 +44,7 @@ export const LogsPage = () => {
       serviceId: "service-id-here",
     },
   });
-  const [isLive, setIsLive] = useState(false);
+  const { isLive, toggleLive } = useSnapshot(liveLogs);
 
   return (
     <div className="flex h-full flex-col">
@@ -71,7 +72,7 @@ export const LogsPage = () => {
               : "border-gray-300 bg-white",
             "flex h-[28px] w-[28px] cursor-pointer items-center justify-center gap-x-1 rounded-md border p-1 shadow-sm transition-all"
           )}
-          onClick={() => setIsLive((l) => !l)}>
+          onClick={() => toggleLive()}>
           <LightningBoltIcon />
         </div>
       </div>
@@ -79,25 +80,20 @@ export const LogsPage = () => {
       <LogsHeader />
       <LogsRender
         logs={data?.serviceLogs ?? []}
-        isLive={isLive}
         logsSubscription={() => {
-          if (isLive) {
-            return subscribeToMore({
-              document: LOG_BY_SERVICE_ID_SUB,
-              variables: { serviceId: "service-id-here" },
-              updateQuery: (prev, { subscriptionData }) => {
-                if (!subscriptionData.data) return prev;
-                const newLogs = subscriptionData.data.serviceLogs;
-                const data = prev.serviceLogs as Log[];
+          return subscribeToMore({
+            document: LOG_BY_SERVICE_ID_SUB,
+            variables: { serviceId: "service-id-here" },
+            updateQuery: (prev, { subscriptionData }) => {
+              if (!subscriptionData.data) return prev;
+              const newLogs = subscriptionData.data.serviceLogs;
+              const data = prev.serviceLogs as Log[];
 
-                return {
-                  serviceLogs: [...data, ...newLogs],
-                };
-              },
-            });
-          } else {
-            return () => {};
-          }
+              return {
+                serviceLogs: [...data, ...newLogs],
+              };
+            },
+          });
         }}
       />
     </div>

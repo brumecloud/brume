@@ -17,6 +17,11 @@ import (
 	"github.com/google/uuid"
 )
 
+// ID is the resolver for the id field.
+func (r *logResolver) ID(ctx context.Context, obj *log_model.Log) (string, error) {
+	return obj.ID.String(), nil
+}
+
 // Timestamp is the resolver for the timestamp field.
 func (r *logResolver) Timestamp(ctx context.Context, obj *log_model.Log) (string, error) {
 	return obj.Timestamp.Format(time.RFC3339), nil

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const LogSchema = z.object({
+  id: z.string(),
   message: z.string(),
   level: z.union([z.literal("info"), z.literal("error")]),
   timestamp: z.string(),
