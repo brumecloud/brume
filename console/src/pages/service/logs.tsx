@@ -13,6 +13,7 @@ import {
   MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import { ClockIcon, RefreshCcw } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { useSnapshot } from "valtio";
 
 const LogsHeader = () => {
@@ -44,15 +45,29 @@ export const LogsPage = () => {
       serviceId: "service-id-here",
     },
   });
-  const { isLive, toggleLive } = useSnapshot(liveLogs);
+  const { isLive, toggleLive, updateSearchQuery, searchQuery } =
+    useSnapshot(liveLogs);
+  const searchQueryRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    document.addEventListener("keydown", function (event) {
+      if (event.ctrlKey && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        searchQueryRef.current?.focus();
+      }
+    });
+  }, []);
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-row items-center gap-x-2 px-2 py-2 text-sm text-gray-700">
         <MagnifyingGlassIcon className="ml-1 h-4 w-4" />
         <input
+          ref={searchQueryRef}
           className="outline-non bg-transparent placeholder:text-gray-500 focus:outline-none"
           placeholder="Search logs..."
+          onChange={(e) => updateSearchQuery(e.target.value)}
+          value={searchQuery}
         />
         <div className="grow" />
         <div className="flex max-h-[28px] cursor-pointer select-none flex-row items-center gap-x-1 rounded-md border border-gray-300 bg-white p-1 px-2 text-gray-600 shadow-sm">
