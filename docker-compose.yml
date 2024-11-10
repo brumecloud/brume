@@ -17,8 +17,18 @@ services:
         aliases:
           - brume
 
+  console:
+    image: brume-console
+    build:
+      context: console
+      dockerfile: Dockerfile.dev
+    ports:
+      - 3000:5173
+    volumes:
+      - ./console/src:/app/src
+
   postgres:
-    image: postgres
+    image: postgres:13
     environment:
       POSTGRES_USER: brume
       POSTGRES_PASSWORD: brumepass
@@ -37,6 +47,48 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - 9000:8080
+
+  temporal:
+    depends_on:
+      - postgres
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=brume
+      - POSTGRES_PWD=brumepass
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/temporal.yaml
+    image: temporalio/auto-setup:${TEMPORAL_VERSION}
+    networks:
+      - brume-net
+    ports:
+      - 7233:7233
+    volumes:
+      - ./infra/temporal.yaml:/etc/temporal/config/dynamicconfig/temporal.yaml
+
+  temporal-admin-tools:
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    image: temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION}
+    networks:
+      - brume-net
+    stdin_open: true
+    tty: true
+
+  temporal-ui:
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    image: temporalio/ui:${TEMPORAL_UI_VERSION}
+    networks:
+      - brume-net
+    ports:
+      - 8080:8080
 
   # clickhouse:
   #   image: "clickhouse/clickhouse-server"

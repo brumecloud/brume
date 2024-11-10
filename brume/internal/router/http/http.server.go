@@ -72,7 +72,9 @@ func NewHTTPServer(lc fx.Lifecycle, authentificationService *common.Authentifica
 	log.Info().Msg("Launching the HTTP Server")
 
 	cors := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:80", "http://localhost:3000"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
 	})
 

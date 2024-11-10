@@ -2,6 +2,7 @@ import Logo from "@/assets/logo.png";
 import { cn } from "@/utils";
 import {
   BarChart3,
+  Brain,
   Cog,
   FolderOpenDot,
   HardDrive,
@@ -112,6 +113,29 @@ export const GenerateMenu = () => {
                 )}
               />
               Monitoring
+            </>
+          )}
+        </NavLink>
+        <NavLink
+          to="/ai"
+          className={({ isActive }) =>
+            cn(
+              "flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer",
+              isActive && "font-medium"
+            )
+          }>
+          {({ isActive }) => (
+            <>
+              <Brain
+                strokeWidth={1.5}
+                height={20}
+                className={cn(
+                  "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
+                  isActive &&
+                    "bg-gradient-to-r from-[#dbaae6] to-[#c366ee] text-white"
+                )}
+              />
+              AI
             </>
           )}
         </NavLink>

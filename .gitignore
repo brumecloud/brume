@@ -1,2 +1,5 @@
 node_modules
 brume.db
+build-errors.log
+brume/tmp/*
+*.log

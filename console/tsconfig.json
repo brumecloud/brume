@@ -1,5 +1,5 @@
 {
-  "extends": "@total-typescript/tsconfig/bundler/dom/app",
+  "extends": "@total-typescript/tsconfig/bundler/dom",
   "compilerOptions": {
     "jsx": "react-jsx",
     "moduleResolution": "Bundler",

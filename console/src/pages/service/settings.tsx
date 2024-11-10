@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { Bell, Flame } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Bell, Flame, Pickaxe } from "lucide-react";
 
 export const SettingPage = () => {
   return (

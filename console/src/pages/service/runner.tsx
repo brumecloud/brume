@@ -139,8 +139,30 @@ export const RunnerPage = () => {
             </div>
             <div className="pl-4">Network</div>
           </div>
-          <p className="text-sm font-medium">Public networking</p>
-          <p className="text-sm font-medium">Private networking</p>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium">Public networking</p>
+              <p className="text-sm">Access your application over HTTPS with the following domains.</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="domain" className="text-xs">
+                Domain
+              </Label>
+              <Input id="domain" className="w-[300px]" type="text" value="my-app.brume.run" />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium">Private networking</p>
+              <p className="text-sm">Communicate with other services inside Brume private network.</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="domain" className="text-xs">
+                Private domain
+              </Label>
+              <Input id="domain" className="w-[300px]" type="text" value="my-app.brume.internal" />
+            </div>
+          </div>
         </div>
         <div className="grow border-l border-gray-300" />
       </div>
