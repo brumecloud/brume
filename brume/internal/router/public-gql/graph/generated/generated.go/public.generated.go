@@ -2469,13 +2469,20 @@ func (ec *executionContext) unmarshalInputRunnerDataInput(ctx context.Context, o
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"healthCheckURL", "memory", "cpu", "port", "publicDomain", "privateDomain"}
+	fieldsInOrder := [...]string{"command", "healthCheckURL", "memory", "cpu", "port", "publicDomain", "privateDomain"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
+		case "command":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("command"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Command = data
 		case "healthCheckURL":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("healthCheckURL"))
 			data, err := ec.unmarshalNString2string(ctx, v)

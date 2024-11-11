@@ -73,7 +73,7 @@ func (s *ServiceService) CreateService(name string, projectId uuid.UUID, image s
 		return nil, execErr
 	}
 
-	service.Runner = runner
+	service.Runner = *runner
 	s.db.Gorm.Save(service)
 
 	return service, err

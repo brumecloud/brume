@@ -11,8 +11,8 @@ type Service struct {
 	gorm.Model
 	ID      uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Name    string
-	Runner  *runner_model.Runner   `gorm:"foreignKey:ServiceId;references:ID"`
-	Builder *builder_model.Builder `gorm:"foreignKey:ServiceId;references:ID"`
+	Runner  runner_model.Runner   `gorm:"foreignKey:ServiceId"`
+	Builder builder_model.Builder `gorm:"foreignKey:ServiceId"`
 
 	ProjectID uuid.UUID
 }

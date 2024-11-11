@@ -66,6 +66,7 @@ func (r *mutationResolver) UpdateBuilder(ctx context.Context, serviceID string, 
 // UpdateRunner is the resolver for the updateRunner field.
 func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, data public_graph_model.RunnerDataInput) (*runner_model.Runner, error) {
 	runnerData := runner_model.RunnerData{
+		Command:        data.Command,
 		HealthCheckURL: data.HealthCheckURL,
 		Memory: runner_model.RessourceConstraints{
 			Request: data.Memory.Request,
@@ -119,12 +120,12 @@ func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (s
 
 // Builder is the resolver for the builder field.
 func (r *serviceResolver) Builder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error) {
-	return obj.Builder, nil
+	return &obj.Builder, nil
 }
 
 // Runner is the resolver for the runner field.
 func (r *serviceResolver) Runner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error) {
-	return obj.Runner, nil
+	return &obj.Runner, nil
 }
 
 // ServiceLogs is the resolver for the serviceLogs field.

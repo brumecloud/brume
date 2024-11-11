@@ -641,6 +641,7 @@ type RunnerData {
 }
 
 input RunnerDataInput {
+  command: String!
   healthCheckURL: String!
   memory: RessourceConstraintsInput!
   cpu: RessourceConstraintsInput!

@@ -25,6 +25,7 @@ type RessourceConstraintsInput struct {
 }
 
 type RunnerDataInput struct {
+	Command        string                     `json:"command"`
 	HealthCheckURL string                     `json:"healthCheckURL"`
 	Memory         *RessourceConstraintsInput `json:"memory"`
 	CPU            *RessourceConstraintsInput `json:"cpu"`

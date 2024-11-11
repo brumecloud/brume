@@ -1,5 +1,7 @@
 import { gql } from "@apollo/client";
 
+import { RUNNER_FRAGMENT } from "./runner.graphql";
+
 export const ProjectFragment = gql`
   fragment ProjectFragment on Project {
     id
@@ -17,14 +19,11 @@ export const ProjectFragment = gql`
         }
       }
       runner {
-        type
-        data {
-          healthCheckURL
-          command
-        }
+        ...RunnerFragment
       }
     }
   }
+  ${RUNNER_FRAGMENT}
 `;
 
 export const PROJECT_BY_ID_QUERY = gql`

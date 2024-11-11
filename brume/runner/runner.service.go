@@ -17,14 +17,7 @@ func NewRunnerService(db *db.DB) *RunnerService {
 }
 
 func (e *RunnerService) CreateDockerExecutor(image string, serviceId uuid.UUID) (*runner.Runner, error) {
-	id, randomErr := uuid.NewRandom()
-
-	if randomErr != nil {
-		return nil, randomErr
-	}
-
 	runner := &runner.Runner{
-		ID:        id,
 		Name:      "Docker runner",
 		Type:      "docker",
 		ServiceId: serviceId,

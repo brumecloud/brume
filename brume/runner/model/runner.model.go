@@ -3,24 +3,27 @@ package runner_model
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type Runner struct {
-	gorm.Model
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
-	ServiceId uuid.UUID
+	ServiceId uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Name      string
 	Type      string
 
 	Data RunnerData `gorm:"type:jsonb"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 type RessourceConstraints struct {
-	Request float64
-	Limit   float64
+	Request float64 `json:"request"`
+	Limit   float64 `json:"limit"`
 }
 
 type RunnerData struct {

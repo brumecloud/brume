@@ -69,7 +69,6 @@ const GenericImageOptions = () => {
     (e: BeforeUnloadEvent) => {
       if (form.formState.isDirty) {
         e.preventDefault();
-        e.returnValue = "You have unsaved changes";
       }
     },
     [form.formState.isDirty]
@@ -88,6 +87,7 @@ const GenericImageOptions = () => {
         input: form.getValues().data,
       },
     });
+    toast.success("Builder updated");
     form.reset(form.getValues());
   };
 
