@@ -14,7 +14,6 @@ import { onError } from "@apollo/client/link/error";
 import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { getMainDefinition } from "@apollo/client/utilities";
 import { createClient } from "graphql-ws";
-import React from "react";
 import ReactDOM from "react-dom/client";
 
 import App from "./App";
@@ -55,7 +54,6 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
           message: networkError.message,
         })
       );
-      window.location.pathname = "/login";
     }
   }
 });

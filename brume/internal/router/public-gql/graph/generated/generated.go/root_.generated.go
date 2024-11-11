@@ -46,6 +46,17 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	Builder struct {
+		Data func(childComplexity int) int
+		Type func(childComplexity int) int
+	}
+
+	BuilderData struct {
+		Image    func(childComplexity int) int
+		Registry func(childComplexity int) int
+		Tag      func(childComplexity int) int
+	}
+
 	Log struct {
 		ID        func(childComplexity int) int
 		Level     func(childComplexity int) int
@@ -56,6 +67,8 @@ type ComplexityRoot struct {
 	Mutation struct {
 		AddServiceToProject func(childComplexity int, projectID string, input public_graph_model.CreateServiceInput) int
 		CreateProject       func(childComplexity int, name string, description *string) int
+		UpdateBuilder       func(childComplexity int, serviceID string, data public_graph_model.BuilderDataInput) int
+		UpdateRunner        func(childComplexity int, serviceID string, data public_graph_model.RunnerDataInput) int
 	}
 
 	Project struct {
@@ -71,9 +84,31 @@ type ComplexityRoot struct {
 		ServiceLogs    func(childComplexity int, serviceID string) int
 	}
 
+	RessourceConstraints struct {
+		Limit   func(childComplexity int) int
+		Request func(childComplexity int) int
+	}
+
+	Runner struct {
+		Data func(childComplexity int) int
+		Type func(childComplexity int) int
+	}
+
+	RunnerData struct {
+		CPU            func(childComplexity int) int
+		Command        func(childComplexity int) int
+		HealthCheckURL func(childComplexity int) int
+		Memory         func(childComplexity int) int
+		Port           func(childComplexity int) int
+		PrivateDomain  func(childComplexity int) int
+		PublicDomain   func(childComplexity int) int
+	}
+
 	Service struct {
-		ID   func(childComplexity int) int
-		Name func(childComplexity int) int
+		Builder func(childComplexity int) int
+		ID      func(childComplexity int) int
+		Name    func(childComplexity int) int
+		Runner  func(childComplexity int) int
 	}
 
 	Subscription struct {
@@ -106,6 +141,41 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	ec := executionContext{nil, e, 0, 0, nil}
 	_ = ec
 	switch typeName + "." + field {
+
+	case "Builder.data":
+		if e.complexity.Builder.Data == nil {
+			break
+		}
+
+		return e.complexity.Builder.Data(childComplexity), true
+
+	case "Builder.type":
+		if e.complexity.Builder.Type == nil {
+			break
+		}
+
+		return e.complexity.Builder.Type(childComplexity), true
+
+	case "BuilderData.image":
+		if e.complexity.BuilderData.Image == nil {
+			break
+		}
+
+		return e.complexity.BuilderData.Image(childComplexity), true
+
+	case "BuilderData.registry":
+		if e.complexity.BuilderData.Registry == nil {
+			break
+		}
+
+		return e.complexity.BuilderData.Registry(childComplexity), true
+
+	case "BuilderData.tag":
+		if e.complexity.BuilderData.Tag == nil {
+			break
+		}
+
+		return e.complexity.BuilderData.Tag(childComplexity), true
 
 	case "Log.id":
 		if e.complexity.Log.ID == nil {
@@ -158,6 +228,30 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.CreateProject(childComplexity, args["name"].(string), args["description"].(*string)), true
+
+	case "Mutation.updateBuilder":
+		if e.complexity.Mutation.UpdateBuilder == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateBuilder_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateBuilder(childComplexity, args["serviceId"].(string), args["data"].(public_graph_model.BuilderDataInput)), true
+
+	case "Mutation.updateRunner":
+		if e.complexity.Mutation.UpdateRunner == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateRunner_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateRunner(childComplexity, args["serviceId"].(string), args["data"].(public_graph_model.RunnerDataInput)), true
 
 	case "Project.description":
 		if e.complexity.Project.Description == nil {
@@ -218,6 +312,90 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.ServiceLogs(childComplexity, args["serviceId"].(string)), true
 
+	case "RessourceConstraints.limit":
+		if e.complexity.RessourceConstraints.Limit == nil {
+			break
+		}
+
+		return e.complexity.RessourceConstraints.Limit(childComplexity), true
+
+	case "RessourceConstraints.request":
+		if e.complexity.RessourceConstraints.Request == nil {
+			break
+		}
+
+		return e.complexity.RessourceConstraints.Request(childComplexity), true
+
+	case "Runner.data":
+		if e.complexity.Runner.Data == nil {
+			break
+		}
+
+		return e.complexity.Runner.Data(childComplexity), true
+
+	case "Runner.type":
+		if e.complexity.Runner.Type == nil {
+			break
+		}
+
+		return e.complexity.Runner.Type(childComplexity), true
+
+	case "RunnerData.cpu":
+		if e.complexity.RunnerData.CPU == nil {
+			break
+		}
+
+		return e.complexity.RunnerData.CPU(childComplexity), true
+
+	case "RunnerData.command":
+		if e.complexity.RunnerData.Command == nil {
+			break
+		}
+
+		return e.complexity.RunnerData.Command(childComplexity), true
+
+	case "RunnerData.healthCheckURL":
+		if e.complexity.RunnerData.HealthCheckURL == nil {
+			break
+		}
+
+		return e.complexity.RunnerData.HealthCheckURL(childComplexity), true
+
+	case "RunnerData.memory":
+		if e.complexity.RunnerData.Memory == nil {
+			break
+		}
+
+		return e.complexity.RunnerData.Memory(childComplexity), true
+
+	case "RunnerData.port":
+		if e.complexity.RunnerData.Port == nil {
+			break
+		}
+
+		return e.complexity.RunnerData.Port(childComplexity), true
+
+	case "RunnerData.privateDomain":
+		if e.complexity.RunnerData.PrivateDomain == nil {
+			break
+		}
+
+		return e.complexity.RunnerData.PrivateDomain(childComplexity), true
+
+	case "RunnerData.publicDomain":
+		if e.complexity.RunnerData.PublicDomain == nil {
+			break
+		}
+
+		return e.complexity.RunnerData.PublicDomain(childComplexity), true
+
+	case "Service.builder":
+		if e.complexity.Service.Builder == nil {
+			break
+		}
+
+		return e.complexity.Service.Builder(childComplexity), true
+
 	case "Service.id":
 		if e.complexity.Service.ID == nil {
 			break
@@ -231,6 +409,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Service.Name(childComplexity), true
+
+	case "Service.runner":
+		if e.complexity.Service.Runner == nil {
+			break
+		}
+
+		return e.complexity.Service.Runner(childComplexity), true
 
 	case "Subscription.serviceLogs":
 		if e.complexity.Subscription.ServiceLogs == nil {
@@ -280,7 +465,10 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	rc := graphql.GetOperationContext(ctx)
 	ec := executionContext{rc, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputBuilderDataInput,
 		ec.unmarshalInputCreateServiceInput,
+		ec.unmarshalInputRessourceConstraintsInput,
+		ec.unmarshalInputRunnerDataInput,
 	)
 	first := true
 
@@ -410,9 +598,62 @@ type Project {
   services: [Service!]!
 }
 
+type Builder {
+  type: String!
+  data: BuilderData!
+}
+
+type BuilderData {
+  image: String!
+  registry: String!
+  tag: String!
+}
+
+input BuilderDataInput {
+  image: String!
+  registry: String!
+  tag: String!
+}
+
+type Runner {
+  type: String!
+  data: RunnerData!
+}
+
+type RessourceConstraints {
+  request: Float!
+  limit: Float!
+}
+
+input RessourceConstraintsInput {
+  request: Float!
+  limit: Float!
+}
+
+type RunnerData {
+  command: String!
+  healthCheckURL: String!
+  memory: RessourceConstraints!
+  cpu: RessourceConstraints!
+  port: Int!
+  publicDomain: String!
+  privateDomain: String!
+}
+
+input RunnerDataInput {
+  healthCheckURL: String!
+  memory: RessourceConstraintsInput!
+  cpu: RessourceConstraintsInput!
+  port: Int!
+  publicDomain: String!
+  privateDomain: String!
+}
+
 type Service {
   id: String!
   name: String!
+  builder: Builder!
+  runner: Runner!
 }
 
 type Log {
@@ -436,6 +677,8 @@ type Query {
 type Mutation {
   createProject(name: String!, description: String): Project!
   addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
+  updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
+  updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
 }
 
 type Subscription {

@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Brume Postgres",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "brume",
+      "Password": "brumepass",
+      "SSLMode": "prefer"
+    }
+  }
+}

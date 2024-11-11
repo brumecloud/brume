@@ -5,6 +5,7 @@ import (
 
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
+	builder "brume.dev/builder/model"
 	project "brume.dev/project/model"
 	runner "brume.dev/runner/model"
 	service "brume.dev/service/model"
@@ -17,6 +18,7 @@ var AllModels = []interface{}{
 	&service.Service{},
 	&project.Project{},
 	&runner.Runner{},
+	&builder.Builder{},
 }
 
 type Model struct {

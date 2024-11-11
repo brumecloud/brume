@@ -13,9 +13,62 @@ type Project {
   services: [Service!]!
 }
 
+type Builder {
+  type: String!
+  data: BuilderData!
+}
+
+type BuilderData {
+  image: String!
+  registry: String!
+  tag: String!
+}
+
+input BuilderDataInput {
+  image: String!
+  registry: String!
+  tag: String!
+}
+
+type Runner {
+  type: String!
+  data: RunnerData!
+}
+
+type RessourceConstraints {
+  request: Float!
+  limit: Float!
+}
+
+input RessourceConstraintsInput {
+  request: Float!
+  limit: Float!
+}
+
+type RunnerData {
+  command: String!
+  healthCheckURL: String!
+  memory: RessourceConstraints!
+  cpu: RessourceConstraints!
+  port: Int!
+  publicDomain: String!
+  privateDomain: String!
+}
+
+input RunnerDataInput {
+  healthCheckURL: String!
+  memory: RessourceConstraintsInput!
+  cpu: RessourceConstraintsInput!
+  port: Int!
+  publicDomain: String!
+  privateDomain: String!
+}
+
 type Service {
   id: String!
   name: String!
+  builder: Builder!
+  runner: Runner!
 }
 
 type Log {
@@ -39,6 +92,8 @@ type Query {
 type Mutation {
   createProject(name: String!, description: String): Project!
   addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
+  updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
+  updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
 }
 
 type Subscription {

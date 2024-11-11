@@ -9,10 +9,12 @@ import (
 	"time"
 
 	user_model "brume.dev/account/user/model"
+	builder_model "brume.dev/builder/model"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	log_model "brume.dev/logs/model"
 	project_model "brume.dev/project/model"
+	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 )
@@ -50,6 +52,37 @@ func (r *mutationResolver) AddServiceToProject(ctx context.Context, projectID st
 	return service, err
 }
 
+// UpdateBuilder is the resolver for the updateBuilder field.
+func (r *mutationResolver) UpdateBuilder(ctx context.Context, serviceID string, data public_graph_model.BuilderDataInput) (*builder_model.Builder, error) {
+	builderData := builder_model.BuilderData{
+		Image:    data.Image,
+		Registry: data.Registry,
+		Tag:      data.Tag,
+	}
+
+	return r.ServiceService.UpdateBuilder(uuid.MustParse(serviceID), builderData)
+}
+
+// UpdateRunner is the resolver for the updateRunner field.
+func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, data public_graph_model.RunnerDataInput) (*runner_model.Runner, error) {
+	runnerData := runner_model.RunnerData{
+		HealthCheckURL: data.HealthCheckURL,
+		Memory: runner_model.RessourceConstraints{
+			Request: data.Memory.Request,
+			Limit:   data.Memory.Limit,
+		},
+		CPU: runner_model.RessourceConstraints{
+			Request: data.CPU.Request,
+			Limit:   data.CPU.Limit,
+		},
+		Port:          data.Port,
+		PublicDomain:  data.PublicDomain,
+		PrivateDomain: data.PrivateDomain,
+	}
+
+	return r.ServiceService.UpdateRunner(uuid.MustParse(serviceID), runnerData)
+}
+
 // ID is the resolver for the id field.
 func (r *projectResolver) ID(ctx context.Context, obj *project_model.Project) (string, error) {
 	return obj.ID.String(), nil
@@ -82,6 +115,16 @@ func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string) ([]*l
 // ID is the resolver for the id field.
 func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (string, error) {
 	return obj.ID.String(), nil
+}
+
+// Builder is the resolver for the builder field.
+func (r *serviceResolver) Builder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error) {
+	return obj.Builder, nil
+}
+
+// Runner is the resolver for the runner field.
+func (r *serviceResolver) Runner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error) {
+	return obj.Runner, nil
 }
 
 // ServiceLogs is the resolver for the serviceLogs field.

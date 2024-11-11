@@ -6,16 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type Runner interface {
-	Init()
-	Run()
-	Kill()
-	Logs()
-	Metrics()
-	Check() (bool, error)
-	CheckRunner() (bool, error)
-}
-
 type RunnerService struct {
 	db *db.DB
 }
@@ -38,7 +28,21 @@ func (e *RunnerService) CreateDockerExecutor(image string, serviceId uuid.UUID) 
 		Name:      "Docker runner",
 		Type:      "docker",
 		ServiceId: serviceId,
-		Image:     image,
+		Data: runner.RunnerData{
+			Command:        "",
+			HealthCheckURL: "",
+			Memory: runner.RessourceConstraints{
+				Request: 100,
+				Limit:   100,
+			},
+			CPU: runner.RessourceConstraints{
+				Request: 100,
+				Limit:   100,
+			},
+			Port:          80,
+			PublicDomain:  "",
+			PrivateDomain: "",
+		},
 	}
 
 	err := e.db.Gorm.Create(&runner).Error

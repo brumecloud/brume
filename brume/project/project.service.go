@@ -50,7 +50,7 @@ func (s *ProjectService) CreateProject(name string, description string) (*projec
 
 func (s *ProjectService) GetProjectServices(project *project.Project) (*project.Project, error) {
 	err := s.db.Gorm.Preload("Services", func(db *gorm.DB) *gorm.DB {
-		return db.Order("created_at DESC")
+		return db.Preload("Builder").Preload("Runner").Order("created_at DESC")
 	}).First(&project, "id = ?", project.ID).Error
 
 	return project, err

@@ -8,6 +8,21 @@ export const ProjectFragment = gql`
     services {
       name
       id
+      builder {
+        type
+        data {
+          image
+          registry
+          tag
+        }
+      }
+      runner {
+        type
+        data {
+          healthCheckURL
+          command
+        }
+      }
     }
   }
 `;

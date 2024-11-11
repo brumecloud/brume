@@ -2,6 +2,12 @@
 
 package public_graph_model
 
+type BuilderDataInput struct {
+	Image    string `json:"image"`
+	Registry string `json:"registry"`
+	Tag      string `json:"tag"`
+}
+
 type CreateServiceInput struct {
 	Name  string `json:"name"`
 	Image string `json:"image"`
@@ -11,6 +17,20 @@ type Mutation struct {
 }
 
 type Query struct {
+}
+
+type RessourceConstraintsInput struct {
+	Request float64 `json:"request"`
+	Limit   float64 `json:"limit"`
+}
+
+type RunnerDataInput struct {
+	HealthCheckURL string                     `json:"healthCheckURL"`
+	Memory         *RessourceConstraintsInput `json:"memory"`
+	CPU            *RessourceConstraintsInput `json:"cpu"`
+	Port           int                        `json:"port"`
+	PublicDomain   string                     `json:"publicDomain"`
+	PrivateDomain  string                     `json:"privateDomain"`
 }
 
 type Subscription struct {
