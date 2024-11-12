@@ -162,7 +162,9 @@ export const DeploymentsPage = () => {
 
   return (
     <div className="flex h-full flex-col gap-y-4 px-32 pt-8">
-      <h3 className="text-md pt-4 font-medium">Live Deployment</h3>
+      <div className="flex h-10 flex-row items-center">
+        <h3 className="text-md font-medium">Live Deployment</h3>
+      </div>
       <div className="rounded-sm border border-gray-200 bg-white">
         <DeploymentCard
           data={deployments[0] as DeploymentCardProps}

@@ -111,7 +111,7 @@ export const RunnerPage = () => {
             )}
           </div>
         </div>
-        <div className="flex h-full flex-col pt-8">
+        <div className="flex h-full flex-col pt-3">
           <div className="relative flex max-w-[700px] flex-col space-y-4 border-l border-gray-300 pb-16 pl-4">
             <div className="flex flex-row items-center">
               <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
