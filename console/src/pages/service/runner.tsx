@@ -4,12 +4,7 @@ import {
   AlertTitle,
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useService } from "@/hooks/useService";
@@ -88,12 +83,8 @@ export const RunnerPage = () => {
   return (
     <Form {...form}>
       <div className="flex h-full flex-col px-32 pt-8">
-        <div className="flex flex-row items-center justify-between">
-          <div className="flex flex-col pb-8">
-            <h2 className="pb-2 text-2xl font-semibold">Runners</h2>
-            <p>Inspect & configure how your code runs</p>
-          </div>
-          <div>
+        <div className="relative flex flex-row items-center justify-between">
+          <div className="absolute right-0 top-[-150px]">
             {form.formState.isDirty && (
               <div className="flex flex-row items-center space-x-2">
                 {loading && (
@@ -119,19 +110,6 @@ export const RunnerPage = () => {
               </div>
             )}
           </div>
-        </div>
-        <div className="flex shrink-0 gap-6 border-b">
-          <button
-            data-state="active"
-            className="border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800">
-            Overview
-          </button>
-          <button className="border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800">
-            Variable
-          </button>
-          <button className="border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800">
-            Deployments
-          </button>
         </div>
         <div className="flex h-full flex-col pt-8">
           <div className="relative flex max-w-[700px] flex-col space-y-4 border-l border-gray-300 pb-16 pl-4">

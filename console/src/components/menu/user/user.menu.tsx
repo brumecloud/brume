@@ -1,3 +1,8 @@
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
 import { useUser } from "@/hooks/useUser";
 
 export const UserMenu = () => {
@@ -14,13 +19,10 @@ export const UserMenu = () => {
 
   return (
     <div className="flex select-none flex-row items-center gap-x-3">
-      <img
-        src={me.avatar}
-        alt="avatar"
-        width={30}
-        height={30}
-        className="rounded-full"
-      />
+      <Avatar className="h-8 w-8">
+        <AvatarImage src={me.avatar} />
+        <AvatarFallback>{me.name.slice(0, 2)}</AvatarFallback>
+      </Avatar>
       <span className="text-sm text-gray-800">{me.name}</span>
     </div>
   );
