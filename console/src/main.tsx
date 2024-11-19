@@ -28,13 +28,10 @@ loadDevMessages();
 loadErrorMessages();
 
 const errorLink = onError(({ graphQLErrors, networkError }) => {
-  if (graphQLErrors)
-    graphQLErrors.map(({ message, locations, path }) =>
-      console.log(
-        `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
-      )
-    );
   if (networkError) {
+    if (!("statusCode" in networkError)) {
+      return;
+    }
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     if (networkError.statusCode === 401) {
@@ -46,16 +43,28 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
         })
       );
       window.location.pathname = "/login";
-    } else {
+      return;
+    }
+
+    if (networkError.statusCode === 403) {
       localStorage.setItem(
-        "error",
+        "info",
         JSON.stringify({
-          title: "Got an error from server",
-          message: networkError.message,
+          title: "Login Required",
+          message:
+            "You are not authorized to access this resource. Your credentials may have expired.",
         })
       );
+      window.location.pathname = "/login";
+      return;
     }
   }
+  if (graphQLErrors)
+    graphQLErrors.map(({ message, locations, path }) =>
+      console.log(
+        `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
+      )
+    );
 });
 
 const wsLink = new GraphQLWsLink(

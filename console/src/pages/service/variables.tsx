@@ -62,10 +62,14 @@ export const VariablesPage = () => {
 
   return (
     <div className="flex h-full flex-col px-32 pt-8">
-      <div className="flex h-10 flex-row items-center justify-between gap-2">
+      <div className="center flex flex-col gap-2 space-y-2">
         <h3 className="text-md font-medium">
-          Adjust the service variables
+          Change the service variables
         </h3>
+        <p className="text-sm">
+          Variables can also be defined in the project settings (this
+          variables will be global to the project)
+        </p>
         <div>
           {form.formState.isDirty && (
             <div className="flex flex-row items-center space-x-2">

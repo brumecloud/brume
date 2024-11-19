@@ -1,73 +1,73 @@
 {
-    "files.exclude": {
-        "**/.git": true,
-        "**/.svn": true,
-        "**/.hg": true,
-        "**/CVS": true,
-        "**/.DS_Store": true,
-        "**/Thumbs.db": true,
-        "node_modules/": true
-    },
-    "files.trimTrailingWhitespace": true,
-    "files.trimFinalNewlines": true,
-    "files.insertFinalNewline": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "node_modules/": true
+  },
+  "files.trimTrailingWhitespace": true,
+  "files.trimFinalNewlines": true,
+  "files.insertFinalNewline": true,
 
-    "[javascript][typescript][javascriptreact][typescriptreact]": {
-        "editor.formatOnSave": true,
-        "editor.tabSize": 2,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "editor.codeActionsOnSave": {
-            "quickfix.biome": "explicit",
-            "source.fixAll.eslint": "explicit"
-        }
-    },
+  "[javascript][typescript][javascriptreact][typescriptreact]": {
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+      "quickfix.biome": "explicit",
+      "source.fixAll.eslint": "explicit"
+    }
+  },
 
-    "[html]": {
-        "editor.insertSpaces": true,
-        "editor.detectIndentation": false,
-        "editor.tabSize": 2,
-        "editor.formatOnSave": false
-    },
+  "[html]": {
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+    "editor.tabSize": 2,
+    "editor.formatOnSave": false
+  },
 
-    "[json]": {
-        "editor.insertSpaces": true,
-        "editor.detectIndentation": false,
-        "editor.tabSize": 2,
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "editor.codeActionsOnSave": {
-            "quickfix.biome": "explicit"
-        }
-    },
+  "[json]": {
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+    "editor.tabSize": 2,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+      "quickfix.biome": "explicit"
+    }
+  },
 
-    "[yaml]": {
-        "editor.insertSpaces": true,
-        "editor.detectIndentation": false,
-        "editor.tabSize": 2,
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "editor.codeActionsOnSave": {
-            "quickfix.biome": "explicit"
-        }
-    },
+  "[yaml]": {
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+    "editor.tabSize": 2,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+      "quickfix.biome": "explicit"
+    }
+  },
 
-    "[markdown]": {
-        "editor.codeActionsOnSave": {
-            "source.fixAll.eslint": "explicit"
-        }
-    },
+  "[markdown]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    }
+  },
 
-    "[dockerfile]": {
-        "editor.insertSpaces": true,
-        "editor.detectIndentation": false,
-        "editor.tabSize": 4,
-        "editor.formatOnSave": true
-    },
+  "[dockerfile]": {
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+    "editor.tabSize": 4,
+    "editor.formatOnSave": true
+  },
 
-    "protoc": {
-        "options": ["--proto_path=brume/proto"]
-    },
+  "protoc": {
+    "options": ["--proto_path=brume/proto"]
+  },
 
-    "typescript.preferences.importModuleSpecifier": "non-relative",
-    "editor.tabSize": 4
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+  "editor.tabSize": 4
 }
