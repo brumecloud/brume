@@ -1,3 +1,4 @@
+import { DirtyServiceModal } from "@/components/modal/dirty-service/dirty-service.modal";
 import {
   Alert,
   AlertDescription,
@@ -7,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useProject } from "@/hooks/useProject";
 import { useService } from "@/hooks/useService";
 import { useUpdateRunner } from "@/hooks/useUpdateRunner";
+import type { RouteParams } from "@/router/router";
 import {
   DockerRunnerSchema,
   type Runner,
@@ -25,11 +28,13 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
 import { useForm, Form } from "react-hook-form";
-import { useBlocker } from "react-router-dom";
+import { useBlocker, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 export const RunnerPage = () => {
+  const { serviceId } = useParams<RouteParams>();
   const { service } = useService();
+  const { setDirty } = useProject();
   const { updateRunnerMutation, loading } = useUpdateRunner();
 
   const form = useForm<Runner>({
@@ -50,7 +55,8 @@ export const RunnerPage = () => {
     if (service) {
       form.reset(service.runner);
     }
-  }, [service?.__typename, service?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, serviceId, service?.id]);
 
   const onUnload = useCallback(
     (e: BeforeUnloadEvent) => {
@@ -62,20 +68,25 @@ export const RunnerPage = () => {
   );
 
   useEffect(() => {
+    console.log("onunload");
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [onUnload]);
 
   const submitChanges = async () => {
     if (!service?.id) return;
-    const res = await updateRunnerMutation({
+
+    await updateRunnerMutation({
       variables: {
         serviceId: service.id,
         input: form.getValues().data,
       },
     });
+
     toast.success("Runner updated");
     form.reset(form.getValues());
+
+    setDirty(true);
   };
 
   if (!service) return null;

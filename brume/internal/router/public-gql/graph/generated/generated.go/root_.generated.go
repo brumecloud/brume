@@ -67,6 +67,7 @@ type ComplexityRoot struct {
 	Mutation struct {
 		AddServiceToProject func(childComplexity int, projectID string, input public_graph_model.CreateServiceInput) int
 		CreateProject       func(childComplexity int, name string, description *string) int
+		DeployProject       func(childComplexity int, projectID string) int
 		UpdateBuilder       func(childComplexity int, serviceID string, data public_graph_model.BuilderDataInput) int
 		UpdateRunner        func(childComplexity int, serviceID string, data public_graph_model.RunnerDataInput) int
 	}
@@ -74,6 +75,7 @@ type ComplexityRoot struct {
 	Project struct {
 		Description func(childComplexity int) int
 		ID          func(childComplexity int) int
+		IsDirty     func(childComplexity int) int
 		Name        func(childComplexity int) int
 		Services    func(childComplexity int) int
 	}
@@ -229,6 +231,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.CreateProject(childComplexity, args["name"].(string), args["description"].(*string)), true
 
+	case "Mutation.deployProject":
+		if e.complexity.Mutation.DeployProject == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deployProject_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeployProject(childComplexity, args["projectId"].(string)), true
+
 	case "Mutation.updateBuilder":
 		if e.complexity.Mutation.UpdateBuilder == nil {
 			break
@@ -266,6 +280,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Project.ID(childComplexity), true
+
+	case "Project.isDirty":
+		if e.complexity.Project.IsDirty == nil {
+			break
+		}
+
+		return e.complexity.Project.IsDirty(childComplexity), true
 
 	case "Project.name":
 		if e.complexity.Project.Name == nil {
@@ -595,6 +616,7 @@ type Project {
   id: String!
   name: String!
   description: String!
+  isDirty: Boolean!
   services: [Service!]!
 }
 
@@ -680,6 +702,7 @@ type Mutation {
   addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
   updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
   updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
+  deployProject(projectId: String!): Project!
 }
 
 type Subscription {

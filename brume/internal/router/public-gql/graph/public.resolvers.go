@@ -84,6 +84,11 @@ func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, d
 	return r.ServiceService.UpdateRunner(uuid.MustParse(serviceID), runnerData)
 }
 
+// DeployProject is the resolver for the deployProject field.
+func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) (*project_model.Project, error) {
+	return r.ProjectService.DeployProject(uuid.MustParse(projectID))
+}
+
 // ID is the resolver for the id field.
 func (r *projectResolver) ID(ctx context.Context, obj *project_model.Project) (string, error) {
 	return obj.ID.String(), nil

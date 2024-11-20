@@ -10,7 +10,6 @@ export const useUpdateBuilder = () => {
     UPDATE_BUILDER_MUTATION,
     {
       update(cache, { data }) {
-        console.log("data", data.updateBuilder);
         cache.modify({
           id: `Service:${serviceId}`,
           fields: {

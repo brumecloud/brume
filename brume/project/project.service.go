@@ -18,6 +18,10 @@ func NewProjectService(db *db.DB) *ProjectService {
 	}
 }
 
+func (s *ProjectService) SetDirty(projectId uuid.UUID, dirty bool) error {
+	return s.db.Gorm.Model(&project.Project{}).Where("id = ?", projectId).Update("is_dirty", dirty).Error
+}
+
 func (s *ProjectService) GetProjectByID(id string) (*project.Project, error) {
 	var project *project.Project
 
@@ -28,6 +32,16 @@ func (s *ProjectService) GetProjectByID(id string) (*project.Project, error) {
 	}
 
 	return project, nil
+}
+
+func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, error) {
+	err := s.SetDirty(projectId, false)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetProjectByID(projectId.String())
 }
 
 func (s *ProjectService) CreateProject(name string, description string) (*project.Project, error) {

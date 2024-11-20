@@ -7,6 +7,7 @@ export const ProjectFragment = gql`
     id
     name
     description
+    isDirty
     services {
       name
       id
@@ -39,6 +40,15 @@ export const CREATE_PROJECT_MUTATION = gql`
   ${ProjectFragment}
   mutation CreateProject($name: String!, $description: String) {
     createProject(name: $name, description: $description) {
+      ...ProjectFragment
+    }
+  }
+`;
+
+export const DEPLOY_PROJECT_MUTATION = gql`
+  ${ProjectFragment}
+  mutation DeployProject($projectId: String!) {
+    deployProject(projectId: $projectId) {
       ...ProjectFragment
     }
   }

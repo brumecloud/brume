@@ -9,6 +9,7 @@ type Props = {
   className?: string;
   indent?: number;
   prefix?: React.ReactNode;
+  textClassName?: string;
 } & PropsWithChildren;
 
 export const CollapsibleWrapper = ({
@@ -17,6 +18,8 @@ export const CollapsibleWrapper = ({
   initialIsOpen,
   indent = 2,
   prefix = null,
+  className,
+  textClassName,
 }: Props) => {
   const [isOpen, setIsOpen] = useState<boolean>(
     initialIsOpen ?? false
@@ -27,13 +30,16 @@ export const CollapsibleWrapper = ({
   };
 
   return (
-    <section className="box-border w-full text-[13px]">
+    <section
+      className={cn("box-border w-full text-[13px]", className)}>
       <div className="flex w-[calc(100%-0.75rem)] items-center justify-between gap-2 pb-1 font-medium">
         {prefix}
         <div
           className="flex cursor-pointer select-none items-center gap-2 rounded hover:bg-gray-100"
           onClick={onSectionTitleClick}>
-          <span className="text-gray-800">{title}</span>
+          <span className={cn("text-gray-800", textClassName)}>
+            {title}
+          </span>
           <Play
             fill="current"
             size={8}

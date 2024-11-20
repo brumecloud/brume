@@ -10,6 +10,7 @@ type Project {
   id: String!
   name: String!
   description: String!
+  isDirty: Boolean!
   services: [Service!]!
 }
 
@@ -95,6 +96,7 @@ type Mutation {
   addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
   updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
   updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
+  deployProject(projectId: String!): Project!
 }
 
 type Subscription {

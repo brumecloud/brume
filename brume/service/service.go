@@ -3,6 +3,7 @@ package service
 import (
 	builder_model "brume.dev/builder/model"
 	"brume.dev/internal/db"
+	"brume.dev/project"
 	"brume.dev/runner"
 	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
@@ -10,15 +11,27 @@ import (
 )
 
 type ServiceService struct {
-	db            *db.DB
-	runnerService *runner.RunnerService
+	db             *db.DB
+	projectService *project.ProjectService
+	runnerService  *runner.RunnerService
 }
 
-func NewServiceService(db *db.DB, runnerService *runner.RunnerService) *ServiceService {
+func NewServiceService(db *db.DB, runnerService *runner.RunnerService, projectService *project.ProjectService) *ServiceService {
 	return &ServiceService{
-		db:            db,
-		runnerService: runnerService,
+		db:             db,
+		runnerService:  runnerService,
+		projectService: projectService,
 	}
+}
+
+func (s *ServiceService) setProjectDirty(serviceId uuid.UUID) error {
+	service, err := s.GetService(serviceId)
+
+	if err != nil {
+		return err
+	}
+
+	return s.projectService.SetDirty(service.ProjectID, true)
 }
 
 func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data builder_model.BuilderData) (*builder_model.Builder, error) {
@@ -34,6 +47,7 @@ func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data builder_model.B
 }
 
 func (s *ServiceService) UpdateRunner(serviceId uuid.UUID, data runner_model.RunnerData) (*runner_model.Runner, error) {
+	var err error
 
 	runner := &runner_model.Runner{
 		ServiceId: serviceId,
@@ -41,7 +55,13 @@ func (s *ServiceService) UpdateRunner(serviceId uuid.UUID, data runner_model.Run
 		Data:      data,
 	}
 
-	err := s.db.Gorm.Save(runner).Error
+	err = s.db.Gorm.Save(runner).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.setProjectDirty(serviceId)
 
 	return runner, err
 }

@@ -20,7 +20,7 @@ services:
   console:
     image: brume-console
     build:
-      context: console
+      context: ./console
       dockerfile: Dockerfile.dev
     ports:
       - 3000:5173

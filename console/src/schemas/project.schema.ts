@@ -8,6 +8,7 @@ export const ProjectSchema = z.object({
   description: z.string(),
   id: z.string(),
   services: z.array(ServiceSchema),
+  isDirty: z.boolean(),
 });
 
 export type Project = z.infer<typeof ProjectSchema>;
