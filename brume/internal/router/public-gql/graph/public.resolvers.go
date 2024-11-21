@@ -42,7 +42,7 @@ func (r *mutationResolver) AddServiceToProject(ctx context.Context, projectID st
 		return nil, err
 	}
 
-	project, perr := r.ProjectService.GetProjectByID(projectID)
+	project, perr := r.ProjectService.GetProjectByID(uuid.MustParse(projectID))
 
 	if perr != nil {
 		return nil, perr
@@ -110,7 +110,7 @@ func (r *queryResolver) Me(ctx context.Context) (*user_model.User, error) {
 
 // GetProjectByID is the resolver for the getProjectById field.
 func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project_model.Project, error) {
-	return r.ProjectService.GetProjectByID(id)
+	return r.ProjectService.GetProjectByID(uuid.MustParse(id))
 }
 
 // ServiceLogs is the resolver for the serviceLogs field.

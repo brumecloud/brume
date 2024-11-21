@@ -13,7 +13,6 @@ type Project struct {
 	ID          uuid.UUID
 	Name        string
 	Description string
-	IsDirty     bool `gorm:"default:false"`
 	// ProjectVariables datatypes.JSONType[ProjectVariables]
 
 	Services []*service.Service `gorm:"foreignKey:ProjectID;references:ID"`

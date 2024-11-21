@@ -3,26 +3,25 @@ package project
 import (
 	"brume.dev/internal/db"
 	project "brume.dev/project/model"
+	"brume.dev/service"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type ProjectService struct {
-	db *db.DB
+	db             *db.DB
+	ServiceService *service.ServiceService
 }
 
-func NewProjectService(db *db.DB) *ProjectService {
+func NewProjectService(db *db.DB, serviceService *service.ServiceService) *ProjectService {
 	return &ProjectService{
-		db: db,
+		db:             db,
+		ServiceService: serviceService,
 	}
 }
 
-func (s *ProjectService) SetDirty(projectId uuid.UUID, dirty bool) error {
-	return s.db.Gorm.Model(&project.Project{}).Where("id = ?", projectId).Update("is_dirty", dirty).Error
-}
-
-func (s *ProjectService) GetProjectByID(id string) (*project.Project, error) {
+func (s *ProjectService) GetProjectByID(id uuid.UUID) (*project.Project, error) {
 	var project *project.Project
 
 	err := s.db.Gorm.First(&project, "id = ?", id).Error
@@ -35,13 +34,17 @@ func (s *ProjectService) GetProjectByID(id string) (*project.Project, error) {
 }
 
 func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, error) {
-	err := s.SetDirty(projectId, false)
+	project, err := s.GetProjectByID(projectId)
+
+	for _, service := range project.Services {
+		err = s.ServiceService.DeployService(service.ID)
+	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	return s.GetProjectByID(projectId.String())
+	return s.GetProjectByID(projectId)
 }
 
 func (s *ProjectService) CreateProject(name string, description string) (*project.Project, error) {

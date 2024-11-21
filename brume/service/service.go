@@ -4,7 +4,6 @@ import (
 	builder_model "brume.dev/builder/model"
 	builder_service "brume.dev/builder/service"
 	"brume.dev/internal/db"
-	"brume.dev/project"
 	"brume.dev/runner"
 	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
@@ -13,28 +12,16 @@ import (
 
 type ServiceService struct {
 	db             *db.DB
-	projectService *project.ProjectService
 	runnerService  *runner.RunnerService
 	builderService *builder_service.BuilderService
 }
 
-func NewServiceService(db *db.DB, runnerService *runner.RunnerService, projectService *project.ProjectService, builderService *builder_service.BuilderService) *ServiceService {
+func NewServiceService(db *db.DB, runnerService *runner.RunnerService, builderService *builder_service.BuilderService) *ServiceService {
 	return &ServiceService{
 		db:             db,
 		runnerService:  runnerService,
-		projectService: projectService,
 		builderService: builderService,
 	}
-}
-
-func (s *ServiceService) setProjectDirty(serviceId uuid.UUID) error {
-	service, err := s.GetService(serviceId)
-
-	if err != nil {
-		return err
-	}
-
-	return s.projectService.SetDirty(service.ProjectID, true)
 }
 
 func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data builder_model.BuilderData) (*builder_model.Builder, error) {
@@ -68,9 +55,6 @@ func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data builder_model.B
 	if err != nil {
 		return nil, err
 	}
-
-	// the project need to be deployed in order to apply the changes
-	err = s.setProjectDirty(serviceId)
 
 	return draftBuilder, err
 }
@@ -109,10 +93,29 @@ func (s *ServiceService) UpdateRunner(serviceId uuid.UUID, data runner_model.Run
 		return nil, err
 	}
 
-	// the project need to be deployed in order to apply the changes
-	err = s.setProjectDirty(serviceId)
-
 	return draftRunner, err
+}
+
+func (s *ServiceService) DeployService(serviceId uuid.UUID) error {
+	service, err := s.GetService(serviceId)
+
+	if err != nil {
+		return err
+	}
+
+	// set the draft live
+	service.Runner = *service.DraftRunner
+	service.Builder = *service.DraftBuilder
+	service.DraftRunner = nil
+	service.DraftBuilder = nil
+
+	err = s.db.Gorm.Save(service).Error
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *ServiceService) GetService(serviceId uuid.UUID) (*service_model.Service, error) {
