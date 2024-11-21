@@ -69,6 +69,7 @@ func SeedProjects(db *DB) []*project.Project {
 		Name: "User-API",
 		ID:   uuid.MustParse("2c77b616-fc35-4ab3-b4e9-0c57966dfd87"),
 		Builder: builder_model.Builder{
+			ID:   uuid.MustParse("f26a89ef-ff17-404a-96c5-3b03938c8149"),
 			Type: "generic-docker",
 			Data: builder_model.BuilderData{
 				Image:    "nginx",
@@ -77,6 +78,7 @@ func SeedProjects(db *DB) []*project.Project {
 			},
 		},
 		Runner: runner_model.Runner{
+			ID:   uuid.MustParse("de56c895-c814-45fb-a859-ff943f293c3d"),
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
 				Command:        "",
@@ -99,6 +101,7 @@ func SeedProjects(db *DB) []*project.Project {
 		Name: "Frontend",
 		ID:   uuid.MustParse("1c45217f-2f15-496d-a5cf-7860fec720e3"),
 		Builder: builder_model.Builder{
+			ID:   uuid.MustParse("eb528040-4697-49ee-ae3b-0f97bf779de4"),
 			Type: "generic-docker",
 			Data: builder_model.BuilderData{
 				Image:    "nginx",
@@ -107,6 +110,7 @@ func SeedProjects(db *DB) []*project.Project {
 			},
 		},
 		Runner: runner_model.Runner{
+			ID:   uuid.MustParse("438e8c05-44c0-49ef-9312-8213401720d2"),
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
 				Command:        "",
@@ -151,6 +155,7 @@ func SeedProjects(db *DB) []*project.Project {
 		Name: "OpenAI-API",
 		ID:   uuid.MustParse("a94cfd9e-5e61-4e5f-9fda-bb17d638a9ee"),
 		Builder: builder_model.Builder{
+			ID:   uuid.MustParse("4f6788dd-a317-4771-8afa-878b0b017b17"),
 			Type: "generic-docker",
 			Data: builder_model.BuilderData{
 				Image:    "nginx",
@@ -159,7 +164,7 @@ func SeedProjects(db *DB) []*project.Project {
 			},
 		},
 		Runner: runner_model.Runner{
-			Name: "wrapper-runner",
+			ID:   uuid.MustParse("6932f402-f633-48a9-bfc1-8489b1f3fd54"),
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
 				Command:        "",

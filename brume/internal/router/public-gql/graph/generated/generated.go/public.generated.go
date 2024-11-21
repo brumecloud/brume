@@ -763,6 +763,10 @@ func (ec *executionContext) fieldContext_Mutation_addServiceToProject(ctx contex
 				return ec.fieldContext_Service_builder(ctx, field)
 			case "runner":
 				return ec.fieldContext_Service_runner(ctx, field)
+			case "draftBuilder":
+				return ec.fieldContext_Service_draftBuilder(ctx, field)
+			case "draftRunner":
+				return ec.fieldContext_Service_draftRunner(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Service", field.Name)
 		},
@@ -1193,6 +1197,10 @@ func (ec *executionContext) fieldContext_Project_services(_ context.Context, fie
 				return ec.fieldContext_Service_builder(ctx, field)
 			case "runner":
 				return ec.fieldContext_Service_runner(ctx, field)
+			case "draftBuilder":
+				return ec.fieldContext_Service_draftBuilder(ctx, field)
+			case "draftRunner":
+				return ec.fieldContext_Service_draftRunner(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Service", field.Name)
 		},
@@ -2202,6 +2210,100 @@ func (ec *executionContext) fieldContext_Service_runner(_ context.Context, field
 		Field:      field,
 		IsMethod:   true,
 		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "type":
+				return ec.fieldContext_Runner_type(ctx, field)
+			case "data":
+				return ec.fieldContext_Runner_data(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Runner", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Service_draftBuilder(ctx context.Context, field graphql.CollectedField, obj *service_model.Service) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Service_draftBuilder(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.DraftBuilder, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(builder_model.Builder)
+	fc.Result = res
+	return ec.marshalOBuilder2brumeᚗdevᚋbuilderᚋmodelᚐBuilder(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Service_draftBuilder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Service",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "type":
+				return ec.fieldContext_Builder_type(ctx, field)
+			case "data":
+				return ec.fieldContext_Builder_data(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Builder", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Service_draftRunner(ctx context.Context, field graphql.CollectedField, obj *service_model.Service) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Service_draftRunner(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.DraftRunner, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(runner_model.Runner)
+	fc.Result = res
+	return ec.marshalORunner2brumeᚗdevᚋrunnerᚋmodelᚐRunner(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Service_draftRunner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Service",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "type":
@@ -3476,6 +3578,10 @@ func (ec *executionContext) _Service(ctx context.Context, sel ast.SelectionSet, 
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "draftBuilder":
+			out.Values[i] = ec._Service_draftBuilder(ctx, field, obj)
+		case "draftRunner":
+			out.Values[i] = ec._Service_draftRunner(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3867,11 +3973,19 @@ func (ec *executionContext) marshalNUser2ᚖbrumeᚗdevᚋaccountᚋuserᚋmodel
 	return ec._User(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOBuilder2brumeᚗdevᚋbuilderᚋmodelᚐBuilder(ctx context.Context, sel ast.SelectionSet, v builder_model.Builder) graphql.Marshaler {
+	return ec._Builder(ctx, sel, &v)
+}
+
 func (ec *executionContext) marshalOLog2ᚖbrumeᚗdevᚋlogsᚋmodelᚐLog(ctx context.Context, sel ast.SelectionSet, v *log_model.Log) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Log(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalORunner2brumeᚗdevᚋrunnerᚋmodelᚐRunner(ctx context.Context, sel ast.SelectionSet, v runner_model.Runner) graphql.Marshaler {
+	return ec._Runner(ctx, sel, &v)
 }
 
 // endregion ***************************** type.gotpl *****************************

@@ -16,8 +16,34 @@ func NewRunnerService(db *db.DB) *RunnerService {
 	}
 }
 
-func (e *RunnerService) CreateDockerExecutor(image string, serviceId uuid.UUID) (*runner.Runner, error) {
+func (e *RunnerService) GetRunner(runnerId uuid.UUID) (*runner.Runner, error) {
+	runner := &runner.Runner{}
+	err := e.db.Gorm.First(runner, runnerId).Error
+	return runner, err
+}
+
+func (e *RunnerService) DuplicateRunner(runnerId uuid.UUID) (*runner.Runner, error) {
+	runner, err := e.GetRunner(runnerId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	duplicateRunner := runner
+
+	id, _ := uuid.NewRandom()
+	duplicateRunner.ID = id
+
+	err = e.db.Gorm.Create(&duplicateRunner).Error
+
+	return duplicateRunner, err
+}
+
+func (e *RunnerService) CreateDockerExecutor(serviceId uuid.UUID) (*runner.Runner, error) {
+	id, _ := uuid.NewRandom()
+
 	runner := &runner.Runner{
+		ID:        id,
 		Name:      "Docker runner",
 		Type:      "docker",
 		ServiceId: serviceId,

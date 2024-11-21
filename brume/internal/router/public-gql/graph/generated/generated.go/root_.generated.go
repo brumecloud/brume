@@ -107,10 +107,12 @@ type ComplexityRoot struct {
 	}
 
 	Service struct {
-		Builder func(childComplexity int) int
-		ID      func(childComplexity int) int
-		Name    func(childComplexity int) int
-		Runner  func(childComplexity int) int
+		Builder      func(childComplexity int) int
+		DraftBuilder func(childComplexity int) int
+		DraftRunner  func(childComplexity int) int
+		ID           func(childComplexity int) int
+		Name         func(childComplexity int) int
+		Runner       func(childComplexity int) int
 	}
 
 	Subscription struct {
@@ -417,6 +419,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Service.Builder(childComplexity), true
 
+	case "Service.draftBuilder":
+		if e.complexity.Service.DraftBuilder == nil {
+			break
+		}
+
+		return e.complexity.Service.DraftBuilder(childComplexity), true
+
+	case "Service.draftRunner":
+		if e.complexity.Service.DraftRunner == nil {
+			break
+		}
+
+		return e.complexity.Service.DraftRunner(childComplexity), true
+
 	case "Service.id":
 		if e.complexity.Service.ID == nil {
 			break
@@ -677,6 +693,9 @@ type Service {
   name: String!
   builder: Builder!
   runner: Runner!
+
+  draftBuilder: Builder
+  draftRunner: Runner
 }
 
 type Log {

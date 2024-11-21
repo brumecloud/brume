@@ -71,6 +71,9 @@ type Service {
   name: String!
   builder: Builder!
   runner: Runner!
+
+  draftBuilder: Builder
+  draftRunner: Runner
 }
 
 type Log {

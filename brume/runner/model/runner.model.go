@@ -10,9 +10,13 @@ import (
 )
 
 type Runner struct {
-	ServiceId uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Name      string
-	Type      string
+	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
+
+	// reference to the service
+	ServiceId uuid.UUID `gorm:"type:uuid"`
+
+	Name string
+	Type string
 
 	Data RunnerData `gorm:"type:jsonb"`
 

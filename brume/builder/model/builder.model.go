@@ -10,7 +10,10 @@ import (
 )
 
 type Builder struct {
-	ServiceId uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
+
+	// reference to the service
+	ServiceId uuid.UUID `gorm:"type:uuid"`
 	Type      string
 	Data      BuilderData `gorm:"type:jsonb"`
 
