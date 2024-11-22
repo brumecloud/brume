@@ -43,7 +43,8 @@ export const useProject = (): {
     const rawData = ProjectSchema.safeParse(data?.getProjectById);
 
     if (!rawData.success) {
-      console.error(rawData.error);
+      console.table(rawData.error.issues);
+      console.log(data);
       return {
         project: undefined,
         loading: false,

@@ -188,6 +188,7 @@ func SeedProjects(db *DB) []*project.Project {
 		ID:   uuid.MustParse("b29dcba3-a2d3-40a5-bb70-2bd01002a062"),
 		Builder: builder_model.Builder{
 			Type: "generic-docker",
+			ID:   uuid.MustParse("9376ac2a-ea1b-407b-a430-aabc0b687112"),
 			Data: builder_model.BuilderData{
 				Image:    "nginx",
 				Registry: "docker.io",
@@ -197,6 +198,7 @@ func SeedProjects(db *DB) []*project.Project {
 		Runner: runner_model.Runner{
 			Name: "wrapper-runner",
 			Type: "generic-docker",
+			ID:   uuid.MustParse("e368e4c8-30b5-4eb2-9eb1-caf429984272"),
 			Data: runner_model.RunnerData{
 				Command:        "",
 				HealthCheckURL: "http://localhost:3000/health",

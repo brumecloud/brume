@@ -40,6 +40,7 @@ type MutationResolver interface {
 type ProjectResolver interface {
 	ID(ctx context.Context, obj *project_model.Project) (string, error)
 
+	IsDirty(ctx context.Context, obj *project_model.Project) (bool, error)
 	Services(ctx context.Context, obj *project_model.Project) ([]*service_model.Service, error)
 }
 type QueryResolver interface {
@@ -1120,7 +1121,7 @@ func (ec *executionContext) _Project_isDirty(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.IsDirty, nil
+		return ec.resolvers.Project().IsDirty(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1141,8 +1142,8 @@ func (ec *executionContext) fieldContext_Project_isDirty(_ context.Context, fiel
 	fc = &graphql.FieldContext{
 		Object:     "Project",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Boolean does not have child fields")
 		},
@@ -2246,9 +2247,9 @@ func (ec *executionContext) _Service_draftBuilder(ctx context.Context, field gra
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(builder_model.Builder)
+	res := resTmp.(*builder_model.Builder)
 	fc.Result = res
-	return ec.marshalOBuilder2brumeᚗdevᚋbuilderᚋmodelᚐBuilder(ctx, field.Selections, res)
+	return ec.marshalOBuilder2ᚖbrumeᚗdevᚋbuilderᚋmodelᚐBuilder(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Service_draftBuilder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2293,9 +2294,9 @@ func (ec *executionContext) _Service_draftRunner(ctx context.Context, field grap
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(runner_model.Runner)
+	res := resTmp.(*runner_model.Runner)
 	fc.Result = res
-	return ec.marshalORunner2brumeᚗdevᚋrunnerᚋmodelᚐRunner(ctx, field.Selections, res)
+	return ec.marshalORunner2ᚖbrumeᚗdevᚋrunnerᚋmodelᚐRunner(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Service_draftRunner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3118,10 +3119,41 @@ func (ec *executionContext) _Project(ctx context.Context, sel ast.SelectionSet, 
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "isDirty":
-			out.Values[i] = ec._Project_isDirty(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Project_isDirty(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "services":
 			field := field
 
@@ -3973,8 +4005,11 @@ func (ec *executionContext) marshalNUser2ᚖbrumeᚗdevᚋaccountᚋuserᚋmodel
 	return ec._User(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOBuilder2brumeᚗdevᚋbuilderᚋmodelᚐBuilder(ctx context.Context, sel ast.SelectionSet, v builder_model.Builder) graphql.Marshaler {
-	return ec._Builder(ctx, sel, &v)
+func (ec *executionContext) marshalOBuilder2ᚖbrumeᚗdevᚋbuilderᚋmodelᚐBuilder(ctx context.Context, sel ast.SelectionSet, v *builder_model.Builder) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Builder(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOLog2ᚖbrumeᚗdevᚋlogsᚋmodelᚐLog(ctx context.Context, sel ast.SelectionSet, v *log_model.Log) graphql.Marshaler {
@@ -3984,8 +4019,11 @@ func (ec *executionContext) marshalOLog2ᚖbrumeᚗdevᚋlogsᚋmodelᚐLog(ctx 
 	return ec._Log(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalORunner2brumeᚗdevᚋrunnerᚋmodelᚐRunner(ctx context.Context, sel ast.SelectionSet, v runner_model.Runner) graphql.Marshaler {
-	return ec._Runner(ctx, sel, &v)
+func (ec *executionContext) marshalORunner2ᚖbrumeᚗdevᚋrunnerᚋmodelᚐRunner(ctx context.Context, sel ast.SelectionSet, v *runner_model.Runner) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Runner(ctx, sel, v)
 }
 
 // endregion ***************************** type.gotpl *****************************

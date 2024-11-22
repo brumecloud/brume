@@ -21,6 +21,24 @@ func NewProjectService(db *db.DB, serviceService *service.ServiceService) *Proje
 	}
 }
 
+func (s *ProjectService) IsDirty(project *project.Project) (bool, error) {
+	var projectDirty bool
+
+	project, err := s.GetProjectServices(project)
+
+	if err != nil {
+		return false, err
+	}
+
+	for _, service := range project.Services {
+		if service.DraftBuilderID != nil || service.DraftRunnerID != nil {
+			return true, nil
+		}
+	}
+
+	return projectDirty, nil
+}
+
 func (s *ProjectService) GetProjectByID(id uuid.UUID) (*project.Project, error) {
 	var project *project.Project
 

@@ -15,6 +15,7 @@ import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { getMainDefinition } from "@apollo/client/utilities";
 import { createClient } from "graphql-ws";
 import ReactDOM from "react-dom/client";
+import { ErrorBoundary } from "react-error-boundary";
 
 import App from "./App";
 import "./index.css";
@@ -59,12 +60,11 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
       return;
     }
   }
-  if (graphQLErrors)
-    graphQLErrors.map(({ message, locations, path }) =>
-      console.log(
-        `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
-      )
-    );
+  if (graphQLErrors) {
+    if (graphQLErrors.length === 0) {
+      return;
+    }
+  }
 });
 
 const wsLink = new GraphQLWsLink(
@@ -105,8 +105,26 @@ const graphqlClient = new ApolloClient({
   }),
 });
 
+function ErrorFallback({
+  error,
+  resetErrorBoundary,
+}: {
+  error: Error;
+  resetErrorBoundary: () => void;
+}) {
+  return (
+    <div role="alert">
+      <p>Something went wrong:</p>
+      <pre>{error.message}</pre>
+      <button onClick={resetErrorBoundary}>Try again</button>
+    </div>
+  );
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <ApolloProvider client={graphqlClient}>
-    <App />
-  </ApolloProvider>
+  <ErrorBoundary FallbackComponent={ErrorFallback}>
+    <ApolloProvider client={graphqlClient}>
+      <App />
+    </ApolloProvider>
+  </ErrorBoundary>
 );

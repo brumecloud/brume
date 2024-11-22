@@ -94,6 +94,11 @@ func (r *projectResolver) ID(ctx context.Context, obj *project_model.Project) (s
 	return obj.ID.String(), nil
 }
 
+// IsDirty is the resolver for the isDirty field.
+func (r *projectResolver) IsDirty(ctx context.Context, obj *project_model.Project) (bool, error) {
+	return r.ProjectService.IsDirty(obj)
+}
+
 // Services is the resolver for the services field.
 func (r *projectResolver) Services(ctx context.Context, obj *project_model.Project) ([]*service_model.Service, error) {
 	betterProject, err := r.ProjectService.GetProjectServices(obj)
@@ -125,11 +130,19 @@ func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (s
 
 // Builder is the resolver for the builder field.
 func (r *serviceResolver) Builder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error) {
+	if obj.DraftBuilder != nil {
+		return obj.DraftBuilder, nil
+	}
+
 	return &obj.Builder, nil
 }
 
 // Runner is the resolver for the runner field.
 func (r *serviceResolver) Runner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error) {
+	if obj.DraftRunner != nil {
+		return obj.DraftRunner, nil
+	}
+
 	return &obj.Runner, nil
 }
 

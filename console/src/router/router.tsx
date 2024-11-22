@@ -1,3 +1,4 @@
+import { ErrorPage } from "@/pages/error";
 import { Login } from "@/pages/login";
 import { Project } from "@/pages/project";
 import { Projects } from "@/pages/projects";
@@ -20,7 +21,7 @@ export enum RouteParams {
 }
 
 export const Router = createRoutesFromElements(
-  <Route path="/">
+  <Route path="/" errorElement={<ErrorPage />}>
     <Route path="/login" element={<Login />} />
     <Route path="/" element={<ConsoleLayout />}>
       <Route path="/" element={<PageLayout />}>

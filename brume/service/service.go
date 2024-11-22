@@ -93,6 +93,14 @@ func (s *ServiceService) UpdateRunner(serviceId uuid.UUID, data runner_model.Run
 		return nil, err
 	}
 
+	service.DraftRunnerID = &draftRunner.ID
+
+	err = s.db.Gorm.Save(service).Error
+
+	if err != nil {
+		return nil, err
+	}
+
 	return draftRunner, err
 }
 
