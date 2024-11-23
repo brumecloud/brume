@@ -1,5 +1,6 @@
 import { gql } from "@apollo/client";
 
+import { BUILDER_FRAGMENT } from "./builder.graphql";
 import { RUNNER_FRAGMENT } from "./runner.graphql";
 
 export const ProjectFragment = gql`
@@ -12,19 +13,21 @@ export const ProjectFragment = gql`
       name
       id
       builder {
-        type
-        data {
-          image
-          registry
-          tag
-        }
+        ...BuilderFragment
       }
       runner {
         ...RunnerFragment
       }
+      draftRunner {
+        ...RunnerFragment
+      }
+      draftBuilder {
+        ...BuilderFragment
+      }
     }
   }
   ${RUNNER_FRAGMENT}
+  ${BUILDER_FRAGMENT}
 `;
 
 export const PROJECT_BY_ID_QUERY = gql`
@@ -50,6 +53,14 @@ export const DEPLOY_PROJECT_MUTATION = gql`
   mutation DeployProject($projectId: String!) {
     deployProject(projectId: $projectId) {
       ...ProjectFragment
+    }
+  }
+`;
+
+export const DELETE_DRAFT_MUTATION = gql`
+  mutation DeleteDraft($projectId: String!) {
+    deleteDraft(projectId: $projectId) {
+      id
     }
   }
 `;

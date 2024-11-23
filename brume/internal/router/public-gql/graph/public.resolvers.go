@@ -89,6 +89,11 @@ func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) 
 	return r.ProjectService.DeployProject(uuid.MustParse(projectID))
 }
 
+// DeleteDraft is the resolver for the deleteDraft field.
+func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error) {
+	return r.ProjectService.DeleteDraft(uuid.MustParse(projectID))
+}
+
 // ID is the resolver for the id field.
 func (r *projectResolver) ID(ctx context.Context, obj *project_model.Project) (string, error) {
 	return obj.ID.String(), nil
@@ -130,20 +135,22 @@ func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (s
 
 // Builder is the resolver for the builder field.
 func (r *serviceResolver) Builder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error) {
-	if obj.DraftBuilder != nil {
-		return obj.DraftBuilder, nil
-	}
-
 	return &obj.Builder, nil
 }
 
 // Runner is the resolver for the runner field.
 func (r *serviceResolver) Runner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error) {
-	if obj.DraftRunner != nil {
-		return obj.DraftRunner, nil
-	}
-
 	return &obj.Runner, nil
+}
+
+// DraftBuilder is the resolver for the draftBuilder field.
+func (r *serviceResolver) DraftBuilder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error) {
+	return obj.DraftBuilder, nil
+}
+
+// DraftRunner is the resolver for the draftRunner field.
+func (r *serviceResolver) DraftRunner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error) {
+	return obj.DraftRunner, nil
 }
 
 // ServiceLogs is the resolver for the serviceLogs field.

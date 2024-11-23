@@ -117,7 +117,7 @@ func (s *ServiceService) DeployService(serviceId uuid.UUID) error {
 	service.DraftRunner = nil
 	service.DraftBuilder = nil
 
-	err = s.db.Gorm.Save(service).Error
+	err = s.db.Gorm.Save(&service).Error
 
 	if err != nil {
 		return err

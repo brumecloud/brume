@@ -1,17 +1,40 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { useDeploy } from "@/hooks/useDeploy";
+import { useDeleteDraft, useDeploy } from "@/hooks/useDeploy";
+import { useProject } from "@/hooks/useProject";
 import { RouteParams } from "@/router/router";
 import { modalState } from "@/state/modal.state";
 import { cn } from "@/utils";
 import { X } from "lucide-react";
-import { useLocation, useParams } from "react-router-dom";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useSnapshot } from "valtio";
 
 export const DirtyServiceModal = () => {
-  const { projectId } = useParams<RouteParams>();
-  const snap = useSnapshot(modalState);
+  const { projectId, serviceId } = useParams<RouteParams>();
+  const { project } = useProject();
   const { deploy } = useDeploy();
+  const { deleteDraft: deleteDraftMutation } = useDeleteDraft();
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [shouldShow, setShouldShow] = useState(false);
+
+  useEffect(() => {
+    if (project && project.isDirty && !confirmModalOpen) {
+      setShouldShow(true);
+    } else {
+      setShouldShow(false);
+    }
+  }, [project, projectId]);
 
   const closeModal = () => {
     // we need to remove all the dirty fields
@@ -19,16 +42,37 @@ export const DirtyServiceModal = () => {
       throw new Error("Project ID should be defined");
     }
 
-    snap.setIsProjectDirty(projectId, false);
+    setShouldShow(false);
+    setConfirmModalOpen(true);
+  };
+
+  const cancel = () => {
+    setConfirmModalOpen(false);
+    setShouldShow(true);
+  };
+
+  const deleteDraft = async () => {
+    const doDeleteDraft = async () => {
+      await deleteDraftMutation({ variables: { projectId } });
+    };
+
+    setShouldShow(false);
+    setConfirmModalOpen(false);
+
+    toast.promise(doDeleteDraft(), {
+      loading: "Deleting draft...",
+      success: "Draft deleted!",
+      error: "Failed to delete draft",
+    });
   };
 
   const submit = async () => {
-    console.log("deploying", projectId);
-
     const doDeploy = async () => {
       await deploy({ variables: { projectId } });
-      closeModal();
     };
+
+    setConfirmModalOpen(false);
+    setShouldShow(false);
 
     toast.promise(doDeploy(), {
       loading: "Deploying...",
@@ -37,30 +81,57 @@ export const DirtyServiceModal = () => {
     });
   };
 
-  const shouldShow = projectId && snap.isProjectDirty[projectId];
-
   return (
-    <div
-      className={cn(
-        "absolute left-0 top-5 w-screen",
-        shouldShow ? "block" : "hidden"
-      )}>
-      <div className="flex flex-col items-center">
-        <div className="z-[9999] flex items-center justify-between space-x-4 rounded-lg bg-blue-900 px-4 py-2 pr-3 shadow-lg shadow-blue-400/50">
-          <Button variant="link" className="p-0" onClick={closeModal}>
-            <X className="h-4 w-4 text-blue-400" />
-          </Button>
-          <h1 className="text-sm font-semibold text-blue-400">
-            Apply the changes
-          </h1>
-          <Button
-            variant="outline"
-            className="border-blue-200 bg-blue-400 text-white"
-            onClick={submit}>
-            Deploy
-          </Button>
-        </div>
-      </div>
-    </div>
+    <AnimatePresence>
+      <AlertDialog open={confirmModalOpen}>
+        <AlertDialogContent className="bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Are you sure absolutely sure?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. All the changes will be
+              lost. For ever.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancel}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={deleteDraft}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {shouldShow && (
+        <motion.div
+          initial={{ opacity: 0, y: -150 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          exit={{ opacity: 0, y: -150 }}
+          className={cn("absolute left-0 top-5 w-screen")}>
+          <div className="flex flex-col items-center">
+            <div className="z-[9999] flex items-center justify-between space-x-4 rounded-lg bg-blue-900 px-4 py-2 pr-3 shadow-lg shadow-blue-400/50">
+              <Button
+                variant="link"
+                className="p-0"
+                onClick={closeModal}>
+                <X className="h-4 w-4 text-blue-400" />
+              </Button>
+              <h1 className="text-sm font-semibold text-blue-400">
+                Apply the changes
+              </h1>
+              <Button
+                variant="default"
+                className="bg-blue-400 text-white shadow-md shadow-blue-400/50 hover:bg-blue-500"
+                onClick={submit}>
+                Deploy
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

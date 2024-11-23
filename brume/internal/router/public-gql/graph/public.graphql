@@ -71,7 +71,6 @@ type Service {
   name: String!
   builder: Builder!
   runner: Runner!
-
   draftBuilder: Builder
   draftRunner: Runner
 }
@@ -100,6 +99,7 @@ type Mutation {
   updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
   updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
   deployProject(projectId: String!): Project!
+  deleteDraft(projectId: String!): Project!
 }
 
 type Subscription {

@@ -127,3 +127,7 @@ models:
         resolver: true
       runner:
         resolver: true
+      draftBuilder:
+        resolver: true
+      draftRunner:
+        resolver: true

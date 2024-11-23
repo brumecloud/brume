@@ -1,8 +1,10 @@
 package project
 
 import (
+	builder_model "brume.dev/builder/model"
 	"brume.dev/internal/db"
 	project "brume.dev/project/model"
+	runner_model "brume.dev/runner/model"
 	"brume.dev/service"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
@@ -31,7 +33,7 @@ func (s *ProjectService) IsDirty(project *project.Project) (bool, error) {
 	}
 
 	for _, service := range project.Services {
-		if service.DraftBuilderID != nil || service.DraftRunnerID != nil {
+		if service.DraftRunner != nil || service.DraftBuilder != nil {
 			return true, nil
 		}
 	}
@@ -49,6 +51,40 @@ func (s *ProjectService) GetProjectByID(id uuid.UUID) (*project.Project, error) 
 	}
 
 	return project, nil
+}
+
+func (s *ProjectService) DeleteDraft(projectId uuid.UUID) (*project.Project, error) {
+	project, err := s.GetProjectByID(projectId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	project, err = s.GetProjectServices(project)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, service := range project.Services {
+		if service.DraftRunner != nil {
+			err = s.db.Gorm.Delete(&runner_model.Runner{}, service.DraftRunnerID).Error
+
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if service.DraftBuilder != nil {
+			err = s.db.Gorm.Delete(&builder_model.Builder{}, service.DraftBuilderID).Error
+
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return project, err
 }
 
 func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, error) {
@@ -85,7 +121,7 @@ func (s *ProjectService) CreateProject(name string, description string) (*projec
 
 func (s *ProjectService) GetProjectServices(project *project.Project) (*project.Project, error) {
 	err := s.db.Gorm.Preload("Services", func(db *gorm.DB) *gorm.DB {
-		return db.Preload("Builder").Preload("Runner").Order("created_at DESC")
+		return db.Preload("Builder").Preload("Runner").Preload("DraftBuilder").Preload("DraftRunner").Order("created_at DESC")
 	}).First(&project, "id = ?", project.ID).Error
 
 	return project, err

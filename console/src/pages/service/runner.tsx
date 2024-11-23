@@ -34,13 +34,19 @@ import { toast } from "sonner";
 export const RunnerPage = () => {
   const { serviceId } = useParams<RouteParams>();
   const { service } = useService();
-  const { setDirty } = useProject();
+  const { project } = useProject();
+  const runner = service?.runner;
+  const draftRunner = service?.draftRunner;
+
   const { updateRunnerMutation, loading } = useUpdateRunner();
 
   const form = useForm<Runner>({
     resolver: zodResolver(DockerRunnerSchema),
     mode: "onChange",
-    defaultValues: useMemo(() => service?.runner, [service]),
+    defaultValues: useMemo(
+      () => draftRunner ?? runner,
+      [draftRunner, runner]
+    ),
   });
 
   const blocker = useBlocker(() => {
@@ -53,7 +59,7 @@ export const RunnerPage = () => {
 
   useEffect(() => {
     if (service) {
-      form.reset(service.runner);
+      form.reset(draftRunner ?? runner);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, serviceId, service?.id]);
@@ -85,11 +91,11 @@ export const RunnerPage = () => {
 
     toast.success("Runner updated");
     form.reset(form.getValues());
-
-    setDirty(true);
   };
 
-  if (!service) return null;
+  if (!service || !runner) return null;
+
+  console.log(service.draftRunner);
 
   return (
     <Form {...form}>
@@ -140,14 +146,27 @@ export const RunnerPage = () => {
               control={form.control}
               name="data.command"
               render={({ field, fieldState }) => (
-                <Input
-                  {...field}
-                  placeholder="npx run start"
-                  className={cn(
-                    "w-[300px] font-mono",
-                    fieldState.isDirty && "border-green-500"
-                  )}
-                />
+                <>
+                  <Input
+                    {...field}
+                    placeholder="npx run start"
+                    className={cn(
+                      "w-[300px] font-mono",
+                      draftRunner &&
+                        draftRunner.data.command !==
+                          runner.data.command &&
+                        "border-blue-500",
+                      fieldState.isDirty && "border-green-500"
+                    )}
+                  />
+                  {draftRunner &&
+                    draftRunner.data.command !==
+                      runner.data.command && (
+                      <p className="text-xs italic text-blue-500">
+                        old value: {runner.data.command}
+                      </p>
+                    )}
+                </>
               )}
             />
           </div>
@@ -184,10 +203,21 @@ export const RunnerPage = () => {
                     placeholder="http://localhost:8080/healthz"
                     className={cn(
                       "w-[300px]",
+                      draftRunner &&
+                        draftRunner.data.healthCheckURL !==
+                          runner.data.healthCheckURL &&
+                        "border-blue-500",
                       fieldState.isDirty && "border-green-500",
                       fieldState.error && "border-red-500"
                     )}
                   />
+                  {draftRunner &&
+                    draftRunner.data.healthCheckURL !==
+                      runner.data.healthCheckURL && (
+                      <p className="text-xs italic text-blue-500">
+                        old value: {runner.data.healthCheckURL}
+                      </p>
+                    )}
                   {fieldState.error && (
                     <p className="text-xs text-red-500">
                       {fieldState.error.message}
@@ -234,6 +264,10 @@ export const RunnerPage = () => {
                           placeholder="0.1CPU"
                           className={cn(
                             "w-[200px]",
+                            draftRunner &&
+                              draftRunner.data.cpu.request !==
+                                runner.data.cpu.request &&
+                              "border-blue-500",
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
@@ -243,6 +277,13 @@ export const RunnerPage = () => {
                             {fieldState.error.message}
                           </p>
                         )}
+                        {draftRunner &&
+                          draftRunner.data.cpu.request !==
+                            runner.data.cpu.request && (
+                            <p className="text-xs italic text-blue-500">
+                              old value: {runner.data.cpu.request}
+                            </p>
+                          )}
                       </div>
                     )}
                   />
@@ -267,6 +308,10 @@ export const RunnerPage = () => {
                           placeholder="100Mb"
                           className={cn(
                             "w-[200px]",
+                            draftRunner &&
+                              draftRunner.data.memory.request !==
+                                runner.data.memory.request &&
+                              "border-blue-500",
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
@@ -276,6 +321,13 @@ export const RunnerPage = () => {
                             {fieldState.error.message}
                           </p>
                         )}
+                        {draftRunner &&
+                          draftRunner.data.memory.request !==
+                            runner.data.memory.request && (
+                            <p className="text-xs italic text-blue-500">
+                              old value: {runner.data.memory.request}
+                            </p>
+                          )}
                       </div>
                     )}
                   />
@@ -311,6 +363,10 @@ export const RunnerPage = () => {
                           placeholder="0.2CPU"
                           className={cn(
                             "w-[200px]",
+                            draftRunner &&
+                              draftRunner.data.cpu.limit !==
+                                runner.data.cpu.limit &&
+                              "border-blue-500",
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
@@ -320,6 +376,13 @@ export const RunnerPage = () => {
                             {fieldState.error.message}
                           </p>
                         )}
+                        {draftRunner &&
+                          draftRunner.data.cpu.limit !==
+                            runner.data.cpu.limit && (
+                            <p className="text-xs italic text-blue-500">
+                              old value: {runner.data.cpu.limit}
+                            </p>
+                          )}
                       </div>
                     )}
                   />
@@ -344,6 +407,10 @@ export const RunnerPage = () => {
                           placeholder="150Mb"
                           className={cn(
                             "w-[200px]",
+                            draftRunner &&
+                              draftRunner.data.memory.limit !==
+                                runner.data.memory.limit &&
+                              "border-blue-500",
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
@@ -353,6 +420,13 @@ export const RunnerPage = () => {
                             {fieldState.error.message}
                           </p>
                         )}
+                        {draftRunner &&
+                          draftRunner.data.memory.limit !==
+                            runner.data.memory.limit && (
+                            <p className="text-xs italic text-blue-500">
+                              old value: {runner.data.memory.limit}
+                            </p>
+                          )}
                       </div>
                     )}
                   />
@@ -394,6 +468,10 @@ export const RunnerPage = () => {
                           placeholder="my-app.brume.run"
                           className={cn(
                             "w-[300px]",
+                            draftRunner &&
+                              draftRunner.data.publicDomain !==
+                                runner.data.publicDomain &&
+                              "border-blue-500",
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
@@ -409,6 +487,13 @@ export const RunnerPage = () => {
                           {fieldState.error.message}
                         </p>
                       )}
+                      {draftRunner &&
+                        draftRunner.data.publicDomain !==
+                          runner.data.publicDomain && (
+                          <p className="text-xs italic text-blue-500">
+                            old value: {runner.data.publicDomain}
+                          </p>
+                        )}
                     </div>
                   )}
                 />
@@ -440,6 +525,10 @@ export const RunnerPage = () => {
                           placeholder="chat"
                           className={cn(
                             "w-[300px]",
+                            draftRunner &&
+                              draftRunner.data.privateDomain !==
+                                runner.data.privateDomain &&
+                              "border-blue-500",
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
@@ -455,6 +544,13 @@ export const RunnerPage = () => {
                           {fieldState.error.message}
                         </p>
                       )}
+                      {draftRunner &&
+                        draftRunner.data.privateDomain !==
+                          runner.data.privateDomain && (
+                          <p className="text-xs italic text-blue-500">
+                            old value: {runner.data.privateDomain}
+                          </p>
+                        )}
                     </div>
                   )}
                 />

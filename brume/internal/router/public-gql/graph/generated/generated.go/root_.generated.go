@@ -67,6 +67,7 @@ type ComplexityRoot struct {
 	Mutation struct {
 		AddServiceToProject func(childComplexity int, projectID string, input public_graph_model.CreateServiceInput) int
 		CreateProject       func(childComplexity int, name string, description *string) int
+		DeleteDraft         func(childComplexity int, projectID string) int
 		DeployProject       func(childComplexity int, projectID string) int
 		UpdateBuilder       func(childComplexity int, serviceID string, data public_graph_model.BuilderDataInput) int
 		UpdateRunner        func(childComplexity int, serviceID string, data public_graph_model.RunnerDataInput) int
@@ -232,6 +233,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.CreateProject(childComplexity, args["name"].(string), args["description"].(*string)), true
+
+	case "Mutation.deleteDraft":
+		if e.complexity.Mutation.DeleteDraft == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteDraft_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteDraft(childComplexity, args["projectId"].(string)), true
 
 	case "Mutation.deployProject":
 		if e.complexity.Mutation.DeployProject == nil {
@@ -693,7 +706,6 @@ type Service {
   name: String!
   builder: Builder!
   runner: Runner!
-
   draftBuilder: Builder
   draftRunner: Runner
 }
@@ -722,6 +734,7 @@ type Mutation {
   updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
   updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
   deployProject(projectId: String!): Project!
+  deleteDraft(projectId: String!): Project!
 }
 
 type Subscription {

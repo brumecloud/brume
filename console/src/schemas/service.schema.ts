@@ -80,6 +80,8 @@ export const ServiceSchema = z.object({
   id: z.string(),
   builder: BuilderSchema,
   runner: RunnerSchema,
+  draftRunner: RunnerSchema.nullable(),
+  draftBuilder: BuilderSchema.nullable(),
 });
 
 export type Service = z.infer<typeof ServiceSchema>;
