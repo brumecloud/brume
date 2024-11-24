@@ -3,6 +3,7 @@ package temporal_workflow
 import (
 	"brume.dev/container/docker"
 	service_model "brume.dev/service/model"
+	"github.com/rs/zerolog/log"
 
 	"time"
 
@@ -25,7 +26,24 @@ func (d *DockerWorkflow) RunServiceWorkflow(ctx workflow.Context, service *servi
 
 	ctx = workflow.WithActivityOptions(ctx, opts)
 
-	err := workflow.ExecuteActivity(ctx, d.dockerActivity.StartContainer, service).Get(ctx, nil)
+	var containerId string
+	err := workflow.ExecuteActivity(ctx, d.dockerActivity.StartService, service).Get(ctx, &containerId)
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	log.Info().Str("containerId", containerId).Msg("Service started, waiting for 30 seconds")
+
+	workflow.Sleep(ctx, time.Second*30)
+
+	err = workflow.ExecuteActivity(ctx, d.dockerActivity.StopService, service, containerId).Get(ctx, nil)
+
+	if err != nil {
+		return err
+	}
+
+	log.Info().Str("containerId", containerId).Msg("Service stopped")
+
+	return nil
 }

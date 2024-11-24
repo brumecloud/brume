@@ -17,7 +17,8 @@ func StartNodeWorker(temporalClient client.Client, dockerWorkflow *temporal_work
 	w := worker.New(temporalClient, "node", worker.Options{})
 
 	w.RegisterWorkflowWithOptions(dockerWorkflow.RunServiceWorkflow, workflow.RegisterOptions{Name: "RunServiceWorkflow"})
-	w.RegisterActivityWithOptions(dockerActivity.StartContainer, activity.RegisterOptions{Name: "StartContainer"})
+	w.RegisterActivityWithOptions(dockerActivity.StartService, activity.RegisterOptions{Name: "StartService"})
+	w.RegisterActivityWithOptions(dockerActivity.StopService, activity.RegisterOptions{Name: "StopService"})
 
 	log.Info().Msg("Starting node worker")
 

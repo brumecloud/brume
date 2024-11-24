@@ -1,6 +1,13 @@
 package docker
 
 import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog/log"
 )
@@ -23,12 +30,53 @@ func NewDockerService() *DockerService {
 	return &DockerService{dockerClient: cli}
 }
 
-func (d *DockerService) StartContainer(containerName string) error {
-	log.Info().Msgf("Starting container %s", containerName)
-	return nil
+func (d *DockerService) StartContainer(imageId string) (string, error) {
+	log.Info().Str("imageId", imageId).Msg("Starting container")
+
+	ctx := context.Background()
+
+	response, err := d.dockerClient.ContainerCreate(ctx, &container.Config{
+		Image: imageId,
+		Tty:   false,
+		Labels: map[string]string{
+			"brume.dev/managed": "true",
+		},
+	}, nil, nil, nil, "")
+
+	if err != nil {
+		return "", err
+	}
+
+	log.Info().Str("containerId", response.ID).Msg("Container started")
+
+	err = d.dockerClient.ContainerStart(ctx, response.ID, container.StartOptions{})
+
+	if err != nil {
+		log.Error().Err(err).Str("containerId", response.ID).Msg("Failed to start container")
+		return "", err
+	}
+
+	return response.ID, nil
 }
 
-func (d *DockerService) StopContainer(containerName string) error {
-	log.Info().Msgf("Stopping container %s", containerName)
-	return nil
+func (d *DockerService) StopContainer(containerId string) error {
+	log.Info().Str("containerId", containerId).Msg("Stopping container")
+
+	return d.dockerClient.ContainerStop(context.Background(), containerId, container.StopOptions{})
+}
+
+func (d *DockerService) PullImage(registry string, image_name string, tag string) (string, error) {
+	totalImage := fmt.Sprintf("%s/%s:%s", registry, image_name, tag)
+	log.Info().Str("image", totalImage).Msg("Pulling image")
+	reader, err := d.dockerClient.ImagePull(context.Background(), totalImage, image.PullOptions{})
+
+	if err != nil {
+		return "", err
+	}
+
+	defer reader.Close()
+
+	io.Copy(os.Stdout, reader)
+
+	return totalImage, nil
 }
