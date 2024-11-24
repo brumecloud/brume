@@ -26,17 +26,16 @@ import {
   RocketIcon,
   SquareTerminal,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, Form } from "react-hook-form";
 import { useBlocker, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 export const RunnerPage = () => {
-  const { serviceId } = useParams<RouteParams>();
   const { service } = useService();
-  const { project } = useProject();
   const runner = service?.runner;
   const draftRunner = service?.draftRunner;
+  const [wasDraft, setWasDraft] = useState(false);
 
   const { updateRunnerMutation, loading } = useUpdateRunner();
 
@@ -62,7 +61,17 @@ export const RunnerPage = () => {
       form.reset(draftRunner ?? runner);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, serviceId, service?.id]);
+  }, [form, service?.id]);
+
+  useEffect(() => {
+    if (draftRunner) {
+      setWasDraft(true);
+    }
+    if (wasDraft && !draftRunner) {
+      form.reset(service?.runner);
+      setWasDraft(false);
+    }
+  }, [service]);
 
   const onUnload = useCallback(
     (e: BeforeUnloadEvent) => {
@@ -74,7 +83,6 @@ export const RunnerPage = () => {
   );
 
   useEffect(() => {
-    console.log("onunload");
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [onUnload]);
@@ -94,8 +102,6 @@ export const RunnerPage = () => {
   };
 
   if (!service || !runner) return null;
-
-  console.log(service.draftRunner);
 
   return (
     <Form {...form}>

@@ -8,6 +8,7 @@ import (
 	"brume.dev/service"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
 
@@ -90,12 +91,32 @@ func (s *ProjectService) DeleteDraft(projectId uuid.UUID) (*project.Project, err
 func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, error) {
 	project, err := s.GetProjectByID(projectId)
 
-	for _, service := range project.Services {
-		err = s.ServiceService.DeployService(service.ID)
+	if err != nil {
+		return nil, err
 	}
+
+	project, err = s.GetProjectServices(project)
 
 	if err != nil {
 		return nil, err
+	}
+
+	log.Info().Msgf("Deploying project %s", projectId)
+
+	// move all the draft to non draft
+	// when you deploy it gets save
+	for _, service := range project.Services {
+		if service.DraftRunnerID != nil {
+			s.db.Gorm.Model(&service).Association("Runner").Clear()
+			s.db.Gorm.Model(&service).Association("Runner").Append(service.DraftRunner)
+			s.db.Gorm.Model(&service).Association("DraftRunner").Clear()
+		}
+
+		if service.DraftBuilderID != nil {
+			s.db.Gorm.Model(&service).Association("Builder").Clear()
+			s.db.Gorm.Model(&service).Association("Builder").Append(service.DraftBuilder)
+			s.db.Gorm.Model(&service).Association("DraftBuilder").Clear()
+		}
 	}
 
 	return s.GetProjectByID(projectId)

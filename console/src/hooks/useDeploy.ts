@@ -13,12 +13,14 @@ export const useDeploy = () => {
   };
 };
 
-export const useDeleteDraft = () => {
+export const useDeleteDraft = (projectId: string) => {
   const [deleteDraft] = useMutation(DELETE_DRAFT_MUTATION, {
-    update(cache, { data }) {
-      console.log(data);
-      cache.evict({ id: `Project:${data.deleteDraft.id}` });
-    },
+    refetchQueries: [
+      {
+        query: PROJECT_BY_ID_QUERY,
+        variables: { projectId },
+      },
+    ],
   });
 
   return {

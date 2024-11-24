@@ -1,7 +1,9 @@
+import { useService } from "@/hooks/useService";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 export const RunnerLayout = () => {
   const location = useLocation();
+  const { service } = useService();
   const path = location.pathname.split("/").pop();
 
   return (
@@ -9,7 +11,9 @@ export const RunnerLayout = () => {
       <div className="px-32 pt-8">
         <div className="flex flex-row items-center justify-between pt-16">
           <div className="flex flex-col pb-8">
-            <h2 className="pb-2 text-2xl font-semibold">Runners</h2>
+            <h2 className="pb-2 text-2xl font-semibold">
+              {service?.name} Runner
+            </h2>
             <p>Inspect & configure how your code runs</p>
           </div>
         </div>

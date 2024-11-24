@@ -24,7 +24,9 @@ export const DirtyServiceModal = () => {
   const { projectId, serviceId } = useParams<RouteParams>();
   const { project } = useProject();
   const { deploy } = useDeploy();
-  const { deleteDraft: deleteDraftMutation } = useDeleteDraft();
+  const { deleteDraft: deleteDraftMutation } = useDeleteDraft(
+    projectId ?? ""
+  );
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
 
