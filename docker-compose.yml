@@ -2,10 +2,11 @@ version: "3"
 
 services:
   master:
-    image: brume-master
+    image: brume
     build:
       context: ./brume
       dockerfile: Dockerfile.dev
+    command: ["air", "-c", ".air-master.toml"]
     volumes:
       - ./brume:/brume
     ports:
@@ -15,8 +16,22 @@ services:
     networks:
       brume-net:
         aliases:
-          - brume
+          - brume-master
 
+  node:
+    image: brume
+    build:
+      context: ./brume
+      dockerfile: Dockerfile.dev
+    command: ["air", "-c", ".air-node.toml"]
+    volumes:
+      - ./brume:/brume
+    depends_on:
+      - postgres
+    networks:
+      brume-net:
+        aliases:
+          - brume-node
   console:
     image: brume-console
     build:

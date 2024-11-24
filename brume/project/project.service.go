@@ -1,6 +1,8 @@
 package project
 
 import (
+	"context"
+
 	builder_model "brume.dev/builder/model"
 	"brume.dev/internal/db"
 	project "brume.dev/project/model"
@@ -9,18 +11,21 @@ import (
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"go.temporal.io/sdk/client"
 	"gorm.io/gorm"
 )
 
 type ProjectService struct {
 	db             *db.DB
 	ServiceService *service.ServiceService
+	TemporalClient client.Client
 }
 
-func NewProjectService(db *db.DB, serviceService *service.ServiceService) *ProjectService {
+func NewProjectService(db *db.DB, serviceService *service.ServiceService, temporalClient client.Client) *ProjectService {
 	return &ProjectService{
 		db:             db,
 		ServiceService: serviceService,
+		TemporalClient: temporalClient,
 	}
 }
 
@@ -117,6 +122,26 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 			s.db.Gorm.Model(&service).Association("Builder").Append(service.DraftBuilder)
 			s.db.Gorm.Model(&service).Association("DraftBuilder").Clear()
 		}
+
+		workflowOpts := client.StartWorkflowOptions{
+			TaskQueue: "node",
+		}
+
+		fullService, err := s.ServiceService.GetService(service.ID)
+
+		if err != nil {
+			return nil, err
+		}
+
+		log.Info().Msgf("fullService: %+v", fullService)
+
+		we, err := s.TemporalClient.ExecuteWorkflow(context.Background(), workflowOpts, "RunServiceWorkflow", fullService)
+
+		if err != nil {
+			return nil, err
+		}
+
+		log.Info().Msgf("Started service %s", we.GetID())
 	}
 
 	return s.GetProjectByID(projectId)
