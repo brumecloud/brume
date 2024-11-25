@@ -16,15 +16,15 @@ func NewDockerActivity(dockerService *DockerService) *DockerActivity {
 }
 
 func (d *DockerActivity) StartService(ctx context.Context, service *service_model.Service) (string, error) {
-	log.Info().Str("image", service.Builder.Data.Image).Str("name", service.Name).Msg("Starting container")
+	log.Info().Str("image", service.LiveBuilder.Data.Image).Str("name", service.Name).Msg("Starting container")
 
-	image, err := d.dockerService.PullImage(service.Builder.Data.Registry, service.Builder.Data.Image, service.Builder.Data.Tag)
+	image, err := d.dockerService.PullImage(service.LiveBuilder.Data.Registry, service.LiveBuilder.Data.Image, service.LiveBuilder.Data.Tag)
 
 	if err != nil {
 		return "", err
 	}
 
-	containerId, err := d.dockerService.StartContainer(image)
+	containerId, err := d.dockerService.StartContainer(image, service.LiveRunner)
 
 	if err != nil {
 		return "", err
@@ -38,5 +38,14 @@ func (d *DockerActivity) StartService(ctx context.Context, service *service_mode
 func (d *DockerActivity) StopService(ctx context.Context, service *service_model.Service, containerId string) error {
 	log.Info().Str("containerId", containerId).Str("service", service.Name).Msg("Stopping service")
 
-	return d.dockerService.StopContainer(containerId)
+	err := d.dockerService.StopContainer(containerId)
+
+	if err != nil {
+		return err
+	}
+
+	log.Debug().Str("containerId", containerId).Msg("Removing container")
+	err = d.dockerService.RemoveContainer(containerId)
+
+	return err
 }

@@ -133,8 +133,6 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 			return nil, err
 		}
 
-		log.Info().Msgf("fullService: %+v", fullService)
-
 		we, err := s.TemporalClient.ExecuteWorkflow(context.Background(), workflowOpts, "RunServiceWorkflow", fullService)
 
 		if err != nil {

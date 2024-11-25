@@ -34,7 +34,7 @@ func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data builder_model.B
 	}
 
 	if service.DraftBuilder == nil {
-		draftBuilder, err := s.builderService.DuplicateBuilder(service.Builder.ID)
+		draftBuilder, err := s.builderService.DuplicateBuilder(service.LiveBuilder.ID)
 
 		if err != nil {
 			return nil, err
@@ -56,6 +56,10 @@ func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data builder_model.B
 		return nil, err
 	}
 
+	service.DraftBuilderID = &draftBuilder.ID
+
+	err = s.db.Gorm.Save(service).Error
+
 	return draftBuilder, err
 }
 
@@ -70,7 +74,7 @@ func (s *ServiceService) UpdateRunner(serviceId uuid.UUID, data runner_model.Run
 
 	// we need to create a new draft of the runner
 	if service.DraftRunner == nil {
-		draftRunner, err := s.runnerService.DuplicateRunner(service.Runner.ID)
+		draftRunner, err := s.runnerService.DuplicateRunner(service.LiveRunner.ID)
 
 		if err != nil {
 			return nil, err
@@ -112,8 +116,8 @@ func (s *ServiceService) DeployService(serviceId uuid.UUID) error {
 	}
 
 	// set the draft live
-	service.Runner = *service.DraftRunner
-	service.Builder = *service.DraftBuilder
+	service.LiveRunner = service.DraftRunner
+	service.LiveBuilder = service.DraftBuilder
 	service.DraftRunner = nil
 	service.DraftBuilder = nil
 
@@ -148,12 +152,15 @@ func (s *ServiceService) CreateService(name string, projectId uuid.UUID, image s
 	}
 
 	runner, execErr := s.runnerService.CreateDockerExecutor(service.ID)
+	builder, builderErr := s.builderService.CreateDockerBuilder(service.ID)
 
-	if execErr != nil {
+	if execErr != nil || builderErr != nil {
 		return nil, execErr
 	}
 
-	service.Runner = *runner
+	service.DraftRunner = runner
+	service.DraftBuilder = builder
+
 	s.db.Gorm.Save(service)
 
 	return service, err

@@ -78,8 +78,8 @@ export const ServiceSchema = z.object({
   __typename: z.literal("Service"),
   name: z.string(),
   id: z.string(),
-  builder: BuilderSchema,
-  runner: RunnerSchema,
+  builder: BuilderSchema.nullable(),
+  runner: RunnerSchema.nullable(),
   draftRunner: RunnerSchema.nullable(),
   draftBuilder: BuilderSchema.nullable(),
 });

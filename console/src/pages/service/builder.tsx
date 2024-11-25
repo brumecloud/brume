@@ -43,12 +43,19 @@ export type BuildType =
 
 const GenericImageOptions = () => {
   const { service } = useService();
-  const { updateBuilderMutation, loading, error } =
-    useUpdateBuilder();
+  const [wasDraft, setWasDraft] = useState(false);
+  const draftBuilder = service?.draftBuilder;
+  const builder = service?.builder;
+
+  const { updateBuilderMutation, loading } = useUpdateBuilder();
 
   const form = useForm<Builder>({
     resolver: zodResolver(BuilderSchema),
-    defaultValues: useMemo(() => service?.builder, [service]),
+    mode: "onChange",
+    defaultValues: useMemo(
+      () => draftBuilder ?? builder,
+      [draftBuilder, builder]
+    ),
   });
 
   const blocker = useBlocker(() => {
@@ -61,9 +68,19 @@ const GenericImageOptions = () => {
 
   useEffect(() => {
     if (service) {
-      form.reset(service.builder);
+      form.reset(draftBuilder ?? builder);
     }
-  }, [service?.__typename, service?.id]);
+  }, [form, service?.id]);
+
+  useEffect(() => {
+    if (draftBuilder) {
+      setWasDraft(true);
+    }
+    if (wasDraft && !draftBuilder) {
+      form.reset(service?.builder);
+      setWasDraft(false);
+    }
+  }, [service]);
 
   const onUnload = useCallback(
     (e: BeforeUnloadEvent) => {
@@ -81,17 +98,19 @@ const GenericImageOptions = () => {
 
   const submitChanges = async () => {
     if (!service?.id) return;
-    const res = await updateBuilderMutation({
+
+    await updateBuilderMutation({
       variables: {
         serviceId: service.id,
         input: form.getValues().data,
       },
     });
+
     toast.success("Builder updated");
     form.reset(form.getValues());
   };
 
-  if (!service) return null;
+  if (!service || !builder) return null;
 
   return (
     <Form {...form}>
@@ -147,6 +166,10 @@ const GenericImageOptions = () => {
                     <SelectTrigger
                       className={cn(
                         "w-[180px]",
+                        draftBuilder &&
+                          draftBuilder.data.registry !==
+                            builder.data.registry &&
+                          "border-blue-500",
                         form.formState.dirtyFields.data?.registry &&
                           "border-green-500"
                       )}>
@@ -162,6 +185,13 @@ const GenericImageOptions = () => {
                       <SelectItem value="quay.io">Quay</SelectItem>
                     </SelectContent>
                   </Select>
+                  {draftBuilder &&
+                    draftBuilder.data.registry !==
+                      builder.data.registry && (
+                      <p className="text-xs italic text-blue-500">
+                        old value: {builder.data.registry}
+                      </p>
+                    )}
                 </>
               )}
             />
@@ -176,16 +206,26 @@ const GenericImageOptions = () => {
                     Image
                   </Label>
                   <Input
+                    {...field}
                     id="image"
                     type="text"
                     placeholder="hello-world"
                     className={cn(
+                      draftBuilder &&
+                        draftBuilder.data.image !==
+                          builder.data.image &&
+                        "border-blue-500",
                       form.formState.dirtyFields.data?.image &&
                         "border-green-500"
                     )}
-                    value={field.value}
-                    onChange={field.onChange}
                   />
+                  {draftBuilder &&
+                    draftBuilder.data.image !==
+                      builder.data.image && (
+                      <p className="text-xs italic text-blue-500">
+                        old value: {builder.data.image}
+                      </p>
+                    )}
                 </>
               )}
             />
@@ -200,12 +240,24 @@ const GenericImageOptions = () => {
                     Tag
                   </Label>
                   <Input
+                    {...field}
                     id="tag"
                     type="text"
                     placeholder="latest"
-                    value={field.value}
-                    onChange={field.onChange}
+                    className={cn(
+                      draftBuilder &&
+                        draftBuilder.data.tag !== builder.data.tag &&
+                        "border-blue-500",
+                      form.formState.dirtyFields.data?.tag &&
+                        "border-green-500"
+                    )}
                   />
+                  {draftBuilder &&
+                    draftBuilder.data.tag !== builder.data.tag && (
+                      <p className="text-xs italic text-blue-500">
+                        old value: {builder.data.tag}
+                      </p>
+                    )}
                 </>
               )}
             />

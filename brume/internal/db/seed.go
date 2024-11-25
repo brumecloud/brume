@@ -68,7 +68,7 @@ func SeedProjects(db *DB) []*project.Project {
 	user_api := &service.Service{
 		Name: "User-API",
 		ID:   uuid.MustParse("2c77b616-fc35-4ab3-b4e9-0c57966dfd87"),
-		Builder: builder_model.Builder{
+		DraftBuilder: &builder_model.Builder{
 			ID:   uuid.MustParse("f26a89ef-ff17-404a-96c5-3b03938c8149"),
 			Type: "generic-docker",
 			Data: builder_model.BuilderData{
@@ -77,7 +77,7 @@ func SeedProjects(db *DB) []*project.Project {
 				Tag:      "latest",
 			},
 		},
-		Runner: runner_model.Runner{
+		DraftRunner: &runner_model.Runner{
 			ID:   uuid.MustParse("de56c895-c814-45fb-a859-ff943f293c3d"),
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
@@ -100,7 +100,7 @@ func SeedProjects(db *DB) []*project.Project {
 	frontend := &service.Service{
 		Name: "Frontend",
 		ID:   uuid.MustParse("1c45217f-2f15-496d-a5cf-7860fec720e3"),
-		Builder: builder_model.Builder{
+		DraftBuilder: &builder_model.Builder{
 			ID:   uuid.MustParse("eb528040-4697-49ee-ae3b-0f97bf779de4"),
 			Type: "generic-docker",
 			Data: builder_model.BuilderData{
@@ -109,7 +109,7 @@ func SeedProjects(db *DB) []*project.Project {
 				Tag:      "latest",
 			},
 		},
-		Runner: runner_model.Runner{
+		DraftRunner: &runner_model.Runner{
 			ID:   uuid.MustParse("438e8c05-44c0-49ef-9312-8213401720d2"),
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
@@ -154,7 +154,7 @@ func SeedProjects(db *DB) []*project.Project {
 	open_ai := &service.Service{
 		Name: "OpenAI-API",
 		ID:   uuid.MustParse("a94cfd9e-5e61-4e5f-9fda-bb17d638a9ee"),
-		Builder: builder_model.Builder{
+		DraftBuilder: &builder_model.Builder{
 			ID:   uuid.MustParse("4f6788dd-a317-4771-8afa-878b0b017b17"),
 			Type: "generic-docker",
 			Data: builder_model.BuilderData{
@@ -163,7 +163,7 @@ func SeedProjects(db *DB) []*project.Project {
 				Tag:      "latest",
 			},
 		},
-		Runner: runner_model.Runner{
+		DraftRunner: &runner_model.Runner{
 			ID:   uuid.MustParse("6932f402-f633-48a9-bfc1-8489b1f3fd54"),
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
@@ -186,7 +186,7 @@ func SeedProjects(db *DB) []*project.Project {
 	wrapper_api := &service.Service{
 		Name: "Wrapper",
 		ID:   uuid.MustParse("b29dcba3-a2d3-40a5-bb70-2bd01002a062"),
-		Builder: builder_model.Builder{
+		DraftBuilder: &builder_model.Builder{
 			Type: "generic-docker",
 			ID:   uuid.MustParse("9376ac2a-ea1b-407b-a430-aabc0b687112"),
 			Data: builder_model.BuilderData{
@@ -195,7 +195,7 @@ func SeedProjects(db *DB) []*project.Project {
 				Tag:      "latest",
 			},
 		},
-		Runner: runner_model.Runner{
+		DraftRunner: &runner_model.Runner{
 			Name: "wrapper-runner",
 			Type: "generic-docker",
 			ID:   uuid.MustParse("e368e4c8-30b5-4eb2-9eb1-caf429984272"),

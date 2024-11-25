@@ -52,8 +52,8 @@ type QueryResolver interface {
 type ServiceResolver interface {
 	ID(ctx context.Context, obj *service_model.Service) (string, error)
 
-	Builder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error)
-	Runner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error)
+	LiveBuilder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error)
+	LiveRunner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error)
 	DraftBuilder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error)
 	DraftRunner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error)
 }
@@ -73,187 +73,429 @@ type UserResolver interface {
 func (ec *executionContext) field_Mutation_addServiceToProject_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["projectId"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("projectId"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg0, err := ec.field_Mutation_addServiceToProject_argsProjectID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["projectId"] = arg0
-	var arg1 public_graph_model.CreateServiceInput
-	if tmp, ok := rawArgs["input"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg1, err = ec.unmarshalNCreateServiceInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐCreateServiceInput(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg1, err := ec.field_Mutation_addServiceToProject_argsInput(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["input"] = arg1
 	return args, nil
+}
+func (ec *executionContext) field_Mutation_addServiceToProject_argsProjectID(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["projectId"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("projectId"))
+	if tmp, ok := rawArgs["projectId"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_addServiceToProject_argsInput(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (public_graph_model.CreateServiceInput, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["input"]
+	if !ok {
+		var zeroVal public_graph_model.CreateServiceInput
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+	if tmp, ok := rawArgs["input"]; ok {
+		return ec.unmarshalNCreateServiceInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐCreateServiceInput(ctx, tmp)
+	}
+
+	var zeroVal public_graph_model.CreateServiceInput
+	return zeroVal, nil
 }
 
 func (ec *executionContext) field_Mutation_createProject_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["name"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg0, err := ec.field_Mutation_createProject_argsName(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["name"] = arg0
-	var arg1 *string
-	if tmp, ok := rawArgs["description"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
-		arg1, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg1, err := ec.field_Mutation_createProject_argsDescription(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["description"] = arg1
 	return args, nil
+}
+func (ec *executionContext) field_Mutation_createProject_argsName(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["name"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+	if tmp, ok := rawArgs["name"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createProject_argsDescription(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (*string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["description"]
+	if !ok {
+		var zeroVal *string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+	if tmp, ok := rawArgs["description"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
 }
 
 func (ec *executionContext) field_Mutation_deleteDraft_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["projectId"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("projectId"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg0, err := ec.field_Mutation_deleteDraft_argsProjectID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["projectId"] = arg0
 	return args, nil
+}
+func (ec *executionContext) field_Mutation_deleteDraft_argsProjectID(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["projectId"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("projectId"))
+	if tmp, ok := rawArgs["projectId"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
 }
 
 func (ec *executionContext) field_Mutation_deployProject_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["projectId"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("projectId"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg0, err := ec.field_Mutation_deployProject_argsProjectID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["projectId"] = arg0
 	return args, nil
+}
+func (ec *executionContext) field_Mutation_deployProject_argsProjectID(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["projectId"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("projectId"))
+	if tmp, ok := rawArgs["projectId"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
 }
 
 func (ec *executionContext) field_Mutation_updateBuilder_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["serviceId"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceId"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg0, err := ec.field_Mutation_updateBuilder_argsServiceID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["serviceId"] = arg0
-	var arg1 public_graph_model.BuilderDataInput
-	if tmp, ok := rawArgs["data"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("data"))
-		arg1, err = ec.unmarshalNBuilderDataInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐBuilderDataInput(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg1, err := ec.field_Mutation_updateBuilder_argsData(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["data"] = arg1
 	return args, nil
+}
+func (ec *executionContext) field_Mutation_updateBuilder_argsServiceID(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["serviceId"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceId"))
+	if tmp, ok := rawArgs["serviceId"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updateBuilder_argsData(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (public_graph_model.BuilderDataInput, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["data"]
+	if !ok {
+		var zeroVal public_graph_model.BuilderDataInput
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("data"))
+	if tmp, ok := rawArgs["data"]; ok {
+		return ec.unmarshalNBuilderDataInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐBuilderDataInput(ctx, tmp)
+	}
+
+	var zeroVal public_graph_model.BuilderDataInput
+	return zeroVal, nil
 }
 
 func (ec *executionContext) field_Mutation_updateRunner_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["serviceId"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceId"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg0, err := ec.field_Mutation_updateRunner_argsServiceID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["serviceId"] = arg0
-	var arg1 public_graph_model.RunnerDataInput
-	if tmp, ok := rawArgs["data"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("data"))
-		arg1, err = ec.unmarshalNRunnerDataInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐRunnerDataInput(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg1, err := ec.field_Mutation_updateRunner_argsData(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["data"] = arg1
 	return args, nil
+}
+func (ec *executionContext) field_Mutation_updateRunner_argsServiceID(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["serviceId"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceId"))
+	if tmp, ok := rawArgs["serviceId"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updateRunner_argsData(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (public_graph_model.RunnerDataInput, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["data"]
+	if !ok {
+		var zeroVal public_graph_model.RunnerDataInput
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("data"))
+	if tmp, ok := rawArgs["data"]; ok {
+		return ec.unmarshalNRunnerDataInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐRunnerDataInput(ctx, tmp)
+	}
+
+	var zeroVal public_graph_model.RunnerDataInput
+	return zeroVal, nil
 }
 
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["name"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg0, err := ec.field_Query___type_argsName(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["name"] = arg0
 	return args, nil
+}
+func (ec *executionContext) field_Query___type_argsName(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["name"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+	if tmp, ok := rawArgs["name"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
 }
 
 func (ec *executionContext) field_Query_getProjectById_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["id"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg0, err := ec.field_Query_getProjectById_argsID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["id"] = arg0
 	return args, nil
+}
+func (ec *executionContext) field_Query_getProjectById_argsID(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["id"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+	if tmp, ok := rawArgs["id"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
 }
 
 func (ec *executionContext) field_Query_serviceLogs_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["serviceId"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceId"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg0, err := ec.field_Query_serviceLogs_argsServiceID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["serviceId"] = arg0
 	return args, nil
+}
+func (ec *executionContext) field_Query_serviceLogs_argsServiceID(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["serviceId"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceId"))
+	if tmp, ok := rawArgs["serviceId"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
 }
 
 func (ec *executionContext) field_Subscription_serviceLogs_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["serviceId"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceId"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
+	arg0, err := ec.field_Subscription_serviceLogs_argsServiceID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
 	}
 	args["serviceId"] = arg0
 	return args, nil
+}
+func (ec *executionContext) field_Subscription_serviceLogs_argsServiceID(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["serviceId"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceId"))
+	if tmp, ok := rawArgs["serviceId"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
 }
 
 // endregion ***************************** args.gotpl *****************************
@@ -778,10 +1020,10 @@ func (ec *executionContext) fieldContext_Mutation_addServiceToProject(ctx contex
 				return ec.fieldContext_Service_id(ctx, field)
 			case "name":
 				return ec.fieldContext_Service_name(ctx, field)
-			case "builder":
-				return ec.fieldContext_Service_builder(ctx, field)
-			case "runner":
-				return ec.fieldContext_Service_runner(ctx, field)
+			case "liveBuilder":
+				return ec.fieldContext_Service_liveBuilder(ctx, field)
+			case "liveRunner":
+				return ec.fieldContext_Service_liveRunner(ctx, field)
 			case "draftBuilder":
 				return ec.fieldContext_Service_draftBuilder(ctx, field)
 			case "draftRunner":
@@ -1279,10 +1521,10 @@ func (ec *executionContext) fieldContext_Project_services(_ context.Context, fie
 				return ec.fieldContext_Service_id(ctx, field)
 			case "name":
 				return ec.fieldContext_Service_name(ctx, field)
-			case "builder":
-				return ec.fieldContext_Service_builder(ctx, field)
-			case "runner":
-				return ec.fieldContext_Service_runner(ctx, field)
+			case "liveBuilder":
+				return ec.fieldContext_Service_liveBuilder(ctx, field)
+			case "liveRunner":
+				return ec.fieldContext_Service_liveRunner(ctx, field)
 			case "draftBuilder":
 				return ec.fieldContext_Service_draftBuilder(ctx, field)
 			case "draftRunner":
@@ -2209,8 +2451,8 @@ func (ec *executionContext) fieldContext_Service_name(_ context.Context, field g
 	return fc, nil
 }
 
-func (ec *executionContext) _Service_builder(ctx context.Context, field graphql.CollectedField, obj *service_model.Service) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Service_builder(ctx, field)
+func (ec *executionContext) _Service_liveBuilder(ctx context.Context, field graphql.CollectedField, obj *service_model.Service) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Service_liveBuilder(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -2223,24 +2465,21 @@ func (ec *executionContext) _Service_builder(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Service().Builder(rctx, obj)
+		return ec.resolvers.Service().LiveBuilder(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
 	res := resTmp.(*builder_model.Builder)
 	fc.Result = res
-	return ec.marshalNBuilder2ᚖbrumeᚗdevᚋbuilderᚋmodelᚐBuilder(ctx, field.Selections, res)
+	return ec.marshalOBuilder2ᚖbrumeᚗdevᚋbuilderᚋmodelᚐBuilder(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Service_builder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Service_liveBuilder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Service",
 		Field:      field,
@@ -2259,8 +2498,8 @@ func (ec *executionContext) fieldContext_Service_builder(_ context.Context, fiel
 	return fc, nil
 }
 
-func (ec *executionContext) _Service_runner(ctx context.Context, field graphql.CollectedField, obj *service_model.Service) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Service_runner(ctx, field)
+func (ec *executionContext) _Service_liveRunner(ctx context.Context, field graphql.CollectedField, obj *service_model.Service) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Service_liveRunner(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -2273,24 +2512,21 @@ func (ec *executionContext) _Service_runner(ctx context.Context, field graphql.C
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Service().Runner(rctx, obj)
+		return ec.resolvers.Service().LiveRunner(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
 	res := resTmp.(*runner_model.Runner)
 	fc.Result = res
-	return ec.marshalNRunner2ᚖbrumeᚗdevᚋrunnerᚋmodelᚐRunner(ctx, field.Selections, res)
+	return ec.marshalORunner2ᚖbrumeᚗdevᚋrunnerᚋmodelᚐRunner(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Service_runner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Service_liveRunner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Service",
 		Field:      field,
@@ -3630,19 +3866,16 @@ func (ec *executionContext) _Service(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "builder":
+		case "liveBuilder":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Service_builder(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
+				res = ec._Service_liveBuilder(ctx, field, obj)
 				return res
 			}
 
@@ -3666,19 +3899,16 @@ func (ec *executionContext) _Service(ctx context.Context, sel ast.SelectionSet, 
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "runner":
+		case "liveRunner":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Service_runner(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
+				res = ec._Service_liveRunner(ctx, field, obj)
 				return res
 			}
 

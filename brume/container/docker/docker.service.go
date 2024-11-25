@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
+	runner_model "brume.dev/runner/model"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog/log"
 )
@@ -30,18 +33,31 @@ func NewDockerService() *DockerService {
 	return &DockerService{dockerClient: cli}
 }
 
-func (d *DockerService) StartContainer(imageId string) (string, error) {
+func (d *DockerService) StartContainer(imageId string, runner *runner_model.Runner) (string, error) {
 	log.Info().Str("imageId", imageId).Msg("Starting container")
 
 	ctx := context.Background()
+	var command strslice.StrSlice
+
+	if runner.Data.Command != "" {
+		command = strslice.StrSlice(strings.Split(runner.Data.Command, " "))
+	}
 
 	response, err := d.dockerClient.ContainerCreate(ctx, &container.Config{
 		Image: imageId,
 		Tty:   false,
 		Labels: map[string]string{
-			"brume.dev/managed": "true",
+			"brume.dev/managed":    "true",
+			"brume.dev/service-id": runner.ServiceId.String(),
 		},
-	}, nil, nil, nil, "")
+		Cmd: command,
+		// Healthcheck: &container.HealthConfig{
+		// 	Test:     []string{"CMD", "/bin/sh", "curl", runner.Data.HealthCheckURL},
+		// 	Interval: 2 * time.Second,
+		// 	Timeout:  5 * time.Second,
+		// 	Retries:  3,
+		// },
+	}, nil, nil, nil, runner.Name)
 
 	if err != nil {
 		return "", err
@@ -63,6 +79,10 @@ func (d *DockerService) StopContainer(containerId string) error {
 	log.Info().Str("containerId", containerId).Msg("Stopping container")
 
 	return d.dockerClient.ContainerStop(context.Background(), containerId, container.StopOptions{})
+}
+
+func (d *DockerService) RemoveContainer(containerId string) error {
+	return d.dockerClient.ContainerRemove(context.Background(), containerId, container.RemoveOptions{})
 }
 
 func (d *DockerService) PullImage(registry string, image_name string, tag string) (string, error) {

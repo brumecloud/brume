@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { useDeleteDraft, useDeploy } from "@/hooks/useDeploy";
 import { useProject } from "@/hooks/useProject";
 import { RouteParams } from "@/router/router";
-import { modalState } from "@/state/modal.state";
 import { cn } from "@/utils";
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";

@@ -4,7 +4,7 @@ import { useMutation } from "@apollo/client";
 import { useParams } from "react-router-dom";
 
 export const useUpdateRunner = () => {
-  const { serviceId } = useParams<RouteParams>();
+  const { serviceId, projectId } = useParams<RouteParams>();
 
   const [updateRunnerMutation, { loading, error }] = useMutation(
     UPDATE_RUNNER_MUTATION,
@@ -13,7 +13,13 @@ export const useUpdateRunner = () => {
         cache.modify({
           id: `Service:${serviceId}`,
           fields: {
-            builder: () => data.updateBuilder,
+            draftRunner: () => data.updateRunner,
+          },
+        });
+        cache.modify({
+          id: `Project:${projectId}`,
+          fields: {
+            isDirty: () => true,
           },
         });
       },

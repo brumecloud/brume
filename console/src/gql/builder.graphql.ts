@@ -17,12 +17,8 @@ export const UPDATE_BUILDER_MUTATION = gql`
     $input: BuilderDataInput!
   ) {
     updateBuilder(serviceId: $serviceId, data: $input) {
-      type
-      data {
-        tag
-        image
-        registry
-      }
+      ...BuilderFragment
     }
   }
+  ${BUILDER_FRAGMENT}
 `;

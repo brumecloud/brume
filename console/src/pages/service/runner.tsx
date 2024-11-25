@@ -33,9 +33,9 @@ import { toast } from "sonner";
 
 export const RunnerPage = () => {
   const { service } = useService();
+  const [wasDraft, setWasDraft] = useState(false);
   const runner = service?.runner;
   const draftRunner = service?.draftRunner;
-  const [wasDraft, setWasDraft] = useState(false);
 
   const { updateRunnerMutation, loading } = useUpdateRunner();
 
@@ -43,7 +43,7 @@ export const RunnerPage = () => {
     resolver: zodResolver(DockerRunnerSchema),
     mode: "onChange",
     defaultValues: useMemo(
-      () => draftRunner ?? runner,
+      () => draftRunner ?? runner ?? undefined,
       [draftRunner, runner]
     ),
   });
@@ -58,9 +58,11 @@ export const RunnerPage = () => {
 
   useEffect(() => {
     if (service) {
+      if (!draftRunner && !runner) {
+        throw new Error("Runner invalid (no draft or live)");
+      }
       form.reset(draftRunner ?? runner);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, service?.id]);
 
   useEffect(() => {

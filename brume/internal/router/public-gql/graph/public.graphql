@@ -69,8 +69,10 @@ input RunnerDataInput {
 type Service {
   id: String!
   name: String!
-  builder: Builder!
-  runner: Runner!
+
+  liveBuilder: Builder
+  liveRunner: Runner
+
   draftBuilder: Builder
   draftRunner: Runner
 }

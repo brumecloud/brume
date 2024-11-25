@@ -16,7 +16,7 @@ export const useProject = (): {
 
   const { data, loading } = useQuery(PROJECT_BY_ID_QUERY, {
     variables: {
-      projectId: projectId ?? "test",
+      projectId: projectId ?? "no-id-bug",
     },
     // data can come from me query, or need to be fetch when direct link
     fetchPolicy: "cache-first",
@@ -30,13 +30,7 @@ export const useProject = (): {
     const rawData = ProjectSchema.safeParse(data?.getProjectById);
 
     if (!rawData.success) {
-      console.table(rawData.error.issues);
-      console.log(data);
-      return {
-        project: undefined,
-        loading: false,
-        error: rawData.error,
-      };
+      throw new Error(rawData.error.message);
     } else {
       return {
         project: rawData.data,

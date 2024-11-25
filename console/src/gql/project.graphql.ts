@@ -12,14 +12,14 @@ export const ProjectFragment = gql`
     services {
       name
       id
-      builder {
-        ...BuilderFragment
-      }
       runner {
         ...RunnerFragment
       }
       draftRunner {
         ...RunnerFragment
+      }
+      builder {
+        ...BuilderFragment
       }
       draftBuilder {
         ...BuilderFragment
