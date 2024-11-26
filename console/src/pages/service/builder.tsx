@@ -45,17 +45,21 @@ const GenericImageOptions = () => {
   const { service } = useService();
   const [wasDraft, setWasDraft] = useState(false);
   const draftBuilder = service?.draftBuilder;
-  const builder = service?.builder;
+  const builder = service?.liveBuilder;
 
   const { updateBuilderMutation, loading } = useUpdateBuilder();
 
   const form = useForm<Builder>({
     resolver: zodResolver(BuilderSchema),
     mode: "onChange",
-    defaultValues: useMemo(
-      () => draftBuilder ?? builder,
-      [draftBuilder, builder]
-    ),
+    defaultValues: useMemo(() => {
+      if (draftBuilder) {
+        return draftBuilder;
+      } else if (builder) {
+        return builder;
+      }
+      return undefined;
+    }, [draftBuilder, builder]),
   });
 
   const blocker = useBlocker(() => {
@@ -68,7 +72,11 @@ const GenericImageOptions = () => {
 
   useEffect(() => {
     if (service) {
-      form.reset(draftBuilder ?? builder);
+      if (draftBuilder) {
+        form.reset(draftBuilder);
+      } else if (builder) {
+        form.reset(builder);
+      }
     }
   }, [form, service?.id]);
 
@@ -76,8 +84,8 @@ const GenericImageOptions = () => {
     if (draftBuilder) {
       setWasDraft(true);
     }
-    if (wasDraft && !draftBuilder) {
-      form.reset(service?.builder);
+    if (wasDraft && builder) {
+      form.reset(builder);
       setWasDraft(false);
     }
   }, [service]);
@@ -110,7 +118,7 @@ const GenericImageOptions = () => {
     form.reset(form.getValues());
   };
 
-  if (!service || !builder) return null;
+  if (!service) return null;
 
   return (
     <Form {...form}>
@@ -166,7 +174,8 @@ const GenericImageOptions = () => {
                     <SelectTrigger
                       className={cn(
                         "w-[180px]",
-                        draftBuilder &&
+                        builder &&
+                          draftBuilder &&
                           draftBuilder.data.registry !==
                             builder.data.registry &&
                           "border-blue-500",
@@ -185,7 +194,8 @@ const GenericImageOptions = () => {
                       <SelectItem value="quay.io">Quay</SelectItem>
                     </SelectContent>
                   </Select>
-                  {draftBuilder &&
+                  {builder &&
+                    draftBuilder &&
                     draftBuilder.data.registry !==
                       builder.data.registry && (
                       <p className="text-xs italic text-blue-500">
@@ -211,7 +221,8 @@ const GenericImageOptions = () => {
                     type="text"
                     placeholder="hello-world"
                     className={cn(
-                      draftBuilder &&
+                      builder &&
+                        draftBuilder &&
                         draftBuilder.data.image !==
                           builder.data.image &&
                         "border-blue-500",
@@ -219,7 +230,8 @@ const GenericImageOptions = () => {
                         "border-green-500"
                     )}
                   />
-                  {draftBuilder &&
+                  {builder &&
+                    draftBuilder &&
                     draftBuilder.data.image !==
                       builder.data.image && (
                       <p className="text-xs italic text-blue-500">
@@ -245,14 +257,16 @@ const GenericImageOptions = () => {
                     type="text"
                     placeholder="latest"
                     className={cn(
-                      draftBuilder &&
+                      builder &&
+                        draftBuilder &&
                         draftBuilder.data.tag !== builder.data.tag &&
                         "border-blue-500",
                       form.formState.dirtyFields.data?.tag &&
                         "border-green-500"
                     )}
                   />
-                  {draftBuilder &&
+                  {builder &&
+                    draftBuilder &&
                     draftBuilder.data.tag !== builder.data.tag && (
                       <p className="text-xs italic text-blue-500">
                         old value: {builder.data.tag}

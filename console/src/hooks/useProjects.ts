@@ -38,12 +38,7 @@ export const useProjects = (): {
     const rawData = ProjectListSchema.safeParse(data?.me?.projects);
 
     if (!rawData.success) {
-      console.error(rawData.error);
-      return {
-        projects: [],
-        loading: false,
-        error: rawData.error,
-      };
+      throw new Error(rawData.error.message);
     } else {
       return {
         projects: rawData.data,

@@ -20,8 +20,8 @@ type Service struct {
 	Name string
 
 	// model which is used for deployment
-	LiveRunner  *runner_model.Runner   `gorm:"foreignKey:RunnerID"`
-	LiveBuilder *builder_model.Builder `gorm:"foreignKey:BuilderID"`
+	LiveRunner  *runner_model.Runner   `gorm:"foreignKey:LiveRunnerID"`
+	LiveBuilder *builder_model.Builder `gorm:"foreignKey:LiveBuilderID"`
 
 	LiveRunnerID  *uuid.UUID
 	LiveBuilderID *uuid.UUID

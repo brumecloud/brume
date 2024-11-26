@@ -20,7 +20,7 @@ import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 export const DirtyServiceModal = () => {
-  const { projectId, serviceId } = useParams<RouteParams>();
+  const { projectId } = useParams<RouteParams>();
   const { project } = useProject();
   const { deploy } = useDeploy();
   const { deleteDraft: deleteDraftMutation } = useDeleteDraft(
@@ -82,6 +82,10 @@ export const DirtyServiceModal = () => {
     });
   };
 
+  const firstDeploy = project?.services.every(
+    (service) => !service.liveRunner
+  );
+
   return (
     <AnimatePresence>
       <AlertDialog open={confirmModalOpen}>
@@ -113,15 +117,19 @@ export const DirtyServiceModal = () => {
           exit={{ opacity: 0, y: -150 }}
           className={cn("absolute left-0 top-5 w-screen")}>
           <div className="flex flex-col items-center">
-            <div className="z-[9999] flex items-center justify-between space-x-4 rounded-lg bg-blue-900 px-4 py-2 pr-3 shadow-lg shadow-blue-400/50">
-              <Button
-                variant="link"
-                className="p-0"
-                onClick={closeModal}>
-                <X className="h-4 w-4 text-blue-400" />
-              </Button>
+            <div className="z-[9999] flex items-center justify-between space-x-4 rounded-lg bg-blue-900 px-4 py-2 pr-2 shadow-lg shadow-blue-400/50">
+              {!firstDeploy && (
+                <Button
+                  variant="link"
+                  className="p-0"
+                  onClick={closeModal}>
+                  <X className="h-4 w-4 text-blue-400" />
+                </Button>
+              )}
               <h1 className="text-sm font-semibold text-blue-400">
-                Apply the changes
+                {firstDeploy
+                  ? "Deploy the project"
+                  : "Apply the changes"}
               </h1>
               <Button
                 variant="default"

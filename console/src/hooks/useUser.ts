@@ -22,7 +22,7 @@ export const useUser = (): {
 
     if (!parsedData.success) {
       toast.error("Failed to parse user data");
-      throw new Error("Failed to parse user data");
+      throw new Error(parsedData.error.message);
     }
 
     return {

@@ -112,14 +112,14 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 	// when you deploy it gets save
 	for _, service := range project.Services {
 		if service.DraftRunnerID != nil {
-			s.db.Gorm.Model(&service).Association("Runner").Clear()
-			s.db.Gorm.Model(&service).Association("Runner").Append(service.DraftRunner)
+			s.db.Gorm.Model(&service).Association("LiveRunner").Clear()
+			s.db.Gorm.Model(&service).Association("LiveRunner").Append(service.DraftRunner)
 			s.db.Gorm.Model(&service).Association("DraftRunner").Clear()
 		}
 
 		if service.DraftBuilderID != nil {
-			s.db.Gorm.Model(&service).Association("Builder").Clear()
-			s.db.Gorm.Model(&service).Association("Builder").Append(service.DraftBuilder)
+			s.db.Gorm.Model(&service).Association("LiveBuilder").Clear()
+			s.db.Gorm.Model(&service).Association("LiveBuilder").Append(service.DraftBuilder)
 			s.db.Gorm.Model(&service).Association("DraftBuilder").Clear()
 		}
 
@@ -165,7 +165,7 @@ func (s *ProjectService) CreateProject(name string, description string) (*projec
 
 func (s *ProjectService) GetProjectServices(project *project.Project) (*project.Project, error) {
 	err := s.db.Gorm.Preload("Services", func(db *gorm.DB) *gorm.DB {
-		return db.Preload("Builder").Preload("Runner").Preload("DraftBuilder").Preload("DraftRunner").Order("created_at DESC")
+		return db.Preload("LiveBuilder").Preload("LiveRunner").Preload("DraftBuilder").Preload("DraftRunner").Order("created_at DESC")
 	}).First(&project, "id = ?", project.ID).Error
 
 	return project, err

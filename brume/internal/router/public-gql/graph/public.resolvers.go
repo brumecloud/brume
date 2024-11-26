@@ -6,7 +6,6 @@ package public_graph
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	user_model "brume.dev/account/user/model"
@@ -136,12 +135,12 @@ func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (s
 
 // LiveBuilder is the resolver for the liveBuilder field.
 func (r *serviceResolver) LiveBuilder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error) {
-	panic(fmt.Errorf("not implemented: LiveBuilder - liveBuilder"))
+	return obj.LiveBuilder, nil
 }
 
 // LiveRunner is the resolver for the liveRunner field.
 func (r *serviceResolver) LiveRunner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error) {
-	panic(fmt.Errorf("not implemented: LiveRunner - liveRunner"))
+	return obj.LiveRunner, nil
 }
 
 // DraftBuilder is the resolver for the draftBuilder field.

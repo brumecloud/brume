@@ -26,7 +26,6 @@ export const useCreateProject = () => {
         );
 
         if (newProject.error) {
-          // this is not possible
           throw newProject.error;
         }
 
