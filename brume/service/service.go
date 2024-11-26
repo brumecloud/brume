@@ -132,7 +132,7 @@ func (s *ServiceService) DeployService(serviceId uuid.UUID) error {
 
 func (s *ServiceService) GetService(serviceId uuid.UUID) (*service_model.Service, error) {
 	service := &service_model.Service{}
-	err := s.db.Gorm.Preload("DraftRunner").Preload("DraftBuilder").Preload("Runner").Preload("Builder").First(service, serviceId).Error
+	err := s.db.Gorm.Preload("DraftRunner").Preload("DraftBuilder").Preload("LiveRunner").Preload("LiveBuilder").First(service, serviceId).Error
 	return service, err
 }
 

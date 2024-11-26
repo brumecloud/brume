@@ -21,7 +21,7 @@ func NewNodeCmd() *cobra.Command {
 func runNode() func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		brumelog.InitLogger()
-		log.Info().Msg("Brume v0.1 - Node")
+		log.Info().Msg("Brume v0.1 - Node (docker specific)")
 
 		injector := injection.NewNodeInjector()
 		injector.Run()

@@ -9,6 +9,7 @@ services:
     command: ["air", "-c", ".air-master.toml"]
     volumes:
       - ./brume:/brume
+    restart: always
     ports:
       - 9877:9877
     depends_on:
@@ -27,6 +28,7 @@ services:
     volumes:
       - ./brume:/brume
       - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
     depends_on:
       - postgres
     networks:
