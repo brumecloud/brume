@@ -52,6 +52,17 @@ func (r *mutationResolver) AddServiceToProject(ctx context.Context, projectID st
 	return service, err
 }
 
+// DeleteService is the resolver for the deleteService field.
+func (r *mutationResolver) DeleteService(ctx context.Context, serviceID string) (*service_model.Service, error) {
+	service_uuid, err := uuid.Parse(serviceID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ServiceService.DeleteService(service_uuid)
+}
+
 // UpdateBuilder is the resolver for the updateBuilder field.
 func (r *mutationResolver) UpdateBuilder(ctx context.Context, serviceID string, data public_graph_model.BuilderDataInput) (*builder_model.Builder, error) {
 	builderData := builder_model.BuilderData{
@@ -84,14 +95,14 @@ func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, d
 	return r.ServiceService.UpdateRunner(uuid.MustParse(serviceID), runnerData)
 }
 
-// DeployProject is the resolver for the deployProject field.
-func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) (*project_model.Project, error) {
-	return r.ProjectService.DeployProject(uuid.MustParse(projectID))
-}
-
 // DeleteDraft is the resolver for the deleteDraft field.
 func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error) {
 	return r.ProjectService.DeleteDraft(uuid.MustParse(projectID))
+}
+
+// DeployProject is the resolver for the deployProject field.
+func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) (*project_model.Project, error) {
+	return r.ProjectService.DeployProject(uuid.MustParse(projectID))
 }
 
 // ID is the resolver for the id field.
@@ -131,16 +142,6 @@ func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string) ([]*l
 // ID is the resolver for the id field.
 func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (string, error) {
 	return obj.ID.String(), nil
-}
-
-// LiveBuilder is the resolver for the liveBuilder field.
-func (r *serviceResolver) LiveBuilder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error) {
-	return obj.LiveBuilder, nil
-}
-
-// LiveRunner is the resolver for the liveRunner field.
-func (r *serviceResolver) LiveRunner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error) {
-	return obj.LiveRunner, nil
 }
 
 // DraftBuilder is the resolver for the draftBuilder field.
@@ -198,18 +199,3 @@ type queryResolver struct{ *Resolver }
 type serviceResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *serviceResolver) Builder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error) {
-	return obj.Builder, nil
-}
-func (r *serviceResolver) Runner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error) {
-	return obj.Runner, nil
-}
-*/

@@ -3,7 +3,7 @@ import { z } from "zod";
 export const DockerRunnerSchema = z.object({
   type: z.literal("generic-docker"),
   data: z.object({
-    command: z.string(),
+    command: z.string().nullable(),
     healthCheckURL: z.string().url({
       message: "Invalid URL",
     }),
@@ -15,7 +15,8 @@ export const DockerRunnerSchema = z.object({
         })
         .max(1000, {
           message: "Memory limit must be less than 1000Mb",
-        }),
+        })
+        .default(100),
       request: z
         .number()
         .min(1, {
@@ -23,7 +24,8 @@ export const DockerRunnerSchema = z.object({
         })
         .max(1000, {
           message: "Memory request must be less than 1000Mb",
-        }),
+        })
+        .default(100),
     }),
     cpu: z.object({
       limit: z
@@ -33,7 +35,8 @@ export const DockerRunnerSchema = z.object({
         })
         .max(2, {
           message: "CPU limit must be less than 2",
-        }),
+        })
+        .default(0.2),
       request: z
         .number()
         .min(0.05, {
@@ -41,15 +44,22 @@ export const DockerRunnerSchema = z.object({
         })
         .max(2, {
           message: "CPU request must be less than 2",
-        }),
+        })
+        .default(0.2),
     }),
-    port: z.number().min(1).max(65535),
-    publicDomain: z.string().regex(/^[a-z0-9-]+$/, {
-      message: "Invalid public domain",
-    }),
-    privateDomain: z.string().regex(/^[a-z0-9-]+$/, {
-      message: "Invalid private domain",
-    }),
+    port: z.number().min(1).max(65535).default(80),
+    publicDomain: z
+      .string()
+      .regex(/^[a-z0-9-]+$/, {
+        message: "Invalid public domain",
+      })
+      .or(z.literal("")),
+    privateDomain: z
+      .string()
+      .regex(/^[a-z0-9-]+$/, {
+        message: "Invalid private domain",
+      })
+      .or(z.literal("")),
   }),
 });
 

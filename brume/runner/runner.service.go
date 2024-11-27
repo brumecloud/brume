@@ -45,20 +45,20 @@ func (e *RunnerService) CreateDockerExecutor(serviceId uuid.UUID) (*runner.Runne
 	runner := &runner.Runner{
 		ID:        id,
 		Name:      "Docker runner",
-		Type:      "docker",
+		Type:      "generic-docker",
 		ServiceId: serviceId,
 		Data: runner.RunnerData{
 			Command:        "",
-			HealthCheckURL: "",
+			HealthCheckURL: "http://localhost:8080/health",
 			Memory: runner.RessourceConstraints{
 				Request: 100,
 				Limit:   100,
 			},
 			CPU: runner.RessourceConstraints{
-				Request: 100,
-				Limit:   100,
+				Request: 0.5,
+				Limit:   0.5,
 			},
-			Port:          80,
+			Port:          8080,
 			PublicDomain:  "",
 			PrivateDomain: "",
 		},

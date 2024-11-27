@@ -19,8 +19,6 @@ export const useCreateProject = () => {
         };
         const projects: Project[] = meQuery.me.projects;
 
-        console.log(data.createProject);
-
         const newProject = ProjectSchema.safeParse(
           data.createProject
         );

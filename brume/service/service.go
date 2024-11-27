@@ -130,6 +130,16 @@ func (s *ServiceService) DeployService(serviceId uuid.UUID) error {
 	return nil
 }
 
+func (s *ServiceService) DeleteService(serviceId uuid.UUID) (*service_model.Service, error) {
+	service, err := s.GetService(serviceId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return service, s.db.Gorm.Delete(service).Error
+}
+
 func (s *ServiceService) GetService(serviceId uuid.UUID) (*service_model.Service, error) {
 	service := &service_model.Service{}
 	err := s.db.Gorm.Preload("DraftRunner").Preload("DraftBuilder").Preload("LiveRunner").Preload("LiveBuilder").First(service, serviceId).Error

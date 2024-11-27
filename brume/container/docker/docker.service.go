@@ -34,7 +34,7 @@ func NewDockerService() *DockerService {
 }
 
 func (d *DockerService) StartContainer(imageId string, runner *runner_model.Runner) (string, error) {
-	log.Info().Str("imageId", imageId).Msg("Starting container")
+	log.Info().Str("imageId", imageId).Str("runnerId", runner.ID.String()).Msg("Starting container")
 
 	ctx := context.Background()
 	var command strslice.StrSlice
@@ -57,7 +57,7 @@ func (d *DockerService) StartContainer(imageId string, runner *runner_model.Runn
 		// 	Timeout:  5 * time.Second,
 		// 	Retries:  3,
 		// },
-	}, nil, nil, nil, runner.Name)
+	}, nil, nil, nil, "")
 
 	if err != nil {
 		return "", err

@@ -11,3 +11,11 @@ export const ADD_SERVICE_MUTATION = gql`
     }
   }
 `;
+
+export const DELETE_SERVICE_MUTATION = gql`
+  mutation DeleteService($serviceId: String!) {
+    deleteService(serviceId: $serviceId) {
+      id
+    }
+  }
+`;

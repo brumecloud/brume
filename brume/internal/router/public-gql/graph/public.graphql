@@ -98,10 +98,12 @@ type Query {
 type Mutation {
   createProject(name: String!, description: String): Project!
   addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
+  deleteService(serviceId: String!): Service!
   updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
   updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
-  deployProject(projectId: String!): Project!
   deleteDraft(projectId: String!): Project!
+
+  deployProject(projectId: String!): Project!
 }
 
 type Subscription {

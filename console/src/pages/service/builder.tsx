@@ -84,7 +84,7 @@ const GenericImageOptions = () => {
     if (draftBuilder) {
       setWasDraft(true);
     }
-    if (wasDraft && builder) {
+    if (wasDraft && !draftBuilder && builder) {
       form.reset(builder);
       setWasDraft(false);
     }
@@ -168,9 +168,7 @@ const GenericImageOptions = () => {
                   <Label htmlFor="registry" className="text-xs">
                     Registry
                   </Label>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}>
+                  <Select {...field}>
                     <SelectTrigger
                       className={cn(
                         "w-[180px]",

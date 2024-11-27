@@ -1,25 +1,35 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group";
-import { useService } from "@/hooks/useService";
+import { useDeleteService, useService } from "@/hooks/useService";
+import type { RouteParams } from "@/router/router";
 import { type Service } from "@/schemas/service.schema";
 import { cn } from "@/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Bell, Flame, Pickaxe, SquareTerminal } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useBlocker } from "react-router-dom";
+import { useBlocker, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 
 export const SettingPage = () => {
+  const { projectId } = useParams<RouteParams>();
   const { service } = useService();
+  const { deleteServiceMutation } = useDeleteService();
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   const form = useForm<Service>({
     resolver: zodResolver(
@@ -54,6 +64,22 @@ export const SettingPage = () => {
     [form.formState.isDirty]
   );
 
+  const onDelete = useCallback(() => {
+    const promise = async () => {
+      await deleteServiceMutation();
+      navigate(`/${projectId}`);
+    };
+    toast.promise(promise, {
+      loading: "Deleting...",
+      success: "Deleted!",
+      error: "Failed to delete",
+    });
+  }, [deleteServiceMutation]);
+
+  const cancel = useCallback(() => {
+    setConfirmModalOpen(false);
+  }, []);
+
   useEffect(() => {
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
@@ -61,6 +87,27 @@ export const SettingPage = () => {
 
   return (
     <div className="flex h-full flex-col px-32 pt-8">
+      <AlertDialog open={confirmModalOpen}>
+        <AlertDialogContent className="bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>This is danger.</AlertDialogTitle>
+            <AlertDialogDescription>
+              Once you delete the service, you also lose all the data
+              associated to it. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancel}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-700 hover:bg-red-800"
+              onClick={onDelete}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="flex flex-col py-16">
         <h2 className="h-full pb-2 text-2xl font-semibold">
           Settings
@@ -109,9 +156,12 @@ export const SettingPage = () => {
                   all its artifacts, all its logs and metrics.
                 </span>
               </p>
-              <p>This cannot be undone.</p>
             </div>
-            <Button className="w-[100px] bg-red-700">Delete</Button>
+            <Button
+              className="w-[100px] bg-red-700 hover:bg-red-800"
+              onClick={() => setConfirmModalOpen(true)}>
+              Delete
+            </Button>
           </div>
         </div>
         <div className="grow border-l border-gray-300" />
