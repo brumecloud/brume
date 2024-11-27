@@ -140,7 +140,7 @@ export const SettingPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <div className="flex h-full flex-col py-16">
+      <div className="flex h-full flex-col pt-16">
         <div className="flex w-full flex-row items-center justify-between pb-16">
           <div>
             <h2 className="pb-2 text-2xl font-semibold">Settings</h2>
