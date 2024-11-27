@@ -146,6 +146,18 @@ func (s *ServiceService) GetService(serviceId uuid.UUID) (*service_model.Service
 	return service, err
 }
 
+func (s *ServiceService) UpdateServiceSettings(serviceId uuid.UUID, name string) (*service_model.Service, error) {
+	service, err := s.GetService(serviceId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	service.Name = name
+
+	return service, s.db.Gorm.Save(&service).Error
+}
+
 func (s *ServiceService) CreateService(name string, projectId uuid.UUID, image string) (*service_model.Service, error) {
 	id, _ := uuid.NewRandom()
 

@@ -63,19 +63,42 @@ func (r *mutationResolver) DeleteService(ctx context.Context, serviceID string) 
 	return r.ServiceService.DeleteService(service_uuid)
 }
 
+// UpdateServiceSettings is the resolver for the updateServiceSettings field.
+func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID string, settings public_graph_model.ServiceSettingsInput) (*service_model.Service, error) {
+	service_uuid, err := uuid.Parse(serviceID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ServiceService.UpdateServiceSettings(service_uuid, settings.Name)
+}
+
 // UpdateBuilder is the resolver for the updateBuilder field.
 func (r *mutationResolver) UpdateBuilder(ctx context.Context, serviceID string, data public_graph_model.BuilderDataInput) (*builder_model.Builder, error) {
+	service_uuid, err := uuid.Parse(serviceID)
+
+	if err != nil {
+		return nil, err
+	}
+
 	builderData := builder_model.BuilderData{
 		Image:    data.Image,
 		Registry: data.Registry,
 		Tag:      data.Tag,
 	}
 
-	return r.ServiceService.UpdateBuilder(uuid.MustParse(serviceID), builderData)
+	return r.ServiceService.UpdateBuilder(service_uuid, builderData)
 }
 
 // UpdateRunner is the resolver for the updateRunner field.
 func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, data public_graph_model.RunnerDataInput) (*runner_model.Runner, error) {
+	service_uuid, err := uuid.Parse(serviceID)
+
+	if err != nil {
+		return nil, err
+	}
+
 	runnerData := runner_model.RunnerData{
 		Command:        data.Command,
 		HealthCheckURL: data.HealthCheckURL,
@@ -92,17 +115,29 @@ func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, d
 		PrivateDomain: data.PrivateDomain,
 	}
 
-	return r.ServiceService.UpdateRunner(uuid.MustParse(serviceID), runnerData)
+	return r.ServiceService.UpdateRunner(service_uuid, runnerData)
 }
 
 // DeleteDraft is the resolver for the deleteDraft field.
 func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error) {
-	return r.ProjectService.DeleteDraft(uuid.MustParse(projectID))
+	project_uuid, err := uuid.Parse(projectID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ProjectService.DeleteDraft(project_uuid)
 }
 
 // DeployProject is the resolver for the deployProject field.
 func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) (*project_model.Project, error) {
-	return r.ProjectService.DeployProject(uuid.MustParse(projectID))
+	project_uuid, err := uuid.Parse(projectID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ProjectService.DeployProject(project_uuid)
 }
 
 // ID is the resolver for the id field.
@@ -131,7 +166,13 @@ func (r *queryResolver) Me(ctx context.Context) (*user_model.User, error) {
 
 // GetProjectByID is the resolver for the getProjectById field.
 func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project_model.Project, error) {
-	return r.ProjectService.GetProjectByID(uuid.MustParse(id))
+	project_uuid, err := uuid.Parse(id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ProjectService.GetProjectByID(project_uuid)
 }
 
 // ServiceLogs is the resolver for the serviceLogs field.

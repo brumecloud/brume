@@ -65,13 +65,14 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		AddServiceToProject func(childComplexity int, projectID string, input public_graph_model.CreateServiceInput) int
-		CreateProject       func(childComplexity int, name string, description *string) int
-		DeleteDraft         func(childComplexity int, projectID string) int
-		DeleteService       func(childComplexity int, serviceID string) int
-		DeployProject       func(childComplexity int, projectID string) int
-		UpdateBuilder       func(childComplexity int, serviceID string, data public_graph_model.BuilderDataInput) int
-		UpdateRunner        func(childComplexity int, serviceID string, data public_graph_model.RunnerDataInput) int
+		AddServiceToProject   func(childComplexity int, projectID string, input public_graph_model.CreateServiceInput) int
+		CreateProject         func(childComplexity int, name string, description *string) int
+		DeleteDraft           func(childComplexity int, projectID string) int
+		DeleteService         func(childComplexity int, serviceID string) int
+		DeployProject         func(childComplexity int, projectID string) int
+		UpdateBuilder         func(childComplexity int, serviceID string, data public_graph_model.BuilderDataInput) int
+		UpdateRunner          func(childComplexity int, serviceID string, data public_graph_model.RunnerDataInput) int
+		UpdateServiceSettings func(childComplexity int, serviceID string, settings public_graph_model.ServiceSettingsInput) int
 	}
 
 	Project struct {
@@ -294,6 +295,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.UpdateRunner(childComplexity, args["serviceId"].(string), args["data"].(public_graph_model.RunnerDataInput)), true
+
+	case "Mutation.updateServiceSettings":
+		if e.complexity.Mutation.UpdateServiceSettings == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateServiceSettings_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateServiceSettings(childComplexity, args["serviceId"].(string), args["settings"].(public_graph_model.ServiceSettingsInput)), true
 
 	case "Project.description":
 		if e.complexity.Project.Description == nil {
@@ -532,6 +545,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCreateServiceInput,
 		ec.unmarshalInputRessourceConstraintsInput,
 		ec.unmarshalInputRunnerDataInput,
+		ec.unmarshalInputServiceSettingsInput,
 	)
 	first := true
 
@@ -737,6 +751,10 @@ input CreateServiceInput {
   image: String!
 }
 
+input ServiceSettingsInput {
+  name: String!
+}
+
 type Query {
   me: User!
   getProjectById(id: String!): Project!
@@ -747,6 +765,10 @@ type Mutation {
   createProject(name: String!, description: String): Project!
   addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
   deleteService(serviceId: String!): Service!
+  updateServiceSettings(
+    serviceId: String!
+    settings: ServiceSettingsInput!
+  ): Service!
   updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
   updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
   deleteDraft(projectId: String!): Project!

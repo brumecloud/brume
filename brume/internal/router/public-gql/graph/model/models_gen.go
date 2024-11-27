@@ -34,5 +34,9 @@ type RunnerDataInput struct {
 	PrivateDomain  string                     `json:"privateDomain"`
 }
 
+type ServiceSettingsInput struct {
+	Name string `json:"name"`
+}
+
 type Subscription struct {
 }

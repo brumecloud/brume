@@ -1,5 +1,8 @@
 import { PROJECT_BY_ID_QUERY } from "@/gql/project.graphql";
-import { DELETE_SERVICE_MUTATION } from "@/gql/service.graphql";
+import {
+  DELETE_SERVICE_MUTATION,
+  UPDATE_SERVICE_SETTINGS_MUTATION,
+} from "@/gql/service.graphql";
 import type { RouteParams } from "@/router/router";
 import { ProjectSchema } from "@/schemas/project.schema";
 import { useMutation } from "@apollo/client";
@@ -68,6 +71,28 @@ export const useDeleteService = (_serviceId?: string) => {
 
   return {
     deleteServiceMutation,
+    loading,
+    error,
+  };
+};
+
+export const useUpdateServiceSettings = () => {
+  const { serviceId } = useParams<RouteParams>();
+
+  const [updateServiceSettingsMutation, { loading, error }] =
+    useMutation(UPDATE_SERVICE_SETTINGS_MUTATION, {
+      update(cache, { data }) {
+        cache.modify({
+          id: `Service:${serviceId}`,
+          fields: {
+            name: () => data.updateServiceSettings.name,
+          },
+        });
+      },
+    });
+
+  return {
+    updateServiceSettingsMutation,
     loading,
     error,
   };

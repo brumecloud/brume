@@ -11,12 +11,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useDeleteService, useService } from "@/hooks/useService";
+import {
+  useDeleteService,
+  useService,
+  useUpdateServiceSettings,
+} from "@/hooks/useService";
 import type { RouteParams } from "@/router/router";
 import { type Service } from "@/schemas/service.schema";
 import { cn } from "@/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Bell, Flame, Pickaxe, SquareTerminal } from "lucide-react";
+import {
+  Bell,
+  Flame,
+  Loader2,
+  Pickaxe,
+  SquareTerminal,
+} from "lucide-react";
 import { useCallback, useState } from "react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -29,6 +39,8 @@ export const SettingPage = () => {
   const { service } = useService();
   const { deleteServiceMutation } = useDeleteService();
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const { updateServiceSettingsMutation, loading, error } =
+    useUpdateServiceSettings();
   const navigate = useNavigate();
 
   const form = useForm<Service>({
@@ -80,10 +92,30 @@ export const SettingPage = () => {
     setConfirmModalOpen(false);
   }, []);
 
+  const submitChanges = async () => {
+    const promise = async () => {
+      await updateServiceSettingsMutation({
+        variables: {
+          serviceId: service?.id,
+          input: { name: form.getValues().name },
+        },
+      });
+      form.reset();
+    };
+
+    toast.promise(promise, {
+      loading: "Updating...",
+      success: "Updated!",
+      error: "Failed to update",
+    });
+  };
+
   useEffect(() => {
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [onUnload]);
+
+  console.log(form.formState);
 
   return (
     <div className="flex h-full flex-col px-32 pt-8">
@@ -108,13 +140,43 @@ export const SettingPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <div className="flex flex-col py-16">
-        <h2 className="h-full pb-2 text-2xl font-semibold">
-          Settings
-        </h2>
-        <p>Manage the service</p>
-      </div>
-      <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col py-16">
+        <div className="flex w-full flex-row items-center justify-between pb-16">
+          <div>
+            <h2 className="pb-2 text-2xl font-semibold">Settings</h2>
+            <p>Manage the service</p>
+          </div>
+          <div className="">
+            <div className="flex flex-row items-center justify-between">
+              <div className="">
+                {form.formState.isDirty && (
+                  <div className="flex flex-row items-center space-x-2">
+                    {loading && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                    <Button
+                      onClick={submitChanges}
+                      variant="outline"
+                      disabled={
+                        Object.keys(form.formState.errors).length > 0
+                      }
+                      size="sm"
+                      className="text-xs">
+                      Save changes
+                    </Button>
+                    <Button
+                      onClick={() => form.reset()}
+                      variant="destructive"
+                      size="sm"
+                      className="text-xs">
+                      Discard
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="relative flex max-w-[700px] flex-col space-y-4 border-l border-gray-300 pb-16 pl-4">
           <div className="flex flex-row items-center">
             <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">

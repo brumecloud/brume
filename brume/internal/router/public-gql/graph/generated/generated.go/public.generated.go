@@ -34,6 +34,7 @@ type MutationResolver interface {
 	CreateProject(ctx context.Context, name string, description *string) (*project_model.Project, error)
 	AddServiceToProject(ctx context.Context, projectID string, input public_graph_model.CreateServiceInput) (*service_model.Service, error)
 	DeleteService(ctx context.Context, serviceID string) (*service_model.Service, error)
+	UpdateServiceSettings(ctx context.Context, serviceID string, settings public_graph_model.ServiceSettingsInput) (*service_model.Service, error)
 	UpdateBuilder(ctx context.Context, serviceID string, data public_graph_model.BuilderDataInput) (*builder_model.Builder, error)
 	UpdateRunner(ctx context.Context, serviceID string, data public_graph_model.RunnerDataInput) (*runner_model.Runner, error)
 	DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error)
@@ -398,6 +399,65 @@ func (ec *executionContext) field_Mutation_updateRunner_argsData(
 	}
 
 	var zeroVal public_graph_model.RunnerDataInput
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updateServiceSettings_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	arg0, err := ec.field_Mutation_updateServiceSettings_argsServiceID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["serviceId"] = arg0
+	arg1, err := ec.field_Mutation_updateServiceSettings_argsSettings(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["settings"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_updateServiceSettings_argsServiceID(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (string, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["serviceId"]
+	if !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceId"))
+	if tmp, ok := rawArgs["serviceId"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updateServiceSettings_argsSettings(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (public_graph_model.ServiceSettingsInput, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["settings"]
+	if !ok {
+		var zeroVal public_graph_model.ServiceSettingsInput
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("settings"))
+	if tmp, ok := rawArgs["settings"]; ok {
+		return ec.unmarshalNServiceSettingsInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐServiceSettingsInput(ctx, tmp)
+	}
+
+	var zeroVal public_graph_model.ServiceSettingsInput
 	return zeroVal, nil
 }
 
@@ -1140,6 +1200,75 @@ func (ec *executionContext) fieldContext_Mutation_deleteService(ctx context.Cont
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deleteService_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateServiceSettings(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updateServiceSettings(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdateServiceSettings(rctx, fc.Args["serviceId"].(string), fc.Args["settings"].(public_graph_model.ServiceSettingsInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*service_model.Service)
+	fc.Result = res
+	return ec.marshalNService2ᚖbrumeᚗdevᚋserviceᚋmodelᚐService(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updateServiceSettings(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Service_id(ctx, field)
+			case "name":
+				return ec.fieldContext_Service_name(ctx, field)
+			case "liveBuilder":
+				return ec.fieldContext_Service_liveBuilder(ctx, field)
+			case "liveRunner":
+				return ec.fieldContext_Service_liveRunner(ctx, field)
+			case "draftBuilder":
+				return ec.fieldContext_Service_draftBuilder(ctx, field)
+			case "draftRunner":
+				return ec.fieldContext_Service_draftRunner(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Service", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateServiceSettings_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -3188,6 +3317,33 @@ func (ec *executionContext) unmarshalInputRunnerDataInput(ctx context.Context, o
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputServiceSettingsInput(ctx context.Context, obj interface{}) (public_graph_model.ServiceSettingsInput, error) {
+	var it public_graph_model.ServiceSettingsInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -3441,6 +3597,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "deleteService":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteService(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateServiceSettings":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateServiceSettings(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -4418,6 +4581,11 @@ func (ec *executionContext) marshalNService2ᚖbrumeᚗdevᚋserviceᚋmodelᚐS
 		return graphql.Null
 	}
 	return ec._Service(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNServiceSettingsInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐServiceSettingsInput(ctx context.Context, v interface{}) (public_graph_model.ServiceSettingsInput, error) {
+	res, err := ec.unmarshalInputServiceSettingsInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNUser2brumeᚗdevᚋaccountᚋuserᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v user_model.User) graphql.Marshaler {
