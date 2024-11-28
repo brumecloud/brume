@@ -172,7 +172,7 @@ export const DeploymentsPage = () => {
       </div>
       <h3 className="text-md pt-4 font-medium">History</h3>
       <div className="flex h-full flex-col rounded-md border border-gray-200 bg-white shadow-sm">
-        {deployments.map((deployment) => (
+        {deployments.slice(1).map((deployment) => (
           <DeploymentCard
             className="border-b border-gray-200 last:border-b-0"
             data={deployment}

@@ -64,14 +64,14 @@ func (r *mutationResolver) DeleteService(ctx context.Context, serviceID string) 
 }
 
 // UpdateServiceSettings is the resolver for the updateServiceSettings field.
-func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID string, settings public_graph_model.ServiceSettingsInput) (*service_model.Service, error) {
+func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID string, input public_graph_model.ServiceSettingsInput) (*service_model.Service, error) {
 	service_uuid, err := uuid.Parse(serviceID)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return r.ServiceService.UpdateServiceSettings(service_uuid, settings.Name)
+	return r.ServiceService.UpdateServiceSettings(service_uuid, input.Name)
 }
 
 // UpdateBuilder is the resolver for the updateBuilder field.

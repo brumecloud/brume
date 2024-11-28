@@ -20,13 +20,7 @@ import type { RouteParams } from "@/router/router";
 import { type Service } from "@/schemas/service.schema";
 import { cn } from "@/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Bell,
-  Flame,
-  Loader2,
-  Pickaxe,
-  SquareTerminal,
-} from "lucide-react";
+import { Flame, Loader2, SquareTerminal } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -65,7 +59,7 @@ export const SettingPage = () => {
     if (service) {
       form.reset(service);
     }
-  }, [service?.__typename, service?.id]);
+  }, [service?.__typename, service?.name, service?.id]);
 
   const onUnload = useCallback(
     (e: BeforeUnloadEvent) => {
@@ -114,8 +108,6 @@ export const SettingPage = () => {
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [onUnload]);
-
-  console.log(form.formState);
 
   return (
     <div className="flex h-full flex-col px-32 pt-8">

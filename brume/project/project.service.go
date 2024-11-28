@@ -2,6 +2,8 @@ package project
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	builder_model "brume.dev/builder/model"
 	"brume.dev/internal/db"
@@ -176,4 +178,22 @@ func (s *ProjectService) AddServiceToProject(project *project.Project, service *
 	err := s.db.Gorm.Save(project).Error
 
 	return project, err
+}
+
+func (s *ProjectService) PushEvent(projectId uuid.UUID, eventType string, eventData interface{}) error {
+	eventDataJson, err := json.Marshal(eventData)
+
+	if err != nil {
+		return err
+	}
+
+	event := &project.ProjectEvent{
+		ID:        uuid.New(),
+		Timestamp: time.Now(),
+		ProjectID: projectId,
+		Type:      eventType,
+		Data:      string(eventDataJson),
+	}
+
+	return s.db.Gorm.Save(event).Error
 }

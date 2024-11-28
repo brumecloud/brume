@@ -164,7 +164,7 @@ export const RunnerPage = () => {
               control={form.control}
               name="data.command"
               render={({ field, fieldState }) => (
-                <>
+                <div>
                   <Input
                     {...field}
                     placeholder="npx run start"
@@ -186,7 +186,7 @@ export const RunnerPage = () => {
                         old value: {runner.data.command}
                       </p>
                     )}
-                </>
+                </div>
               )}
             />
           </div>

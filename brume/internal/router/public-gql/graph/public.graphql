@@ -93,6 +93,15 @@ input ServiceSettingsInput {
   name: String!
 }
 
+# generic event structure
+type ServiceEvent {
+  id: String!
+  serviceId: String!
+  timestamp: String!
+  type: String!
+  data: String!
+}
+
 type Query {
   me: User!
   getProjectById(id: String!): Project!
@@ -105,7 +114,7 @@ type Mutation {
   deleteService(serviceId: String!): Service!
   updateServiceSettings(
     serviceId: String!
-    settings: ServiceSettingsInput!
+    input: ServiceSettingsInput!
   ): Service!
   updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
   updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
@@ -116,4 +125,5 @@ type Mutation {
 
 type Subscription {
   serviceLogs(serviceId: String!): [Log]!
+  serviceEvents(serviceId: String!): [ServiceEvent]!
 }

@@ -72,7 +72,7 @@ type ComplexityRoot struct {
 		DeployProject         func(childComplexity int, projectID string) int
 		UpdateBuilder         func(childComplexity int, serviceID string, data public_graph_model.BuilderDataInput) int
 		UpdateRunner          func(childComplexity int, serviceID string, data public_graph_model.RunnerDataInput) int
-		UpdateServiceSettings func(childComplexity int, serviceID string, settings public_graph_model.ServiceSettingsInput) int
+		UpdateServiceSettings func(childComplexity int, serviceID string, input public_graph_model.ServiceSettingsInput) int
 	}
 
 	Project struct {
@@ -306,7 +306,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateServiceSettings(childComplexity, args["serviceId"].(string), args["settings"].(public_graph_model.ServiceSettingsInput)), true
+		return e.complexity.Mutation.UpdateServiceSettings(childComplexity, args["serviceId"].(string), args["input"].(public_graph_model.ServiceSettingsInput)), true
 
 	case "Project.description":
 		if e.complexity.Project.Description == nil {
@@ -767,7 +767,7 @@ type Mutation {
   deleteService(serviceId: String!): Service!
   updateServiceSettings(
     serviceId: String!
-    settings: ServiceSettingsInput!
+    input: ServiceSettingsInput!
   ): Service!
   updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
   updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!

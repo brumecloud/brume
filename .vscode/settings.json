@@ -11,6 +11,7 @@
   "files.trimTrailingWhitespace": true,
   "files.trimFinalNewlines": true,
   "files.insertFinalNewline": true,
+  "editor.tabSize": 2,
 
   "[javascript][typescript][javascriptreact][typescriptreact]": {
     "editor.formatOnSave": true,
@@ -68,6 +69,5 @@
     "options": ["--proto_path=brume/proto"]
   },
 
-  "typescript.preferences.importModuleSpecifier": "non-relative",
-  "editor.tabSize": 4
+  "typescript.preferences.importModuleSpecifier": "non-relative"
 }

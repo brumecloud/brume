@@ -23,7 +23,7 @@ export const DELETE_SERVICE_MUTATION = gql`
 export const UPDATE_SERVICE_SETTINGS_MUTATION = gql`
   mutation UpdateServiceSettings(
     $serviceId: String!
-    $input: UpdateServiceInput!
+    $input: ServiceSettingsInput!
   ) {
     updateServiceSettings(serviceId: $serviceId, input: $input) {
       id

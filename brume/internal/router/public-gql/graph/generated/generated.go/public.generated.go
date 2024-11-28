@@ -34,7 +34,7 @@ type MutationResolver interface {
 	CreateProject(ctx context.Context, name string, description *string) (*project_model.Project, error)
 	AddServiceToProject(ctx context.Context, projectID string, input public_graph_model.CreateServiceInput) (*service_model.Service, error)
 	DeleteService(ctx context.Context, serviceID string) (*service_model.Service, error)
-	UpdateServiceSettings(ctx context.Context, serviceID string, settings public_graph_model.ServiceSettingsInput) (*service_model.Service, error)
+	UpdateServiceSettings(ctx context.Context, serviceID string, input public_graph_model.ServiceSettingsInput) (*service_model.Service, error)
 	UpdateBuilder(ctx context.Context, serviceID string, data public_graph_model.BuilderDataInput) (*builder_model.Builder, error)
 	UpdateRunner(ctx context.Context, serviceID string, data public_graph_model.RunnerDataInput) (*runner_model.Runner, error)
 	DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error)
@@ -410,11 +410,11 @@ func (ec *executionContext) field_Mutation_updateServiceSettings_args(ctx contex
 		return nil, err
 	}
 	args["serviceId"] = arg0
-	arg1, err := ec.field_Mutation_updateServiceSettings_argsSettings(ctx, rawArgs)
+	arg1, err := ec.field_Mutation_updateServiceSettings_argsInput(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["settings"] = arg1
+	args["input"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_updateServiceSettings_argsServiceID(
@@ -439,21 +439,21 @@ func (ec *executionContext) field_Mutation_updateServiceSettings_argsServiceID(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_updateServiceSettings_argsSettings(
+func (ec *executionContext) field_Mutation_updateServiceSettings_argsInput(
 	ctx context.Context,
 	rawArgs map[string]interface{},
 ) (public_graph_model.ServiceSettingsInput, error) {
 	// We won't call the directive if the argument is null.
 	// Set call_argument_directives_with_null to true to call directives
 	// even if the argument is null.
-	_, ok := rawArgs["settings"]
+	_, ok := rawArgs["input"]
 	if !ok {
 		var zeroVal public_graph_model.ServiceSettingsInput
 		return zeroVal, nil
 	}
 
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("settings"))
-	if tmp, ok := rawArgs["settings"]; ok {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+	if tmp, ok := rawArgs["input"]; ok {
 		return ec.unmarshalNServiceSettingsInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐServiceSettingsInput(ctx, tmp)
 	}
 
@@ -1220,7 +1220,7 @@ func (ec *executionContext) _Mutation_updateServiceSettings(ctx context.Context,
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateServiceSettings(rctx, fc.Args["serviceId"].(string), fc.Args["settings"].(public_graph_model.ServiceSettingsInput))
+		return ec.resolvers.Mutation().UpdateServiceSettings(rctx, fc.Args["serviceId"].(string), fc.Args["input"].(public_graph_model.ServiceSettingsInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
