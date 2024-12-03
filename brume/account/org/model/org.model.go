@@ -2,6 +2,7 @@ package org_model
 
 import (
 	user "brume.dev/account/user/model"
+	project "brume.dev/project/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -11,7 +12,8 @@ type Organization struct {
 	ID   uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Name string    `gorm:"unique"`
 
-	Users []user.User `gorm:"foreignKey:OrganizationID;references:ID"`
+	Users    []user.User        `gorm:"foreignKey:OrganizationID;references:ID"`
+	Projects []*project.Project `gorm:"many2many:organization_projects;"`
 }
 
 func (o *Organization) BeforeCreate(tx *gorm.DB) error {

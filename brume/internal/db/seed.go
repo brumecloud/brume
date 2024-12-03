@@ -15,18 +15,19 @@ import (
 )
 
 func SeedAll(db *DB) error {
-	brume := SeedOrganization(db)
 	projects := SeedProjects(db)
-	admin := SeedAdminUser(db, brume, projects)
+	brume := SeedOrganization(db, projects)
+	admin := SeedAdminUser(db, brume)
 
 	_ = admin
 
 	return nil
 }
 
-func SeedOrganization(db *DB) *org.Organization {
+func SeedOrganization(db *DB, projects []*project.Project) *org.Organization {
 	brume := &org.Organization{
-		Name: "brume",
+		Name:     "brume",
+		Projects: projects,
 	}
 
 	if err := db.Gorm.First(brume, "name = ?", "brume").Error; errors.Is(err, gorm.ErrRecordNotFound) {
@@ -40,14 +41,13 @@ func SeedOrganization(db *DB) *org.Organization {
 	return brume
 }
 
-func SeedAdminUser(db *DB, brume *org.Organization, projects []*project.Project) *user.User {
+func SeedAdminUser(db *DB, brume *org.Organization) *user.User {
 	admin := &user.User{
 		Email:          "admin@brume.dev",
 		Name:           "Brume Admin",
 		Password:       "adminpass",
 		OrganizationID: brume.ID,
 		Avatar:         "https://avatars.githubusercontent.com/u/34143515?v=4",
-		Projects:       projects,
 	}
 
 	if err := db.Gorm.First(admin, "email = ?", "admin@brume.dev").Error; errors.Is(err, gorm.ErrRecordNotFound) {

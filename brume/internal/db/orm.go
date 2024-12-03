@@ -6,17 +6,18 @@ import (
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	builder "brume.dev/builder/model"
-	project "brume.dev/project/model"
+	project_model "brume.dev/project/model"
 	runner "brume.dev/runner/model"
-	service "brume.dev/service/model"
+	service_model "brume.dev/service/model"
 	"github.com/rs/zerolog/log"
 )
 
 var AllModels = []interface{}{
 	&org.Organization{},
 	&user.User{},
-	&service.Service{},
-	&project.Project{},
+	&service_model.Service{},
+	&service_model.Deployment{},
+	&project_model.Project{},
 	&runner.Runner{},
 	&builder.Builder{},
 }

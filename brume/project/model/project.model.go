@@ -3,7 +3,7 @@ package project_model
 import (
 	"time"
 
-	service "brume.dev/service/model"
+	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 
 	// "gorm.io/datatypes"
@@ -17,7 +17,7 @@ type Project struct {
 	Description string
 	// ProjectVariables datatypes.JSONType[ProjectVariables]
 
-	Services []*service.Service `gorm:"foreignKey:ProjectID;references:ID"`
+	Services []*service_model.Service `gorm:"foreignKey:ProjectID;references:ID"`
 }
 
 type ProjectVariables struct {

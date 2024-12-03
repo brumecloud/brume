@@ -118,8 +118,17 @@ type ComplexityRoot struct {
 		Name         func(childComplexity int) int
 	}
 
+	ServiceEvent struct {
+		Data      func(childComplexity int) int
+		ID        func(childComplexity int) int
+		ServiceID func(childComplexity int) int
+		Timestamp func(childComplexity int) int
+		Type      func(childComplexity int) int
+	}
+
 	Subscription struct {
-		ServiceLogs func(childComplexity int, serviceID string) int
+		ServiceEvents func(childComplexity int, serviceID string) int
+		ServiceLogs   func(childComplexity int, serviceID string) int
 	}
 
 	User struct {
@@ -493,6 +502,53 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Service.Name(childComplexity), true
 
+	case "ServiceEvent.data":
+		if e.complexity.ServiceEvent.Data == nil {
+			break
+		}
+
+		return e.complexity.ServiceEvent.Data(childComplexity), true
+
+	case "ServiceEvent.id":
+		if e.complexity.ServiceEvent.ID == nil {
+			break
+		}
+
+		return e.complexity.ServiceEvent.ID(childComplexity), true
+
+	case "ServiceEvent.serviceId":
+		if e.complexity.ServiceEvent.ServiceID == nil {
+			break
+		}
+
+		return e.complexity.ServiceEvent.ServiceID(childComplexity), true
+
+	case "ServiceEvent.timestamp":
+		if e.complexity.ServiceEvent.Timestamp == nil {
+			break
+		}
+
+		return e.complexity.ServiceEvent.Timestamp(childComplexity), true
+
+	case "ServiceEvent.type":
+		if e.complexity.ServiceEvent.Type == nil {
+			break
+		}
+
+		return e.complexity.ServiceEvent.Type(childComplexity), true
+
+	case "Subscription.serviceEvents":
+		if e.complexity.Subscription.ServiceEvents == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_serviceEvents_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.ServiceEvents(childComplexity, args["serviceId"].(string)), true
+
 	case "Subscription.serviceLogs":
 		if e.complexity.Subscription.ServiceLogs == nil {
 			break
@@ -755,6 +811,15 @@ input ServiceSettingsInput {
   name: String!
 }
 
+# generic event structure
+type ServiceEvent {
+  id: String!
+  serviceId: String!
+  timestamp: String!
+  type: String!
+  data: String!
+}
+
 type Query {
   me: User!
   getProjectById(id: String!): Project!
@@ -778,6 +843,7 @@ type Mutation {
 
 type Subscription {
   serviceLogs(serviceId: String!): [Log]!
+  serviceEvents(serviceId: String!): [ServiceEvent]!
 }
 `, BuiltIn: false},
 }

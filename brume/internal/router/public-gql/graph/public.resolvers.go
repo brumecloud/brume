@@ -6,6 +6,7 @@ package public_graph
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	user_model "brume.dev/account/user/model"
@@ -200,6 +201,11 @@ func (r *subscriptionResolver) ServiceLogs(ctx context.Context, serviceID string
 	return r.LogService.GetDummyLogsSub(ctx)
 }
 
+// ServiceEvents is the resolver for the serviceEvents field.
+func (r *subscriptionResolver) ServiceEvents(ctx context.Context, serviceID string) (<-chan []*public_graph_model.ServiceEvent, error) {
+	panic(fmt.Errorf("not implemented: ServiceEvents - serviceEvents"))
+}
+
 // ID is the resolver for the id field.
 func (r *userResolver) ID(ctx context.Context, obj *user_model.User) (string, error) {
 	return obj.ID.String(), nil
@@ -207,9 +213,9 @@ func (r *userResolver) ID(ctx context.Context, obj *user_model.User) (string, er
 
 // Projects is the resolver for the projects field.
 func (r *userResolver) Projects(ctx context.Context, obj *user_model.User) ([]*project_model.Project, error) {
-	betterUser, err := r.UserService.GetUserProjects(obj)
+	projects, err := r.UserService.GetUserProjects(obj)
 
-	return betterUser.Projects, err
+	return projects, err
 }
 
 // Log returns generated.LogResolver implementation.

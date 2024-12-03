@@ -34,6 +34,14 @@ type RunnerDataInput struct {
 	PrivateDomain  string                     `json:"privateDomain"`
 }
 
+type ServiceEvent struct {
+	ID        string `json:"id"`
+	ServiceID string `json:"serviceId"`
+	Timestamp string `json:"timestamp"`
+	Type      string `json:"type"`
+	Data      string `json:"data"`
+}
+
 type ServiceSettingsInput struct {
 	Name string `json:"name"`
 }

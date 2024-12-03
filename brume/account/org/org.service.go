@@ -4,6 +4,7 @@ import (
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	"brume.dev/internal/db"
+	project_model "brume.dev/project/model"
 	"github.com/rs/zerolog/log"
 )
 
@@ -35,4 +36,15 @@ func (s *OrganizationService) GetUserOrganization(email string) ([]*org.Organiza
 	}
 
 	return orgs, nil
+}
+
+func (s *OrganizationService) GetOrganizationProjects(org *org.Organization) ([]*project_model.Project, error) {
+	err := s.db.Gorm.Preload("Projects").Find(&org).Error
+
+	return org.Projects, err
+}
+
+func (s *OrganizationService) AddProjectToOrganization(org *org.Organization, project *project_model.Project) error {
+	org.Projects = append(org.Projects, project)
+	return s.db.Gorm.Save(org).Error
 }
