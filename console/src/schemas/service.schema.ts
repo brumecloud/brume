@@ -94,4 +94,26 @@ export const ServiceSchema = z.object({
   draftBuilder: BuilderSchema.nullable(),
 });
 
+export const DeploymentSchema = z.object({
+  __typename: z.literal("Deployment"),
+  id: z.string(),
+  createdAt: z.string(),
+  source: z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("git"),
+      branch: z.string(),
+      commit: z.string(),
+      message: z.string(),
+    }),
+    z.object({
+      type: z.literal("console"),
+    }),
+  ]),
+  logs: z.object({
+    status: z.enum(["success", "pending", "failed"]),
+    date: z.string(),
+    duration: z.number(),
+  }),
+});
+
 export type Service = z.infer<typeof ServiceSchema>;

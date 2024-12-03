@@ -21,6 +21,46 @@ import (
 )
 
 // ID is the resolver for the id field.
+func (r *deploymentResolver) ID(ctx context.Context, obj *service_model.Deployment) (string, error) {
+	return obj.ID.String(), nil
+}
+
+// Author is the resolver for the author field.
+func (r *deploymentResolver) Author(ctx context.Context, obj *service_model.Deployment) (*user_model.User, error) {
+	panic(fmt.Errorf("not implemented: Author - author"))
+}
+
+// Logs is the resolver for the logs field.
+func (r *deploymentResolver) Logs(ctx context.Context, obj *service_model.Deployment) (*service_model.DeploymentLog, error) {
+	return &obj.DeployLog, nil
+}
+
+// CreatedAt is the resolver for the createdAt field.
+func (r *deploymentResolver) CreatedAt(ctx context.Context, obj *service_model.Deployment) (string, error) {
+	return obj.CreatedAt.Format(time.RFC3339), nil
+}
+
+// Status is the resolver for the status field.
+func (r *deploymentLogResolver) Status(ctx context.Context, obj *service_model.DeploymentLog) (string, error) {
+	return string(obj.Status), nil
+}
+
+// Duration is the resolver for the duration field.
+func (r *deploymentLogResolver) Duration(ctx context.Context, obj *service_model.DeploymentLog) (string, error) {
+	return fmt.Sprintf("%dms", obj.Duration), nil
+}
+
+// Date is the resolver for the date field.
+func (r *deploymentLogResolver) Date(ctx context.Context, obj *service_model.DeploymentLog) (string, error) {
+	return obj.Date.Format(time.RFC3339), nil
+}
+
+// Type is the resolver for the type field.
+func (r *deploymentSourceResolver) Type(ctx context.Context, obj *service_model.DeploymentSource) (string, error) {
+	return string(obj.Type), nil
+}
+
+// ID is the resolver for the id field.
 func (r *logResolver) ID(ctx context.Context, obj *log_model.Log) (string, error) {
 	return obj.ID.String(), nil
 }
@@ -196,6 +236,11 @@ func (r *serviceResolver) DraftRunner(ctx context.Context, obj *service_model.Se
 	return obj.DraftRunner, nil
 }
 
+// Deployments is the resolver for the deployments field.
+func (r *serviceResolver) Deployments(ctx context.Context, obj *service_model.Service) ([]*service_model.Deployment, error) {
+	return r.ServiceService.GetServiceDeployments(obj.ID)
+}
+
 // ServiceLogs is the resolver for the serviceLogs field.
 func (r *subscriptionResolver) ServiceLogs(ctx context.Context, serviceID string) (<-chan []*log_model.Log, error) {
 	return r.LogService.GetDummyLogsSub(ctx)
@@ -216,6 +261,17 @@ func (r *userResolver) Projects(ctx context.Context, obj *user_model.User) ([]*p
 	projects, err := r.UserService.GetUserProjects(obj)
 
 	return projects, err
+}
+
+// Deployment returns generated.DeploymentResolver implementation.
+func (r *Resolver) Deployment() generated.DeploymentResolver { return &deploymentResolver{r} }
+
+// DeploymentLog returns generated.DeploymentLogResolver implementation.
+func (r *Resolver) DeploymentLog() generated.DeploymentLogResolver { return &deploymentLogResolver{r} }
+
+// DeploymentSource returns generated.DeploymentSourceResolver implementation.
+func (r *Resolver) DeploymentSource() generated.DeploymentSourceResolver {
+	return &deploymentSourceResolver{r}
 }
 
 // Log returns generated.LogResolver implementation.
@@ -239,6 +295,9 @@ func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subsc
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
+type deploymentResolver struct{ *Resolver }
+type deploymentLogResolver struct{ *Resolver }
+type deploymentSourceResolver struct{ *Resolver }
 type logResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type projectResolver struct{ *Resolver }

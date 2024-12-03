@@ -33,6 +33,9 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	Deployment() DeploymentResolver
+	DeploymentLog() DeploymentLogResolver
+	DeploymentSource() DeploymentSourceResolver
 	Log() LogResolver
 	Mutation() MutationResolver
 	Project() ProjectResolver
@@ -55,6 +58,28 @@ type ComplexityRoot struct {
 		Image    func(childComplexity int) int
 		Registry func(childComplexity int) int
 		Tag      func(childComplexity int) int
+	}
+
+	Deployment struct {
+		Author    func(childComplexity int) int
+		CreatedAt func(childComplexity int) int
+		Env       func(childComplexity int) int
+		ID        func(childComplexity int) int
+		Logs      func(childComplexity int) int
+		Source    func(childComplexity int) int
+	}
+
+	DeploymentLog struct {
+		Date     func(childComplexity int) int
+		Duration func(childComplexity int) int
+		Status   func(childComplexity int) int
+	}
+
+	DeploymentSource struct {
+		Branch  func(childComplexity int) int
+		Commit  func(childComplexity int) int
+		Message func(childComplexity int) int
+		Type    func(childComplexity int) int
 	}
 
 	Log struct {
@@ -110,6 +135,7 @@ type ComplexityRoot struct {
 	}
 
 	Service struct {
+		Deployments  func(childComplexity int) int
 		DraftBuilder func(childComplexity int) int
 		DraftRunner  func(childComplexity int) int
 		ID           func(childComplexity int) int
@@ -192,6 +218,97 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.BuilderData.Tag(childComplexity), true
+
+	case "Deployment.author":
+		if e.complexity.Deployment.Author == nil {
+			break
+		}
+
+		return e.complexity.Deployment.Author(childComplexity), true
+
+	case "Deployment.createdAt":
+		if e.complexity.Deployment.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.Deployment.CreatedAt(childComplexity), true
+
+	case "Deployment.env":
+		if e.complexity.Deployment.Env == nil {
+			break
+		}
+
+		return e.complexity.Deployment.Env(childComplexity), true
+
+	case "Deployment.id":
+		if e.complexity.Deployment.ID == nil {
+			break
+		}
+
+		return e.complexity.Deployment.ID(childComplexity), true
+
+	case "Deployment.logs":
+		if e.complexity.Deployment.Logs == nil {
+			break
+		}
+
+		return e.complexity.Deployment.Logs(childComplexity), true
+
+	case "Deployment.source":
+		if e.complexity.Deployment.Source == nil {
+			break
+		}
+
+		return e.complexity.Deployment.Source(childComplexity), true
+
+	case "DeploymentLog.date":
+		if e.complexity.DeploymentLog.Date == nil {
+			break
+		}
+
+		return e.complexity.DeploymentLog.Date(childComplexity), true
+
+	case "DeploymentLog.duration":
+		if e.complexity.DeploymentLog.Duration == nil {
+			break
+		}
+
+		return e.complexity.DeploymentLog.Duration(childComplexity), true
+
+	case "DeploymentLog.status":
+		if e.complexity.DeploymentLog.Status == nil {
+			break
+		}
+
+		return e.complexity.DeploymentLog.Status(childComplexity), true
+
+	case "DeploymentSource.branch":
+		if e.complexity.DeploymentSource.Branch == nil {
+			break
+		}
+
+		return e.complexity.DeploymentSource.Branch(childComplexity), true
+
+	case "DeploymentSource.commit":
+		if e.complexity.DeploymentSource.Commit == nil {
+			break
+		}
+
+		return e.complexity.DeploymentSource.Commit(childComplexity), true
+
+	case "DeploymentSource.message":
+		if e.complexity.DeploymentSource.Message == nil {
+			break
+		}
+
+		return e.complexity.DeploymentSource.Message(childComplexity), true
+
+	case "DeploymentSource.type":
+		if e.complexity.DeploymentSource.Type == nil {
+			break
+		}
+
+		return e.complexity.DeploymentSource.Type(childComplexity), true
 
 	case "Log.id":
 		if e.complexity.Log.ID == nil {
@@ -459,6 +576,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.RunnerData.PublicDomain(childComplexity), true
+
+	case "Service.deployments":
+		if e.complexity.Service.Deployments == nil {
+			break
+		}
+
+		return e.complexity.Service.Deployments(childComplexity), true
 
 	case "Service.draftBuilder":
 		if e.complexity.Service.DraftBuilder == nil {
@@ -784,6 +908,31 @@ input RunnerDataInput {
   privateDomain: String!
 }
 
+type DeploymentSource {
+  type: String!
+  branch: String
+  commit: String
+  message: String
+}
+
+type DeploymentLog {
+  status: String!
+  duration: String!
+  date: String!
+}
+
+type Deployment {
+  id: String!
+
+  author: User!
+
+  source: DeploymentSource!
+  logs: DeploymentLog!
+  env: String!
+
+  createdAt: String!
+}
+
 type Service {
   id: String!
   name: String!
@@ -793,6 +942,8 @@ type Service {
 
   draftBuilder: Builder
   draftRunner: Runner
+
+  deployments: [Deployment!]!
 }
 
 type Log {

@@ -66,8 +66,9 @@ func SeedProjects(db *DB) []*project.Project {
 	projects := make([]*project.Project, 2)
 
 	user_api := &service.Service{
-		Name: "User-API",
-		ID:   uuid.MustParse("2c77b616-fc35-4ab3-b4e9-0c57966dfd87"),
+		Name:        "User-API",
+		ID:          uuid.MustParse("2c77b616-fc35-4ab3-b4e9-0c57966dfd87"),
+		Deployments: []*service.Deployment{},
 		DraftBuilder: &builder_model.Builder{
 			ID:   uuid.MustParse("f26a89ef-ff17-404a-96c5-3b03938c8149"),
 			Type: "generic-docker",
@@ -98,8 +99,9 @@ func SeedProjects(db *DB) []*project.Project {
 		},
 	}
 	frontend := &service.Service{
-		Name: "Frontend",
-		ID:   uuid.MustParse("1c45217f-2f15-496d-a5cf-7860fec720e3"),
+		Name:        "Frontend",
+		ID:          uuid.MustParse("1c45217f-2f15-496d-a5cf-7860fec720e3"),
+		Deployments: []*service.Deployment{},
 		DraftBuilder: &builder_model.Builder{
 			ID:   uuid.MustParse("eb528040-4697-49ee-ae3b-0f97bf779de4"),
 			Type: "generic-docker",
@@ -152,8 +154,9 @@ func SeedProjects(db *DB) []*project.Project {
 	projects[0] = firstProject
 
 	open_ai := &service.Service{
-		Name: "OpenAI-API",
-		ID:   uuid.MustParse("a94cfd9e-5e61-4e5f-9fda-bb17d638a9ee"),
+		Name:        "OpenAI-API",
+		ID:          uuid.MustParse("a94cfd9e-5e61-4e5f-9fda-bb17d638a9ee"),
+		Deployments: []*service.Deployment{},
 		DraftBuilder: &builder_model.Builder{
 			ID:   uuid.MustParse("4f6788dd-a317-4771-8afa-878b0b017b17"),
 			Type: "generic-docker",
@@ -184,8 +187,9 @@ func SeedProjects(db *DB) []*project.Project {
 		},
 	}
 	wrapper_api := &service.Service{
-		Name: "Wrapper",
-		ID:   uuid.MustParse("b29dcba3-a2d3-40a5-bb70-2bd01002a062"),
+		Name:        "Wrapper",
+		ID:          uuid.MustParse("b29dcba3-a2d3-40a5-bb70-2bd01002a062"),
+		Deployments: []*service.Deployment{},
 		DraftBuilder: &builder_model.Builder{
 			Type: "generic-docker",
 			ID:   uuid.MustParse("9376ac2a-ea1b-407b-a430-aabc0b687112"),

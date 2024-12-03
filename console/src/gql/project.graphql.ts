@@ -1,6 +1,7 @@
 import { gql } from "@apollo/client";
 
 import { BUILDER_FRAGMENT } from "./builder.graphql";
+import { DEPLOYMENT_FRAGMENT } from "./deployment.graphql";
 import { RUNNER_FRAGMENT } from "./runner.graphql";
 
 export const ProjectFragment = gql`
@@ -12,6 +13,9 @@ export const ProjectFragment = gql`
     services {
       name
       id
+      deployments {
+        ...DeploymentFragment
+      }
       liveRunner {
         ...RunnerFragment
       }
@@ -28,6 +32,7 @@ export const ProjectFragment = gql`
   }
   ${RUNNER_FRAGMENT}
   ${BUILDER_FRAGMENT}
+  ${DEPLOYMENT_FRAGMENT}
 `;
 
 export const PROJECT_BY_ID_QUERY = gql`

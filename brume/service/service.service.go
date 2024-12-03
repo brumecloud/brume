@@ -158,6 +158,31 @@ func (s *ServiceService) UpdateServiceSettings(serviceId uuid.UUID, name string)
 	return service, s.db.Gorm.Save(&service).Error
 }
 
+func (s *ServiceService) CreateDeployment(serviceId uuid.UUID, deployment *service_model.Deployment) error {
+	service, err := s.GetService(serviceId)
+
+	if err != nil {
+		return err
+	}
+
+	err = s.db.Gorm.Model(service).Association("Deployments").Append(deployment)
+
+	return err
+}
+
+func (s *ServiceService) GetServiceDeployments(serviceId uuid.UUID) ([]*service_model.Deployment, error) {
+	service, err := s.GetService(serviceId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// we dont want to load the deployments in the service object
+	err = s.db.Gorm.Preload("Deployments").First(service, serviceId).Error
+
+	return service.Deployments, err
+}
+
 func (s *ServiceService) CreateService(name string, projectId uuid.UUID, image string) (*service_model.Service, error) {
 	id, _ := uuid.NewRandom()
 

@@ -1,6 +1,8 @@
 package service_model
 
 import (
+	"time"
+
 	builder_model "brume.dev/builder/model"
 	runner_model "brume.dev/runner/model"
 	"github.com/google/uuid"
@@ -33,5 +35,51 @@ type Service struct {
 	DraftRunnerID  *uuid.UUID
 	DraftBuilderID *uuid.UUID
 
+	Deployments []*Deployment `gorm:"foreignKey:ServiceID"`
+
 	ProjectID uuid.UUID
+}
+type Deployment struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ServiceID uuid.UUID `gorm:"type:uuid"`
+
+	Source    DeploymentSource `gorm:"type:jsonb"`
+	DeployLog DeploymentLog    `gorm:"type:jsonb"`
+
+	Env string
+
+	RunnerData  runner_model.RunnerData   `gorm:"type:jsonb"`
+	BuilderData builder_model.BuilderData `gorm:"type:jsonb"`
+
+	CreatedAt time.Time
+}
+
+type DeploymentSourceType string
+
+const (
+	DeploymentSourceTypeGit     DeploymentSourceType = "git"
+	DeploymentSourceTypeConsole DeploymentSourceType = "console"
+)
+
+type DeploymentSource struct {
+	// if console everything is empty
+	Type DeploymentSourceType
+
+	Branch  *string
+	Commit  *string
+	Message *string
+}
+
+type DeploymentStatus string
+
+const (
+	DeploymentStatusPending DeploymentStatus = "pending"
+	DeploymentStatusSuccess DeploymentStatus = "success"
+	DeploymentStatusFailed  DeploymentStatus = "failed"
+)
+
+type DeploymentLog struct {
+	Status   DeploymentStatus
+	Duration time.Duration
+	Date     time.Time
 }

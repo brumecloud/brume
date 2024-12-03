@@ -131,3 +131,5 @@ models:
         resolver: true
       draftRunner:
         resolver: true
+      deployments:
+        resolver: true

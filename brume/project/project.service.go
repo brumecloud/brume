@@ -141,6 +141,30 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 			return nil, err
 		}
 
+		deployment := &service_model.Deployment{
+			ID:        uuid.New(),
+			ServiceID: service.ID,
+			Source: service_model.DeploymentSource{
+				Type: service_model.DeploymentSourceTypeConsole,
+			},
+			DeployLog: service_model.DeploymentLog{
+				Status:   service_model.DeploymentStatusSuccess,
+				Duration: 0,
+			},
+
+			BuilderData: service.LiveBuilder.Data,
+			RunnerData:  service.LiveRunner.Data,
+
+			CreatedAt: time.Now(),
+			Env:       "dev",
+		}
+
+		err = s.ServiceService.CreateDeployment(service.ID, deployment)
+
+		if err != nil {
+			log.Error().Msgf("Error creating deployment for service %s", service.ID)
+		}
+
 		log.Info().Msgf("Started service %s", we.GetID())
 	}
 
