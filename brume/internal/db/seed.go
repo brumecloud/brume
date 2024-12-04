@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"time"
 
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
@@ -62,6 +63,30 @@ func SeedAdminUser(db *DB, brume *org.Organization) *user.User {
 	return admin
 }
 
+func createDeployment(serviceId uuid.UUID) *service.Deployment {
+	return &service.Deployment{
+		ID:        uuid.MustParse("5b4d0a66-afdf-472d-b294-217d8f410225"),
+		ServiceID: serviceId,
+		Source: service.DeploymentSource{
+			Type: service.DeploymentSourceTypeConsole,
+		},
+		DeployLog: service.DeploymentLog{
+			Status: service.DeploymentStatusSuccess,
+		},
+		Env: "dev",
+		RunnerData: runner_model.RunnerData{
+			Command:        "",
+			HealthCheckURL: "http://localhost:3000/health",
+		},
+		BuilderData: builder_model.BuilderData{
+			Image:    "nginx",
+			Registry: "docker.io",
+			Tag:      "latest",
+		},
+		CreatedAt: time.Now(),
+	}
+}
+
 func SeedProjects(db *DB) []*project.Project {
 	projects := make([]*project.Project, 2)
 
@@ -98,6 +123,9 @@ func SeedProjects(db *DB) []*project.Project {
 			},
 		},
 	}
+	deployment := createDeployment(user_api.ID)
+	user_api.Deployments = append(user_api.Deployments, deployment)
+
 	frontend := &service.Service{
 		Name:        "Frontend",
 		ID:          uuid.MustParse("1c45217f-2f15-496d-a5cf-7860fec720e3"),
@@ -131,6 +159,8 @@ func SeedProjects(db *DB) []*project.Project {
 			},
 		},
 	}
+	deployment = createDeployment(frontend.ID)
+	frontend.Deployments = append(frontend.Deployments, deployment)
 
 	stringID := "aaaaaaaa-91d1-4b9a-be84-b340e40614d3"
 	id, _ := uuid.Parse(stringID)
@@ -186,6 +216,9 @@ func SeedProjects(db *DB) []*project.Project {
 			},
 		},
 	}
+	deployment = createDeployment(open_ai.ID)
+	open_ai.Deployments = append(open_ai.Deployments, deployment)
+
 	wrapper_api := &service.Service{
 		Name:        "Wrapper",
 		ID:          uuid.MustParse("b29dcba3-a2d3-40a5-bb70-2bd01002a062"),
@@ -220,6 +253,8 @@ func SeedProjects(db *DB) []*project.Project {
 			},
 		},
 	}
+	deployment = createDeployment(wrapper_api.ID)
+	wrapper_api.Deployments = append(wrapper_api.Deployments, deployment)
 
 	stringID = "bbbbbbbb-91d1-4b9a-be84-b340e40614d3"
 	id, _ = uuid.Parse(stringID)

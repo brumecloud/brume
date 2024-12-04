@@ -4,6 +4,7 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useService } from "@/hooks/useService";
 import { useUser } from "@/hooks/useUser";
 import { cn } from "@/utils";
 import { GitBranch, GitCommit } from "lucide-react";
@@ -111,6 +112,7 @@ const DeploymentCard = ({
 
 export const DeploymentsPage = () => {
   const { me } = useUser();
+  const { service } = useService();
 
   const deployments: DeploymentCardProps[] = [
     {
@@ -159,6 +161,12 @@ export const DeploymentsPage = () => {
       user: me ? { avatar: me.avatar, name: me.name } : undefined,
     },
   ];
+
+  console.log(service?.deployments);
+
+  if (!service?.deployments.length) {
+    return null;
+  }
 
   return (
     <div className="flex h-full flex-col gap-y-4 px-32 pt-8">

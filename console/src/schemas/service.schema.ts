@@ -84,16 +84,6 @@ export const BuilderSchema = z.discriminatedUnion("type", [
 
 export type Builder = z.infer<typeof BuilderSchema>;
 
-export const ServiceSchema = z.object({
-  __typename: z.literal("Service"),
-  name: z.string(),
-  id: z.string(),
-  liveBuilder: BuilderSchema.nullable(),
-  liveRunner: RunnerSchema.nullable(),
-  draftRunner: RunnerSchema.nullable(),
-  draftBuilder: BuilderSchema.nullable(),
-});
-
 export const DeploymentSchema = z.object({
   __typename: z.literal("Deployment"),
   id: z.string(),
@@ -114,6 +104,17 @@ export const DeploymentSchema = z.object({
     date: z.string(),
     duration: z.number(),
   }),
+});
+
+export const ServiceSchema = z.object({
+  __typename: z.literal("Service"),
+  name: z.string(),
+  id: z.string(),
+  liveBuilder: BuilderSchema.nullable(),
+  liveRunner: RunnerSchema.nullable(),
+  draftRunner: RunnerSchema.nullable(),
+  draftBuilder: BuilderSchema.nullable(),
+  deployments: z.array(DeploymentSchema),
 });
 
 export type Service = z.infer<typeof ServiceSchema>;

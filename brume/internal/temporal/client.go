@@ -10,7 +10,7 @@ func NewClient() client.Client {
 	logger := brume_log.GetLogger().With().Str("service", "temporal").Logger()
 
 	c, err := client.Dial(client.Options{
-		HostPort: "host.docker.internal:7233",
+		HostPort: "temporal:7233",
 		Logger:   brume_log.NewTemporalZeroLogger(logger),
 	})
 
