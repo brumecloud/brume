@@ -6,59 +6,46 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useService } from "@/hooks/useService";
 import { useUser } from "@/hooks/useUser";
+import type { Deployment } from "@/schemas/service.schema";
 import { cn } from "@/utils";
 import { GitBranch, GitCommit } from "lucide-react";
 
-interface DeploymentCardProps {
-  deploymentId: string;
-  environment: string;
-  status?: "live";
-  readyState: "ready" | "error" | "loading";
-  deploymentTime: string;
-  deploymentAge: string;
-  branch: string;
-  commitHash: string;
-  commitMessage: string;
-  user?: {
-    avatar: string;
-    name: string;
-  };
-  className?: string;
-}
-
 const DeploymentCard = ({
-  data: {
-    deploymentId,
-    environment,
-    status,
-    readyState,
-    deploymentTime,
-    deploymentAge,
-    branch,
-    commitHash,
-    commitMessage,
-    user,
-  },
+  data,
+  isLive,
   className,
 }: {
-  data: DeploymentCardProps;
+  data: Deployment;
+  isLive?: boolean;
   className?: string;
 }) => {
+  const { me } = useUser();
+
+  const status = data.logs.status;
+  const readyState =
+    status === "success"
+      ? "ready"
+      : status === "failed"
+        ? "error"
+        : "loading";
+  const deploymentTime = `${data.logs.duration}s`;
+  // age of the deployment
+
   return (
     <div className={cn("gap-x-2 px-6 py-4", className)}>
       <div className="grid grid-cols-10 items-center justify-between">
         <div className="col-span-3">
           <div>
             <p className="text-sm font-semibold text-gray-700">
-              {deploymentId}
+              {data.id.slice(0, 8)}
             </p>
             <div className="flex flex-row items-center gap-x-3">
-              <p className="text-sm text-gray-400">{environment}</p>
-              {status && (
+              <p className="text-sm text-gray-400">{data.env}</p>
+              {isLive && (
                 <Badge
                   variant="outline"
-                  className="bg-blue-100 text-blue-800">
-                  {status}
+                  className={`border-blue-400/50 bg-blue-300 text-white`}>
+                  Live
                 </Badge>
               )}
             </div>
@@ -79,29 +66,41 @@ const DeploymentCard = ({
                 {readyState}
               </Badge>
             </div>
-            <p className="text-sm text-gray-500">{`${deploymentTime} (${deploymentAge})`}</p>
+            <p className="text-sm text-gray-500">{`took ${deploymentTime}`}</p>
           </div>
         </div>
-        <div className="col-span-3 grid gap-y-2">
-          <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 font-mono text-sm">
-            <GitBranch className="h-4 w-4" />
-            {branch}
-          </div>
-          <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 text-sm">
-            <div className="grid grid-cols-[auto_1fr] items-center gap-x-2">
-              <GitCommit className="h-4 w-4" />
-              <span className="font-mono">{commitHash}</span>
+        {data.source.type === "git" && (
+          <div className="col-span-3 grid gap-y-2">
+            <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 font-mono text-sm">
+              <GitBranch className="h-4 w-4" />
+              {data.source.branch}
             </div>
-            <p className="max-w-[300px] truncate text-sm text-gray-500">
-              {commitMessage}
+            <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 text-sm">
+              <div className="grid grid-cols-[auto_1fr] items-center gap-x-2">
+                <GitCommit className="h-4 w-4" />
+                <span className="font-mono">
+                  {data.source.commit}
+                </span>
+              </div>
+              <p className="max-w-[300px] truncate text-sm text-gray-500">
+                {data.source.message}
+              </p>
+            </div>
+          </div>
+        )}
+        {data.source.type === "console" && (
+          <div className="col-span-3 grid gap-y-2">
+            <p className="text-sm text-gray-500">Manual Deployment</p>
+            <p className="text-sm italic text-gray-400">
+              Deploy manually inside Brume console
             </p>
           </div>
-        </div>
+        )}
         <div className="col-end-11 justify-items-end">
-          {user && (
+          {me && (
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user.avatar} />
-              <AvatarFallback>{user.name.slice(0, 2)}</AvatarFallback>
+              <AvatarImage src={me.avatar} />
+              <AvatarFallback>{me.name.slice(0, 2)}</AvatarFallback>
             </Avatar>
           )}
         </div>
@@ -111,62 +110,17 @@ const DeploymentCard = ({
 };
 
 export const DeploymentsPage = () => {
-  const { me } = useUser();
   const { service } = useService();
 
-  const deployments: DeploymentCardProps[] = [
-    {
-      deploymentId: "jkvwuik92jr",
-      environment: "Production",
-      status: "live",
-      readyState: "ready",
-      deploymentTime: "1m 23s",
-      deploymentAge: "3d ago",
-      branch: "master",
-      commitHash: "dfuie283j",
-      commitMessage: "commit name",
-      user: me ? { avatar: me.avatar, name: me.name } : undefined,
-    },
-    {
-      deploymentId: "k39vn4m2p1",
-      environment: "Staging",
-      readyState: "loading",
-      deploymentTime: "45s",
-      deploymentAge: "1d ago",
-      branch: "feature/auth",
-      commitHash: "93kdf82n",
-      commitMessage: "Add authentication flow",
-      user: me ? { avatar: me.avatar, name: me.name } : undefined,
-    },
-    {
-      deploymentId: "p2m4n8v1k3",
-      environment: "Development",
-      readyState: "error",
-      deploymentTime: "2m 15s",
-      deploymentAge: "5h ago",
-      branch: "fix/api-endpoint",
-      commitHash: "7jh2k4f9",
-      commitMessage: "Fix API endpoint validation",
-      user: me ? { avatar: me.avatar, name: me.name } : undefined,
-    },
-    {
-      deploymentId: "w5x8y2z4q7",
-      environment: "Preview",
-      readyState: "ready",
-      deploymentTime: "3m 40s",
-      deploymentAge: "12h ago",
-      branch: "feature/dashboard",
-      commitHash: "n4m6p8q2",
-      commitMessage: "Update dashboard components",
-      user: me ? { avatar: me.avatar, name: me.name } : undefined,
-    },
-  ];
-
-  console.log(service?.deployments);
-
-  if (!service?.deployments.length) {
+  if (!service || service.deployments.length === 0) {
     return null;
   }
+
+  const deployments = service.deployments.sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() -
+      new Date(a.createdAt).getTime()
+  );
 
   return (
     <div className="flex h-full flex-col gap-y-4 px-32 pt-8">
@@ -174,19 +128,21 @@ export const DeploymentsPage = () => {
         <h3 className="text-md font-medium">Live Deployment</h3>
       </div>
       <div className="rounded-sm border border-gray-200 bg-white">
-        <DeploymentCard
-          data={deployments[0] as DeploymentCardProps}
-        />
+        <DeploymentCard data={deployments[0]} isLive />
       </div>
-      <h3 className="text-md pt-4 font-medium">History</h3>
-      <div className="flex h-full flex-col rounded-md border border-gray-200 bg-white shadow-sm">
-        {deployments.slice(1).map((deployment) => (
-          <DeploymentCard
-            className="border-b border-gray-200 last:border-b-0"
-            data={deployment}
-          />
-        ))}
-      </div>
+      {deployments.length > 1 && (
+        <>
+          <h3 className="text-md pt-4 font-medium">History</h3>
+          <div className="flex h-full flex-col rounded-md border border-gray-200 bg-white shadow-sm">
+            {service.deployments.slice(1).map((deployment) => (
+              <DeploymentCard
+                className="border-b border-gray-200 last:border-b-0"
+                data={deployment}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 };

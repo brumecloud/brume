@@ -1,6 +1,8 @@
 package service_model
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"time"
 
 	builder_model "brume.dev/builder/model"
@@ -61,6 +63,14 @@ const (
 	DeploymentSourceTypeConsole DeploymentSourceType = "console"
 )
 
+func (d *DeploymentSource) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &d)
+}
+
+func (d *DeploymentSource) Value() (driver.Value, error) {
+	return json.Marshal(d)
+}
+
 type DeploymentSource struct {
 	// if console everything is empty
 	Type DeploymentSourceType
@@ -82,4 +92,12 @@ type DeploymentLog struct {
 	Status   DeploymentStatus
 	Duration time.Duration
 	Date     time.Time
+}
+
+func (d *DeploymentLog) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &d)
+}
+
+func (d *DeploymentLog) Value() (driver.Value, error) {
+	return json.Marshal(d)
 }

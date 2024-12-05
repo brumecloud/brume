@@ -47,7 +47,8 @@ func (r *deploymentLogResolver) Status(ctx context.Context, obj *service_model.D
 
 // Duration is the resolver for the duration field.
 func (r *deploymentLogResolver) Duration(ctx context.Context, obj *service_model.DeploymentLog) (string, error) {
-	return fmt.Sprintf("%dms", obj.Duration), nil
+	duration := obj.Duration.Seconds()
+	return fmt.Sprintf("%d", int(duration)), nil
 }
 
 // Date is the resolver for the date field.

@@ -88,6 +88,7 @@ export const DeploymentSchema = z.object({
   __typename: z.literal("Deployment"),
   id: z.string(),
   createdAt: z.string(),
+  env: z.string(),
   source: z.discriminatedUnion("type", [
     z.object({
       type: z.literal("git"),
@@ -102,9 +103,11 @@ export const DeploymentSchema = z.object({
   logs: z.object({
     status: z.enum(["success", "pending", "failed"]),
     date: z.string(),
-    duration: z.number(),
+    duration: z.coerce.number(),
   }),
 });
+
+export type Deployment = z.infer<typeof DeploymentSchema>;
 
 export const ServiceSchema = z.object({
   __typename: z.literal("Service"),

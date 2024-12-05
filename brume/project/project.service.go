@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"go.temporal.io/sdk/client"
+	"golang.org/x/exp/rand"
 	"gorm.io/gorm"
 )
 
@@ -149,7 +150,8 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 			},
 			DeployLog: service_model.DeploymentLog{
 				Status:   service_model.DeploymentStatusSuccess,
-				Duration: 0,
+				Duration: time.Duration(rand.Intn(100)) * time.Second,
+				Date:     time.Now(),
 			},
 
 			BuilderData: service.LiveBuilder.Data,
