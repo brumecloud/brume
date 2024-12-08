@@ -31,8 +31,8 @@ func NewMasterInjector() *GlobalInjector {
 
 	app := fx.New(
 		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger())),
-		fx.Provide(db.InitDB),
-		fx.Invoke(db.InitDB),
+		fx.Provide(db.InitDB, db.InitClickhouse),
+		fx.Invoke(db.InitDB, db.InitClickhouse),
 
 		fx_common.CommonModule,
 		fx_org.OrgModule,
