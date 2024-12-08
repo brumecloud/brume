@@ -11,13 +11,11 @@ import (
 )
 
 type LogService struct {
-	db *db.DB
+	chdb *db.ClickhouseDB
 }
 
-func NewLogService(db *db.DB) *LogService {
-	return &LogService{
-		db: db,
-	}
+func NewLogService(chdb *db.ClickhouseDB) *LogService {
+	return &LogService{chdb: chdb}
 }
 
 func (l *LogService) GetDummyLog(ctx context.Context) ([]*log_model.Log, error) {
@@ -72,4 +70,13 @@ func (l *LogService) GetDummyLogsSub(ctx context.Context) (chan []*log_model.Log
 	}()
 
 	return c, nil
+}
+
+func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_model.Log, error) {
+	logs := make([]*log_model.Log, 0)
+
+	// no deployment_id, we get all logs for the project
+	err := l.chdb.Gorm.Where("project_id = ?", projectID).Limit(500).Find(&logs).Error
+
+	return logs, err
 }

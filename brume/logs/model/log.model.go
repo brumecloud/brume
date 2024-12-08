@@ -9,6 +9,10 @@ import (
 
 type Log struct {
 	gorm.Model
+	ProjectID      uuid.UUID
+	DeploymentID   uuid.UUID
+	DeploymentName string
+
 	ID        uuid.UUID
 	Message   string
 	Level     string

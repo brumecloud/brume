@@ -13,8 +13,17 @@ var TemporalModule = fx.Module("temporal",
 	fx.Invoke(func(c client.Client) {}),
 )
 
+var ContainerWorkflowModule = fx.Module("container-workflow",
+	fx.Provide(temporal_workflow.NewContainerWorkflow),
+	fx.Invoke(func(w *temporal_workflow.ContainerWorkflow) {}),
+)
+
 var TemporalNodeModule = fx.Module("temporal-node",
-	fx.Provide(temporal_workflow.NewDockerWorkflow),
 	fx.Provide(temporal_worker.StartNodeWorker),
-	fx.Invoke(func(c client.Client, w *temporal_workflow.DockerWorkflow) {}),
+	fx.Invoke(func(c client.Client) {}),
+)
+
+var TemporalMasterModule = fx.Module("temporal-master",
+	fx.Provide(temporal_worker.StartMasterWorker),
+	fx.Invoke(func(c client.Client) {}),
 )

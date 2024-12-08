@@ -52,8 +52,22 @@ type Deployment struct {
 
 	RunnerData  runner_model.RunnerData   `gorm:"type:jsonb"`
 	BuilderData builder_model.BuilderData `gorm:"type:jsonb"`
+	Execution   ExecutionData             `gorm:"type:jsonb"`
 
 	CreatedAt time.Time
+}
+
+type ExecutionData struct {
+	ContainerID string
+	LastLogs    time.Time
+}
+
+func (e *ExecutionData) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &e)
+}
+
+func (e *ExecutionData) Value() (driver.Value, error) {
+	return json.Marshal(e)
 }
 
 type DeploymentSourceType string

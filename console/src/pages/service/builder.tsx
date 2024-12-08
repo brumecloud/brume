@@ -334,7 +334,7 @@ export const BuilderPage = () => {
   return (
     <div className="flex h-full flex-col px-32 pt-8">
       <div className="py-16">
-        <h2 className="pb-2 text-2xl font-semibold">Builder</h2>
+        <h2 className="font-heading pb-2 text-3xl">Builder</h2>
         <p>Configure the building pipeline workflow</p>
       </div>
 

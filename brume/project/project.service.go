@@ -7,6 +7,7 @@ import (
 
 	builder_model "brume.dev/builder/model"
 	"brume.dev/internal/db"
+	"brume.dev/internal/temporal/constants"
 	project "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	"brume.dev/service"
@@ -125,23 +126,6 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 			s.db.Gorm.Model(&service).Association("LiveBuilder").Append(service.DraftBuilder)
 			s.db.Gorm.Model(&service).Association("DraftBuilder").Clear()
 		}
-
-		workflowOpts := client.StartWorkflowOptions{
-			TaskQueue: "node",
-		}
-
-		fullService, err := s.ServiceService.GetService(service.ID)
-
-		if err != nil {
-			return nil, err
-		}
-
-		we, err := s.TemporalClient.ExecuteWorkflow(context.Background(), workflowOpts, "RunServiceWorkflow", fullService)
-
-		if err != nil {
-			return nil, err
-		}
-
 		deployment := &service_model.Deployment{
 			ID:        uuid.New(),
 			ServiceID: service.ID,
@@ -165,6 +149,18 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 
 		if err != nil {
 			log.Error().Msgf("Error creating deployment for service %s", service.ID)
+			return nil, err
+		}
+
+		workflowOpts := client.StartWorkflowOptions{
+			TaskQueue: temporal_constants.MasterTaskQueue,
+		}
+
+		we, err := s.TemporalClient.ExecuteWorkflow(context.Background(), workflowOpts, temporal_constants.RunContainerDeploymentWorkflow, deployment)
+
+		if err != nil {
+			log.Error().Msgf("Error starting workflow for service %s", service.ID)
+			return nil, err
 		}
 
 		log.Info().Msgf("Started service %s", we.GetID())

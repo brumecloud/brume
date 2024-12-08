@@ -52,6 +52,8 @@ services:
       POSTGRES_PASSWORD: brumepass
       POSTGRES_DB: brume
       PGDATA: /data/postgres
+    ports:
+      - 5432:5432
     volumes:
       - postgres:/data/postgres
     networks:
@@ -59,24 +61,6 @@ services:
         aliases:
           - postgres
 
-  pgadmin:
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@brume.dev
-      PGADMIN_DEFAULT_PASSWORD: pass
-    # PGADMIN_CONFIG_SERVER_MODE: "False"
-    # PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-    # PGADMIN_LISTEN_ADDRESS: 0.0.0.0
-    # PGPASSFILE: /pgpass
-    # PG_DIR: /var/lib/pgadmin
-    ports:
-      - 9001:80
-    volumes:
-      - ./infra/pgadmin-servers.json:/pgadmin4/servers.json
-    networks:
-      brume-net:
-        aliases:
-          - pgadmin
   dozzle:
     image: amir20/dozzle:latest
     volumes:
@@ -129,9 +113,9 @@ services:
   clickhouse:
     image: yandex/clickhouse-server:latest
     environment:
-      - CLICKHOUSE_DB=gorm
-      - CLICKHOUSE_USER=gorm
-      - CLICKHOUSE_PASSWORD=gorm
+      - CLICKHOUSE_DB=brume
+      - CLICKHOUSE_USER=brume
+      - CLICKHOUSE_PASSWORD=brumepass
     ports:
       - 8123:8123
       - 9000:9000

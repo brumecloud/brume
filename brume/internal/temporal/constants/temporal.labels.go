@@ -1,0 +1,15 @@
+package temporal_constants
+
+const MasterTaskQueue = "master"
+const NodeTaskQueue = "node"
+
+// Master worker workflows
+const RunContainerDeploymentWorkflow = "RunContainerDeploymentWorkflow"
+
+// Master worker activities
+const IngestLogs = "IngestLogs"
+
+// Node worker activities
+const StartService = "StartService"
+const StopService = "StopService"
+const GetLogs = "GetLogs"

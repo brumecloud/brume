@@ -6,6 +6,6 @@ import (
 )
 
 var LogModule = fx.Options(
-	fx.Provide(log.NewLogService),
-	fx.Invoke(func(l *log.LogService) {}),
+	fx.Provide(log.NewLogService, log.NewLogActivity),
+	fx.Invoke(func(l *log.LogService, logActivity *log.LogActivity) {}),
 )

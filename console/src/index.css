@@ -94,6 +94,13 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  @font-face {
+    font-family: "RecklessNeue";
+    src: url("/font/RecklessNeue-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+  }
 }
 
 html {

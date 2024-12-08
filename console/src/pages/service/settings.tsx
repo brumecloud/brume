@@ -135,7 +135,7 @@ export const SettingPage = () => {
       <div className="flex h-full flex-col pt-16">
         <div className="flex w-full flex-row items-center justify-between pb-16">
           <div>
-            <h2 className="pb-2 text-2xl font-semibold">Settings</h2>
+            <h2 className="font-heading pb-2 text-3xl">Settings</h2>
             <p>Manage the service</p>
           </div>
           <div className="">

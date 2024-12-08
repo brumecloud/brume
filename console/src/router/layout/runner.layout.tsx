@@ -11,7 +11,7 @@ export const RunnerLayout = () => {
       <div className="px-32 pt-8">
         <div className="flex flex-row items-center justify-between pt-16">
           <div className="flex flex-col pb-8">
-            <h2 className="pb-2 text-2xl font-semibold">
+            <h2 className="font-heading pb-2 text-3xl">
               {service?.name} Runner
             </h2>
             <p>Inspect & configure how your code runs</p>

@@ -6,41 +6,43 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	runner_model "brume.dev/runner/model"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
+
+// this is the file doing the docker client interaction
 
 type DockerService struct {
 	dockerClient *client.Client
 }
 
 func NewDockerService() *DockerService {
-	log.Info().Msg("Connecting to docker client")
-
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 
 	if err != nil {
 		panic(err)
 	}
 
-	log.Info().Msg("Connected to docker client")
+	log.Info().Msg("Node connected to docker engine")
 
 	return &DockerService{dockerClient: cli}
 }
 
-func (d *DockerService) StartContainer(imageId string, runner *runner_model.Runner) (string, error) {
-	log.Info().Str("imageId", imageId).Str("runnerId", runner.ID.String()).Msg("Starting container")
+func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runner *runner_model.RunnerData) (string, error) {
+	log.Info().Str("imageId", imageId).Str("serviceId", serviceID.String()).Msg("Starting container")
 
 	ctx := context.Background()
 	var command strslice.StrSlice
 
-	if runner.Data.Command != "" {
-		command = strslice.StrSlice(strings.Split(runner.Data.Command, " "))
+	if runner.Command != "" {
+		command = strslice.StrSlice(strings.Split(runner.Command, " "))
 	}
 
 	response, err := d.dockerClient.ContainerCreate(ctx, &container.Config{
@@ -48,7 +50,7 @@ func (d *DockerService) StartContainer(imageId string, runner *runner_model.Runn
 		Tty:   false,
 		Labels: map[string]string{
 			"brume.dev/managed":    "true",
-			"brume.dev/service-id": runner.ServiceId.String(),
+			"brume.dev/service-id": serviceID.String(),
 		},
 		Cmd: command,
 		// Healthcheck: &container.HealthConfig{
@@ -99,4 +101,14 @@ func (d *DockerService) PullImage(registry string, image_name string, tag string
 	io.Copy(os.Stdout, reader)
 
 	return totalImage, nil
+}
+
+func (d *DockerService) GetLogs(containerId string, since time.Time) (io.ReadCloser, error) {
+	log.Info().Str("containerId", containerId).Time("since", since).Msg("Getting logs")
+
+	out, err := d.dockerClient.ContainerLogs(context.Background(), containerId, container.LogsOptions{
+		ShowStdout: true, ShowStderr: true, Since: since.Format(time.RFC3339),
+	})
+
+	return out, err
 }

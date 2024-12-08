@@ -3,6 +3,7 @@ package db
 import (
 	"time"
 
+	log_model "brume.dev/logs/model"
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/clickhouse"
 	"gorm.io/gorm"
@@ -31,7 +32,7 @@ func openCHDB() (*ClickhouseDB, error) {
 	globalLogLevel := log.Logger.GetLevel()
 	dblogger := NewDBLogger(log.Level(globalLogLevel))
 
-	dsn := "clickhouse://gorm:gorm@clickhouse:9000/gorm?dial_timeout=10s&read_timeout=20s"
+	dsn := "clickhouse://brume:brumepass@clickhouse:9000/brume?dial_timeout=10s&read_timeout=20s"
 
 	db, err := gorm.Open(clickhouse.Open(dsn), &gorm.Config{
 		Logger: dblogger,
@@ -58,6 +59,14 @@ func openCHDB() (*ClickhouseDB, error) {
 	}, nil
 }
 
+var AllClickhouseModels = []interface{}{
+	&log_model.Log{},
+}
+
 func (chdb *ClickhouseDB) Migrate() {
 	log.Info().Msg("Migrating Clickhouse database")
+
+	chdb.Gorm.AutoMigrate(AllClickhouseModels...)
+
+	log.Info().Msg("Clickhouse migrations finished")
 }
