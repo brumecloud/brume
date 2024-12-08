@@ -20,10 +20,8 @@ var ContainerWorkflowModule = fx.Module("container-workflow",
 
 var TemporalNodeModule = fx.Module("temporal-node",
 	fx.Provide(temporal_worker.StartNodeWorker),
-	fx.Invoke(func(c client.Client) {}),
 )
 
 var TemporalMasterModule = fx.Module("temporal-master",
 	fx.Provide(temporal_worker.StartMasterWorker),
-	fx.Invoke(func(c client.Client) {}),
 )

@@ -67,8 +67,6 @@ func (d *ContainerWorkflow) RunContainerDeploymentWorkflow(ctx workflow.Context,
 		err := workflow.ExecuteActivity(ctx, temporal_constants.GetLogs, deployment).Get(ctx, &logs)
 
 		if len(logs) > 0 {
-			log.Info().Str("containerId", containerId).Msgf("Found %d logs", len(logs))
-
 			masterOpts := workflow.ActivityOptions{
 				ScheduleToStartTimeout: time.Minute * 10,
 				StartToCloseTimeout:    time.Minute * 10,

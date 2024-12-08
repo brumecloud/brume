@@ -57,7 +57,7 @@ export const LogLine = ({ data }: { data: Log }) => {
               <a
                 className="cursor:pointer hover:text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"
                 href="#">
-                service id
+                {data.deploymentId}
               </a>
             </div>
           </div>
@@ -66,7 +66,7 @@ export const LogLine = ({ data }: { data: Log }) => {
               <a
                 className="cursor:pointer hover:text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"
                 href="#">
-                {data.level}
+                {data.deploymentName}
               </a>
             </div>
           </div>

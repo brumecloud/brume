@@ -5,13 +5,15 @@ export const LogFragment = gql`
     message
     level
     timestamp
+    deploymentId
+    deploymentName
   }
 `;
 
-export const LOG_BY_SERVICE_ID = gql`
+export const LOG_BY_PROJECT_ID = gql`
   ${LogFragment}
-  query GetLogPerServiceID($serviceId: String!) {
-    serviceLogs(serviceId: $serviceId) {
+  query GetLogPerProjectID($projectId: String!) {
+    projectLogs(projectId: $projectId) {
       ...LogFragment
     }
   }

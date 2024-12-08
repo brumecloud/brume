@@ -109,6 +109,8 @@ type Log {
   message: String!
   level: String!
   timestamp: String!
+  deploymentName: String!
+  deploymentId: String!
 }
 
 input CreateServiceInput {
@@ -132,6 +134,7 @@ type ServiceEvent {
 type Query {
   me: User!
   getProjectById(id: String!): Project!
+  projectLogs(projectId: String!): [Log]!
   serviceLogs(serviceId: String!): [Log]!
 }
 
@@ -152,5 +155,6 @@ type Mutation {
 
 type Subscription {
   serviceLogs(serviceId: String!): [Log]!
+  projectLogs(projectId: String!): [Log]!
   serviceEvents(serviceId: String!): [ServiceEvent]!
 }

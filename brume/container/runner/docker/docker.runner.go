@@ -135,10 +135,12 @@ func (d *DockerEngineRunner) GetLogs(ctx context.Context, deployment *service_mo
 		fmt.Println("line", line)
 
 		logs = append(logs, &log_model.Log{
-			Message:      line,
-			DeploymentID: deployment.ID,
-			Timestamp:    now,
-			Level:        logType,
+			Message:        line,
+			DeploymentID:   deployment.ID,
+			DeploymentName: fmt.Sprintf("%s-%s", deployment.ServiceName, deployment.Env),
+			ProjectID:      deployment.ProjectID,
+			Timestamp:      now,
+			Level:          logType,
 		})
 	}
 

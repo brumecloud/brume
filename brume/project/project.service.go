@@ -127,8 +127,11 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 			s.db.Gorm.Model(&service).Association("DraftBuilder").Clear()
 		}
 		deployment := &service_model.Deployment{
-			ID:        uuid.New(),
-			ServiceID: service.ID,
+			ID:          uuid.New(),
+			ServiceID:   service.ID,
+			ServiceName: service.Name,
+			ProjectID:   project.ID,
+
 			Source: service_model.DeploymentSource{
 				Type: service_model.DeploymentSourceTypeConsole,
 			},

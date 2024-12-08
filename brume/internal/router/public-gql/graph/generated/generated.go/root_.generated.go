@@ -83,10 +83,12 @@ type ComplexityRoot struct {
 	}
 
 	Log struct {
-		ID        func(childComplexity int) int
-		Level     func(childComplexity int) int
-		Message   func(childComplexity int) int
-		Timestamp func(childComplexity int) int
+		DeploymentID   func(childComplexity int) int
+		DeploymentName func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Level          func(childComplexity int) int
+		Message        func(childComplexity int) int
+		Timestamp      func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -111,6 +113,7 @@ type ComplexityRoot struct {
 	Query struct {
 		GetProjectByID func(childComplexity int, id string) int
 		Me             func(childComplexity int) int
+		ProjectLogs    func(childComplexity int, projectID string) int
 		ServiceLogs    func(childComplexity int, serviceID string) int
 	}
 
@@ -153,6 +156,7 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
+		ProjectLogs   func(childComplexity int, projectID string) int
 		ServiceEvents func(childComplexity int, serviceID string) int
 		ServiceLogs   func(childComplexity int, serviceID string) int
 	}
@@ -309,6 +313,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.DeploymentSource.Type(childComplexity), true
+
+	case "Log.deploymentId":
+		if e.complexity.Log.DeploymentID == nil {
+			break
+		}
+
+		return e.complexity.Log.DeploymentID(childComplexity), true
+
+	case "Log.deploymentName":
+		if e.complexity.Log.DeploymentName == nil {
+			break
+		}
+
+		return e.complexity.Log.DeploymentName(childComplexity), true
 
 	case "Log.id":
 		if e.complexity.Log.ID == nil {
@@ -488,6 +506,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.Me(childComplexity), true
 
+	case "Query.projectLogs":
+		if e.complexity.Query.ProjectLogs == nil {
+			break
+		}
+
+		args, err := ec.field_Query_projectLogs_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ProjectLogs(childComplexity, args["projectId"].(string)), true
+
 	case "Query.serviceLogs":
 		if e.complexity.Query.ServiceLogs == nil {
 			break
@@ -660,6 +690,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.ServiceEvent.Type(childComplexity), true
+
+	case "Subscription.projectLogs":
+		if e.complexity.Subscription.ProjectLogs == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_projectLogs_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.ProjectLogs(childComplexity, args["projectId"].(string)), true
 
 	case "Subscription.serviceEvents":
 		if e.complexity.Subscription.ServiceEvents == nil {
@@ -951,6 +993,8 @@ type Log {
   message: String!
   level: String!
   timestamp: String!
+  deploymentName: String!
+  deploymentId: String!
 }
 
 input CreateServiceInput {
@@ -974,6 +1018,7 @@ type ServiceEvent {
 type Query {
   me: User!
   getProjectById(id: String!): Project!
+  projectLogs(projectId: String!): [Log]!
   serviceLogs(serviceId: String!): [Log]!
 }
 
@@ -994,6 +1039,7 @@ type Mutation {
 
 type Subscription {
   serviceLogs(serviceId: String!): [Log]!
+  projectLogs(projectId: String!): [Log]!
   serviceEvents(serviceId: String!): [ServiceEvent]!
 }
 `, BuiltIn: false},

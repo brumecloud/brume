@@ -22,12 +22,14 @@ func StartMasterWorker(temporalClient client.Client, logActivity *brume_log.LogA
 
 	log.Warn().Msg("Starting temporal master worker")
 
-	err := w.Run(worker.InterruptCh())
+	go func() {
+		err := w.Run(worker.InterruptCh())
 
-	if err != nil {
-		log.Error().Err(err).Msg("Error starting master worker")
-		panic(err)
-	}
+		if err != nil {
+			log.Error().Err(err).Msg("Error starting master worker")
+			panic(err)
+		}
+	}()
 
 	return &MasterWorker{}
 }

@@ -4,13 +4,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type Log struct {
-	gorm.Model
-	ProjectID      uuid.UUID
-	DeploymentID   uuid.UUID
+	ProjectID      uuid.UUID `gorm:"type:UUID;index"`
+	DeploymentID   uuid.UUID `gorm:"type:UUID;index"`
 	DeploymentName string
 
 	ID        uuid.UUID

@@ -42,8 +42,11 @@ type Service struct {
 	ProjectID uuid.UUID
 }
 type Deployment struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
-	ServiceID uuid.UUID `gorm:"type:uuid"`
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ServiceID   uuid.UUID `gorm:"type:uuid"`
+	ServiceName string
+
+	ProjectID uuid.UUID `gorm:"type:uuid"`
 
 	Source    DeploymentSource `gorm:"type:jsonb"`
 	DeployLog DeploymentLog    `gorm:"type:jsonb"`

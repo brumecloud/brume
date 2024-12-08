@@ -71,6 +71,11 @@ func (r *logResolver) Timestamp(ctx context.Context, obj *log_model.Log) (string
 	return obj.Timestamp.Format(time.RFC3339), nil
 }
 
+// DeploymentID is the resolver for the deploymentId field.
+func (r *logResolver) DeploymentID(ctx context.Context, obj *log_model.Log) (string, error) {
+	return obj.DeploymentID.String(), nil
+}
+
 // CreateProject is the resolver for the createProject field.
 func (r *mutationResolver) CreateProject(ctx context.Context, name string, description *string) (*project_model.Project, error) {
 	return r.ProjectService.CreateProject(name, *description)
@@ -217,6 +222,11 @@ func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project
 	return r.ProjectService.GetProjectByID(project_uuid)
 }
 
+// ProjectLogs is the resolver for the projectLogs field.
+func (r *queryResolver) ProjectLogs(ctx context.Context, projectID string) ([]*log_model.Log, error) {
+	return r.LogService.GetLogs(ctx, uuid.MustParse(projectID))
+}
+
 // ServiceLogs is the resolver for the serviceLogs field.
 func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string) ([]*log_model.Log, error) {
 	return r.LogService.GetDummyLog(ctx)
@@ -245,6 +255,11 @@ func (r *serviceResolver) Deployments(ctx context.Context, obj *service_model.Se
 // ServiceLogs is the resolver for the serviceLogs field.
 func (r *subscriptionResolver) ServiceLogs(ctx context.Context, serviceID string) (<-chan []*log_model.Log, error) {
 	return r.LogService.GetDummyLogsSub(ctx)
+}
+
+// ProjectLogs is the resolver for the projectLogs field.
+func (r *subscriptionResolver) ProjectLogs(ctx context.Context, projectID string) (<-chan []*log_model.Log, error) {
+	panic(fmt.Errorf("not implemented: ProjectLogs - projectLogs"))
 }
 
 // ServiceEvents is the resolver for the serviceEvents field.

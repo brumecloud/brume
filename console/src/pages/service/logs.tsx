@@ -1,7 +1,7 @@
 import { LogsChart } from "@/components/logs/logs-chart.comp";
 import { LogsRender } from "@/components/logs/logs.comp";
 import {
-  LOG_BY_SERVICE_ID,
+  LOG_BY_PROJECT_ID,
   LOG_BY_SERVICE_ID_SUB,
 } from "@/gql/log.graphql";
 import type { Log } from "@/schemas/log.schema";
@@ -14,6 +14,7 @@ import {
 } from "@radix-ui/react-icons";
 import { ClockIcon, RefreshCcw } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { useParams } from "react-router-dom";
 import { useSnapshot } from "valtio";
 
 const LogsHeader = () => {
@@ -32,19 +33,23 @@ const LogsHeader = () => {
         </div>
       </div>
       <p>Date</p>
-      <p>User</p>
-      <p>Repo</p>
+      <p>Deployment ID</p>
+      <p>Deployment Name</p>
       <p>Message</p>
     </div>
   );
 };
 
 export const LogsPage = () => {
-  const { data, subscribeToMore } = useQuery(LOG_BY_SERVICE_ID, {
+  const { projectId } = useParams();
+
+  const { data, subscribeToMore } = useQuery(LOG_BY_PROJECT_ID, {
     variables: {
-      serviceId: "service-id-here",
+      projectId: projectId,
     },
+    pollInterval: 1000,
   });
+
   const { isLive, toggleLive, updateSearchQuery, searchQuery } =
     useSnapshot(liveLogs);
   const searchQueryRef = useRef<HTMLInputElement>(null);
@@ -94,7 +99,7 @@ export const LogsPage = () => {
       <LogsChart />
       <LogsHeader />
       <LogsRender
-        logs={data?.serviceLogs ?? []}
+        logs={data?.projectLogs ?? []}
         logsSubscription={() => {
           return subscribeToMore({
             document: LOG_BY_SERVICE_ID_SUB,

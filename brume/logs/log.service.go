@@ -8,6 +8,7 @@ import (
 	"brume.dev/internal/db"
 	log_model "brume.dev/logs/model"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type LogService struct {
@@ -73,10 +74,12 @@ func (l *LogService) GetDummyLogsSub(ctx context.Context) (chan []*log_model.Log
 }
 
 func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_model.Log, error) {
+	log.Info().Str("projectId", projectID.String()).Msg("Getting logs")
+
 	logs := make([]*log_model.Log, 0)
 
 	// no deployment_id, we get all logs for the project
-	err := l.chdb.Gorm.Where("project_id = ?", projectID).Limit(500).Find(&logs).Error
+	err := l.chdb.Gorm.Where(&log_model.Log{ProjectID: projectID}).Order("timestamp asc").Limit(500).Find(&logs).Error
 
 	return logs, err
 }
