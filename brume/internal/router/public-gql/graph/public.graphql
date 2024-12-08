@@ -109,6 +109,7 @@ type Log {
   message: String!
   level: String!
   timestamp: String!
+  serviceId: String!
   deploymentName: String!
   deploymentId: String!
 }

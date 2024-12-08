@@ -71,6 +71,11 @@ func (r *logResolver) Timestamp(ctx context.Context, obj *log_model.Log) (string
 	return obj.Timestamp.Format(time.RFC3339), nil
 }
 
+// ServiceID is the resolver for the serviceId field.
+func (r *logResolver) ServiceID(ctx context.Context, obj *log_model.Log) (string, error) {
+	return obj.ServiceID.String(), nil
+}
+
 // DeploymentID is the resolver for the deploymentId field.
 func (r *logResolver) DeploymentID(ctx context.Context, obj *log_model.Log) (string, error) {
 	return obj.DeploymentID.String(), nil

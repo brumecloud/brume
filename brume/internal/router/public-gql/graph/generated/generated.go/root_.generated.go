@@ -88,6 +88,7 @@ type ComplexityRoot struct {
 		ID             func(childComplexity int) int
 		Level          func(childComplexity int) int
 		Message        func(childComplexity int) int
+		ServiceID      func(childComplexity int) int
 		Timestamp      func(childComplexity int) int
 	}
 
@@ -348,6 +349,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Log.Message(childComplexity), true
+
+	case "Log.serviceId":
+		if e.complexity.Log.ServiceID == nil {
+			break
+		}
+
+		return e.complexity.Log.ServiceID(childComplexity), true
 
 	case "Log.timestamp":
 		if e.complexity.Log.Timestamp == nil {
@@ -993,6 +1001,7 @@ type Log {
   message: String!
   level: String!
   timestamp: String!
+  serviceId: String!
   deploymentName: String!
   deploymentId: String!
 }

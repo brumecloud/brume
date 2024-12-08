@@ -8,6 +8,7 @@ import (
 
 type Log struct {
 	ProjectID      uuid.UUID `gorm:"type:UUID;index"`
+	ServiceID      uuid.UUID `gorm:"type:UUID;index"`
 	DeploymentID   uuid.UUID `gorm:"type:UUID;index"`
 	DeploymentName string
 

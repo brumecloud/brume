@@ -5,6 +5,7 @@ export const LogFragment = gql`
     message
     level
     timestamp
+    serviceId
     deploymentId
     deploymentName
   }

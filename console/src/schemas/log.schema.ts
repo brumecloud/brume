@@ -6,6 +6,7 @@ export const LogSchema = z.object({
   level: z.union([z.literal("info"), z.literal("error")]),
   timestamp: z.string(),
   deploymentId: z.string(),
+  serviceId: z.string(),
   deploymentName: z.string(),
 });
 

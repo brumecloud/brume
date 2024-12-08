@@ -33,7 +33,7 @@ const LogsHeader = () => {
         </div>
       </div>
       <p>Date</p>
-      <p>Deployment ID</p>
+      <p>Service ID</p>
       <p>Deployment Name</p>
       <p>Message</p>
     </div>
