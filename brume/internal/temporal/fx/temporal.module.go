@@ -3,7 +3,7 @@ package fx_temporal
 import (
 	"brume.dev/internal/temporal"
 	"brume.dev/internal/temporal/worker"
-	"brume.dev/internal/temporal/workflow"
+	container_workflow "brume.dev/project/workflow"
 	"go.temporal.io/sdk/client"
 	"go.uber.org/fx"
 )
@@ -14,8 +14,8 @@ var TemporalModule = fx.Module("temporal",
 )
 
 var ContainerWorkflowModule = fx.Module("container-workflow",
-	fx.Provide(temporal_workflow.NewContainerWorkflow),
-	fx.Invoke(func(w *temporal_workflow.ContainerWorkflow) {}),
+	fx.Provide(container_workflow.NewContainerWorkflow),
+	fx.Invoke(func(w *container_workflow.ContainerWorkflow) {}),
 )
 
 var TemporalNodeModule = fx.Module("temporal-node",

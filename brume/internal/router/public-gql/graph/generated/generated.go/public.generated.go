@@ -13,6 +13,7 @@ import (
 
 	user_model "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
+	deployment_model "brume.dev/deployment/model"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	log_model "brume.dev/logs/model"
 	project_model "brume.dev/project/model"
@@ -26,20 +27,20 @@ import (
 // region    ************************** generated!.gotpl **************************
 
 type DeploymentResolver interface {
-	ID(ctx context.Context, obj *service_model.Deployment) (string, error)
-	Author(ctx context.Context, obj *service_model.Deployment) (*user_model.User, error)
+	ID(ctx context.Context, obj *deployment_model.Deployment) (string, error)
+	Author(ctx context.Context, obj *deployment_model.Deployment) (*user_model.User, error)
 
-	Logs(ctx context.Context, obj *service_model.Deployment) (*service_model.DeploymentLog, error)
+	Logs(ctx context.Context, obj *deployment_model.Deployment) (*deployment_model.DeploymentLog, error)
 
-	CreatedAt(ctx context.Context, obj *service_model.Deployment) (string, error)
+	CreatedAt(ctx context.Context, obj *deployment_model.Deployment) (string, error)
 }
 type DeploymentLogResolver interface {
-	Status(ctx context.Context, obj *service_model.DeploymentLog) (string, error)
-	Duration(ctx context.Context, obj *service_model.DeploymentLog) (string, error)
-	Date(ctx context.Context, obj *service_model.DeploymentLog) (string, error)
+	Status(ctx context.Context, obj *deployment_model.DeploymentLog) (string, error)
+	Duration(ctx context.Context, obj *deployment_model.DeploymentLog) (string, error)
+	Date(ctx context.Context, obj *deployment_model.DeploymentLog) (string, error)
 }
 type DeploymentSourceResolver interface {
-	Type(ctx context.Context, obj *service_model.DeploymentSource) (string, error)
+	Type(ctx context.Context, obj *deployment_model.DeploymentSource) (string, error)
 }
 type LogResolver interface {
 	ID(ctx context.Context, obj *log_model.Log) (string, error)
@@ -76,7 +77,7 @@ type ServiceResolver interface {
 
 	DraftBuilder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error)
 	DraftRunner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error)
-	Deployments(ctx context.Context, obj *service_model.Service) ([]*service_model.Deployment, error)
+	Deployments(ctx context.Context, obj *service_model.Service) ([]*deployment_model.Deployment, error)
 }
 type SubscriptionResolver interface {
 	ServiceLogs(ctx context.Context, serviceID string) (<-chan []*log_model.Log, error)
@@ -944,7 +945,7 @@ func (ec *executionContext) fieldContext_BuilderData_tag(_ context.Context, fiel
 	return fc, nil
 }
 
-func (ec *executionContext) _Deployment_id(ctx context.Context, field graphql.CollectedField, obj *service_model.Deployment) (ret graphql.Marshaler) {
+func (ec *executionContext) _Deployment_id(ctx context.Context, field graphql.CollectedField, obj *deployment_model.Deployment) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Deployment_id(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -988,7 +989,7 @@ func (ec *executionContext) fieldContext_Deployment_id(_ context.Context, field 
 	return fc, nil
 }
 
-func (ec *executionContext) _Deployment_author(ctx context.Context, field graphql.CollectedField, obj *service_model.Deployment) (ret graphql.Marshaler) {
+func (ec *executionContext) _Deployment_author(ctx context.Context, field graphql.CollectedField, obj *deployment_model.Deployment) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Deployment_author(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1042,7 +1043,7 @@ func (ec *executionContext) fieldContext_Deployment_author(_ context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _Deployment_source(ctx context.Context, field graphql.CollectedField, obj *service_model.Deployment) (ret graphql.Marshaler) {
+func (ec *executionContext) _Deployment_source(ctx context.Context, field graphql.CollectedField, obj *deployment_model.Deployment) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Deployment_source(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1068,9 +1069,9 @@ func (ec *executionContext) _Deployment_source(ctx context.Context, field graphq
 		}
 		return graphql.Null
 	}
-	res := resTmp.(service_model.DeploymentSource)
+	res := resTmp.(deployment_model.DeploymentSource)
 	fc.Result = res
-	return ec.marshalNDeploymentSource2brumeᚗdevᚋserviceᚋmodelᚐDeploymentSource(ctx, field.Selections, res)
+	return ec.marshalNDeploymentSource2brumeᚗdevᚋdeploymentᚋmodelᚐDeploymentSource(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Deployment_source(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1096,7 +1097,7 @@ func (ec *executionContext) fieldContext_Deployment_source(_ context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _Deployment_logs(ctx context.Context, field graphql.CollectedField, obj *service_model.Deployment) (ret graphql.Marshaler) {
+func (ec *executionContext) _Deployment_logs(ctx context.Context, field graphql.CollectedField, obj *deployment_model.Deployment) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Deployment_logs(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1122,9 +1123,9 @@ func (ec *executionContext) _Deployment_logs(ctx context.Context, field graphql.
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*service_model.DeploymentLog)
+	res := resTmp.(*deployment_model.DeploymentLog)
 	fc.Result = res
-	return ec.marshalNDeploymentLog2ᚖbrumeᚗdevᚋserviceᚋmodelᚐDeploymentLog(ctx, field.Selections, res)
+	return ec.marshalNDeploymentLog2ᚖbrumeᚗdevᚋdeploymentᚋmodelᚐDeploymentLog(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Deployment_logs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1148,7 +1149,7 @@ func (ec *executionContext) fieldContext_Deployment_logs(_ context.Context, fiel
 	return fc, nil
 }
 
-func (ec *executionContext) _Deployment_env(ctx context.Context, field graphql.CollectedField, obj *service_model.Deployment) (ret graphql.Marshaler) {
+func (ec *executionContext) _Deployment_env(ctx context.Context, field graphql.CollectedField, obj *deployment_model.Deployment) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Deployment_env(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1192,7 +1193,7 @@ func (ec *executionContext) fieldContext_Deployment_env(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _Deployment_createdAt(ctx context.Context, field graphql.CollectedField, obj *service_model.Deployment) (ret graphql.Marshaler) {
+func (ec *executionContext) _Deployment_createdAt(ctx context.Context, field graphql.CollectedField, obj *deployment_model.Deployment) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Deployment_createdAt(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1236,7 +1237,7 @@ func (ec *executionContext) fieldContext_Deployment_createdAt(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _DeploymentLog_status(ctx context.Context, field graphql.CollectedField, obj *service_model.DeploymentLog) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeploymentLog_status(ctx context.Context, field graphql.CollectedField, obj *deployment_model.DeploymentLog) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_DeploymentLog_status(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1280,7 +1281,7 @@ func (ec *executionContext) fieldContext_DeploymentLog_status(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _DeploymentLog_duration(ctx context.Context, field graphql.CollectedField, obj *service_model.DeploymentLog) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeploymentLog_duration(ctx context.Context, field graphql.CollectedField, obj *deployment_model.DeploymentLog) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_DeploymentLog_duration(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1324,7 +1325,7 @@ func (ec *executionContext) fieldContext_DeploymentLog_duration(_ context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _DeploymentLog_date(ctx context.Context, field graphql.CollectedField, obj *service_model.DeploymentLog) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeploymentLog_date(ctx context.Context, field graphql.CollectedField, obj *deployment_model.DeploymentLog) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_DeploymentLog_date(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1368,7 +1369,7 @@ func (ec *executionContext) fieldContext_DeploymentLog_date(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _DeploymentSource_type(ctx context.Context, field graphql.CollectedField, obj *service_model.DeploymentSource) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeploymentSource_type(ctx context.Context, field graphql.CollectedField, obj *deployment_model.DeploymentSource) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_DeploymentSource_type(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1412,7 +1413,7 @@ func (ec *executionContext) fieldContext_DeploymentSource_type(_ context.Context
 	return fc, nil
 }
 
-func (ec *executionContext) _DeploymentSource_branch(ctx context.Context, field graphql.CollectedField, obj *service_model.DeploymentSource) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeploymentSource_branch(ctx context.Context, field graphql.CollectedField, obj *deployment_model.DeploymentSource) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_DeploymentSource_branch(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1453,7 +1454,7 @@ func (ec *executionContext) fieldContext_DeploymentSource_branch(_ context.Conte
 	return fc, nil
 }
 
-func (ec *executionContext) _DeploymentSource_commit(ctx context.Context, field graphql.CollectedField, obj *service_model.DeploymentSource) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeploymentSource_commit(ctx context.Context, field graphql.CollectedField, obj *deployment_model.DeploymentSource) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_DeploymentSource_commit(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1494,7 +1495,7 @@ func (ec *executionContext) fieldContext_DeploymentSource_commit(_ context.Conte
 	return fc, nil
 }
 
-func (ec *executionContext) _DeploymentSource_message(ctx context.Context, field graphql.CollectedField, obj *service_model.DeploymentSource) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeploymentSource_message(ctx context.Context, field graphql.CollectedField, obj *deployment_model.DeploymentSource) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_DeploymentSource_message(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -3821,9 +3822,9 @@ func (ec *executionContext) _Service_deployments(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*service_model.Deployment)
+	res := resTmp.([]*deployment_model.Deployment)
 	fc.Result = res
-	return ec.marshalNDeployment2ᚕᚖbrumeᚗdevᚋserviceᚋmodelᚐDeploymentᚄ(ctx, field.Selections, res)
+	return ec.marshalNDeployment2ᚕᚖbrumeᚗdevᚋdeploymentᚋmodelᚐDeploymentᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Service_deployments(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4824,7 +4825,7 @@ func (ec *executionContext) _BuilderData(ctx context.Context, sel ast.SelectionS
 
 var deploymentImplementors = []string{"Deployment"}
 
-func (ec *executionContext) _Deployment(ctx context.Context, sel ast.SelectionSet, obj *service_model.Deployment) graphql.Marshaler {
+func (ec *executionContext) _Deployment(ctx context.Context, sel ast.SelectionSet, obj *deployment_model.Deployment) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, deploymentImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -5012,7 +5013,7 @@ func (ec *executionContext) _Deployment(ctx context.Context, sel ast.SelectionSe
 
 var deploymentLogImplementors = []string{"DeploymentLog"}
 
-func (ec *executionContext) _DeploymentLog(ctx context.Context, sel ast.SelectionSet, obj *service_model.DeploymentLog) graphql.Marshaler {
+func (ec *executionContext) _DeploymentLog(ctx context.Context, sel ast.SelectionSet, obj *deployment_model.DeploymentLog) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, deploymentLogImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -5154,7 +5155,7 @@ func (ec *executionContext) _DeploymentLog(ctx context.Context, sel ast.Selectio
 
 var deploymentSourceImplementors = []string{"DeploymentSource"}
 
-func (ec *executionContext) _DeploymentSource(ctx context.Context, sel ast.SelectionSet, obj *service_model.DeploymentSource) graphql.Marshaler {
+func (ec *executionContext) _DeploymentSource(ctx context.Context, sel ast.SelectionSet, obj *deployment_model.DeploymentSource) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, deploymentSourceImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6378,7 +6379,7 @@ func (ec *executionContext) unmarshalNCreateServiceInput2brumeᚗdevᚋinternal�
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNDeployment2ᚕᚖbrumeᚗdevᚋserviceᚋmodelᚐDeploymentᚄ(ctx context.Context, sel ast.SelectionSet, v []*service_model.Deployment) graphql.Marshaler {
+func (ec *executionContext) marshalNDeployment2ᚕᚖbrumeᚗdevᚋdeploymentᚋmodelᚐDeploymentᚄ(ctx context.Context, sel ast.SelectionSet, v []*deployment_model.Deployment) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -6402,7 +6403,7 @@ func (ec *executionContext) marshalNDeployment2ᚕᚖbrumeᚗdevᚋserviceᚋmod
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNDeployment2ᚖbrumeᚗdevᚋserviceᚋmodelᚐDeployment(ctx, sel, v[i])
+			ret[i] = ec.marshalNDeployment2ᚖbrumeᚗdevᚋdeploymentᚋmodelᚐDeployment(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -6422,7 +6423,7 @@ func (ec *executionContext) marshalNDeployment2ᚕᚖbrumeᚗdevᚋserviceᚋmod
 	return ret
 }
 
-func (ec *executionContext) marshalNDeployment2ᚖbrumeᚗdevᚋserviceᚋmodelᚐDeployment(ctx context.Context, sel ast.SelectionSet, v *service_model.Deployment) graphql.Marshaler {
+func (ec *executionContext) marshalNDeployment2ᚖbrumeᚗdevᚋdeploymentᚋmodelᚐDeployment(ctx context.Context, sel ast.SelectionSet, v *deployment_model.Deployment) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -6432,11 +6433,11 @@ func (ec *executionContext) marshalNDeployment2ᚖbrumeᚗdevᚋserviceᚋmodel�
 	return ec._Deployment(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNDeploymentLog2brumeᚗdevᚋserviceᚋmodelᚐDeploymentLog(ctx context.Context, sel ast.SelectionSet, v service_model.DeploymentLog) graphql.Marshaler {
+func (ec *executionContext) marshalNDeploymentLog2brumeᚗdevᚋdeploymentᚋmodelᚐDeploymentLog(ctx context.Context, sel ast.SelectionSet, v deployment_model.DeploymentLog) graphql.Marshaler {
 	return ec._DeploymentLog(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeploymentLog2ᚖbrumeᚗdevᚋserviceᚋmodelᚐDeploymentLog(ctx context.Context, sel ast.SelectionSet, v *service_model.DeploymentLog) graphql.Marshaler {
+func (ec *executionContext) marshalNDeploymentLog2ᚖbrumeᚗdevᚋdeploymentᚋmodelᚐDeploymentLog(ctx context.Context, sel ast.SelectionSet, v *deployment_model.DeploymentLog) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -6446,7 +6447,7 @@ func (ec *executionContext) marshalNDeploymentLog2ᚖbrumeᚗdevᚋserviceᚋmod
 	return ec._DeploymentLog(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNDeploymentSource2brumeᚗdevᚋserviceᚋmodelᚐDeploymentSource(ctx context.Context, sel ast.SelectionSet, v service_model.DeploymentSource) graphql.Marshaler {
+func (ec *executionContext) marshalNDeploymentSource2brumeᚗdevᚋdeploymentᚋmodelᚐDeploymentSource(ctx context.Context, sel ast.SelectionSet, v deployment_model.DeploymentSource) graphql.Marshaler {
 	return ec._DeploymentSource(ctx, sel, &v)
 }
 

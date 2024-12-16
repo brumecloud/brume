@@ -84,7 +84,7 @@ services:
     ports:
       - 7233:7233
     volumes:
-      - ./infra/temporal.yaml:/etc/temporal/config/dynamicconfig/temporal.yaml
+      - ./local/temporal.yaml:/etc/temporal/config/dynamicconfig/temporal.yaml
 
   temporal-admin-tools:
     depends_on:

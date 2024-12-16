@@ -3,6 +3,7 @@ package service
 import (
 	builder_model "brume.dev/builder/model"
 	builder_service "brume.dev/builder/service"
+	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
 	"brume.dev/runner"
 	runner_model "brume.dev/runner/model"
@@ -158,7 +159,7 @@ func (s *ServiceService) UpdateServiceSettings(serviceId uuid.UUID, name string)
 	return service, s.db.Gorm.Save(&service).Error
 }
 
-func (s *ServiceService) CreateDeployment(serviceId uuid.UUID, deployment *service_model.Deployment) error {
+func (s *ServiceService) CreateDeployment(serviceId uuid.UUID, deployment *deployment_model.Deployment) error {
 	service, err := s.GetService(serviceId)
 
 	if err != nil {
@@ -170,7 +171,7 @@ func (s *ServiceService) CreateDeployment(serviceId uuid.UUID, deployment *servi
 	return err
 }
 
-func (s *ServiceService) GetServiceDeployments(serviceId uuid.UUID) ([]*service_model.Deployment, error) {
+func (s *ServiceService) GetServiceDeployments(serviceId uuid.UUID) ([]*deployment_model.Deployment, error) {
 	service, err := s.GetService(serviceId)
 
 	if err != nil {

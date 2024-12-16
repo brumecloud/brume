@@ -1,14 +1,12 @@
-package temporal_workflow
+package project_workflow
 
 import (
+	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/temporal/constants"
-	service_model "brume.dev/service/model"
-	"github.com/rs/zerolog/log"
-
 	brume_logs "brume.dev/logs/model"
-	"time"
-
+	"github.com/rs/zerolog/log"
 	"go.temporal.io/sdk/workflow"
+	"time"
 )
 
 type ContainerWorkflow struct {
@@ -18,7 +16,7 @@ func NewContainerWorkflow() *ContainerWorkflow {
 	return &ContainerWorkflow{}
 }
 
-func (d *ContainerWorkflow) RunContainerDeploymentWorkflow(ctx workflow.Context, deployment *service_model.Deployment) error {
+func (d *ContainerWorkflow) RunContainerDeploymentWorkflow(ctx workflow.Context, deployment *deployment_model.Deployment) error {
 	opts := workflow.ActivityOptions{
 		ScheduleToStartTimeout: time.Minute * 10,
 		StartToCloseTimeout:    time.Minute * 10,
@@ -40,18 +38,6 @@ func (d *ContainerWorkflow) RunContainerDeploymentWorkflow(ctx workflow.Context,
 	// we can do that because temporal saves the state of the workflow
 	deployment.Execution.ContainerID = containerId
 	deployment.Execution.LastLogs = time.Now()
-
-	cleanUpCtx, _ := workflow.NewDisconnectedContext(ctx)
-
-	defer func() {
-		err := workflow.ExecuteActivity(cleanUpCtx, temporal_constants.StopService, deployment).Get(cleanUpCtx, nil)
-
-		if err != nil {
-			log.Error().Err(err).Str("containerId", containerId).Msg("Error stopping service")
-		}
-
-		log.Info().Str("containerId", containerId).Msg("Service stopped")
-	}()
 
 	iteration := 0
 

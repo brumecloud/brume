@@ -18,6 +18,7 @@ func StartNodeWorker(temporalClient client.Client, containerActivity *container.
 	w.RegisterActivityWithOptions(containerActivity.StartService, activity.RegisterOptions{Name: temporal_constants.StartService})
 	w.RegisterActivityWithOptions(containerActivity.StopService, activity.RegisterOptions{Name: temporal_constants.StopService})
 	w.RegisterActivityWithOptions(containerActivity.GetLogs, activity.RegisterOptions{Name: temporal_constants.GetLogs})
+	w.RegisterActivityWithOptions(containerActivity.GetStatus, activity.RegisterOptions{Name: temporal_constants.GetStatus})
 
 	log.Warn().Msg("Starting temporal node worker")
 

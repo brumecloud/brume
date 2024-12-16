@@ -1,18 +1,20 @@
 package main
 
 import (
+	cmd "brume.dev/internal/cmd"
 	"os"
-
-	"brume.dev/internal/cmd"
 )
 
 func main() {
 	root := cmd.NewRootCommand()
 
-	project := cmd.NewProjectCmd()
+	// running style
 	node := cmd.NewNodeCmd()
-	login := cmd.NewLoginCommand()
 	master := cmd.NewMasterCommand()
+
+	// cli
+	project := cmd.NewProjectCmd()
+	login := cmd.NewLoginCommand()
 
 	root.AddCommand(project, login, master, node)
 

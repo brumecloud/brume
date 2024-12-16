@@ -6,6 +6,7 @@ import (
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	builder "brume.dev/builder/model"
+	deployment_model "brume.dev/deployment/model"
 	project_model "brume.dev/project/model"
 	runner "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
@@ -16,7 +17,7 @@ var AllModels = []interface{}{
 	&org.Organization{},
 	&user.User{},
 	&service_model.Service{},
-	&service_model.Deployment{},
+	&deployment_model.Deployment{},
 	&project_model.Project{},
 	&runner.Runner{},
 	&builder.Builder{},

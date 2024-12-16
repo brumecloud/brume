@@ -6,6 +6,7 @@ import (
 	"time"
 
 	builder_model "brume.dev/builder/model"
+	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
 	"brume.dev/internal/temporal/constants"
 	project "brume.dev/project/model"
@@ -126,17 +127,17 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 			s.db.Gorm.Model(&service).Association("LiveBuilder").Append(service.DraftBuilder)
 			s.db.Gorm.Model(&service).Association("DraftBuilder").Clear()
 		}
-		deployment := &service_model.Deployment{
+		deployment := &deployment_model.Deployment{
 			ID:          uuid.New(),
 			ServiceID:   service.ID,
 			ServiceName: service.Name,
 			ProjectID:   project.ID,
 
-			Source: service_model.DeploymentSource{
-				Type: service_model.DeploymentSourceTypeConsole,
+			Source: deployment_model.DeploymentSource{
+				Type: deployment_model.DeploymentSourceTypeConsole,
 			},
-			DeployLog: service_model.DeploymentLog{
-				Status:   service_model.DeploymentStatusSuccess,
+			DeployLog: deployment_model.DeploymentLog{
+				Status:   deployment_model.DeploymentStatusSuccess,
 				Duration: time.Duration(rand.Intn(100)) * time.Second,
 				Date:     time.Now(),
 			},

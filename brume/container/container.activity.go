@@ -4,9 +4,10 @@ import (
 	"context"
 
 	"brume.dev/container/runner/docker"
+
+	deployment_model "brume.dev/deployment/model"
 	log_model "brume.dev/logs/model"
 	runner_interfaces "brume.dev/runner/interfaces"
-	service_model "brume.dev/service/model"
 )
 
 // this is the main interface to interact with containers
@@ -28,18 +29,23 @@ func NewContainerActivity() *ContainerActivity {
 }
 
 // start the container from the image
-func (c *ContainerActivity) StartService(ctx context.Context, deployment *service_model.Deployment) (string, error) {
+func (c *ContainerActivity) StartService(ctx context.Context, deployment *deployment_model.Deployment) (string, error) {
 	return c.containerRunner.StartService(ctx, deployment)
 }
 
 // stop the container
-func (c *ContainerActivity) StopService(ctx context.Context, deployment *service_model.Deployment) error {
+func (c *ContainerActivity) StopService(ctx context.Context, deployment *deployment_model.Deployment) error {
 	return c.containerRunner.StopService(ctx, deployment)
 }
 
 // get the logs from the container
-func (c *ContainerActivity) GetLogs(ctx context.Context, deployment *service_model.Deployment) ([]*log_model.Log, error) {
+func (c *ContainerActivity) GetLogs(ctx context.Context, deployment *deployment_model.Deployment) ([]*log_model.Log, error) {
 	logs, _, err := c.containerRunner.GetLogs(ctx, deployment)
 
 	return logs, err
+}
+
+// get the status of the container
+func (c *ContainerActivity) GetStatus(ctx context.Context, deployment *deployment_model.Deployment) (bool, error) {
+	return c.containerRunner.GetStatus(ctx, deployment)
 }

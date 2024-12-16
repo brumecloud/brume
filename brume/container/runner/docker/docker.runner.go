@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	deployment_model "brume.dev/deployment/model"
 	log_model "brume.dev/logs/model"
 	runner_interfaces "brume.dev/runner/interfaces"
-	service_model "brume.dev/service/model"
 	"github.com/rs/zerolog/log"
 )
 
@@ -25,7 +25,7 @@ func NewDockerEngineRunner(dockerService *DockerService) *DockerEngineRunner {
 	return &DockerEngineRunner{dockerService: dockerService}
 }
 
-func (d *DockerEngineRunner) StartService(ctx context.Context, deployment *service_model.Deployment) (string, error) {
+func (d *DockerEngineRunner) StartService(ctx context.Context, deployment *deployment_model.Deployment) (string, error) {
 	log.Info().Str("image", deployment.BuilderData.Image).Str("serviceId", deployment.ServiceID.String()).Msg("Starting container")
 
 	image, err := d.dockerService.PullImage(deployment.BuilderData.Registry, deployment.BuilderData.Image, deployment.BuilderData.Tag)
@@ -45,7 +45,7 @@ func (d *DockerEngineRunner) StartService(ctx context.Context, deployment *servi
 	return containerId, nil
 }
 
-func (d *DockerEngineRunner) StopService(ctx context.Context, deployment *service_model.Deployment) error {
+func (d *DockerEngineRunner) StopService(ctx context.Context, deployment *deployment_model.Deployment) error {
 	log.Info().Str("containerId", deployment.Execution.ContainerID).Str("service", deployment.ServiceID.String()).Msg("Stopping service")
 
 	err := d.dockerService.StopContainer(deployment.Execution.ContainerID)
@@ -60,7 +60,17 @@ func (d *DockerEngineRunner) StopService(ctx context.Context, deployment *servic
 	return err
 }
 
-func (d *DockerEngineRunner) GetLogs(ctx context.Context, deployment *service_model.Deployment) ([]*log_model.Log, time.Time, error) {
+func (d *DockerEngineRunner) GetStatus(ctx context.Context, deployment *deployment_model.Deployment) (bool, error) {
+	state, err := d.dockerService.StatusContainer(deployment.Execution.ContainerID)
+
+	if err != nil {
+		return false, err
+	}
+
+	return state.Running, nil
+}
+
+func (d *DockerEngineRunner) GetLogs(ctx context.Context, deployment *deployment_model.Deployment) ([]*log_model.Log, time.Time, error) {
 	if deployment.Execution.ContainerID == "" {
 		log.Error().Str("deploymentId", deployment.ID.String()).Msg("Container ID is empty")
 		return nil, time.Now(), nil

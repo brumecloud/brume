@@ -9,6 +9,7 @@ import (
 	"time"
 
 	runner_model "brume.dev/runner/model"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/strslice"
@@ -111,4 +112,14 @@ func (d *DockerService) GetLogs(containerId string, since time.Time) (io.ReadClo
 	})
 
 	return out, err
+}
+
+func (d *DockerService) StatusContainer(containerId string) (*types.ContainerState, error) {
+	inspect, err := d.dockerClient.ContainerInspect(context.Background(), containerId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return inspect.State, nil
 }

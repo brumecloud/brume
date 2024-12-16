@@ -1,9 +1,9 @@
 package temporal_worker
 
 import (
-	"brume.dev/internal/temporal/constants"
-	temporal_workflow "brume.dev/internal/temporal/workflow"
+	temporal_constants "brume.dev/internal/temporal/constants"
 	brume_log "brume.dev/logs"
+	container_workflow "brume.dev/project/workflow"
 	"github.com/rs/zerolog/log"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
@@ -14,7 +14,7 @@ import (
 type MasterWorker struct {
 }
 
-func StartMasterWorker(temporalClient client.Client, logActivity *brume_log.LogActivity, containerWorkflow *temporal_workflow.ContainerWorkflow) *MasterWorker {
+func StartMasterWorker(temporalClient client.Client, logActivity *brume_log.LogActivity, containerWorkflow *container_workflow.ContainerWorkflow) *MasterWorker {
 	w := worker.New(temporalClient, temporal_constants.MasterTaskQueue, worker.Options{})
 
 	w.RegisterActivityWithOptions(logActivity.IngestLogs, activity.RegisterOptions{Name: temporal_constants.IngestLogs})

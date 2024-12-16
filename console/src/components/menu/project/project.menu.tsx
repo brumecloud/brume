@@ -65,12 +65,12 @@ const ProjectView = ({
             Logs
           </div>
         </Link>
-        <Link to={`/${id}/metrics`} className={itemClassname}>
-          <div className="flex select-none flex-row items-center gap-1 hover:cursor-pointer">
+        <div className={itemClassname}>
+          <div className="flex select-none flex-row items-center gap-1">
             <Gauge strokeWidth={1.5} height={20} />
             Metrics
           </div>
-        </Link>
+        </div>
       </div>
     </CollapsibleWrapper>
   );

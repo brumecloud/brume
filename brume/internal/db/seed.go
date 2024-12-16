@@ -7,6 +7,7 @@ import (
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
+	deployment_model "brume.dev/deployment/model"
 	project "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	service "brume.dev/service/model"
@@ -64,15 +65,15 @@ func SeedAdminUser(db *DB, brume *org.Organization) *user.User {
 	return admin
 }
 
-func generateDeployment(serviceId uuid.UUID) *service.Deployment {
-	return &service.Deployment{
+func generateDeployment(serviceId uuid.UUID) *deployment_model.Deployment {
+	return &deployment_model.Deployment{
 		ID:        uuid.New(),
 		ServiceID: serviceId,
-		Source: service.DeploymentSource{
-			Type: service.DeploymentSourceTypeConsole,
+		Source: deployment_model.DeploymentSource{
+			Type: deployment_model.DeploymentSourceTypeConsole,
 		},
-		DeployLog: service.DeploymentLog{
-			Status:   service.DeploymentStatusSuccess,
+		DeployLog: deployment_model.DeploymentLog{
+			Status:   deployment_model.DeploymentStatusSuccess,
 			Duration: time.Duration(rand.Intn(100)) * time.Second,
 			Date:     time.Now(),
 		},
@@ -96,7 +97,7 @@ func SeedProjects(db *DB) []*project.Project {
 	user_api := &service.Service{
 		Name:        "User-API",
 		ID:          user_api_id,
-		Deployments: []*service.Deployment{},
+		Deployments: []*deployment_model.Deployment{},
 		DraftBuilder: &builder_model.Builder{
 			ID:   uuid.MustParse("f26a89ef-ff17-404a-96c5-3b03938c8149"),
 			Type: "generic-docker",
@@ -152,7 +153,7 @@ func SeedProjects(db *DB) []*project.Project {
 	open_ai := &service.Service{
 		Name:        "OpenAI-API",
 		ID:          open_ai_id,
-		Deployments: []*service.Deployment{},
+		Deployments: []*deployment_model.Deployment{},
 		DraftBuilder: &builder_model.Builder{
 			ID:   uuid.MustParse("4f6788dd-a317-4771-8afa-878b0b017b17"),
 			Type: "generic-docker",
@@ -187,7 +188,7 @@ func SeedProjects(db *DB) []*project.Project {
 	wrapper_api := &service.Service{
 		Name:        "Wrapper",
 		ID:          wrapper_api_id,
-		Deployments: []*service.Deployment{},
+		Deployments: []*deployment_model.Deployment{},
 		DraftBuilder: &builder_model.Builder{
 			Type: "generic-docker",
 			ID:   uuid.MustParse("9376ac2a-ea1b-407b-a430-aabc0b687112"),

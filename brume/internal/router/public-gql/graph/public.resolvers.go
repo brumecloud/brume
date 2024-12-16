@@ -11,6 +11,7 @@ import (
 
 	user_model "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
+	deployment_model "brume.dev/deployment/model"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	log_model "brume.dev/logs/model"
@@ -21,43 +22,43 @@ import (
 )
 
 // ID is the resolver for the id field.
-func (r *deploymentResolver) ID(ctx context.Context, obj *service_model.Deployment) (string, error) {
+func (r *deploymentResolver) ID(ctx context.Context, obj *deployment_model.Deployment) (string, error) {
 	return obj.ID.String(), nil
 }
 
 // Author is the resolver for the author field.
-func (r *deploymentResolver) Author(ctx context.Context, obj *service_model.Deployment) (*user_model.User, error) {
+func (r *deploymentResolver) Author(ctx context.Context, obj *deployment_model.Deployment) (*user_model.User, error) {
 	panic(fmt.Errorf("not implemented: Author - author"))
 }
 
 // Logs is the resolver for the logs field.
-func (r *deploymentResolver) Logs(ctx context.Context, obj *service_model.Deployment) (*service_model.DeploymentLog, error) {
+func (r *deploymentResolver) Logs(ctx context.Context, obj *deployment_model.Deployment) (*deployment_model.DeploymentLog, error) {
 	return &obj.DeployLog, nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *deploymentResolver) CreatedAt(ctx context.Context, obj *service_model.Deployment) (string, error) {
+func (r *deploymentResolver) CreatedAt(ctx context.Context, obj *deployment_model.Deployment) (string, error) {
 	return obj.CreatedAt.Format(time.RFC3339), nil
 }
 
 // Status is the resolver for the status field.
-func (r *deploymentLogResolver) Status(ctx context.Context, obj *service_model.DeploymentLog) (string, error) {
+func (r *deploymentLogResolver) Status(ctx context.Context, obj *deployment_model.DeploymentLog) (string, error) {
 	return string(obj.Status), nil
 }
 
 // Duration is the resolver for the duration field.
-func (r *deploymentLogResolver) Duration(ctx context.Context, obj *service_model.DeploymentLog) (string, error) {
+func (r *deploymentLogResolver) Duration(ctx context.Context, obj *deployment_model.DeploymentLog) (string, error) {
 	duration := obj.Duration.Seconds()
 	return fmt.Sprintf("%d", int(duration)), nil
 }
 
 // Date is the resolver for the date field.
-func (r *deploymentLogResolver) Date(ctx context.Context, obj *service_model.DeploymentLog) (string, error) {
+func (r *deploymentLogResolver) Date(ctx context.Context, obj *deployment_model.DeploymentLog) (string, error) {
 	return obj.Date.Format(time.RFC3339), nil
 }
 
 // Type is the resolver for the type field.
-func (r *deploymentSourceResolver) Type(ctx context.Context, obj *service_model.DeploymentSource) (string, error) {
+func (r *deploymentSourceResolver) Type(ctx context.Context, obj *deployment_model.DeploymentSource) (string, error) {
 	return string(obj.Type), nil
 }
 
@@ -253,7 +254,7 @@ func (r *serviceResolver) DraftRunner(ctx context.Context, obj *service_model.Se
 }
 
 // Deployments is the resolver for the deployments field.
-func (r *serviceResolver) Deployments(ctx context.Context, obj *service_model.Service) ([]*service_model.Deployment, error) {
+func (r *serviceResolver) Deployments(ctx context.Context, obj *service_model.Service) ([]*deployment_model.Deployment, error) {
 	return r.ServiceService.GetServiceDeployments(obj.ID)
 }
 
