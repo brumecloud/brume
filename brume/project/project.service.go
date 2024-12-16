@@ -160,7 +160,7 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 			TaskQueue: temporal_constants.MasterTaskQueue,
 		}
 
-		we, err := s.TemporalClient.ExecuteWorkflow(context.Background(), workflowOpts, temporal_constants.RunContainerDeploymentWorkflow, deployment)
+		we, err := s.TemporalClient.ExecuteWorkflow(context.Background(), workflowOpts, temporal_constants.DeploymentWorkflow, deployment)
 
 		if err != nil {
 			log.Error().Msgf("Error starting workflow for service %s", service.ID)

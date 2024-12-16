@@ -4,7 +4,7 @@ const MasterTaskQueue = "master"
 const NodeTaskQueue = "node"
 
 // Master worker workflows
-const RunContainerDeploymentWorkflow = "RunContainerDeploymentWorkflow"
+const DeploymentWorkflow = "DeploymentWorkflow"
 
 // Master worker activities
 const IngestLogs = "IngestLogs"
@@ -14,3 +14,6 @@ const StartService = "StartService"
 const StopService = "StopService"
 const GetLogs = "GetLogs"
 const GetStatus = "GetStatus"
+
+// Signals
+const StopDeploymentSignal = "StopDeploymentSignal"

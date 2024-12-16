@@ -8,7 +8,6 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
-	"go.temporal.io/sdk/workflow"
 )
 
 type MasterWorker struct {
@@ -18,7 +17,6 @@ func StartMasterWorker(temporalClient client.Client, logActivity *brume_log.LogA
 	w := worker.New(temporalClient, temporal_constants.MasterTaskQueue, worker.Options{})
 
 	w.RegisterActivityWithOptions(logActivity.IngestLogs, activity.RegisterOptions{Name: temporal_constants.IngestLogs})
-	w.RegisterWorkflowWithOptions(containerWorkflow.RunContainerDeploymentWorkflow, workflow.RegisterOptions{Name: temporal_constants.RunContainerDeploymentWorkflow})
 
 	log.Warn().Msg("Starting temporal master worker")
 
