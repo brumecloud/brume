@@ -5,6 +5,7 @@ import (
 	fx_user "brume.dev/account/user/fx"
 	fx_builder "brume.dev/builder/fx"
 	fx_container "brume.dev/container/fx"
+	fx_deployment "brume.dev/deployment/fx"
 	fx_common "brume.dev/internal/common/fx"
 	"brume.dev/internal/db"
 	brumelog "brume.dev/internal/log"
@@ -13,6 +14,7 @@ import (
 	fx_temporal "brume.dev/internal/temporal/fx"
 	"brume.dev/internal/temporal/worker"
 	fx_log "brume.dev/logs/fx"
+	fx_machine "brume.dev/machine/fx"
 	fx_project "brume.dev/project/fx"
 	fx_runner "brume.dev/runner/fx"
 	fx_service "brume.dev/service/fx"
@@ -42,8 +44,9 @@ func NewMasterInjector() *GlobalInjector {
 		fx_runner.RunnerModule,
 		fx_builder.BuilderModule,
 		fx_log.LogModule,
-		fx_temporal.ContainerWorkflowModule,
+		fx_deployment.DeploymentModule,
 		fx_temporal.TemporalMasterModule,
+		fx_machine.Module,
 
 		fx_http.HttpModule,
 		fx_grpc.GRPCModule,

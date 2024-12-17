@@ -15,6 +15,7 @@ import (
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	log_model "brume.dev/logs/model"
+	machine_model "brume.dev/machine/model"
 	project_model "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
@@ -80,6 +81,11 @@ func (r *logResolver) ServiceID(ctx context.Context, obj *log_model.Log) (string
 // DeploymentID is the resolver for the deploymentId field.
 func (r *logResolver) DeploymentID(ctx context.Context, obj *log_model.Log) (string, error) {
 	return obj.DeploymentID.String(), nil
+}
+
+// ID is the resolver for the id field.
+func (r *machineResolver) ID(ctx context.Context, obj *machine_model.Machine) (string, error) {
+	panic(fmt.Errorf("not implemented: ID - id"))
 }
 
 // CreateProject is the resolver for the createProject field.
@@ -238,6 +244,18 @@ func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string) ([]*l
 	return r.LogService.GetDummyLog(ctx)
 }
 
+// Machine is the resolver for the machine field.
+func (r *queryResolver) Machine(ctx context.Context) ([]*machine_model.Machine, error) {
+	currentUser := ctx.Value("user").(string)
+	user, err := r.UserService.GetUserByEmail(currentUser)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return r.MachineService.GetMachine(user.OrganizationID)
+}
+
 // ID is the resolver for the id field.
 func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (string, error) {
 	return obj.ID.String(), nil
@@ -299,6 +317,9 @@ func (r *Resolver) DeploymentSource() generated.DeploymentSourceResolver {
 // Log returns generated.LogResolver implementation.
 func (r *Resolver) Log() generated.LogResolver { return &logResolver{r} }
 
+// Machine returns generated.MachineResolver implementation.
+func (r *Resolver) Machine() generated.MachineResolver { return &machineResolver{r} }
+
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
@@ -321,6 +342,7 @@ type deploymentResolver struct{ *Resolver }
 type deploymentLogResolver struct{ *Resolver }
 type deploymentSourceResolver struct{ *Resolver }
 type logResolver struct{ *Resolver }
+type machineResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

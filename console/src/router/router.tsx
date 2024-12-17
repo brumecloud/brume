@@ -1,5 +1,6 @@
 import { ErrorPage } from "@/pages/error";
 import { Login } from "@/pages/login";
+import Machines from "@/pages/machines";
 import { Project } from "@/pages/project";
 import { Projects } from "@/pages/projects";
 import { BuilderPage } from "@/pages/service/builder";
@@ -26,9 +27,9 @@ export const Router = createRoutesFromElements(
     <Route path="/" element={<ConsoleLayout />}>
       <Route path="/" element={<PageLayout />}>
         <Route path="/overview" element={<Projects />} />
-        <Route path="/compute" element={<h1>Compute</h1>} />
-        <Route path="/network" element={<h1>Network</h1>} />
-        <Route path="/monitoring" element={<h1>Monitoring</h1>} />
+        <Route path="/machines" element={<Machines />} />
+        {/* <Route path="/network" element={<h1>Network</h1>} />
+        <Route path="/monitoring" element={<h1>Monitoring</h1>} /> */}
         <Route path="/settings" element={<h1>Settings</h1>} />
 
         <Route path={`/:${RouteParams.ProjectID}/`}>

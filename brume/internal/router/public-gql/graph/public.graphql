@@ -19,6 +19,12 @@ type Builder {
   data: BuilderData!
 }
 
+type Machine {
+  id: String!
+  name: String!
+  ip: String!
+}
+
 type BuilderData {
   image: String!
   registry: String!
@@ -133,10 +139,16 @@ type ServiceEvent {
 }
 
 type Query {
+  # get the current user
   me: User!
+
   getProjectById(id: String!): Project!
   projectLogs(projectId: String!): [Log]!
   serviceLogs(serviceId: String!): [Log]!
+
+  # all the machine associated to the current user
+  # all the machine are filtred based on the user role in the organization
+  machine: [Machine!]!
 }
 
 type Mutation {

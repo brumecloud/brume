@@ -8,6 +8,7 @@ import (
 	user "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
+	machine_model "brume.dev/machine/model"
 	project "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	service "brume.dev/service/model"
@@ -21,8 +22,10 @@ func SeedAll(db *DB) error {
 	projects := SeedProjects(db)
 	brume := SeedOrganization(db, projects)
 	admin := SeedAdminUser(db, brume)
+	machine := SeedMachine(db, brume)
 
 	_ = admin
+	_ = machine
 
 	return nil
 }
@@ -42,6 +45,25 @@ func SeedOrganization(db *DB, projects []*project.Project) *org.Organization {
 	}
 
 	return brume
+}
+
+func SeedMachine(db *DB, brume *org.Organization) *machine_model.Machine {
+	machine := &machine_model.Machine{
+		ID:           uuid.New(),
+		Name:         "docker-local-machine",
+		IP:           "127.0.0.1",
+		Organization: *brume,
+	}
+
+	if err := db.Gorm.First(machine, "id = ?", machine.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Info().Msg("No machine found in database, creating brume-machine")
+		db.Gorm.Create(machine)
+		log.Info().Msg("Machine seeded")
+	} else {
+		log.Info().Msg("Machine found, skipping seeding")
+	}
+
+	return machine
 }
 
 func SeedAdminUser(db *DB, brume *org.Organization) *user.User {

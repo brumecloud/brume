@@ -127,6 +127,7 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 			s.db.Gorm.Model(&service).Association("LiveBuilder").Append(service.DraftBuilder)
 			s.db.Gorm.Model(&service).Association("DraftBuilder").Clear()
 		}
+
 		deployment := &deployment_model.Deployment{
 			ID:          uuid.New(),
 			ServiceID:   service.ID,

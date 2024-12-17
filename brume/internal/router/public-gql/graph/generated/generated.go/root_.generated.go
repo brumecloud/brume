@@ -37,6 +37,7 @@ type ResolverRoot interface {
 	DeploymentLog() DeploymentLogResolver
 	DeploymentSource() DeploymentSourceResolver
 	Log() LogResolver
+	Machine() MachineResolver
 	Mutation() MutationResolver
 	Project() ProjectResolver
 	Query() QueryResolver
@@ -92,6 +93,12 @@ type ComplexityRoot struct {
 		Timestamp      func(childComplexity int) int
 	}
 
+	Machine struct {
+		ID   func(childComplexity int) int
+		IP   func(childComplexity int) int
+		Name func(childComplexity int) int
+	}
+
 	Mutation struct {
 		AddServiceToProject   func(childComplexity int, projectID string, input public_graph_model.CreateServiceInput) int
 		CreateProject         func(childComplexity int, name string, description *string) int
@@ -113,6 +120,7 @@ type ComplexityRoot struct {
 
 	Query struct {
 		GetProjectByID func(childComplexity int, id string) int
+		Machine        func(childComplexity int) int
 		Me             func(childComplexity int) int
 		ProjectLogs    func(childComplexity int, projectID string) int
 		ServiceLogs    func(childComplexity int, serviceID string) int
@@ -364,6 +372,27 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Log.Timestamp(childComplexity), true
 
+	case "Machine.id":
+		if e.complexity.Machine.ID == nil {
+			break
+		}
+
+		return e.complexity.Machine.ID(childComplexity), true
+
+	case "Machine.ip":
+		if e.complexity.Machine.IP == nil {
+			break
+		}
+
+		return e.complexity.Machine.IP(childComplexity), true
+
+	case "Machine.name":
+		if e.complexity.Machine.Name == nil {
+			break
+		}
+
+		return e.complexity.Machine.Name(childComplexity), true
+
 	case "Mutation.addServiceToProject":
 		if e.complexity.Mutation.AddServiceToProject == nil {
 			break
@@ -506,6 +535,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.GetProjectByID(childComplexity, args["id"].(string)), true
+
+	case "Query.machine":
+		if e.complexity.Query.Machine == nil {
+			break
+		}
+
+		return e.complexity.Query.Machine(childComplexity), true
 
 	case "Query.me":
 		if e.complexity.Query.Me == nil {
@@ -911,6 +947,12 @@ type Builder {
   data: BuilderData!
 }
 
+type Machine {
+  id: String!
+  name: String!
+  ip: String!
+}
+
 type BuilderData {
   image: String!
   registry: String!
@@ -1025,10 +1067,16 @@ type ServiceEvent {
 }
 
 type Query {
+  # get the current user
   me: User!
+
   getProjectById(id: String!): Project!
   projectLogs(projectId: String!): [Log]!
   serviceLogs(serviceId: String!): [Log]!
+
+  # all the machine associated to the current user
+  # all the machine are filtred based on the user role in the organization
+  machine: [Machine!]!
 }
 
 type Mutation {

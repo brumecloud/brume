@@ -48,7 +48,7 @@ export const GenerateMenu = () => {
           )}
         </NavLink>
         <NavLink
-          to="/compute"
+          to="/machines"
           className={({ isActive }) =>
             cn(
               "flex select-none flex-row items-center gap-2 text-sm hover:cursor-pointer",
@@ -66,11 +66,11 @@ export const GenerateMenu = () => {
                     "bg-gradient-to-r from-[#f0bc81] to-[#ee8866] text-white"
                 )}
               />
-              Compute
+              Machines
             </>
           )}
         </NavLink>
-        <NavLink
+        {/* <NavLink
           to="/network"
           className={({ isActive }) =>
             cn(
@@ -92,7 +92,7 @@ export const GenerateMenu = () => {
               Network
             </>
           )}
-        </NavLink>
+        </NavLink> */}
         <NavLink
           to="/monitoring"
           className={({ isActive }) =>
@@ -116,7 +116,7 @@ export const GenerateMenu = () => {
             </>
           )}
         </NavLink>
-        <NavLink
+        {/* <NavLink
           to="/ai"
           className={({ isActive }) =>
             cn(
@@ -138,7 +138,7 @@ export const GenerateMenu = () => {
               AI
             </>
           )}
-        </NavLink>
+        </NavLink> */}
         <NavLink
           to="/settings"
           className={({ isActive }) =>

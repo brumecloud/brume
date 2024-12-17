@@ -3,6 +3,7 @@ package public_graph
 import (
 	"brume.dev/account/user"
 	log "brume.dev/logs"
+	"brume.dev/machine"
 	"brume.dev/project"
 	"brume.dev/service"
 )
@@ -16,4 +17,5 @@ type Resolver struct {
 	ProjectService *project.ProjectService
 	ServiceService *service.ServiceService
 	LogService     *log.LogService
+	MachineService *machine.MachineService
 }

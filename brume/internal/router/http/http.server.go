@@ -11,6 +11,7 @@ import (
 	public_graph "brume.dev/internal/router/public-gql/graph"
 	public_graph_generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	brume_log "brume.dev/logs"
+	"brume.dev/machine"
 	"brume.dev/project"
 	"brume.dev/service"
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -68,7 +69,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func NewHTTPServer(lc fx.Lifecycle, authentificationService *common.AuthentificationService, userService *user.UserService, projectService *project.ProjectService, serviceService *service.ServiceService, logService *brume_log.LogService) *BrumeHTTPServer {
+func NewHTTPServer(lc fx.Lifecycle, authentificationService *common.AuthentificationService, userService *user.UserService, projectService *project.ProjectService, serviceService *service.ServiceService, logService *brume_log.LogService, machineService *machine.MachineService) *BrumeHTTPServer {
 	log.Info().Msg("Launching the HTTP Server")
 
 	cors := cors.New(cors.Options{
@@ -83,6 +84,7 @@ func NewHTTPServer(lc fx.Lifecycle, authentificationService *common.Authentifica
 		ProjectService: projectService,
 		ServiceService: serviceService,
 		LogService:     logService,
+		MachineService: machineService,
 	}
 
 	public_gql := handler.New(public_graph_generated.NewExecutableSchema(public_graph_generated.Config{Resolvers: public_resolver}))
