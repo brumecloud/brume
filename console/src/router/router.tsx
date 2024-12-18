@@ -1,6 +1,7 @@
 import { ErrorPage } from "@/pages/error";
 import { Login } from "@/pages/login";
 import Machines from "@/pages/machines";
+import MonitoringPage from "@/pages/monitoring";
 import { Project } from "@/pages/project";
 import { Projects } from "@/pages/projects";
 import { BuilderPage } from "@/pages/service/builder";
@@ -28,6 +29,7 @@ export const Router = createRoutesFromElements(
       <Route path="/" element={<PageLayout />}>
         <Route path="/overview" element={<Projects />} />
         <Route path="/machines" element={<Machines />} />
+        <Route path="/monitoring" element={<MonitoringPage />} />
         {/* <Route path="/network" element={<h1>Network</h1>} />
         <Route path="/monitoring" element={<h1>Monitoring</h1>} /> */}
         <Route path="/settings" element={<h1>Settings</h1>} />

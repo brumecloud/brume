@@ -33,6 +33,13 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
     if (!("statusCode" in networkError)) {
       return;
     }
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    if (networkError.statusCode == 500) {
+      throw new Error(networkError.message);
+    }
+
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     if (networkError.statusCode === 401) {
@@ -63,6 +70,8 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors) {
     if (graphQLErrors.length === 0) {
       return;
+    } else {
+      throw new Error(graphQLErrors[0]?.message);
     }
   }
 });

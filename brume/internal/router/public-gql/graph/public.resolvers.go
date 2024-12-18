@@ -20,6 +20,7 @@ import (
 	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 // ID is the resolver for the id field.
@@ -85,7 +86,7 @@ func (r *logResolver) DeploymentID(ctx context.Context, obj *log_model.Log) (str
 
 // ID is the resolver for the id field.
 func (r *machineResolver) ID(ctx context.Context, obj *machine_model.Machine) (string, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
+	return obj.ID.String(), nil
 }
 
 // CreateProject is the resolver for the createProject field.
@@ -248,6 +249,8 @@ func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string) ([]*l
 func (r *queryResolver) Machine(ctx context.Context) ([]*machine_model.Machine, error) {
 	currentUser := ctx.Value("user").(string)
 	user, err := r.UserService.GetUserByEmail(currentUser)
+
+	log.Info().Str("email", currentUser).Str("organization", user.OrganizationID.String()).Msg("getting machine")
 
 	if err != nil {
 		return nil, err

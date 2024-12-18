@@ -11,7 +11,7 @@ export const useMachine = (): {
   loading: boolean;
   error?: Error;
 } => {
-  const { data, loading } = useQuery(GET_MACHINES, {
+  const { data, loading, error } = useQuery(GET_MACHINES, {
     fetchPolicy: "cache-first",
   });
 
@@ -20,6 +20,11 @@ export const useMachine = (): {
       loading: true,
     };
   } else {
+    if (error) {
+      console.error(error);
+      throw new Error(error.message);
+    }
+
     const rawData = z.array(MachineSchema).safeParse(data?.machine);
 
     if (!rawData.success) {

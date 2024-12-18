@@ -14,6 +14,7 @@ type Machine struct {
 	IP   string
 
 	// machine are linked to an organization
+	// the brume machine will not tho, this might be an edge case ?
 	OrganizationID uuid.UUID
 	Organization   org_model.Organization `gorm:"foreignKey:OrganizationID"`
 }

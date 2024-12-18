@@ -49,15 +49,19 @@ func SeedOrganization(db *DB, projects []*project.Project) *org.Organization {
 
 func SeedMachine(db *DB, brume *org.Organization) *machine_model.Machine {
 	machine := &machine_model.Machine{
-		ID:           uuid.New(),
-		Name:         "docker-local-machine",
-		IP:           "127.0.0.1",
-		Organization: *brume,
+		ID:             uuid.MustParse("b36d84e9-bec2-4ba1-8b51-536884f06bc7"),
+		Name:           "docker-local-machine",
+		IP:             "127.0.0.1",
+		OrganizationID: brume.ID,
 	}
 
 	if err := db.Gorm.First(machine, "id = ?", machine.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Info().Msg("No machine found in database, creating brume-machine")
-		db.Gorm.Create(machine)
+		err := db.Gorm.Create(machine).Error
+		if err != nil {
+			log.Error().Err(err).Msg("Error seeding machine")
+		}
+
 		log.Info().Msg("Machine seeded")
 	} else {
 		log.Info().Msg("Machine found, skipping seeding")
