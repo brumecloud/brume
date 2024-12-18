@@ -116,7 +116,7 @@ export const DirtyServiceModal = () => {
           transition={{ duration: 0.5 }}
           exit={{ opacity: 0, y: -150 }}
           className={cn("absolute left-0 top-5 w-screen")}>
-          <div className="flex flex-col items-center">
+          <div className="mr-5 flex flex-col items-end">
             <div className="z-[9999] flex items-center justify-between space-x-4 rounded-lg bg-blue-900 px-4 py-2 pr-2 shadow-lg shadow-blue-400/50">
               {!firstDeploy && (
                 <Button

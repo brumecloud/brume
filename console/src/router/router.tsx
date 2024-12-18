@@ -3,6 +3,7 @@ import { Login } from "@/pages/login";
 import Machines from "@/pages/machines";
 import MonitoringPage from "@/pages/monitoring";
 import { Project } from "@/pages/project";
+import { ProjectVariable } from "@/pages/project/project-variable";
 import { Projects } from "@/pages/projects";
 import { BuilderPage } from "@/pages/service/builder";
 import { DeploymentsPage } from "@/pages/service/deployments";
@@ -35,10 +36,7 @@ export const Router = createRoutesFromElements(
         <Route path="/settings" element={<h1>Settings</h1>} />
 
         <Route path={`/:${RouteParams.ProjectID}/`}>
-          <Route
-            path="variables"
-            element={<h1>Project Variables</h1>}
-          />
+          <Route path="variables" element={<ProjectVariable />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="metrics" element={<h1>Project Metrics</h1>} />
           <Route path="services" element={<ServicePage />} />
