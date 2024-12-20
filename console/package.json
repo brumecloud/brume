@@ -38,6 +38,7 @@
     "@visx/shape": "^3.5.0",
     "@visx/tooltip": "^3.3.0",
     "@visx/vendor": "^3.5.0",
+    "@xyflow/react": "^12.3.6",
     "autoprefixer": "^10.4.19",
     "babel-plugin-relay": "^17.0.0",
     "class-variance-authority": "^0.7.0",
