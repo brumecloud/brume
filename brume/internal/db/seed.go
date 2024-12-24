@@ -154,13 +154,47 @@ func SeedProjects(db *DB) []*project.Project {
 		},
 	}
 
+	frontend := &service.Service{
+		Name:        "Frontend",
+		ID:          uuid.MustParse("536b85d4-53ff-4a8f-b3f3-ec134257adb9"),
+		Deployments: []*deployment_model.Deployment{},
+		DraftBuilder: &builder_model.Builder{
+			ID:   uuid.MustParse("21e0d32e-a6a4-471b-b7e3-2201770dfeb8"),
+			Type: "generic-docker",
+			Data: builder_model.BuilderData{
+				Image:    "nginx",
+				Registry: "docker.io",
+				Tag:      "latest",
+			},
+		},
+		DraftRunner: &runner_model.Runner{
+			ID:   uuid.MustParse("c73eb9cf-9143-401a-9c56-b035f1561470"),
+			Type: "generic-docker",
+			Data: runner_model.RunnerData{
+				Command:        "",
+				HealthCheckURL: "http://localhost:3000/health",
+				Memory: runner_model.RessourceConstraints{
+					Request: 100,
+					Limit:   100,
+				},
+				CPU: runner_model.RessourceConstraints{
+					Request: 1,
+					Limit:   1,
+				},
+				Port:          80,
+				PublicDomain:  "",
+				PrivateDomain: "",
+			},
+		},
+	}
+
 	stringID := "aaaaaaaa-91d1-4b9a-be84-b340e40614d3"
 	id, _ := uuid.Parse(stringID)
 	firstProject := &project.Project{
 		Name:        "Porfolio",
 		Description: "This is a test project",
 		ID:          id,
-		Services:    []*service.Service{user_api},
+		Services:    []*service.Service{user_api, frontend},
 	}
 
 	if err := db.Gorm.First(firstProject, "id = ?", stringID).Error; errors.Is(err, gorm.ErrRecordNotFound) {

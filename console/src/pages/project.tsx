@@ -4,24 +4,20 @@ import { ReactFlowProvider } from "@xyflow/react";
 
 export function Project() {
   return (
-    <div className="flex flex-col">
-      <div className="px-32 pt-8">
-        <div className="flex flex-row items-center justify-between pt-16">
-          <div className="flex flex-col pb-8">
-            <h2 className="pb-2 font-heading text-3xl">
-              Project Home
-            </h2>
-            <p>
-              This is the home page of this project. You can see an
-              overview of the project and the services.
-            </p>
-          </div>
+    <div className="flex h-full flex-col">
+      <div className="flex h-full max-h-[200px] flex-row items-center justify-between px-32 pt-16">
+        <div className="flex flex-col pb-8">
+          <h2 className="pb-2 font-heading text-3xl">Project Home</h2>
+          <p className="">
+            This is the home page of this project. You can see an
+            overview of the project and the services.
+          </p>
         </div>
-        <div className="flex h-[500px] w-full flex-row items-center justify-between">
-          <ReactFlowProvider>
-            <ProjectFlow />
-          </ReactFlowProvider>
-        </div>
+      </div>
+      <div className="h-full w-full">
+        <ReactFlowProvider>
+          <ProjectFlow />
+        </ReactFlowProvider>
       </div>
     </div>
   );
