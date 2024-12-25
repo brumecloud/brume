@@ -2,7 +2,7 @@ import { CollapsibleWrapper } from "@/components/collapsable";
 import type { Service } from "@/schemas/service.schema";
 import { cn } from "@/utils";
 import { Hammer, ServerCog, Cog, NotepadText } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 type ServiceViewProps = {
   projectId: string;
@@ -18,20 +18,46 @@ export const ServiceMenu = ({
   return (
     <CollapsibleWrapper title={name} indent={0}>
       <div className={itemClassname}>
-        <Link
+        <NavLink
           to={`/${projectId}/services/${id}/builder`}
-          className="flex select-none flex-row items-center gap-1 hover:cursor-pointer">
-          <Hammer strokeWidth={1.5} height={20} />
-          Builder
-        </Link>
+          end
+          className={({ isActive }) =>
+            cn(
+              "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
+              isActive && "font-semibold"
+            )
+          }>
+          {({ isActive }) => (
+            <>
+              <Hammer
+                strokeWidth={isActive ? 1.9 : 1.5}
+                height={20}
+              />
+              Builder
+            </>
+          )}
+        </NavLink>
       </div>
       <div className={itemClassname}>
-        <Link
+        <NavLink
           to={`/${projectId}/services/${id}/runner`}
-          className="flex select-none flex-row items-center gap-1 hover:cursor-pointer">
-          <ServerCog strokeWidth={1.5} height={20} />
-          Runner
-        </Link>
+          end
+          className={({ isActive }) =>
+            cn(
+              "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
+              isActive && "font-semibold"
+            )
+          }>
+          {({ isActive }) => (
+            <>
+              <ServerCog
+                strokeWidth={isActive ? 2 : 1.5}
+                height={20}
+              />
+              Runner
+            </>
+          )}
+        </NavLink>
       </div>
       {/* <div className={itemClassname}>
         <Link
@@ -50,12 +76,22 @@ export const ServiceMenu = ({
         </Link>
       </div> */}
       <div className={itemClassname}>
-        <Link
+        <NavLink
           to={`/${projectId}/services/${id}/settings`}
-          className="flex select-none flex-row items-center gap-1 hover:cursor-pointer">
-          <Cog strokeWidth={1.5} height={20} />
-          Settings
-        </Link>
+          end
+          className={({ isActive }) =>
+            cn(
+              "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
+              isActive && "font-semibold"
+            )
+          }>
+          {({ isActive }) => (
+            <>
+              <Cog strokeWidth={isActive ? 1.9 : 1.5} height={20} />
+              Settings
+            </>
+          )}
+        </NavLink>
       </div>
     </CollapsibleWrapper>
   );

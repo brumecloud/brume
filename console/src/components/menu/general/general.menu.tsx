@@ -2,13 +2,11 @@ import Logo from "@/assets/logo.png";
 import { cn } from "@/utils";
 import {
   BarChart3,
-  Brain,
   Cog,
   FolderOpenDot,
   HardDrive,
-  Satellite,
 } from "lucide-react";
-import { Link, NavLink } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 export const GenerateMenu = () => {
   return (
@@ -38,7 +36,7 @@ export const GenerateMenu = () => {
                 strokeWidth={1.5}
                 height={20}
                 className={cn(
-                  "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
+                  "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm",
                   isActive &&
                     "bg-gradient-to-r from-[#aac8e6] to-[#437ae1] text-white"
                 )}
@@ -61,7 +59,7 @@ export const GenerateMenu = () => {
                 strokeWidth={1.5}
                 height={20}
                 className={cn(
-                  "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm transition-all",
+                  "h-6 w-6 rounded-sm border bg-white/80 p-[3px] shadow-sm",
                   isActive &&
                     "bg-gradient-to-r from-[#f0bc81] to-[#ee8866] text-white"
                 )}
