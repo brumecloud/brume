@@ -9,14 +9,13 @@ func main() {
 	root := cmd.NewRootCommand()
 
 	// running style
-	agent := cmd.NewAgentCmd()
 	master := cmd.NewMasterCommand()
 
 	// cli
 	project := cmd.NewProjectCmd()
 	login := cmd.NewLoginCommand()
 
-	root.AddCommand(project, login, master, agent)
+	root.AddCommand(project, login, master)
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)

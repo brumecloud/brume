@@ -2,7 +2,7 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-cmd = "go build -o bin/agent cmd/brume/main.go"
+cmd = "go build -o bin/agent cmd/main.go"
 bin = "./bin/agent"
 args_bin = ["agent"]
 delay = 1000

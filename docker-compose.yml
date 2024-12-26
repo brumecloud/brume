@@ -1,12 +1,12 @@
 version: "3"
 
 services:
-  master:
-    image: brume
+  orchestrator:
+    image: brume-orchestrator
     build:
       context: ./brume
       dockerfile: Dockerfile.dev
-    command: ["air", "-c", ".air-master.toml"]
+    command: ["air", "-c", ".air.toml"]
     volumes:
       - ./brume:/brume
     restart: always
@@ -17,24 +17,27 @@ services:
     networks:
       brume-net:
         aliases:
-          - brume-master
+          - brume-orchestrator
 
   agent:
-    image: brume
+    image: brume-agent
     build:
-      context: ./brume
+      context: ./agent
       dockerfile: Dockerfile.dev
-    command: ["air", "-c", ".air-agent.toml"]
+    command: ["air", "-c", ".air.toml"]
     volumes:
-      - ./brume:/brume
+      - ./agent:/agent
       - /var/run/docker.sock:/var/run/docker.sock
     restart: always
+    ports:
+      - 9878:9878
     depends_on:
       - postgres
     networks:
       brume-net:
         aliases:
           - brume-agent
+
   console:
     image: brume-console
     build:
@@ -84,7 +87,7 @@ services:
     ports:
       - 7233:7233
     volumes:
-      - ./local/temporal.yaml:/etc/temporal/config/dynamicconfig/temporal.yaml
+      - ./infra/temporal.yaml:/etc/temporal/config/dynamicconfig/temporal.yaml
 
   temporal-admin-tools:
     depends_on:

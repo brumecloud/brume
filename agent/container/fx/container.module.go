@@ -1,7 +1,7 @@
 package fx_container
 
 import (
-	"brume.dev/container"
+	"agent.brume.dev/container"
 	"go.uber.org/fx"
 )
 

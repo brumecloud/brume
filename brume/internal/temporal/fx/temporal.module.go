@@ -12,10 +12,6 @@ var TemporalModule = fx.Module("temporal",
 	fx.Invoke(func(c client.Client) {}),
 )
 
-var TemporalNodeModule = fx.Module("temporal-node",
-	fx.Provide(temporal_worker.StartNodeWorker),
-)
-
-var TemporalMasterModule = fx.Module("temporal-master",
+var TemporalOrchestratorModule = fx.Module("temporal-orchestrator",
 	fx.Provide(temporal_worker.StartMasterWorker),
 )
