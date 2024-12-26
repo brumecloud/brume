@@ -101,6 +101,50 @@ func NewHTTPServer(lc fx.Lifecycle, authentificationService *common.Authentifica
 	http.Handle("/", cors.Handler(playground.Handler("Brume GQL Playground", "/graphql")))
 	http.Handle("/graphql", cors.Handler(AuthMiddleware(public_gql)))
 
+	//  route used by the agent to get job to execute
+	// this is a critical route
+	http.Handle("/job", cors.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		w.Write([]byte("Hello World"))
+	})))
+
+	// if an agent wants to run a job, it need to bid for it
+	// this is a critical route
+	http.Handle("/bid", cors.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		w.Write([]byte("Hello World"))
+	})))
+
+	// send the status of the agent and its jobs
+	// this is a critical route
+	http.Handle("/status", cors.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		w.Write([]byte("Hello World"))
+	})))
+
+	// send the logs of the agent jobs
+	// this route is less critical
+	http.Handle("/logs", cors.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		w.Write([]byte("Hello World"))
+	})))
+
 	http.Handle("/login", cors.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			println("login request")

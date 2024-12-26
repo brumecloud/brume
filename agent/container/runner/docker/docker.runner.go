@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	runner_interfaces "agent.brume.dev/container/runner/interfaces"
 	deployment_model "brume.dev/deployment/model"
 	log_model "brume.dev/logs/model"
-	runner_interfaces "brume.dev/runner/interfaces"
 	"github.com/rs/zerolog/log"
 )
 

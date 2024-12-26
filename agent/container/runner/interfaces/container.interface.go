@@ -22,4 +22,7 @@ type ContainerRunner interface {
 	// Get the status of the container
 	// true if the container is running and healthy, false otherwise
 	GetStatus(ctx context.Context, deployment *deployment_model.Deployment) (bool, error)
+
+	// Get the health of the container runner
+	GetRunnerHealth(ctx context.Context) (bool, error)
 }

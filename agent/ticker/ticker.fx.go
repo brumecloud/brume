@@ -7,17 +7,17 @@ import (
 )
 
 type Ticker struct {
-	secondTicker     *time.Ticker
-	fiveSecondTicker *time.Ticker
+	RapidTicker *time.Ticker
+	SlowTicker  *time.Ticker
 }
 
 func NewTicker() *Ticker {
-	secondTicker := time.NewTicker(1 * time.Second)
-	fiveSecondTicker := time.NewTicker(5 * time.Second)
+	rapidTicker := time.NewTicker(1 * time.Second)
+	slowTicker := time.NewTicker(5 * time.Second)
 
 	return &Ticker{
-		secondTicker:     secondTicker,
-		fiveSecondTicker: fiveSecondTicker,
+		RapidTicker: rapidTicker,
+		SlowTicker:  slowTicker,
 	}
 }
 
