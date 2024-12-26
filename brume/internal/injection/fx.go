@@ -60,8 +60,8 @@ func NewMasterInjector() *GlobalInjector {
 	}
 }
 
-func NewNodeInjector() *GlobalInjector {
-	log.Info().Msg("Initializing node injector")
+func NewAgentInjector() *GlobalInjector {
+	log.Info().Msg("Initializing agent injector")
 
 	app := fx.New(
 		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger())),

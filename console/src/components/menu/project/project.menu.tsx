@@ -50,22 +50,10 @@ const ProjectView = ({
               </>
             )}
           </NavLink>
-          <NavLink
-            to={`/${id}/services`}
-            end
-            className={({ isActive }) =>
-              cn(
-                "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
-                isActive && "font-semibold"
-              )
-            }>
-            {({ isActive }) => (
-              <>
-                <Cpu strokeWidth={isActive ? 1.9 : 1.5} height={20} />
-                Services
-              </>
-            )}
-          </NavLink>
+          <div className="flex select-none flex-row items-center gap-1">
+            <Cpu strokeWidth={1.5} height={20} />
+            Services
+          </div>
           <div className="ml-3 flex flex-col gap-y-1 border-l border-gray-200 pl-3 pt-1">
             {services.map((service) => (
               <ServiceMenu

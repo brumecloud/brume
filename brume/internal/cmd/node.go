@@ -7,23 +7,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewNodeCmd() *cobra.Command {
+func NewAgentCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "node",
-		Short: "Run & manage your brume nodes",
-		RunE:  runNode(),
+		Use:   "agent",
+		Short: "Run & manage your brume agent",
+		RunE:  runAgent(),
 		Args:  cobra.NoArgs,
 	}
 
 	return cmd
 }
 
-func runNode() func(cmd *cobra.Command, args []string) error {
+func runAgent() func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		brumelog.InitLogger()
-		log.Info().Msg("Brume v0.1 - Node (docker specific)")
+		log.Info().Msg("Brume v0.1 - Agent")
 
-		injector := injection.NewNodeInjector()
+		injector := injection.NewAgentInjector()
 		injector.Run()
 
 		return nil

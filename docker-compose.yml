@@ -19,12 +19,12 @@ services:
         aliases:
           - brume-master
 
-  node:
+  agent:
     image: brume
     build:
       context: ./brume
       dockerfile: Dockerfile.dev
-    command: ["air", "-c", ".air-node.toml"]
+    command: ["air", "-c", ".air-agent.toml"]
     volumes:
       - ./brume:/brume
       - /var/run/docker.sock:/var/run/docker.sock
@@ -34,7 +34,7 @@ services:
     networks:
       brume-net:
         aliases:
-          - brume-node
+          - brume-agent
   console:
     image: brume-console
     build:
