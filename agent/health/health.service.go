@@ -2,6 +2,7 @@ package health_service
 
 import (
 	"context"
+	"os"
 
 	intercom_service "github.com/brumecloud/agent/internal/intercom"
 	runner "github.com/brumecloud/agent/runner"
@@ -23,28 +24,49 @@ func NewHealthService(lc fx.Lifecycle, runner runner.Runner, ticker *ticker.Tick
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			go func() {
-				select {
-				// we use the rapid ticker to update the orchestrator with the health of the agent
-				case <-ticker.RapidTicker.C:
-					health, err := runner.GetRunnerHealth(context.Background())
+				errorCounter := 0
+				for {
+					select {
+					// we use the rapid ticker to update the orchestrator with the health of the agent
+					case <-ticker.RapidTicker.C:
+						health, err := runner.GetRunnerHealth(context.Background())
 
-					if err != nil {
-						logger.Error().Err(err).Msg("Failed to get runner health")
+						if err != nil {
+							logger.Error().Err(err).Int("errorCounter", errorCounter).Msg("Failed to get runner health")
+							errorCounter++
+
+							if errorCounter > 5 {
+								logger.Error().Msg("Health service is not healthy, stopping")
+								os.Exit(1)
+							}
+						}
+						err = intercom.SendGeneralHealth(health)
+
+						if err != nil {
+							logger.Error().Err(err).Int("errorCounter", errorCounter).Msg("Error while sending health")
+							errorCounter++
+
+							if errorCounter > 5 {
+								logger.Error().Msg("Health service is not healthy, stopping")
+								os.Exit(1)
+							}
+						} else {
+							// full loop is healthy we reset the error counter
+							errorCounter = 0
+						}
+					// if the stop channel is closed, we stop the health service
+					case <-stopChannel:
+						logger.Info().Msg("Received health service stop signal")
+						return
 					}
-
-					intercom.SendGeneralHealth(health)
-				// if the stop channel is closed, we stop the health service
-				case <-stopChannel:
-					logger.Info().Msg("Received health service stop signal")
-					return
 				}
 			}()
 
 			return nil
 		},
 		OnStop: func(context.Context) error {
-			close(stopChannel)
 			logger.Info().Msg("Health service stopped")
+			close(stopChannel)
 			return nil
 		},
 	})

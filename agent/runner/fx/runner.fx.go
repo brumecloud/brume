@@ -11,7 +11,7 @@ var logger = log.With().Str("module", "runner").Logger()
 
 var RunnerModule = fx.Module("runner",
 	fx.Provide(NewRunner),
-	fx.Invoke(func(runner *docker.DockerEngineRunner) {}),
+	fx.Invoke(func(runner runner.Runner) {}),
 )
 
 func NewRunner(lc fx.Lifecycle, dockerService *docker.DockerService) runner.Runner {

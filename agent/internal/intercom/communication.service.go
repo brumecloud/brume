@@ -24,7 +24,7 @@ func NewIntercomService(cfg *config.AgentConfig) *IntercomService {
 	}
 }
 
-func (i *IntercomService) SendGeneralHealth(health bool) {
+func (i *IntercomService) SendGeneralHealth(health bool) error {
 	logger.Trace().Bool("health", health).Msg("Sending general health")
 
 	// do HTTP call to the orchestrator
@@ -35,8 +35,8 @@ func (i *IntercomService) SendGeneralHealth(health bool) {
 	})
 
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to marshal health data")
-		return
+		logger.Warn().Err(err).Msg("Failed to marshal health data")
+		return err
 	}
 
 	req, err := http.NewRequest(
@@ -46,8 +46,8 @@ func (i *IntercomService) SendGeneralHealth(health bool) {
 	)
 
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to create request")
-		return
+		logger.Warn().Err(err).Msg("Failed to create request")
+		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -57,15 +57,17 @@ func (i *IntercomService) SendGeneralHealth(health bool) {
 	resp, err := client.Do(req)
 
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to send health status to orchestrator")
-		return
+		logger.Warn().Err(err).Msg("Failed to send health status to orchestrator")
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		logger.Error().Int("status", resp.StatusCode).Msg("Orchestrator returned non-200 status code")
-		return
+		logger.Warn().Int("status", resp.StatusCode).Msg("Orchestrator returned non-200 status code")
+		return err
 	}
+
+	return nil
 }
 
 func (i *IntercomService) SendJobHealth(health map[string]bool) {
