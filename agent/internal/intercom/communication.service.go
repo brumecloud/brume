@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"agent.brume.dev/internal/config"
+	"github.com/brumecloud/agent/internal/config"
 
 	"github.com/rs/zerolog/log"
 )

@@ -1,6 +1,6 @@
 FROM golang:1.23-alpine
 
-WORKDIR /brume
+WORKDIR /agent
 
 # install hot reload solution
 RUN go install github.com/air-verse/air@latest
@@ -9,7 +9,5 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 EXPOSE 9878
-
-COPY . .
 
 CMD ["air", "-c", ".air.toml"]

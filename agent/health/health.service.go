@@ -3,20 +3,20 @@ package health_service
 import (
 	"context"
 
-	runner_interfaces "agent.brume.dev/container/runner/interfaces"
-	intercom_service "agent.brume.dev/internal/intercom"
-	"agent.brume.dev/ticker"
+	intercom_service "github.com/brumecloud/agent/internal/intercom"
+	runner "github.com/brumecloud/agent/runner"
+	"github.com/brumecloud/agent/ticker"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
 type HealthService struct {
-	runner   runner_interfaces.ContainerRunner
+	runner   runner.Runner
 	intercom *intercom_service.IntercomService
 	ticker   *ticker.Ticker
 }
 
-func NewHealthService(lc fx.Lifecycle, runner runner_interfaces.ContainerRunner, ticker *ticker.Ticker, intercom *intercom_service.IntercomService) *HealthService {
+func NewHealthService(lc fx.Lifecycle, runner runner.Runner, ticker *ticker.Ticker, intercom *intercom_service.IntercomService) *HealthService {
 	stopChannel := make(chan struct{})
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {

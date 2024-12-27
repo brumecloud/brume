@@ -1,7 +1,7 @@
 package health_fx
 
 import (
-	health_service "agent.brume.dev/health"
+	health_service "github.com/brumecloud/agent/health"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )

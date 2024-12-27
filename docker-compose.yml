@@ -4,11 +4,11 @@ services:
   orchestrator:
     image: brume-orchestrator
     build:
-      context: ./brume
-      dockerfile: Dockerfile.dev
+      dockerfile: ./infra/Dockerfile.dev
     command: ["air", "-c", ".air.toml"]
+    working_dir: /brume/brume
     volumes:
-      - ./brume:/brume
+      - .:/brume
     restart: always
     ports:
       - 9877:9877
@@ -22,11 +22,12 @@ services:
   agent:
     image: brume-agent
     build:
-      context: ./agent
-      dockerfile: Dockerfile.dev
+      dockerfile: ./infra/Dockerfile.dev
     command: ["air", "-c", ".air.toml"]
+    working_dir: /brume/agent
     volumes:
-      - ./agent:/agent
+      - .:/brume
+      # to call the local docker daemon
       - /var/run/docker.sock:/var/run/docker.sock
     restart: always
     ports:

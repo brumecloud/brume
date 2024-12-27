@@ -1,11 +1,11 @@
 package injection
 
 import (
-	fx_health "agent.brume.dev/health/fx"
-	fx_config "agent.brume.dev/internal/config"
-	fx_intercom "agent.brume.dev/internal/intercom/fx"
-	brumelog "agent.brume.dev/internal/log"
-	fx_ticker "agent.brume.dev/ticker"
+	fx_health "github.com/brumecloud/agent/health/fx"
+	fx_config "github.com/brumecloud/agent/internal/config"
+	fx_intercom "github.com/brumecloud/agent/internal/intercom/fx"
+	brumelog "github.com/brumecloud/agent/internal/log"
+	fx_ticker "github.com/brumecloud/agent/ticker"
 	"github.com/ipfans/fxlogger"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"

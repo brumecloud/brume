@@ -3,7 +3,7 @@ package ticker
 import (
 	"time"
 
-	"agent.brume.dev/internal/config"
+	"github.com/brumecloud/agent/internal/config"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )

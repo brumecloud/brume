@@ -1,7 +1,8 @@
 package main
 
 import (
-	"agent.brume.dev/internal/injection"
+	"github.com/brumecloud/agent/internal/injection"
+
 	"github.com/rs/zerolog/log"
 )
 

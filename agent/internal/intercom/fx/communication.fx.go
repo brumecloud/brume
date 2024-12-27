@@ -1,7 +1,7 @@
 package intercom_fx
 
 import (
-	intercom_service "agent.brume.dev/internal/intercom"
+	intercom_service "github.com/brumecloud/agent/internal/intercom"
 	"go.uber.org/fx"
 )
 

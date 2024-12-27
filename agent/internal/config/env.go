@@ -16,6 +16,7 @@ type AgentConfig struct {
 
 func LoadAgentConfig() *AgentConfig {
 	cfg := &AgentConfig{}
+	logger := log.With().Str("module", "config").Logger()
 
 	viper.AutomaticEnv()
 	viper.SetConfigFile(".env")
@@ -23,14 +24,14 @@ func LoadAgentConfig() *AgentConfig {
 	err := viper.ReadInConfig()
 
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to read config file")
-		panic(err)
+		logger.Warn().Err(err).Msg("Failed to read config file")
+		logger.Info().Msg("Using the default values for the agent config")
 	}
 
 	err = viper.Unmarshal(cfg)
 
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to load config")
+		logger.Error().Err(err).Msg("Failed to load config")
 		panic(err)
 	}
 
