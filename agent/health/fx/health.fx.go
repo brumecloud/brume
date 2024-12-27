@@ -6,9 +6,11 @@ import (
 	"go.uber.org/fx"
 )
 
+var logger = log.With().Str("module", "health").Logger()
+
 var HealthModule = fx.Module("health",
 	fx.Provide(health_service.NewHealthService),
 	fx.Invoke(func(healthService *health_service.HealthService) {
-		log.Info().Msg("Health service started")
+		logger.Info().Msg("Health service started")
 	}),
 )

@@ -10,7 +10,6 @@ import (
 
 	deployment_model "brume.dev/deployment/model"
 	log_model "brume.dev/logs/model"
-	"github.com/rs/zerolog/log"
 )
 
 type DockerEngineRunner struct {
@@ -19,12 +18,12 @@ type DockerEngineRunner struct {
 
 // this is outside of fx
 func NewDockerEngineRunner(dockerService *DockerService) *DockerEngineRunner {
-	log.Info().Msg("Docker engine runner created")
+	logger.Info().Msg("Docker engine runner created")
 	return &DockerEngineRunner{dockerService: dockerService}
 }
 
 func (d *DockerEngineRunner) StartJob(ctx context.Context, deployment *deployment_model.Deployment) (string, error) {
-	log.Info().Str("image", deployment.BuilderData.Image).Str("serviceId", deployment.ServiceID.String()).Msg("Starting container")
+	logger.Info().Str("image", deployment.BuilderData.Image).Str("serviceId", deployment.ServiceID.String()).Msg("Starting container")
 
 	image, err := d.dockerService.PullImage(deployment.BuilderData.Registry, deployment.BuilderData.Image, deployment.BuilderData.Tag)
 
@@ -38,13 +37,13 @@ func (d *DockerEngineRunner) StartJob(ctx context.Context, deployment *deploymen
 		return "", err
 	}
 
-	log.Info().Str("containerId", containerId).Msg("Service started")
+	logger.Info().Str("containerId", containerId).Msg("Service started")
 
 	return containerId, nil
 }
 
 func (d *DockerEngineRunner) StopJob(ctx context.Context, deployment *deployment_model.Deployment) error {
-	log.Info().Str("containerId", deployment.Execution.ContainerID).Str("service", deployment.ServiceID.String()).Msg("Stopping service")
+	logger.Info().Str("containerId", deployment.Execution.ContainerID).Str("service", deployment.ServiceID.String()).Msg("Stopping service")
 
 	err := d.dockerService.StopContainer(deployment.Execution.ContainerID)
 
@@ -52,7 +51,7 @@ func (d *DockerEngineRunner) StopJob(ctx context.Context, deployment *deployment
 		return err
 	}
 
-	log.Debug().Str("containerId", deployment.Execution.ContainerID).Msg("Removing container")
+	logger.Debug().Str("containerId", deployment.Execution.ContainerID).Msg("Removing container")
 	err = d.dockerService.RemoveContainer(deployment.Execution.ContainerID)
 
 	return err
@@ -70,7 +69,7 @@ func (d *DockerEngineRunner) GetJobStatus(ctx context.Context, deployment *deplo
 
 func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deployment_model.Deployment) ([]*log_model.Log, time.Time, error) {
 	if deployment.Execution.ContainerID == "" {
-		log.Error().Str("deploymentId", deployment.ID.String()).Msg("Container ID is empty")
+		logger.Error().Str("deploymentId", deployment.ID.String()).Msg("Container ID is empty")
 		return nil, time.Now(), nil
 	}
 
@@ -90,16 +89,16 @@ func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deploym
 
 	if err != nil {
 		if err == io.EOF {
-			log.Debug().Str("containerId", deployment.Execution.ContainerID).Msg("No logs to return")
+			logger.Debug().Str("containerId", deployment.Execution.ContainerID).Msg("No logs to return")
 			return nil, now, nil
 		}
 
-		log.Error().Err(err).Str("containerId", deployment.Execution.ContainerID).Msg("Error reading logs header")
+		logger.Error().Err(err).Str("containerId", deployment.Execution.ContainerID).Msg("Error reading logs header")
 		return nil, now, err
 	}
 
 	if n != 8 {
-		log.Error().Str("containerId", deployment.Execution.ContainerID).Msg("Invalid logs header")
+		logger.Error().Str("containerId", deployment.Execution.ContainerID).Msg("Invalid logs header")
 		return nil, now, fmt.Errorf("invalid logs header")
 	}
 
@@ -114,7 +113,7 @@ func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deploym
 	count := binary.BigEndian.Uint32(dockerLogsHeader[4:8])
 
 	if count == 0 {
-		log.Debug().Str("containerId", deployment.Execution.ContainerID).Msg("No logs to return")
+		logger.Debug().Str("containerId", deployment.Execution.ContainerID).Msg("No logs to return")
 		return nil, now, nil
 	}
 
@@ -123,12 +122,12 @@ func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deploym
 	n, err = out.Read(data)
 
 	if n != int(count) {
-		log.Error().Str("containerId", deployment.Execution.ContainerID).Msg("Error reading logs content")
+		logger.Error().Str("containerId", deployment.Execution.ContainerID).Msg("Error reading logs content")
 		return nil, now, fmt.Errorf("error reading logs content")
 	}
 
 	if err != nil {
-		log.Error().Str("containerId", deployment.Execution.ContainerID).Msg("Error reading logs content")
+		logger.Error().Str("containerId", deployment.Execution.ContainerID).Msg("Error reading logs content")
 		return nil, now, err
 	}
 

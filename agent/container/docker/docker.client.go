@@ -16,9 +16,16 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"go.uber.org/fx"
 )
 
 // this is the file doing the docker client interaction
+
+var logger = log.With().Str("module", "docker").Logger()
+
+var DockerModule = fx.Module("docker",
+	fx.Provide(NewDockerService),
+)
 
 type DockerService struct {
 	dockerClient *client.Client
@@ -31,13 +38,13 @@ func NewDockerService() *DockerService {
 		panic(err)
 	}
 
-	log.Info().Msg("Node connected to docker engine")
+	logger.Info().Msg("Node connected to docker engine")
 
 	return &DockerService{dockerClient: cli}
 }
 
 func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runner *runner_model.RunnerData) (string, error) {
-	log.Info().Str("imageId", imageId).Str("serviceId", serviceID.String()).Msg("Starting container")
+	logger.Info().Str("imageId", imageId).Str("serviceId", serviceID.String()).Msg("Starting container")
 
 	ctx := context.Background()
 	var command strslice.StrSlice
@@ -66,12 +73,12 @@ func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runn
 		return "", err
 	}
 
-	log.Info().Str("containerId", response.ID).Msg("Container started")
+	logger.Info().Str("containerId", response.ID).Msg("Container started")
 
 	err = d.dockerClient.ContainerStart(ctx, response.ID, container.StartOptions{})
 
 	if err != nil {
-		log.Error().Err(err).Str("containerId", response.ID).Msg("Failed to start container")
+		logger.Error().Err(err).Str("containerId", response.ID).Msg("Failed to start container")
 		return "", err
 	}
 
@@ -79,7 +86,7 @@ func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runn
 }
 
 func (d *DockerService) StopContainer(containerId string) error {
-	log.Info().Str("containerId", containerId).Msg("Stopping container")
+	logger.Info().Str("containerId", containerId).Msg("Stopping container")
 
 	return d.dockerClient.ContainerStop(context.Background(), containerId, container.StopOptions{})
 }
@@ -90,7 +97,7 @@ func (d *DockerService) RemoveContainer(containerId string) error {
 
 func (d *DockerService) PullImage(registry string, image_name string, tag string) (string, error) {
 	totalImage := fmt.Sprintf("%s/%s:%s", registry, image_name, tag)
-	log.Info().Str("image", totalImage).Msg("Pulling image")
+	logger.Info().Str("image", totalImage).Msg("Pulling image")
 	reader, err := d.dockerClient.ImagePull(context.Background(), totalImage, image.PullOptions{})
 
 	if err != nil {
@@ -105,7 +112,7 @@ func (d *DockerService) PullImage(registry string, image_name string, tag string
 }
 
 func (d *DockerService) GetLogs(containerId string, since time.Time) (io.ReadCloser, error) {
-	log.Info().Str("containerId", containerId).Time("since", since).Msg("Getting logs")
+	logger.Info().Str("containerId", containerId).Time("since", since).Msg("Getting logs")
 
 	out, err := d.dockerClient.ContainerLogs(context.Background(), containerId, container.LogsOptions{
 		ShowStdout: true, ShowStderr: true, Since: since.Format(time.RFC3339),

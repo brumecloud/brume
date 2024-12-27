@@ -7,16 +7,19 @@ import (
 )
 
 type AgentConfig struct {
-	OrchestratorURL string `mapstructure:"ORCHESTRATOR_URL" default:"http://localhost:8080"`
-	RapidTicker     int    `mapstructure:"RAPID_TICKER" default:"2"`
-	SlowTicker      int    `mapstructure:"SLOW_TICKER" default:"5"`
-	Env             string `mapstructure:"ENV" default:"dev"`
-	AgentID         string `mapstructure:"AGENT_ID" default:"test-agent-123"`
+	OrchestratorURL string `mapstructure:"ORCHESTRATOR_URL"`
+	RapidTicker     int    `mapstructure:"RAPID_TICKER"`
+	SlowTicker      int    `mapstructure:"SLOW_TICKER"`
+	Env             string `mapstructure:"ENV"`
+	AgentID         string `mapstructure:"AGENT_ID"`
 }
+
+var logger = log.With().Str("module", "config").Logger()
 
 func LoadAgentConfig() *AgentConfig {
 	cfg := &AgentConfig{}
-	logger := log.With().Str("module", "config").Logger()
+
+	SetDefaultConfig()
 
 	viper.AutomaticEnv()
 	viper.SetConfigFile(".env")
@@ -36,6 +39,14 @@ func LoadAgentConfig() *AgentConfig {
 	}
 
 	return cfg
+}
+
+func SetDefaultConfig() {
+	viper.SetDefault("ORCHESTRATOR_URL", "http://localhost:8080")
+	viper.SetDefault("RAPID_TICKER", 2)
+	viper.SetDefault("SLOW_TICKER", 5)
+	viper.SetDefault("ENV", "dev")
+	viper.SetDefault("AGENT_ID", "test-agent-123")
 }
 
 var ConfigModule = fx.Module("config", fx.Provide(LoadAgentConfig), fx.Invoke(func(cfg *AgentConfig) {}))

@@ -8,13 +8,17 @@ import (
 	"go.uber.org/fx"
 )
 
+var logger = log.With().Str("module", "ticker").Logger()
+
 type Ticker struct {
 	RapidTicker *time.Ticker
 	SlowTicker  *time.Ticker
 }
 
 func NewTicker(cfg *config.AgentConfig) *Ticker {
-	log.Info().Msg("Starting the tickers")
+
+	logger.Info().Int("rapidTicker", cfg.RapidTicker).Int("slowTicker", cfg.SlowTicker).Msg("Starting the tickers")
+
 	rapidTicker := time.NewTicker(time.Duration(cfg.RapidTicker) * time.Second)
 	slowTicker := time.NewTicker(time.Duration(cfg.SlowTicker) * time.Second)
 
@@ -27,6 +31,6 @@ func NewTicker(cfg *config.AgentConfig) *Ticker {
 var TickerModule = fx.Module("ticker",
 	fx.Provide(NewTicker),
 	fx.Invoke(func(ticker *Ticker) {
-		log.Info().Msg("Ticker started")
+		logger.Info().Msg("Ticker started")
 	}),
 )

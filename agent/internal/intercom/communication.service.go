@@ -12,6 +12,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var logger = log.With().Str("module", "intercom").Logger()
+
 type IntercomService struct {
 	cfg *config.AgentConfig
 }
@@ -23,7 +25,7 @@ func NewIntercomService(cfg *config.AgentConfig) *IntercomService {
 }
 
 func (i *IntercomService) SendGeneralHealth(health bool) {
-	log.Trace().Bool("health", health).Msg("Sending general health")
+	logger.Trace().Bool("health", health).Msg("Sending general health")
 
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
@@ -33,7 +35,7 @@ func (i *IntercomService) SendGeneralHealth(health bool) {
 	})
 
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to marshal health data")
+		logger.Error().Err(err).Msg("Failed to marshal health data")
 		return
 	}
 
@@ -43,6 +45,11 @@ func (i *IntercomService) SendGeneralHealth(health bool) {
 		bytes.NewBuffer(jsonData),
 	)
 
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to create request")
+		return
+	}
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer TEST")
 
@@ -50,17 +57,17 @@ func (i *IntercomService) SendGeneralHealth(health bool) {
 	resp, err := client.Do(req)
 
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to send health status to orchestrator")
+		logger.Error().Err(err).Msg("Failed to send health status to orchestrator")
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Error().Int("status", resp.StatusCode).Msg("Orchestrator returned non-200 status code")
+		logger.Error().Int("status", resp.StatusCode).Msg("Orchestrator returned non-200 status code")
 		return
 	}
 }
 
 func (i *IntercomService) SendJobHealth(health map[string]bool) {
-	log.Trace().Interface("health", health).Msg("Sending job health")
+	logger.Trace().Interface("health", health).Msg("Sending job health")
 }

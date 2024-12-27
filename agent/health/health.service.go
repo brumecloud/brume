@@ -10,6 +10,8 @@ import (
 	"go.uber.org/fx"
 )
 
+var logger = log.With().Str("module", "health").Logger()
+
 type HealthService struct {
 	runner   runner.Runner
 	intercom *intercom_service.IntercomService
@@ -27,13 +29,13 @@ func NewHealthService(lc fx.Lifecycle, runner runner.Runner, ticker *ticker.Tick
 					health, err := runner.GetRunnerHealth(context.Background())
 
 					if err != nil {
-						log.Error().Err(err).Msg("Failed to get runner health")
+						logger.Error().Err(err).Msg("Failed to get runner health")
 					}
 
 					intercom.SendGeneralHealth(health)
 				// if the stop channel is closed, we stop the health service
 				case <-stopChannel:
-					log.Info().Msg("Received health service stop signal")
+					logger.Info().Msg("Received health service stop signal")
 					return
 				}
 			}()
@@ -42,7 +44,7 @@ func NewHealthService(lc fx.Lifecycle, runner runner.Runner, ticker *ticker.Tick
 		},
 		OnStop: func(context.Context) error {
 			close(stopChannel)
-			log.Info().Msg("Health service stopped")
+			logger.Info().Msg("Health service stopped")
 			return nil
 		},
 	})
@@ -62,7 +64,7 @@ func (h *HealthService) AgentHealth() {
 		health, err := h.runner.GetRunnerHealth(context.Background())
 
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to get runner health")
+			logger.Error().Err(err).Msg("Failed to get runner health")
 		}
 
 		h.intercom.SendGeneralHealth(health)
