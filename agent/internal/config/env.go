@@ -11,6 +11,7 @@ type AgentConfig struct {
 	RapidTicker     int    `mapstructure:"RAPID_TICKER" default:"2"`
 	SlowTicker      int    `mapstructure:"SLOW_TICKER" default:"5"`
 	Env             string `mapstructure:"ENV" default:"dev"`
+	AgentID         string `mapstructure:"AGENT_ID" default:"test-agent-123"`
 }
 
 func LoadAgentConfig() *AgentConfig {

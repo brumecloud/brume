@@ -7,14 +7,19 @@ import (
 	"net/http"
 	"time"
 
+	"agent.brume.dev/internal/config"
+
 	"github.com/rs/zerolog/log"
 )
 
 type IntercomService struct {
+	cfg *config.AgentConfig
 }
 
-func NewIntercomService() *IntercomService {
-	return &IntercomService{}
+func NewIntercomService(cfg *config.AgentConfig) *IntercomService {
+	return &IntercomService{
+		cfg: cfg,
+	}
 }
 
 func (i *IntercomService) SendGeneralHealth(health bool) {
@@ -22,8 +27,8 @@ func (i *IntercomService) SendGeneralHealth(health bool) {
 
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
-		"health":    health,
-		"agent_id":  "test-agent-123",
+		"health":    true,
+		"agent_id":  i.cfg.AgentID,
 		"timestamp": time.Now().Unix(),
 	})
 
@@ -34,7 +39,7 @@ func (i *IntercomService) SendGeneralHealth(health bool) {
 
 	req, err := http.NewRequest(
 		"POST",
-		"http://localhost:8080/api/v1/agent/health",
+		i.cfg.OrchestratorURL+"/api/v1/agent/health",
 		bytes.NewBuffer(jsonData),
 	)
 
