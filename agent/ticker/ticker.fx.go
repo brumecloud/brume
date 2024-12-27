@@ -3,6 +3,7 @@ package ticker
 import (
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
@@ -12,6 +13,7 @@ type Ticker struct {
 }
 
 func NewTicker() *Ticker {
+	log.Info().Msg("Starting the tickers")
 	rapidTicker := time.NewTicker(1 * time.Second)
 	slowTicker := time.NewTicker(5 * time.Second)
 
@@ -23,4 +25,7 @@ func NewTicker() *Ticker {
 
 var TickerModule = fx.Module("ticker",
 	fx.Provide(NewTicker),
+	fx.Invoke(func(ticker *Ticker) {
+		log.Info().Msg("Ticker started")
+	}),
 )

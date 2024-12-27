@@ -7,5 +7,6 @@ import (
 
 var ContainerModule = fx.Module("container",
 	fx.Provide(container.NewContainerActivity),
-	fx.Invoke(func(activity *container.ContainerActivity) {}),
+	fx.Invoke(func(activity *container.ContainerActivity) {
+	}),
 )

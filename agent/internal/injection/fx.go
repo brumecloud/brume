@@ -1,10 +1,9 @@
 package injection
 
 import (
-	fx_runner "agent.brume.dev/container/runner/fx"
 	fx_health "agent.brume.dev/health/fx"
+	fx_config "agent.brume.dev/internal/config"
 	fx_intercom "agent.brume.dev/internal/intercom/fx"
-	fx_job "agent.brume.dev/internal/jobs/fx"
 	brumelog "agent.brume.dev/internal/log"
 	fx_ticker "agent.brume.dev/ticker"
 	"github.com/ipfans/fxlogger"
@@ -21,10 +20,9 @@ func NewAgentInjector() *GlobalInjector {
 
 	app := fx.New(
 		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger())),
+		fx_config.ConfigModule,
 		fx_intercom.IntercomModule,
 		fx_health.HealthModule,
-		fx_job.JobModule,
-		fx_runner.RunnerModule,
 		fx_ticker.TickerModule,
 	)
 
