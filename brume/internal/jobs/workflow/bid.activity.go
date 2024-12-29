@@ -1,22 +1,60 @@
 package bid_workflow
 
 import (
-	job_model "brume.dev/internal/jobs/model"
+	deployment_model "brume.dev/deployment/model"
+	job_service "brume.dev/internal/jobs/service"
 	"github.com/rs/zerolog/log"
 	"go.temporal.io/sdk/workflow"
 )
 
 type BidWorkflow struct {
+	bidService *job_service.BidService
 }
 
 var logger = log.With().Str("module", "bid_workflow").Logger()
 
-func NewBidWorkflow() *BidWorkflow {
-	return &BidWorkflow{}
+func NewBidWorkflow(bidService *job_service.BidService) *BidWorkflow {
+	return &BidWorkflow{
+		bidService: bidService,
+	}
 }
 
-func (b *BidWorkflow) BidWorkflow(ctx workflow.Context, bid *job_model.Job) error {
-	logger.Info().Interface("bid", bid).Msg("Starting bid workflow")
+func (b *BidWorkflow) BidWorkflow(ctx workflow.Context, deployment *deployment_model.Deployment) error {
+	logger.Info().Interface("deployment", deployment).Msg("Starting bid workflow")
+	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
+	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
+
+	// we create the bid, any agent can pick it
+	bid, err := b.bidService.CreateBid(deployment, deployment.ServiceID, workflowID, runID)
+
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to create bid")
+		return err
+	}
+
+	logger.Info().Interface("bid", bid).Msg("Bid created")
+
+	// brume waits for an agent to make a bid
+	// then its attribute the bid to the highest bidder
+	machineFound := false
+
+	err = workflow.SetUpdateHandler(ctx, "machine_found", func(ctx workflow.Context, signalName string, _ ...any) error {
+		machineFound = true
+		return nil
+	})
+
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to set update handler")
+		return err
+	}
+
+	// we wait for the machine to be found
+	// this is where will we do the bidding logic
+	workflow.Await(ctx, func() bool {
+		return machineFound
+	})
+
+	logger.Info().Msg("Machine found, bidding process finished")
 
 	return nil
 }
