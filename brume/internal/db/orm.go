@@ -7,6 +7,7 @@ import (
 	user "brume.dev/account/user/model"
 	builder "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
+	job_model "brume.dev/internal/jobs/model"
 	machine_model "brume.dev/machine/model"
 	project_model "brume.dev/project/model"
 	runner "brume.dev/runner/model"
@@ -23,6 +24,7 @@ var AllModels = []interface{}{
 	&runner.Runner{},
 	&builder.Builder{},
 	&machine_model.Machine{},
+	&job_model.Job{},
 }
 
 type Model struct {
