@@ -12,7 +12,7 @@ import (
 func GetBrumeClient() *client.BrumeClient {
 	clt, err := client.NewClient(client.BrumeClientConfig{
 		Host: "localhost",
-		Port: 9876,
+		Port: 9879,
 	})
 
 	if err != nil {

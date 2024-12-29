@@ -10,6 +10,7 @@ type AgentConfig struct {
 	OrchestratorURL string `mapstructure:"ORCHESTRATOR_URL"`
 	RapidTicker     int    `mapstructure:"RAPID_TICKER"`
 	SlowTicker      int    `mapstructure:"SLOW_TICKER"`
+	RetryMax        int    `mapstructure:"RETRY_MAX"`
 	Env             string `mapstructure:"ENV"`
 	AgentID         string `mapstructure:"AGENT_ID"`
 }
@@ -42,11 +43,13 @@ func LoadAgentConfig() *AgentConfig {
 }
 
 func SetDefaultConfig() {
-	viper.SetDefault("ORCHESTRATOR_URL", "http://localhost:8080")
+	viper.SetDefault("ORCHESTRATOR_URL", "http://orchestrator:9876/v1")
 	viper.SetDefault("RAPID_TICKER", 2)
 	viper.SetDefault("SLOW_TICKER", 5)
 	viper.SetDefault("ENV", "dev")
 	viper.SetDefault("AGENT_ID", "test-agent-123")
+	// infinite retries
+	viper.SetDefault("RETRY_MAX", 0)
 }
 
 var ConfigModule = fx.Module("config", fx.Provide(LoadAgentConfig), fx.Invoke(func(cfg *AgentConfig) {}))

@@ -39,10 +39,12 @@ func (i *IntercomService) SendGeneralHealth(health bool) error {
 		return err
 	}
 
+	body := bytes.NewBuffer(jsonData)
+
 	req, err := http.NewRequest(
 		"POST",
-		i.cfg.OrchestratorURL+"/api/v1/agent/health",
-		bytes.NewBuffer(jsonData),
+		i.cfg.OrchestratorURL+"/status",
+		body,
 	)
 
 	if err != nil {
@@ -63,7 +65,7 @@ func (i *IntercomService) SendGeneralHealth(health bool) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		logger.Warn().Int("status", resp.StatusCode).Msg("Orchestrator returned non-200 status code")
+		logger.Warn().Int("status", resp.StatusCode).Str("url", req.URL.String()).Str("body", body.String()).Msg("Orchestrator returned non-200 status code")
 		return err
 	}
 

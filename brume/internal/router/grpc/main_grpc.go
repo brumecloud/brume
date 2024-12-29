@@ -34,7 +34,7 @@ func NewGRPCRouter(lc fx.Lifecycle, authService *common.AuthentificationService,
 			log.Info().Msg("Launching gRPC server")
 
 			var lis net.Listener
-			lis, err := net.Listen("tcp", "localhost:9876")
+			lis, err := net.Listen("tcp", "localhost:9879")
 
 			if err != nil {
 				panic(err)
@@ -46,7 +46,7 @@ func NewGRPCRouter(lc fx.Lifecycle, authService *common.AuthentificationService,
 				}
 			}()
 
-			log.Info().Msg("☁️  launched gRPC on port 9876")
+			log.Info().Msg("☁️  launched gRPC on port 9879")
 
 			return nil
 		},
