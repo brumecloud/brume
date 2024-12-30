@@ -7,6 +7,7 @@ import (
 	"brume.dev/account/user"
 	"brume.dev/internal/common"
 	job_service "brume.dev/internal/jobs/service"
+	http_middleware "brume.dev/internal/router/http/middleware"
 	public_graph "brume.dev/internal/router/public-gql/graph"
 	public_graph_generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	brume_log "brume.dev/logs"
@@ -74,14 +75,14 @@ func NewHTTPServer(
 		OnStart: func(context.Context) error {
 			go func() {
 				log.Info().Msg("Launching Public HTTP server on port 9877")
-				if err := http.ListenAndServe("0.0.0.0:9877", frontend_api_router); err != nil {
+				if err := http.ListenAndServe("0.0.0.0:9877", http_middleware.CorsHandler.Handler(frontend_api_router)); err != nil {
 					panic(err)
 				}
 			}()
 
 			go func() {
 				log.Info().Msg("Launching Orchestrator HTTP server on port 9876")
-				if err := http.ListenAndServe("0.0.0.0:9876", orchestrator_server); err != nil {
+				if err := http.ListenAndServe("0.0.0.0:9876", http_middleware.CorsHandler.Handler(orchestrator_server)); err != nil {
 					panic(err)
 				}
 			}()

@@ -31,7 +31,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, authService *common.Au
 	}
 
 	token, err := authService.PasswordLogin(loginRequest.Email, loginRequest.Password)
-
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to generate token")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -53,15 +52,18 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, authService *common.Au
 func GeneralHTTPRouter(authService *common.AuthentificationService, public_gql *handler.Server) *mux.Router {
 	router := mux.NewRouter()
 
-	router.Path("/").HandlerFunc(playground.Handler("Brume GQL Playground", "/graphql"))
-	router.Path("/health").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	router.Handle("/", playground.Handler("Brume GQL Playground", "/graphql")).Methods(http.MethodGet)
+
+	router.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("public healthy. yeah!"))
-	})
-	router.Path("/graphql").Handler(middleware.AuthMiddleware(public_gql))
-	router.Path("/login").Methods(http.MethodPost).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})).Methods(http.MethodGet)
+
+	router.Handle("/graphql", middleware.AuthMiddleware(public_gql)).Methods(http.MethodPost)
+
+	router.Handle("/login", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		LoginHandler(w, r, authService)
-	})
+	})).Methods(http.MethodPost)
 
 	return router
 }

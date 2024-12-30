@@ -21,12 +21,12 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
 		logger.Trace().Msg("Ingesting agent status")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("status"))
+		w.Write([]byte("OK"))
 	}).Methods(http.MethodPost)
 
 	router.HandleFunc("/logs", func(w http.ResponseWriter, r *http.Request) {
 		logger.Trace().Msg("Ingesting agent logs")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("logs"))
+		w.Write([]byte("OK"))
 	}).Methods(http.MethodPost)
 }
