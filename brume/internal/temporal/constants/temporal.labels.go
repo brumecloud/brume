@@ -5,6 +5,7 @@ const NodeTaskQueue = "node"
 
 // Master worker workflows
 const DeploymentWorkflow = "DeploymentWorkflow"
+const BidWorkflow = "BidWorkflow"
 
 // Master worker activities
 const IngestLogs = "IngestLogs"

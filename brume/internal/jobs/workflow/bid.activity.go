@@ -7,19 +7,19 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-type BidWorkflow struct {
+type BiddingWorkflow struct {
 	bidService *job_service.BidService
 }
 
 var logger = log.With().Str("module", "bid_workflow").Logger()
 
-func NewBidWorkflow(bidService *job_service.BidService) *BidWorkflow {
-	return &BidWorkflow{
+func NewBiddingWorkflow(bidService *job_service.BidService) *BiddingWorkflow {
+	return &BiddingWorkflow{
 		bidService: bidService,
 	}
 }
 
-func (b *BidWorkflow) BidWorkflow(ctx workflow.Context, deployment *deployment_model.Deployment) error {
+func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, deployment *deployment_model.Deployment) error {
 	logger.Info().Interface("deployment", deployment).Msg("Starting bid workflow")
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID

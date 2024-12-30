@@ -53,6 +53,12 @@ func (s *BidService) GetBidsForProject(projectID string) ([]*job_model.Job, erro
 	return bids, err
 }
 
+func (s *BidService) GetAllCurrentBids() ([]*job_model.Job, error) {
+	var bids []*job_model.Job
+	err := s.db.Gorm.Model(&job_model.Job{}).Where("accepted_at IS NOT NULL").Find(&bids).Error
+	return bids, err
+}
+
 // for the moment we accept the first bid
 func (s *BidService) AcceptBid(bidID string, machineID uuid.UUID) error {
 	logger.Info().Str("bid_id", bidID).Str("machine_id", machineID.String()).Msg("Accepting bid")
