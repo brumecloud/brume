@@ -5,14 +5,15 @@ import (
 	fx_user "brume.dev/account/user/fx"
 	fx_builder "brume.dev/builder/fx"
 	fx_deployment "brume.dev/deployment/fx"
+	brume_clickhouse "brume.dev/internal/clickhouse"
 	fx_common "brume.dev/internal/common/fx"
-	"brume.dev/internal/db"
+	config "brume.dev/internal/config"
 	fx_job "brume.dev/internal/jobs/fx"
 	brumelog "brume.dev/internal/log"
 	fx_grpc "brume.dev/internal/router/grpc/fx"
 	fx_http "brume.dev/internal/router/http/fx"
 	fx_temporal "brume.dev/internal/temporal/fx"
-	"brume.dev/internal/temporal/worker"
+	temporal_worker "brume.dev/internal/temporal/worker"
 	fx_log "brume.dev/logs/fx"
 	fx_machine "brume.dev/machine/fx"
 	fx_project "brume.dev/project/fx"
@@ -33,8 +34,6 @@ func NewMasterInjector() *GlobalInjector {
 
 	app := fx.New(
 		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger())),
-		fx.Provide(db.InitDB, db.InitClickhouse),
-		fx.Invoke(db.InitDB, db.InitClickhouse),
 
 		fx_common.CommonModule,
 		fx_org.OrgModule,
@@ -48,6 +47,8 @@ func NewMasterInjector() *GlobalInjector {
 		fx_temporal.TemporalOrchestratorModule,
 		fx_machine.Module,
 		fx_job.JobModule,
+		config.ConfigModule,
+		brume_clickhouse.ClickhouseModule,
 
 		fx_http.HttpModule,
 		fx_grpc.GRPCModule,

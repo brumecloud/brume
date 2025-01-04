@@ -128,6 +128,13 @@ services:
         aliases:
           - clickhouse
 
+  redis:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    networks:
+      brume-net:
+
 networks:
   brume-net:
     driver: bridge

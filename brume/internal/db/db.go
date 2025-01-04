@@ -6,17 +6,19 @@ import (
 	"gorm.io/gorm"
 )
 
+var logger = log.With().Str("module", "db").Logger()
+
 type DB struct {
 	Gorm *gorm.DB
 }
 
 func InitDB() *DB {
-	log.Info().Msg("Initializing database connection")
 	db, err := openDB("user=brume password=brumepass dbname=brume host=postgres sslmode=disable")
-
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to open database connection")
+		logger.Fatal().Err(err).Msg("Failed to open database connection")
 	}
+
+	logger.Info().Msg("Connected to the database")
 
 	db.migrate()
 
@@ -24,15 +26,14 @@ func InitDB() *DB {
 }
 
 func openDB(dsn string) (*DB, error) {
-	log.Info().Str("dsn", dsn).Msg("Opening database connection")
-	globalLogLevel := log.Logger.GetLevel()
+	logger.Info().Str("dsn", dsn).Msg("Opening database connection")
+	globalLogLevel := logger.GetLevel()
 	dblogger := NewDBLogger(log.Level(globalLogLevel))
 
 	dialector := postgres.Open(dsn)
 	gorm, err := gorm.Open(dialector, &gorm.Config{
 		Logger: dblogger,
 	})
-
 	if err != nil {
 		return nil, err
 	}

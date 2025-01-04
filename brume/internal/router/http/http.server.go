@@ -2,10 +2,12 @@ package http_router
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"brume.dev/account/user"
 	"brume.dev/internal/common"
+	config "brume.dev/internal/config"
 	job_service "brume.dev/internal/jobs/service"
 	http_middleware "brume.dev/internal/router/http/middleware"
 	public_graph "brume.dev/internal/router/public-gql/graph"
@@ -36,6 +38,7 @@ func NewHTTPServer(
 	bidService *job_service.BidService,
 	schedulerHTTPRouter *SchedulerHTTPRouterV1,
 	monitoringHTTPRouter *MonitoringHTTPRouterV1,
+	cfg *config.BrumeConfig,
 ) *BrumeHTTPServer {
 	log.Info().Msg("Launching the HTTP Server")
 
@@ -74,15 +77,19 @@ func NewHTTPServer(
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			go func() {
-				log.Info().Msg("Launching Public HTTP server on port 9877")
-				if err := http.ListenAndServe("0.0.0.0:9877", http_middleware.CorsHandler.Handler(frontend_api_router)); err != nil {
+				listenAddr := fmt.Sprintf("%s:%d", cfg.HTTPHost, cfg.HTTPPort)
+				log.Info().Str("listenAddr", listenAddr).Msg("Launching Public HTTP server")
+
+				if err := http.ListenAndServe(listenAddr, http_middleware.CorsHandler.Handler(frontend_api_router)); err != nil {
 					panic(err)
 				}
 			}()
 
 			go func() {
-				log.Info().Msg("Launching Orchestrator HTTP server on port 9876")
-				if err := http.ListenAndServe("0.0.0.0:9876", http_middleware.CorsHandler.Handler(orchestrator_server)); err != nil {
+				listenAddr := fmt.Sprintf("%s:%d", cfg.HTTPHost, cfg.HTTPPort)
+				log.Info().Str("listenAddr", listenAddr).Msg("Launching Orchestrator HTTP server")
+
+				if err := http.ListenAndServe(listenAddr, http_middleware.CorsHandler.Handler(orchestrator_server)); err != nil {
 					panic(err)
 				}
 			}()
