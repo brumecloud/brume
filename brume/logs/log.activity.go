@@ -4,9 +4,11 @@ import (
 	"context"
 
 	clickhouse "brume.dev/internal/clickhouse"
+	"brume.dev/internal/log"
 	log_model "brume.dev/logs/model"
-	"github.com/rs/zerolog/log"
 )
+
+var logger = log.GetLogger("log_activity")
 
 type LogActivity struct {
 	logService *LogService
@@ -21,11 +23,11 @@ func NewLogActivity(logService *LogService, chdb *clickhouse.ClickhouseDB) *LogA
 // this where we should inform the chan, if connected
 // Logs can come from any type of runner
 func (l *LogActivity) IngestLogs(ctx context.Context, logs []*log_model.Log) error {
-	log.Info().Uint("logs", uint(len(logs))).Msg("Ingesting logs")
+	logger.Info().Uint("logs", uint(len(logs))).Msg("Ingesting logs")
 
 	err := l.chdb.Gorm.Create(logs).Error
 	if err != nil {
-		log.Error().Err(err).Msg("Error ingesting logs")
+		logger.Error().Err(err).Msg("Error ingesting logs")
 		return err
 	}
 

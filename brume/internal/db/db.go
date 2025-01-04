@@ -1,13 +1,14 @@
 package db
 
 import (
+	brume_log "brume.dev/internal/log"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-var logger = log.With().Str("module", "db").Logger()
+var logger = brume_log.GetLogger("rdb")
 
 var DBModule = fx.Module("db", fx.Provide(InitDB))
 

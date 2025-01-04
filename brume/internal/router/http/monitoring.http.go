@@ -44,11 +44,13 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 
 		var req StatusRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			logger.Error().Err(err).Msg("Could not decode request")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if err := Validator.Struct(req); err != nil {
+			logger.Error().Err(err).Msg("Could not validate request")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

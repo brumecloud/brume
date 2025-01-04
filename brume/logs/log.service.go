@@ -8,7 +8,6 @@ import (
 	clickhouse "brume.dev/internal/clickhouse"
 	log_model "brume.dev/logs/model"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 )
 
 type LogService struct {
@@ -73,7 +72,7 @@ func (l *LogService) GetDummyLogsSub(ctx context.Context) (chan []*log_model.Log
 }
 
 func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_model.Log, error) {
-	log.Info().Str("projectId", projectID.String()).Msg("Getting logs")
+	logger.Info().Str("projectId", projectID.String()).Msg("Getting logs")
 
 	logs := make([]*log_model.Log, 0)
 

@@ -3,7 +3,7 @@ package bid_workflow
 import (
 	deployment_model "brume.dev/deployment/model"
 	job_service "brume.dev/internal/jobs/service"
-	"github.com/rs/zerolog/log"
+	brume_log "brume.dev/internal/log"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -11,7 +11,7 @@ type BiddingWorkflow struct {
 	bidService *job_service.BidService
 }
 
-var logger = log.With().Str("module", "bid_workflow").Logger()
+var logger = brume_log.GetLogger("bid_workflow")
 
 func NewBiddingWorkflow(bidService *job_service.BidService) *BiddingWorkflow {
 	return &BiddingWorkflow{
@@ -26,7 +26,6 @@ func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, deployment *deployme
 
 	// we create the bid, any agent can pick it
 	bid, err := b.bidService.CreateBid(deployment, deployment.ServiceID, workflowID, runID)
-
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create bid")
 		return err
@@ -42,7 +41,6 @@ func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, deployment *deployme
 		machineFound = true
 		return nil
 	})
-
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to set update handler")
 		return err

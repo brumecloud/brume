@@ -5,8 +5,10 @@ import (
 
 	"brume.dev/internal/common"
 	v1 "brume.dev/internal/gen/brume/v1"
-	"github.com/rs/zerolog/log"
+	"brume.dev/internal/log"
 )
+
+var logger = log.GetLogger("grpc_server")
 
 type GRPCAuthentificationServer struct {
 	v1.AuthentificationServer
@@ -20,10 +22,9 @@ func NewGRPCAuthentificationServer(s *common.AuthentificationService) *GRPCAuthe
 }
 
 func (s *GRPCAuthentificationServer) PasswordLogin(ctx context.Context, req *v1.LoginRequest) (*v1.LoginResponse, error) {
-	log.Debug().Str("Email", req.GetEmail()).Str("Password", req.GetPassword()).Msg("Login attempt")
+	logger.Debug().Str("Email", req.GetEmail()).Str("Password", req.GetPassword()).Msg("Login attempt")
 
 	tokenString, err := s.authService.PasswordLogin(req.GetEmail(), req.GetPassword())
-
 	if err != nil {
 		return nil, err
 	}

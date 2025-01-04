@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/rs/zerolog/log"
+	"brume.dev/internal/log"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
@@ -9,15 +9,19 @@ import (
 type BrumeConfig struct {
 	LogLevel string `mapstructure:"LOG_LEVEL"`
 
-	HTTPPort int    `mapstructure:"HTTP_PORT"`
-	GRPCPort int    `mapstructure:"GRPC_PORT"`
-	HTTPHost string `mapstructure:"HTTP_HOST"`
+	GraphqlPort      int    `mapstructure:"GRAPHQL_PORT"`
+	OrchestratorPort int    `mapstructure:"ORCHESTRATOR_PORT"`
+	Host             string `mapstructure:"HOST"`
+
+	GRPCPort int `mapstructure:"GRPC_PORT"`
 
 	RapidTicker int `mapstructure:"RAPID_TICKER"`
 
-	ClickhouseHost string `mapstructure:"CLICKHOUSE_HOST"`
-	ClickhousePort int    `mapstructure:"CLICKHOUSE_PORT"`
-	ClickhouseDB   string `mapstructure:"CLICKHOUSE_DB"`
+	ClickhouseHost     string `mapstructure:"CLICKHOUSE_HOST"`
+	ClickhousePort     int    `mapstructure:"CLICKHOUSE_PORT"`
+	ClickhouseDB       string `mapstructure:"CLICKHOUSE_DB"`
+	ClickhouseUser     string `mapstructure:"CLICKHOUSE_USER"`
+	ClickhousePassword string `mapstructure:"CLICKHOUSE_PASSWORD"`
 
 	RedisHost     string `mapstructure:"REDIS_HOST"`
 	RedisPort     int    `mapstructure:"REDIS_PORT"`
@@ -28,7 +32,7 @@ type BrumeConfig struct {
 	TemporalPort int    `mapstructure:"TEMPORAL_PORT"`
 }
 
-var logger = log.With().Str("module", "config").Logger()
+var logger = log.GetLogger("config")
 
 func LoadBrumeConfig() *BrumeConfig {
 	cfg := &BrumeConfig{}
@@ -57,9 +61,10 @@ func SetDefaultConfig() {
 	viper.SetDefault("LOG_LEVEL", "info")
 
 	// HTTP server config
-	viper.SetDefault("HTTP_PORT", 9876)
-	viper.SetDefault("GRPC_PORT", 9877)
-	viper.SetDefault("HTTP_HOST", "0.0.0.0")
+	viper.SetDefault("GRAPHQL_PORT", 9877)
+	viper.SetDefault("ORCHESTRATOR_PORT", 9876)
+	viper.SetDefault("GRPC_PORT", 9879)
+	viper.SetDefault("HOST", "0.0.0.0")
 
 	// Ticker config
 	// Internal ticker for rapid updates
@@ -69,6 +74,8 @@ func SetDefaultConfig() {
 	viper.SetDefault("CLICKHOUSE_HOST", "clickhouse")
 	viper.SetDefault("CLICKHOUSE_PORT", 9000)
 	viper.SetDefault("CLICKHOUSE_DB", "brume")
+	viper.SetDefault("CLICKHOUSE_USER", "brume")
+	viper.SetDefault("CLICKHOUSE_PASSWORD", "brumepass")
 
 	// Redis config
 	viper.SetDefault("REDIS_HOST", "redis")

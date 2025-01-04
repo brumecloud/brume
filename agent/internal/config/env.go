@@ -26,14 +26,12 @@ func LoadAgentConfig() *AgentConfig {
 	viper.SetConfigFile(".env")
 
 	err := viper.ReadInConfig()
-
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to read config file")
 		logger.Info().Msg("Using the default values for the agent config")
 	}
 
 	err = viper.Unmarshal(cfg)
-
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to load config")
 		panic(err)
@@ -43,11 +41,14 @@ func LoadAgentConfig() *AgentConfig {
 }
 
 func SetDefaultConfig() {
-	viper.SetDefault("ORCHESTRATOR_URL", "http://orchestrator:9876/v1")
+	viper.SetDefault("ORCHESTRATOR_URL", "http://orchestrator:9876")
+
 	viper.SetDefault("RAPID_TICKER", 2)
 	viper.SetDefault("SLOW_TICKER", 5)
+
 	viper.SetDefault("ENV", "dev")
-	viper.SetDefault("AGENT_ID", "test-agent-123")
+	viper.SetDefault("AGENT_ID", "8f0e7fc0-f2cb-456d-b1a3-66a40bc95523")
+
 	// infinite retries
 	viper.SetDefault("RETRY_MAX", 0)
 }

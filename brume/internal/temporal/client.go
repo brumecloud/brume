@@ -4,12 +4,11 @@ import (
 	"fmt"
 
 	config "brume.dev/internal/config"
-	brume_log "brume.dev/internal/log"
-	"github.com/rs/zerolog/log"
+	"brume.dev/internal/log"
 	"go.temporal.io/sdk/client"
 )
 
-var logger = log.With().Str("module", "temporal").Logger()
+var logger = log.GetLogger("temporal")
 
 func NewClient(cfg *config.BrumeConfig) client.Client {
 	dsn := fmt.Sprintf("%s:%d", cfg.TemporalHost, cfg.TemporalPort)
@@ -18,7 +17,7 @@ func NewClient(cfg *config.BrumeConfig) client.Client {
 
 	c, err := client.Dial(client.Options{
 		HostPort: dsn,
-		Logger:   brume_log.NewTemporalZeroLogger(logger),
+		Logger:   log.NewTemporalZeroLogger(logger),
 	})
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to dial Temporal client")

@@ -12,7 +12,6 @@ import (
 	project_model "brume.dev/project/model"
 	runner "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
-	"github.com/rs/zerolog/log"
 )
 
 var AllModels = []interface{}{
@@ -34,11 +33,11 @@ type Model struct {
 }
 
 func (db *DB) migrate() {
-	log.Info().Msg("Starting the migration")
+	logger.Info().Msg("Starting the migration")
 	// to add a model to migrate add it to the AllModels slice
 	db.Gorm.AutoMigrate(AllModels...)
-	log.Info().Msg("All migrations passed, continuing with seeding")
+	logger.Info().Msg("All migrations passed, continuing with seeding")
 
 	SeedAll(db)
-	log.Info().Msg("Seeding finished")
+	logger.Info().Msg("Seeding finished")
 }

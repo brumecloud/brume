@@ -6,10 +6,7 @@ import (
 
 	job_service "brume.dev/internal/jobs/service"
 	"github.com/gorilla/mux"
-	"github.com/rs/zerolog/log"
 )
-
-var logger = log.With().Str("module", "http").Logger()
 
 type SchedulerHTTPRouterV1 struct {
 	bidService *job_service.BidService

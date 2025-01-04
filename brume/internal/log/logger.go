@@ -10,8 +10,12 @@ import (
 	"go.temporal.io/sdk/log"
 )
 
-func GetLogger() zerolog.Logger {
-	return zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+func GetLogger(module string) zerolog.Logger {
+	return GetMainLogger().With().Str("module", module).Timestamp().Logger()
+}
+
+func GetMainLogger() zerolog.Logger {
+	return zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
 }
 
 func InitLogger() {
@@ -21,7 +25,7 @@ func InitLogger() {
 
 	_ = os.Mkdir("logs", os.ModePerm)
 
-	zlog.Logger = GetLogger()
+	zlog.Logger = GetMainLogger()
 }
 
 // TemporalZeroLogger implements temporal's log.Logger interface using zerolog

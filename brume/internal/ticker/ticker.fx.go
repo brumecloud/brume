@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"brume.dev/internal/config"
-	"github.com/rs/zerolog/log"
+	"brume.dev/internal/log"
 	"go.uber.org/fx"
 )
 
-var logger = log.With().Str("module", "ticker").Logger()
+var logger = log.GetLogger("ticker")
 
 var TickerModule = fx.Module("ticker",
 	fx.Provide(NewTickerService),

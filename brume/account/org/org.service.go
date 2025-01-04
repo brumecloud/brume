@@ -4,9 +4,11 @@ import (
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	"brume.dev/internal/db"
+	"brume.dev/internal/log"
 	project_model "brume.dev/project/model"
-	"github.com/rs/zerolog/log"
 )
+
+var logger = log.GetLogger("org")
 
 type OrganizationService struct {
 	db *db.DB
@@ -22,7 +24,7 @@ func (s *OrganizationService) GetUserOrganization(email string) ([]*org.Organiza
 	var user *user.User
 	err := s.db.Gorm.First(&user, "email = ?", email).Error
 
-	log.Debug().Str("email", user.Email).Msg("get user")
+	logger.Debug().Str("email", user.Email).Msg("get user")
 
 	if err != nil {
 		return nil, err
@@ -30,7 +32,6 @@ func (s *OrganizationService) GetUserOrganization(email string) ([]*org.Organiza
 
 	var orgs []*org.Organization
 	err = s.db.Gorm.Find(&orgs, "id = ?", user.OrganizationID).Error
-
 	if err != nil {
 		return nil, err
 	}

@@ -40,7 +40,7 @@ func (i *IntercomService) SendGeneralHealth(health string) error {
 
 	req, err := http.NewRequest(
 		"POST",
-		i.cfg.OrchestratorURL+"/status",
+		i.cfg.OrchestratorURL+"/monitoring/v1/status",
 		body,
 	)
 	if err != nil {

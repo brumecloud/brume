@@ -9,6 +9,7 @@ import (
 	"brume.dev/internal/common"
 	config "brume.dev/internal/config"
 	job_service "brume.dev/internal/jobs/service"
+	"brume.dev/internal/log"
 	http_middleware "brume.dev/internal/router/http/middleware"
 	public_graph "brume.dev/internal/router/public-gql/graph"
 	public_graph_generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
@@ -21,11 +22,12 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
 type BrumeHTTPServer struct{}
+
+var logger = log.GetLogger("http")
 
 func NewHTTPServer(
 	lc fx.Lifecycle,
@@ -40,7 +42,7 @@ func NewHTTPServer(
 	monitoringHTTPRouter *MonitoringHTTPRouterV1,
 	cfg *config.BrumeConfig,
 ) *BrumeHTTPServer {
-	log.Info().Msg("Launching the HTTP Server")
+	logger.Info().Msg("Launching the HTTP Server")
 
 	public_resolver := &public_graph.Resolver{
 		UserService:    userService,
@@ -77,8 +79,8 @@ func NewHTTPServer(
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			go func() {
-				listenAddr := fmt.Sprintf("%s:%d", cfg.HTTPHost, cfg.HTTPPort)
-				log.Info().Str("listenAddr", listenAddr).Msg("Launching Public HTTP server")
+				listenAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.GraphqlPort)
+				logger.Info().Str("listenAddr", listenAddr).Msg("Launching Public HTTP server")
 
 				if err := http.ListenAndServe(listenAddr, http_middleware.CorsHandler.Handler(frontend_api_router)); err != nil {
 					panic(err)
@@ -86,8 +88,8 @@ func NewHTTPServer(
 			}()
 
 			go func() {
-				listenAddr := fmt.Sprintf("%s:%d", cfg.HTTPHost, cfg.HTTPPort)
-				log.Info().Str("listenAddr", listenAddr).Msg("Launching Orchestrator HTTP server")
+				listenAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.OrchestratorPort)
+				logger.Info().Str("listenAddr", listenAddr).Msg("Launching Orchestrator HTTP server")
 
 				if err := http.ListenAndServe(listenAddr, http_middleware.CorsHandler.Handler(orchestrator_server)); err != nil {
 					panic(err)
@@ -97,7 +99,7 @@ func NewHTTPServer(
 			return nil
 		},
 		OnStop: func(context.Context) error {
-			log.Info().Msg("All servers stopped")
+			logger.Info().Msg("All servers stopped")
 			return nil
 		},
 	})

@@ -7,13 +7,13 @@ import (
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
 	job_model "brume.dev/internal/jobs/model"
+	brume_log "brume.dev/internal/log"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"go.temporal.io/sdk/client"
 )
 
-var logger = log.With().Str("module", "bid_service").Logger()
+var logger = brume_log.GetLogger("bid_service")
 
 type BidService struct {
 	db             *db.DB
@@ -75,7 +75,6 @@ func (s *BidService) AcceptBid(bidID string, machineID uuid.UUID) error {
 	bid.MachineID = &machineID
 
 	err = s.db.Gorm.Model(&job_model.Job{}).Where("id = ?", bidID).Updates(bid).Error
-
 	if err != nil {
 		return err
 	}
@@ -89,7 +88,6 @@ func (s *BidService) AcceptBid(bidID string, machineID uuid.UUID) error {
 		RunID:      bid.RunID,
 		UpdateName: "machine_found",
 	})
-
 	if err != nil {
 		logger.Error().Err(err).Str("bid_id", bidID).Str("machine_id", machineID.String()).Msg("Failed to update (machine found) workflow")
 		return err

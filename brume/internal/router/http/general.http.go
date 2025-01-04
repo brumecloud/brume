@@ -10,7 +10,6 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gorilla/mux"
-	"github.com/rs/zerolog/log"
 )
 
 type LoginRequest struct {
@@ -25,19 +24,19 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, authService *common.Au
 	var loginRequest LoginRequest
 	err := json.NewDecoder(body).Decode(&loginRequest)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to decode login request")
+		logger.Error().Err(err).Msg("Failed to decode login request")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	token, err := authService.PasswordLogin(loginRequest.Email, loginRequest.Password)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to generate token")
+		logger.Error().Err(err).Msg("Failed to generate token")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	log.Debug().Str("email", loginRequest.Email).Msg("User logged in")
+	logger.Debug().Str("email", loginRequest.Email).Msg("User logged in")
 
 	// set token in cookies
 	http.SetCookie(w, &http.Cookie{

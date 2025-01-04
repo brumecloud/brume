@@ -6,10 +6,12 @@ import (
 	"strings"
 
 	"brume.dev/internal/common"
-	"github.com/rs/zerolog/log"
+	"brume.dev/internal/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
+
+var logger = log.GetLogger("grpc_interceptor")
 
 // authentificationInterceptor is a gRPC interceptor that checks if the user is authenticated
 func AuthentificationInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
@@ -35,12 +37,11 @@ func AuthentificationInterceptor(ctx context.Context, req any, info *grpc.UnaryS
 	}
 
 	claims, err := common.VerifyToken(authHeader[1])
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify token: %w", err)
 	}
 
-	log.Debug().Str("user", claims.Subject).Msg("Authentification interceptor")
+	logger.Debug().Str("user", claims.Subject).Msg("Authentification interceptor")
 	ctx = context.WithValue(ctx, "user", claims.Subject)
 
 	return handler(ctx, req)

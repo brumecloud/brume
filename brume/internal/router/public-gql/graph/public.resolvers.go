@@ -12,6 +12,7 @@ import (
 	user_model "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
+	"brume.dev/internal/log"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	log_model "brume.dev/logs/model"
@@ -20,8 +21,9 @@ import (
 	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 )
+
+var logger = log.GetLogger("public_graph")
 
 // ID is the resolver for the id field.
 func (r *deploymentResolver) ID(ctx context.Context, obj *deployment_model.Deployment) (string, error) {
@@ -97,7 +99,6 @@ func (r *mutationResolver) CreateProject(ctx context.Context, name string, descr
 // AddServiceToProject is the resolver for the addServiceToProject field.
 func (r *mutationResolver) AddServiceToProject(ctx context.Context, projectID string, input public_graph_model.CreateServiceInput) (*service_model.Service, error) {
 	service, err := r.ServiceService.CreateService(input.Name, uuid.MustParse(projectID), input.Image)
-
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +116,6 @@ func (r *mutationResolver) AddServiceToProject(ctx context.Context, projectID st
 // DeleteService is the resolver for the deleteService field.
 func (r *mutationResolver) DeleteService(ctx context.Context, serviceID string) (*service_model.Service, error) {
 	service_uuid, err := uuid.Parse(serviceID)
-
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,6 @@ func (r *mutationResolver) DeleteService(ctx context.Context, serviceID string) 
 // UpdateServiceSettings is the resolver for the updateServiceSettings field.
 func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID string, input public_graph_model.ServiceSettingsInput) (*service_model.Service, error) {
 	service_uuid, err := uuid.Parse(serviceID)
-
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +136,6 @@ func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID 
 // UpdateBuilder is the resolver for the updateBuilder field.
 func (r *mutationResolver) UpdateBuilder(ctx context.Context, serviceID string, data public_graph_model.BuilderDataInput) (*builder_model.Builder, error) {
 	service_uuid, err := uuid.Parse(serviceID)
-
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +152,6 @@ func (r *mutationResolver) UpdateBuilder(ctx context.Context, serviceID string, 
 // UpdateRunner is the resolver for the updateRunner field.
 func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, data public_graph_model.RunnerDataInput) (*runner_model.Runner, error) {
 	service_uuid, err := uuid.Parse(serviceID)
-
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +178,6 @@ func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, d
 // DeleteDraft is the resolver for the deleteDraft field.
 func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error) {
 	project_uuid, err := uuid.Parse(projectID)
-
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +188,6 @@ func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*
 // DeployProject is the resolver for the deployProject field.
 func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) (*project_model.Project, error) {
 	project_uuid, err := uuid.Parse(projectID)
-
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +222,6 @@ func (r *queryResolver) Me(ctx context.Context) (*user_model.User, error) {
 // GetProjectByID is the resolver for the getProjectById field.
 func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project_model.Project, error) {
 	project_uuid, err := uuid.Parse(id)
-
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +244,7 @@ func (r *queryResolver) Machine(ctx context.Context) ([]*machine_model.Machine, 
 	currentUser := ctx.Value("user").(string)
 	user, err := r.UserService.GetUserByEmail(currentUser)
 
-	log.Info().Str("email", currentUser).Str("organization", user.OrganizationID.String()).Msg("getting machine")
+	logger.Info().Str("email", currentUser).Str("organization", user.OrganizationID.String()).Msg("getting machine")
 
 	if err != nil {
 		return nil, err
@@ -341,14 +335,16 @@ func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subsc
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
-type deploymentResolver struct{ *Resolver }
-type deploymentLogResolver struct{ *Resolver }
-type deploymentSourceResolver struct{ *Resolver }
-type logResolver struct{ *Resolver }
-type machineResolver struct{ *Resolver }
-type mutationResolver struct{ *Resolver }
-type projectResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }
-type serviceResolver struct{ *Resolver }
-type subscriptionResolver struct{ *Resolver }
-type userResolver struct{ *Resolver }
+type (
+	deploymentResolver       struct{ *Resolver }
+	deploymentLogResolver    struct{ *Resolver }
+	deploymentSourceResolver struct{ *Resolver }
+	logResolver              struct{ *Resolver }
+	machineResolver          struct{ *Resolver }
+	mutationResolver         struct{ *Resolver }
+	projectResolver          struct{ *Resolver }
+	queryResolver            struct{ *Resolver }
+	serviceResolver          struct{ *Resolver }
+	subscriptionResolver     struct{ *Resolver }
+	userResolver             struct{ *Resolver }
+)

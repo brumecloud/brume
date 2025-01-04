@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"brume.dev/internal/db"
+	"brume.dev/internal/log"
 	machine_model "brume.dev/machine/model"
 	"github.com/google/uuid"
 	redis "github.com/redis/go-redis/v9"
-	"github.com/rs/zerolog/log"
 )
 
-var logger = log.With().Str("module", "machine").Logger()
+var logger = log.GetLogger("machine")
 
 type MachineService struct {
 	db    *db.DB
@@ -36,7 +36,9 @@ func (e *MachineService) GetMachine(orgId uuid.UUID) ([]*machine_model.Machine, 
 // but not now
 func (e *MachineService) RecordStatus(machineId uuid.UUID, status string) error {
 	logger.Trace().Str("machineId", machineId.String()).Str("status", status).Msg("Recording status")
-	err := e.redis.Set(context.Background(), fmt.Sprintf("machine:%s:status", machineId.String()), status, 60*time.Second).Err()
+
+	// the last alive is 10s TTL, that way if we find nothing we can put the machine on the unhealth checklist
+	err := e.redis.Set(context.Background(), fmt.Sprintf("machine:last_alive:%s", machineId.String()), time.Now().Unix(), 10*time.Second).Err()
 	if err != nil {
 		logger.Error().Err(err).Str("machineId", machineId.String()).Str("status", status).Msg("Failed to record status")
 		return err

@@ -4,20 +4,21 @@ import (
 	"time"
 
 	deployment_model "brume.dev/deployment/model"
-	"brume.dev/internal/temporal/constants"
-	"github.com/rs/zerolog/log"
+	"brume.dev/internal/log"
+	temporal_constants "brume.dev/internal/temporal/constants"
 
 	"go.temporal.io/sdk/workflow"
 )
 
-const UnhealthyCounter = 3
-const ReadynessCheckInterval = time.Second * 3
-const StatusCheckInterval = time.Second * 3
+const (
+	UnhealthyCounter       = 3
+	ReadynessCheckInterval = time.Second * 3
+	StatusCheckInterval    = time.Second * 3
+)
 
-var logger = log.With().Str("module", "deployment_workflow").Logger()
+var logger = log.GetLogger("deployment_workflow")
 
-type DeploymentWorkflow struct {
-}
+type DeploymentWorkflow struct{}
 
 func NewDeploymentWorkflow() *DeploymentWorkflow {
 	return &DeploymentWorkflow{}
@@ -51,7 +52,6 @@ func (d *DeploymentWorkflow) DeploymentWorkflow(ctx workflow.Context, deployment
 	// we start the bidding workflow
 	// when the workflow is done thats mean the job has been accepted by an agent
 	err := workflow.ExecuteChildWorkflow(ctx, temporal_constants.BidWorkflow, deployment).Get(ctx, nil)
-
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to start bidding workflow")
 		return err

@@ -6,6 +6,7 @@ import (
 
 	config "brume.dev/internal/config"
 	db "brume.dev/internal/db"
+	brume_log "brume.dev/internal/log"
 	log_model "brume.dev/logs/model"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
@@ -13,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var logger = log.With().Str("module", "clickhouse").Logger()
+var logger = brume_log.GetLogger("clickhouse")
 
 type ClickhouseDB struct {
 	Gorm *gorm.DB
@@ -36,7 +37,7 @@ func openCHDB(cfg *config.BrumeConfig) (*ClickhouseDB, error) {
 	globalLogLevel := logger.GetLevel()
 	dblogger := db.NewDBLogger(log.Level(globalLogLevel))
 
-	dsn := fmt.Sprintf("clickhouse://%s:%d/%s?dial_timeout=10s&read_timeout=20s", cfg.ClickhouseHost, cfg.ClickhousePort, cfg.ClickhouseDB)
+	dsn := fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?dial_timeout=10s&read_timeout=20s", cfg.ClickhouseUser, cfg.ClickhousePassword, cfg.ClickhouseHost, cfg.ClickhousePort, cfg.ClickhouseDB)
 
 	logger.Info().Str("dsn", dsn).Msg("Opening the clickhouse database connection")
 

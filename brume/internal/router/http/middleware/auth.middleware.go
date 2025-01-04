@@ -5,13 +5,15 @@ import (
 	"net/http"
 
 	"brume.dev/internal/common"
-	"github.com/rs/zerolog/log"
+	"brume.dev/internal/log"
 )
+
+var logger = log.GetLogger("http_middleware")
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if len(r.Cookies()) == 0 {
-			log.Debug().Msg("Cookies not found")
+			logger.Debug().Msg("Cookies not found")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -26,17 +28,16 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		if token == "" {
-			log.Debug().Msg("No token found in cookies")
+			logger.Debug().Msg("No token found in cookies")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
-		log.Info().Str("token", token)
+		logger.Info().Str("token", token)
 		claims, err := common.VerifyToken(token)
-
 		if err != nil {
 			w.WriteHeader(http.StatusForbidden)
-			log.Debug().Err(err).Msg("Failed to verify token")
+			logger.Debug().Err(err).Msg("Failed to verify token")
 			w.Write([]byte("Unauthorized"))
 			return
 		}

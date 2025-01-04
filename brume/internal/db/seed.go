@@ -13,7 +13,6 @@ import (
 	runner_model "brume.dev/runner/model"
 	service "brume.dev/service/model"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"golang.org/x/exp/rand"
 	"gorm.io/gorm"
 )
@@ -37,11 +36,11 @@ func SeedOrganization(db *DB, projects []*project.Project) *org.Organization {
 	}
 
 	if err := db.Gorm.First(brume, "name = ?", "brume").Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Info().Msg("No organization found in database, creating brume")
+		logger.Info().Msg("No organization found in database, creating brume")
 		db.Gorm.Create(brume)
-		log.Info().Msg("Organization seeded")
+		logger.Info().Msg("Organization seeded")
 	} else {
-		log.Info().Msg("Organization found, skipping seeding")
+		logger.Info().Msg("Organization found, skipping seeding")
 	}
 
 	return brume
@@ -56,15 +55,15 @@ func SeedMachine(db *DB, brume *org.Organization) *machine_model.Machine {
 	}
 
 	if err := db.Gorm.First(machine, "id = ?", machine.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Info().Msg("No machine found in database, creating brume-machine")
+		logger.Info().Msg("No machine found in database, creating brume-machine")
 		err := db.Gorm.Create(machine).Error
 		if err != nil {
-			log.Error().Err(err).Msg("Error seeding machine")
+			logger.Error().Err(err).Msg("Error seeding machine")
 		}
 
-		log.Info().Msg("Machine seeded")
+		logger.Info().Msg("Machine seeded")
 	} else {
-		log.Info().Msg("Machine found, skipping seeding")
+		logger.Info().Msg("Machine found, skipping seeding")
 	}
 
 	return machine
@@ -80,12 +79,12 @@ func SeedAdminUser(db *DB, brume *org.Organization) *user.User {
 	}
 
 	if err := db.Gorm.First(admin, "email = ?", "admin@brume.dev").Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Info().Msg("No user found in database, creating admin@brume.dev")
+		logger.Info().Msg("No user found in database, creating admin@brume.dev")
 
 		db.Gorm.Create(admin)
-		log.Info().Msg("Admin user seeded")
+		logger.Info().Msg("Admin user seeded")
 	} else {
-		log.Info().Msg("Admin user found, skipping seeding")
+		logger.Info().Msg("Admin user found, skipping seeding")
 	}
 
 	return admin
@@ -198,13 +197,13 @@ func SeedProjects(db *DB) []*project.Project {
 	}
 
 	if err := db.Gorm.First(firstProject, "id = ?", stringID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Info().Msg("Porfolio project not found, creating it")
+		logger.Info().Msg("Porfolio project not found, creating it")
 
 		firstProjectError := db.Gorm.Create(firstProject).Error
 		if firstProjectError != nil {
-			log.Error().Msg(firstProjectError.Error())
+			logger.Error().Msg(firstProjectError.Error())
 		}
-		log.Info().Msg("Porfolio project created")
+		logger.Info().Msg("Porfolio project created")
 	}
 
 	projects[0] = firstProject
@@ -290,10 +289,10 @@ func SeedProjects(db *DB) []*project.Project {
 	}
 
 	if err := db.Gorm.First(secondProject, "id = ?", stringID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Info().Msg("GenAI project not found, creating it")
+		logger.Info().Msg("GenAI project not found, creating it")
 
 		db.Gorm.Create(secondProject)
-		log.Info().Msg("GenAI project created")
+		logger.Info().Msg("GenAI project created")
 	}
 
 	projects[1] = secondProject

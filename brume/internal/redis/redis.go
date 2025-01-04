@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	config "brume.dev/internal/config"
+	brume_log "brume.dev/internal/log"
 	redis "github.com/redis/go-redis/v9"
-	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
-var logger = log.With().Str("module", "redis").Logger()
+var logger = brume_log.GetLogger("redis")
 
 func NewRedisClient(cfg *config.BrumeConfig) *redis.Client {
 	client := redis.NewClient(&redis.Options{

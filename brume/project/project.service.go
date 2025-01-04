@@ -8,17 +8,19 @@ import (
 	builder_model "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
-	"brume.dev/internal/temporal/constants"
+	"brume.dev/internal/log"
+	temporal_constants "brume.dev/internal/temporal/constants"
 	project "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	"brume.dev/service"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"go.temporal.io/sdk/client"
 	"golang.org/x/exp/rand"
 	"gorm.io/gorm"
 )
+
+var logger = log.GetLogger("project")
 
 type ProjectService struct {
 	db             *db.DB
@@ -38,7 +40,6 @@ func (s *ProjectService) IsDirty(project *project.Project) (bool, error) {
 	var projectDirty bool
 
 	project, err := s.GetProjectServices(project)
-
 	if err != nil {
 		return false, err
 	}
@@ -56,7 +57,6 @@ func (s *ProjectService) GetProjectByID(id uuid.UUID) (*project.Project, error) 
 	var project *project.Project
 
 	err := s.db.Gorm.First(&project, "id = ?", id).Error
-
 	if err != nil {
 		return nil, err
 	}
@@ -66,13 +66,11 @@ func (s *ProjectService) GetProjectByID(id uuid.UUID) (*project.Project, error) 
 
 func (s *ProjectService) DeleteDraft(projectId uuid.UUID) (*project.Project, error) {
 	project, err := s.GetProjectByID(projectId)
-
 	if err != nil {
 		return nil, err
 	}
 
 	project, err = s.GetProjectServices(project)
-
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +78,6 @@ func (s *ProjectService) DeleteDraft(projectId uuid.UUID) (*project.Project, err
 	for _, service := range project.Services {
 		if service.DraftRunner != nil {
 			err = s.db.Gorm.Delete(&runner_model.Runner{}, service.DraftRunnerID).Error
-
 			if err != nil {
 				return nil, err
 			}
@@ -88,7 +85,6 @@ func (s *ProjectService) DeleteDraft(projectId uuid.UUID) (*project.Project, err
 
 		if service.DraftBuilder != nil {
 			err = s.db.Gorm.Delete(&builder_model.Builder{}, service.DraftBuilderID).Error
-
 			if err != nil {
 				return nil, err
 			}
@@ -100,18 +96,16 @@ func (s *ProjectService) DeleteDraft(projectId uuid.UUID) (*project.Project, err
 
 func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, error) {
 	project, err := s.GetProjectByID(projectId)
-
 	if err != nil {
 		return nil, err
 	}
 
 	project, err = s.GetProjectServices(project)
-
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info().Msgf("Deploying project %s", projectId)
+	logger.Info().Msgf("Deploying project %s", projectId)
 
 	// move all the draft to non draft
 	// when you deploy it gets save
@@ -151,9 +145,8 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 		}
 
 		err = s.ServiceService.CreateDeployment(service.ID, deployment)
-
 		if err != nil {
-			log.Error().Msgf("Error creating deployment for service %s", service.ID)
+			logger.Error().Msgf("Error creating deployment for service %s", service.ID)
 			return nil, err
 		}
 
@@ -162,13 +155,12 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 		}
 
 		we, err := s.TemporalClient.ExecuteWorkflow(context.Background(), workflowOpts, temporal_constants.DeploymentWorkflow, deployment)
-
 		if err != nil {
-			log.Error().Msgf("Error starting workflow for service %s", service.ID)
+			logger.Error().Msgf("Error starting workflow for service %s", service.ID)
 			return nil, err
 		}
 
-		log.Info().Msgf("Started service %s", we.GetID())
+		logger.Info().Msgf("Started service %s", we.GetID())
 	}
 
 	return s.GetProjectByID(projectId)
@@ -209,7 +201,6 @@ func (s *ProjectService) AddServiceToProject(project *project.Project, service *
 
 func (s *ProjectService) PushEvent(projectId uuid.UUID, eventType string, eventData interface{}) error {
 	eventDataJson, err := json.Marshal(eventData)
-
 	if err != nil {
 		return err
 	}

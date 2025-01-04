@@ -2,24 +2,28 @@ package grpc_router
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"brume.dev/account/org"
 	"brume.dev/internal/common"
+	"brume.dev/internal/config"
 	v1 "brume.dev/internal/gen/brume/v1"
 	interceptor "brume.dev/internal/router/grpc/interceptor"
 	server "brume.dev/internal/router/grpc/server"
 
-	"github.com/rs/zerolog/log"
+	brume_log "brume.dev/internal/log"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
+var logger = brume_log.GetLogger("grpc")
+
 type GRPCRouter struct{}
 
-func NewGRPCRouter(lc fx.Lifecycle, authService *common.AuthentificationService, orgService *org.OrganizationService) *GRPCRouter {
-	log.Info().Msg("Creating the gRPC router")
+func NewGRPCRouter(lc fx.Lifecycle, authService *common.AuthentificationService, orgService *org.OrganizationService, cfg *config.BrumeConfig) *GRPCRouter {
+	logger.Info().Msg("Creating the gRPC router")
 
 	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(interceptor.AuthentificationInterceptor))
 
@@ -31,11 +35,12 @@ func NewGRPCRouter(lc fx.Lifecycle, authService *common.AuthentificationService,
 
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			log.Info().Msg("Launching gRPC server")
-
 			var lis net.Listener
-			lis, err := net.Listen("tcp", "localhost:9879")
+			listenAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.GRPCPort)
 
+			logger.Info().Str("listenAddr", listenAddr).Msg("Launching gRPC server")
+
+			lis, err := net.Listen("tcp", listenAddr)
 			if err != nil {
 				panic(err)
 			}
@@ -46,13 +51,13 @@ func NewGRPCRouter(lc fx.Lifecycle, authService *common.AuthentificationService,
 				}
 			}()
 
-			log.Info().Msg("☁️  launched gRPC on port 9879")
+			logger.Info().Str("listenAddr", listenAddr).Msg("gRPC server launched")
 
 			return nil
 		},
 		OnStop: func(context.Context) error {
 			grpcServer.GracefulStop()
-			log.Info().Msg("gRPC server stopped")
+			logger.Info().Msg("gRPC server stopped")
 
 			return nil
 		},
