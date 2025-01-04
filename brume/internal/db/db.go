@@ -2,11 +2,14 @@ package db
 
 import (
 	"github.com/rs/zerolog/log"
+	"go.uber.org/fx"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 var logger = log.With().Str("module", "db").Logger()
+
+var DBModule = fx.Module("db", fx.Provide(InitDB))
 
 type DB struct {
 	Gorm *gorm.DB

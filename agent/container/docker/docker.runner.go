@@ -26,13 +26,11 @@ func (d *DockerEngineRunner) StartJob(ctx context.Context, deployment *deploymen
 	logger.Info().Str("image", deployment.BuilderData.Image).Str("serviceId", deployment.ServiceID.String()).Msg("Starting container")
 
 	image, err := d.dockerService.PullImage(deployment.BuilderData.Registry, deployment.BuilderData.Image, deployment.BuilderData.Tag)
-
 	if err != nil {
 		return "", err
 	}
 
 	containerId, err := d.dockerService.StartContainer(image, deployment.ServiceID, &deployment.RunnerData)
-
 	if err != nil {
 		return "", err
 	}
@@ -46,7 +44,6 @@ func (d *DockerEngineRunner) StopJob(ctx context.Context, deployment *deployment
 	logger.Info().Str("containerId", deployment.Execution.ContainerID).Str("service", deployment.ServiceID.String()).Msg("Stopping service")
 
 	err := d.dockerService.StopContainer(deployment.Execution.ContainerID)
-
 	if err != nil {
 		return err
 	}
@@ -59,7 +56,6 @@ func (d *DockerEngineRunner) StopJob(ctx context.Context, deployment *deployment
 
 func (d *DockerEngineRunner) GetJobStatus(ctx context.Context, deployment *deployment_model.Deployment) (string, error) {
 	state, err := d.dockerService.StatusContainer(deployment.Execution.ContainerID)
-
 	if err != nil {
 		return "dead", err
 	}
@@ -76,9 +72,7 @@ func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deploym
 	now := time.Now()
 
 	out, err := d.dockerService.GetLogs(deployment.Execution.ContainerID, deployment.Execution.LastLogs)
-
 	// need to convert the logs to the brume log format
-
 	if err != nil {
 		return nil, now, err
 	}
@@ -86,7 +80,6 @@ func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deploym
 	dockerLogsHeader := []byte{0, 0, 0, 0, 0, 0, 0, 0}
 	// read the logs header
 	n, err := out.Read(dockerLogsHeader)
-
 	if err != nil {
 		if err == io.EOF {
 			logger.Debug().Str("containerId", deployment.Execution.ContainerID).Msg("No logs to return")
@@ -155,6 +148,6 @@ func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deploym
 	return logs, now, nil
 }
 
-func (d *DockerEngineRunner) GetRunnerHealth(ctx context.Context) (bool, error) {
-	return true, nil
+func (d *DockerEngineRunner) GetRunnerHealth(ctx context.Context) (string, error) {
+	return "OK", nil
 }

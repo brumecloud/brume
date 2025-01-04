@@ -32,6 +32,8 @@ func (e *MachineService) GetMachine(orgId uuid.UUID) ([]*machine_model.Machine, 
 	return machines, err
 }
 
+// the machine will also record the status of the job inside
+// but not now
 func (e *MachineService) RecordStatus(machineId uuid.UUID, status string) error {
 	logger.Trace().Str("machineId", machineId.String()).Str("status", status).Msg("Recording status")
 	err := e.redis.Set(context.Background(), fmt.Sprintf("machine:%s:status", machineId.String()), status, 60*time.Second).Err()

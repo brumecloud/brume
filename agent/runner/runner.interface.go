@@ -13,5 +13,5 @@ type Runner interface {
 	StopJob(ctx context.Context, deployment *deployment_model.Deployment) error
 	GetJobStatus(ctx context.Context, deployment *deployment_model.Deployment) (string, error)
 	GetJobLogs(ctx context.Context, deployment *deployment_model.Deployment) ([]*log_model.Log, time.Time, error)
-	GetRunnerHealth(ctx context.Context) (bool, error)
+	GetRunnerHealth(ctx context.Context) (string, error)
 }

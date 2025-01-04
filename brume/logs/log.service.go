@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"time"
 
-	"brume.dev/internal/db"
+	clickhouse "brume.dev/internal/clickhouse"
 	log_model "brume.dev/logs/model"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
 type LogService struct {
-	chdb *db.ClickhouseDB
+	chdb *clickhouse.ClickhouseDB
 }
 
-func NewLogService(chdb *db.ClickhouseDB) *LogService {
+func NewLogService(chdb *clickhouse.ClickhouseDB) *LogService {
 	return &LogService{chdb: chdb}
 }
 
@@ -44,7 +44,6 @@ func (l *LogService) GetDummyLogsSub(ctx context.Context) (chan []*log_model.Log
 			lines := make([]*log_model.Log, 0)
 			for j := 0; j < 1; j++ {
 				randomID, err := uuid.NewRandom()
-
 				if err != nil {
 					panic(err)
 				}

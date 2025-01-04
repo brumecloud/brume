@@ -3,17 +3,17 @@ package log
 import (
 	"context"
 
-	"brume.dev/internal/db"
+	clickhouse "brume.dev/internal/clickhouse"
 	log_model "brume.dev/logs/model"
 	"github.com/rs/zerolog/log"
 )
 
 type LogActivity struct {
 	logService *LogService
-	chdb       *db.ClickhouseDB
+	chdb       *clickhouse.ClickhouseDB
 }
 
-func NewLogActivity(logService *LogService, chdb *db.ClickhouseDB) *LogActivity {
+func NewLogActivity(logService *LogService, chdb *clickhouse.ClickhouseDB) *LogActivity {
 	return &LogActivity{logService: logService, chdb: chdb}
 }
 
@@ -24,7 +24,6 @@ func (l *LogActivity) IngestLogs(ctx context.Context, logs []*log_model.Log) err
 	log.Info().Uint("logs", uint(len(logs))).Msg("Ingesting logs")
 
 	err := l.chdb.Gorm.Create(logs).Error
-
 	if err != nil {
 		log.Error().Err(err).Msg("Error ingesting logs")
 		return err

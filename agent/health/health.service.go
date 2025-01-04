@@ -33,7 +33,6 @@ func NewHealthService(lc fx.Lifecycle, runner runner.Runner, ticker *ticker.Tick
 					// we use the rapid ticker to update the orchestrator with the health of the agent
 					case <-ticker.RapidTicker.C:
 						health, err := runner.GetRunnerHealth(context.Background())
-
 						if err != nil {
 							logger.Error().Err(err).Int("errorCounter", errorCounter).Msg("Failed to get runner health")
 							errorCounter++
@@ -43,6 +42,7 @@ func NewHealthService(lc fx.Lifecycle, runner runner.Runner, ticker *ticker.Tick
 								os.Exit(1)
 							}
 						}
+
 						err = intercom.SendGeneralHealth(health)
 
 						if err != nil {
@@ -87,7 +87,6 @@ func (h *HealthService) AgentHealth() {
 	// we use the rapid ticker to update the orchestrator with the health of the agent
 	case <-h.ticker.RapidTicker.C:
 		health, err := h.runner.GetRunnerHealth(context.Background())
-
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to get runner health")
 		}

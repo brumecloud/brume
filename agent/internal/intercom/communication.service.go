@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/brumecloud/agent/internal/config"
 
@@ -24,16 +23,14 @@ func NewIntercomService(cfg *config.AgentConfig) *IntercomService {
 	}
 }
 
-func (i *IntercomService) SendGeneralHealth(health bool) error {
-	logger.Trace().Bool("health", health).Msg("Sending general health")
+func (i *IntercomService) SendGeneralHealth(health string) error {
+	logger.Trace().Str("health", health).Msg("Sending general health")
 
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
-		"health":    true,
-		"agent_id":  i.cfg.AgentID,
-		"timestamp": time.Now().Unix(),
+		"machine_id": i.cfg.AgentID,
+		"status":     health,
 	})
-
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to marshal health data")
 		return err
@@ -46,7 +43,6 @@ func (i *IntercomService) SendGeneralHealth(health bool) error {
 		i.cfg.OrchestratorURL+"/status",
 		body,
 	)
-
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to create request")
 		return err
@@ -57,7 +53,6 @@ func (i *IntercomService) SendGeneralHealth(health bool) error {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to send health status to orchestrator")
 		return err
