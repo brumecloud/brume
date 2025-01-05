@@ -1,20 +1,27 @@
 package temporal_constants
 
-const MasterTaskQueue = "master"
-const NodeTaskQueue = "node"
+const (
+	MasterTaskQueue = "master"
+	NodeTaskQueue   = "node"
+)
 
 // Master worker workflows
-const DeploymentWorkflow = "DeploymentWorkflow"
-const BidWorkflow = "BidWorkflow"
+const (
+	DeploymentWorkflow = "DeploymentWorkflow"
+	BidWorkflow        = "BidWorkflow"
+	MachineHealthCheck = "MachineHealthCheck"
+)
 
 // Master worker activities
 const IngestLogs = "IngestLogs"
 
 // Node worker activities
-const StartService = "StartService"
-const StopService = "StopService"
-const GetLogs = "GetLogs"
-const GetStatus = "GetStatus"
+const (
+	StartService = "StartService"
+	StopService  = "StopService"
+	GetLogs      = "GetLogs"
+	GetStatus    = "GetStatus"
+)
 
 // Signals
 const StopDeploymentSignal = "StopDeploymentSignal"

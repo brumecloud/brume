@@ -1,7 +1,13 @@
 version: "3"
-
+x-restart-policy: &restart_policy
+  restart: unless-stopped
+x-brume-default: &brume-default
+  <<: *restart_policy
+  networks:
+    brume-net:
 services:
   orchestrator:
+    <<: *brume-default
     image: brume-orchestrator
     build:
       dockerfile: ./infra/Dockerfile.dev
@@ -15,10 +21,12 @@ services:
       - 9876:9876
     depends_on:
       - postgres
-    networks:
-      brume-net:
+      - temporal
+      - clickhouse
+      - redis
 
   agent:
+    <<: *brume-default
     image: brume-agent
     build:
       dockerfile: ./infra/Dockerfile.dev
@@ -33,10 +41,9 @@ services:
       - 9878:9878
     depends_on:
       - postgres
-    networks:
-      brume-net:
 
   console:
+    <<: *brume-default
     image: brume-console
     build:
       context: ./console
@@ -45,8 +52,11 @@ services:
       - 3000:5173
     volumes:
       - ./console/src:/app/src
+    depends_on:
+      - orchestrator
 
   postgres:
+    <<: *brume-default
     image: postgres:13
     environment:
       POSTGRES_USER: brume
@@ -57,12 +67,9 @@ services:
       - 5432:5432
     volumes:
       - postgres:/data/postgres
-    networks:
-      brume-net:
-        aliases:
-          - postgres
 
   dozzle:
+    <<: *brume-default
     image: amir20/dozzle:latest
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -70,6 +77,7 @@ services:
       - 9999:8080
 
   temporal:
+    <<: *brume-default
     depends_on:
       - postgres
     environment:
@@ -80,38 +88,35 @@ services:
       - POSTGRES_SEEDS=postgres
       - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/temporal.yaml
     image: temporalio/auto-setup:${TEMPORAL_VERSION}
-    networks:
-      - brume-net
     ports:
       - 7233:7233
     volumes:
       - ./infra/temporal.yaml:/etc/temporal/config/dynamicconfig/temporal.yaml
 
   temporal-admin-tools:
+    <<: *brume-default
     depends_on:
       - temporal
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
     image: temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION}
-    networks:
-      - brume-net
     stdin_open: true
     tty: true
 
   temporal-ui:
+    <<: *brume-default
     depends_on:
       - temporal
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
-    networks:
-      - brume-net
     ports:
       - 8080:8080
 
   clickhouse:
+    <<: *brume-default
     image: yandex/clickhouse-server:latest
     environment:
       - CLICKHOUSE_DB=brume
@@ -123,17 +128,12 @@ services:
       - 8009:9009
     volumes:
       - clickhouse-data:/var/lib/clickhouse
-    networks:
-      brume-net:
-        aliases:
-          - clickhouse
 
   redis:
+    <<: *brume-default
     image: redis:latest
     ports:
       - 6379:6379
-    networks:
-      brume-net:
 
 networks:
   brume-net:
