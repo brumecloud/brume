@@ -1,13 +1,14 @@
-FROM golang:1.23-alpine
+FROM golang:1.23-alpine as base-brume
 
-WORKDIR /agent
+WORKDIR /brume
+
+RUN go work sync
+
+FROM base-brume as agent
+
+WORKDIR /brume/agent
 
 # install hot reload solution
 RUN go install github.com/air-verse/air@latest
-
-COPY go.mod go.sum ./
-RUN go mod download
-
-EXPOSE 9878
 
 CMD ["air", "-c", ".air.toml"]

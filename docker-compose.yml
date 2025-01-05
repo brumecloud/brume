@@ -2,9 +2,9 @@ version: "3"
 
 services:
   orchestrator:
-    image: brume-orchestrator
+    image: brume
     build:
-      dockerfile: ./infra/Dockerfile.dev
+      dockerfile: ./brume/Dockerfile.dev
     command: ["air", "-c", ".air.toml"]
     working_dir: /brume/brume
     volumes:
@@ -21,7 +21,7 @@ services:
   agent:
     image: brume-agent
     build:
-      dockerfile: ./infra/Dockerfile.dev
+      dockerfile: ./agent/Dockerfile.dev
     command: ["air", "-c", ".air.toml"]
     working_dir: /brume/agent
     volumes:

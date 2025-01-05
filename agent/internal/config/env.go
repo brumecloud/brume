@@ -43,7 +43,7 @@ func LoadAgentConfig() *AgentConfig {
 }
 
 func SetDefaultConfig() {
-	viper.SetDefault("ORCHESTRATOR_URL", "http://orchestrator:9876/v1")
+	viper.SetDefault("ORCHESTRATOR_URL", "http://orchestrator:9876/monitoring/v1")
 	viper.SetDefault("RAPID_TICKER", 2)
 	viper.SetDefault("SLOW_TICKER", 5)
 	viper.SetDefault("ENV", "dev")
