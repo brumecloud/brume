@@ -2,6 +2,7 @@ package machine_workflow
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"brume.dev/internal/log"
@@ -90,7 +91,33 @@ func NewMachineWorkflow(lc fx.Lifecycle, machineService *machine.MachineService,
 }
 
 func (m *MachineWorkflow) HealthCheck(ctx workflow.Context) error {
-	logger.Info().Msg("Running all of the machine health checks")
+	allMachines, err := m.machineService.GetAllMachines(context.Background())
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get all machines")
+		return err
+	}
+
+	logger.Info().Int("number_of_machines", len(allMachines)).Msg("Running all of the machine health checks")
+
+	unhealthyMachines := []*machine_model.Machine{}
+	healthyMachines := []*machine_model.Machine{}
+
+	// loop over all registered machines and check if they are healthy
+	// by querying the redis database
+	// if the machine is healthy, the redis key will be set
+	// if the machine is unhealthy, the redis key will not be set (TTL will have expired)
+	for _, machine := range allMachines {
+		_, err := m.redis.Get(context.Background(), fmt.Sprintf("machine:last_alive:%s", machine.ID.String())).Result()
+		if err != nil {
+			logger.Error().Err(err).Str("machine_id", machine.ID.String()).Msg("Machine not healthy: failed to get last alive")
+			unhealthyMachines = append(unhealthyMachines, machine)
+		} else {
+			healthyMachines = append(healthyMachines, machine)
+		}
+	}
+
+	logger.Info().Int("number_of_unhealthy_machines", len(unhealthyMachines)).Int("number_of_healthy_machines", len(healthyMachines)).Msg("Unhealthy machines")
+
 	return nil
 }
 

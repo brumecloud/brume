@@ -23,14 +23,21 @@ type ClickhouseDB struct {
 func InitClickhouse(cfg *config.BrumeConfig) *ClickhouseDB {
 	logger.Info().Msg("Initializing Clickhouse connection")
 
-	chdb, err := openCHDB(cfg)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to connect to Clickhouse")
+	for i := 0; i < 5; i++ {
+		chdb, err := openCHDB(cfg)
+		if err != nil {
+			logger.Warn().Int("attempt", i).Err(err).Msg("Could not connect to Clickhouse, retrying...")
+
+			// some kind of exponential backoff
+			time.Sleep(time.Second * 2 * time.Duration(i))
+		} else {
+			chdb.Migrate()
+			return chdb
+		}
 	}
 
-	chdb.Migrate()
-
-	return chdb
+	logger.Fatal().Msg("Failed to connect to Clickhouse")
+	return nil
 }
 
 func openCHDB(cfg *config.BrumeConfig) (*ClickhouseDB, error) {

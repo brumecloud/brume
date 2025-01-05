@@ -32,6 +32,12 @@ func (e *MachineService) GetMachine(orgId uuid.UUID) ([]*machine_model.Machine, 
 	return machines, err
 }
 
+func (e *MachineService) GetAllMachines(ctx context.Context) ([]*machine_model.Machine, error) {
+	machines := []*machine_model.Machine{}
+	err := e.db.Gorm.Find(&machines).Error
+	return machines, err
+}
+
 // the machine will also record the status of the job inside
 // but not now
 func (e *MachineService) RecordStatus(machineId uuid.UUID, status string) error {

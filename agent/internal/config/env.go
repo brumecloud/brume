@@ -47,7 +47,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("SLOW_TICKER", 5)
 
 	viper.SetDefault("ENV", "dev")
-	viper.SetDefault("AGENT_ID", "8f0e7fc0-f2cb-456d-b1a3-66a40bc95523")
+	viper.SetDefault("AGENT_ID", "b36d84e9-bec2-4ba1-8b51-536884f06bc7")
 
 	// infinite retries
 	viper.SetDefault("RETRY_MAX", 0)
