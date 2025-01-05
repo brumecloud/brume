@@ -37,12 +37,16 @@ func NewMachineWorkflow(lc fx.Lifecycle, machineService *machine.MachineService,
 		OnStart: func(ctx context.Context) error {
 			logger.Info().Msg("Starting machine workflow health schedule")
 
-			scheduleId := "machine-health-check-schedule-" + time.Now().String()
+			scheduleId := "machine-health-check-schedule"
 
 			scheduleOptions := client.ScheduleOptions{
 				ID: scheduleId,
 				Spec: client.ScheduleSpec{
-					CronExpressions: []string{"*/10 * * * *"},
+					Intervals: []client.ScheduleIntervalSpec{
+						{
+							Every: time.Second * 10,
+						},
+					},
 				},
 				Action: &client.ScheduleWorkflowAction{
 					Workflow:  temporal_constants.MachineHealthCheck,
@@ -50,10 +54,18 @@ func NewMachineWorkflow(lc fx.Lifecycle, machineService *machine.MachineService,
 				},
 			}
 			workflowHandle, err = temporalClient.ScheduleClient().Create(ctx, scheduleOptions)
+
 			if err != nil || workflowHandle == nil {
+				// if the schedule already exists, we don't need to create it again
+				if err.Error() == "schedule with this ID is already registered" {
+					logger.Warn().Msg("Machine health check schedule already exists")
+					return nil
+				}
+
 				logger.Error().Err(err).Msg("Failed to create machine health check schedule")
 				return err
 			}
+
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
