@@ -10,7 +10,7 @@ services:
     <<: *brume-default
     image: brume-orchestrator
     build:
-      dockerfile: ./infra/Dockerfile.dev
+      dockerfile: ./brume/Dockerfile.dev
     command: ["air", "-c", ".air.toml"]
     working_dir: /brume/brume
     volumes:
@@ -29,7 +29,7 @@ services:
     <<: *brume-default
     image: brume-agent
     build:
-      dockerfile: ./infra/Dockerfile.dev
+      dockerfile: ./agent/Dockerfile.dev
     command: ["air", "-c", ".air.toml"]
     working_dir: /brume/agent
     volumes:
