@@ -6,8 +6,8 @@ import (
 
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
-	job_model "brume.dev/internal/jobs/model"
 	brume_log "brume.dev/internal/log"
+	job_model "brume.dev/jobs/model"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"

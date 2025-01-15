@@ -2,8 +2,8 @@ package bid_workflow
 
 import (
 	deployment_model "brume.dev/deployment/model"
-	job_service "brume.dev/internal/jobs/service"
 	brume_log "brume.dev/internal/log"
+	job_service "brume.dev/jobs/service"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -37,6 +37,7 @@ func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, deployment *deployme
 	// then its attribute the bid to the highest bidder
 	machineFound := false
 
+	// this will be updated by the bidding service
 	err = workflow.SetUpdateHandler(ctx, "machine_found", func(ctx workflow.Context, signalName string, _ ...any) error {
 		machineFound = true
 		return nil
@@ -48,6 +49,7 @@ func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, deployment *deployme
 
 	// we wait for the machine to be found
 	// this is where will we do the bidding logic
+	// update by the digging service
 	workflow.Await(ctx, func() bool {
 		return machineFound
 	})

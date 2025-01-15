@@ -9,6 +9,7 @@ services:
   orchestrator:
     <<: *brume-default
     image: brume-orchestrator
+    container_name: brume-orchestrator
     build:
       dockerfile: ./brume/Dockerfile.dev
     command: ["air", "-c", ".air.toml"]
@@ -28,6 +29,7 @@ services:
   agent:
     <<: *brume-default
     image: brume-agent
+    container_name: brume-agent
     build:
       dockerfile: ./agent/Dockerfile.dev
     command: ["air", "-c", ".air.toml"]
@@ -45,6 +47,7 @@ services:
   console:
     <<: *brume-default
     image: brume-console
+    container_name: brume-console
     build:
       context: ./console
       dockerfile: Dockerfile.dev
@@ -58,6 +61,7 @@ services:
   postgres:
     <<: *brume-default
     image: postgres:13
+    container_name: brume-postgres
     environment:
       POSTGRES_USER: brume
       POSTGRES_PASSWORD: brumepass
@@ -71,6 +75,7 @@ services:
   dozzle:
     <<: *brume-default
     image: amir20/dozzle:latest
+    container_name: brume-dozzle
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
@@ -80,6 +85,7 @@ services:
     <<: *brume-default
     depends_on:
       - postgres
+    container_name: brume-temporal
     environment:
       - DB=postgres12
       - DB_PORT=5432
@@ -97,6 +103,7 @@ services:
     <<: *brume-default
     depends_on:
       - temporal
+    container_name: brume-temporal-admin-tools
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
@@ -106,6 +113,7 @@ services:
 
   temporal-ui:
     <<: *brume-default
+    container_name: brume-temporal-ui
     depends_on:
       - temporal
     environment:
@@ -117,6 +125,7 @@ services:
 
   clickhouse:
     <<: *brume-default
+    container_name: brume-clickhouse
     image: yandex/clickhouse-server:latest
     environment:
       - CLICKHOUSE_DB=brume
@@ -132,6 +141,7 @@ services:
   redis:
     <<: *brume-default
     image: redis:latest
+    container_name: brume-redis
     ports:
       - 6379:6379
 

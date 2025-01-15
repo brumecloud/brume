@@ -2,9 +2,9 @@ package temporal_worker
 
 import (
 	deployment_workflow "brume.dev/deployment/workflow"
-	bid_workflow "brume.dev/internal/jobs/workflow"
 	"brume.dev/internal/log"
 	temporal_constants "brume.dev/internal/temporal/constants"
+	bid_workflow "brume.dev/jobs/workflow"
 	brume_log "brume.dev/logs"
 	machine_workflow "brume.dev/machine/workflow"
 	"go.temporal.io/sdk/activity"
