@@ -26,11 +26,12 @@ func NewIntercomService(cfg *config.AgentConfig) *IntercomService {
 	}
 }
 
-func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job) (bool, error) {
+func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job, bid int) (bool, error) {
 	logger.Trace().Msg("Placing bid")
 
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"job_id": job.ID,
+		"bid":    bid,
 	})
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to marshal job data")
@@ -79,7 +80,7 @@ func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job) (boo
 	return false, nil
 }
 
-func (i *IntercomService) GetJob(ctx context.Context) ([]*job_model.Job, error) {
+func (i *IntercomService) GetJobs(ctx context.Context) ([]*job_model.Job, error) {
 	logger.Trace().Msg("Getting job")
 
 	req, err := http.NewRequest("GET", i.cfg.OrchestratorURL+"/job", nil)
