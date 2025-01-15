@@ -1,8 +1,8 @@
 package job_fx
 
 import (
-	job_service "brume.dev/internal/jobs/service"
-	bid_workflow "brume.dev/internal/jobs/workflow"
+	job_service "brume.dev/jobs/service"
+	bid_workflow "brume.dev/jobs/workflow"
 	"go.uber.org/fx"
 )
 

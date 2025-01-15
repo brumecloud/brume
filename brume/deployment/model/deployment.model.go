@@ -30,6 +30,14 @@ type Deployment struct {
 	CreatedAt time.Time
 }
 
+func (d *Deployment) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &d)
+}
+
+func (d *Deployment) Value() (driver.Value, error) {
+	return json.Marshal(d)
+}
+
 type ExecutionData struct {
 	ContainerID string
 	LastLogs    time.Time

@@ -83,7 +83,7 @@ func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job, bid 
 func (i *IntercomService) GetJobs(ctx context.Context) ([]*job_model.Job, error) {
 	logger.Trace().Msg("Getting job")
 
-	req, err := http.NewRequest("GET", i.cfg.OrchestratorURL+"/job", nil)
+	req, err := http.NewRequest("GET", i.cfg.OrchestratorURL+"/scheduler/v1/job", nil)
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to create request")
 		return nil, err
@@ -110,7 +110,7 @@ func (i *IntercomService) GetJobs(ctx context.Context) ([]*job_model.Job, error)
 	var jobs []*job_model.Job
 	err = json.Unmarshal(body, &jobs)
 	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to unmarshal job")
+		logger.Warn().Err(err).Str("body", string(body)).Msg("Failed to unmarshal job")
 		return nil, err
 	}
 

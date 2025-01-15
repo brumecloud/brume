@@ -7,6 +7,7 @@ import (
 	"github.com/brumecloud/agent/internal/config"
 	intercom_service "github.com/brumecloud/agent/internal/intercom"
 	"github.com/brumecloud/agent/ticker"
+	"go.uber.org/fx"
 
 	"github.com/rs/zerolog/log"
 )
@@ -19,12 +20,22 @@ type JobService struct {
 
 var logger = log.With().Str("module", "job").Logger()
 
-func NewJobService(cfg *config.AgentConfig, ticker *ticker.Ticker, intercom *intercom_service.IntercomService) *JobService {
-	return &JobService{
+func NewJobService(lc fx.Lifecycle, cfg *config.AgentConfig, ticker *ticker.Ticker, intercom *intercom_service.IntercomService) *JobService {
+	j := &JobService{
 		cfg:      cfg,
 		ticker:   ticker,
 		intercom: intercom,
 	}
+
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			logger.Info().Msg("Starting the job bidding loop")
+			go j.Run(ctx)
+			return nil
+		},
+	})
+
+	return j
 }
 
 // this is the main loop of the agent
