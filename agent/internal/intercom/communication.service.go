@@ -27,7 +27,7 @@ func NewIntercomService(cfg *config.AgentConfig) *IntercomService {
 }
 
 func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job, bid int) (bool, error) {
-	logger.Trace().Msg("Placing bid")
+	logger.Info().Str("job_id", job.ID.String()).Int("bid", bid).Msg("Placing bid")
 
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"job_id": job.ID,
@@ -40,7 +40,7 @@ func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job, bid 
 
 	body := bytes.NewBuffer(jsonData)
 
-	req, err := http.NewRequest("POST", i.cfg.OrchestratorURL+"/bid/"+job.ID.String(), body)
+	req, err := http.NewRequest("POST", i.cfg.OrchestratorURL+"/scheduler/v1/bid/"+job.ID.String(), body)
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to create request")
 		return false, err

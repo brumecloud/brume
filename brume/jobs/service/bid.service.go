@@ -27,6 +27,7 @@ func NewBidService(db *db.DB, temporalClient client.Client) *BidService {
 func (s *BidService) CreateBid(deployment *deployment_model.Deployment, serviceID uuid.UUID, workflowID string, runID string) (*job_model.Job, error) {
 	logger.Info().Interface("deployment", deployment).Str("service_id", serviceID.String()).Msg("Creating bid")
 	bid := &job_model.Job{
+		ID:         uuid.New(),
 		Deployment: deployment,
 		ServiceID:  serviceID,
 		Price:      1000,
@@ -55,7 +56,7 @@ func (s *BidService) GetBidsForProject(projectID string) ([]*job_model.Job, erro
 
 func (s *BidService) GetAllCurrentBids() ([]*job_model.Job, error) {
 	var bids []*job_model.Job
-	err := s.db.Gorm.Model(&job_model.Job{}).Where("accepted_at IS NOT NULL").Find(&bids).Error
+	err := s.db.Gorm.Model(&job_model.Job{}).Where("accepted_at IS NULL").Find(&bids).Error
 	return bids, err
 }
 
