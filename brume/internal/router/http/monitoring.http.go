@@ -40,7 +40,7 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	}).Methods(http.MethodGet)
 
 	router.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
-		logger.Trace().Msg("Ingesting agent status")
+		// logger.Trace().Msg("Ingesting agent status")
 
 		var req StatusRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -66,7 +66,7 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	}).Methods(http.MethodPost)
 
 	router.HandleFunc("/logs", func(w http.ResponseWriter, r *http.Request) {
-		logger.Trace().Msg("Ingesting agent logs")
+		// logger.Trace().Msg("Ingesting agent logs")
 
 		var req LogsRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

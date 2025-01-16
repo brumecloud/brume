@@ -41,7 +41,7 @@ func (e *MachineService) GetAllMachines(ctx context.Context) ([]*machine_model.M
 // the machine will also record the status of the job inside
 // but not now
 func (e *MachineService) RecordStatus(machineId uuid.UUID, status string) error {
-	logger.Trace().Str("machineId", machineId.String()).Str("status", status).Msg("Recording status")
+	// logger.Trace().Str("machineId", machineId.String()).Str("status", status).Msg("Recording status")
 
 	// the last alive is 10s TTL, that way if we find nothing we can put the machine on the unhealth checklist
 	err := e.redis.Set(context.Background(), fmt.Sprintf("machine:last_alive:%s", machineId.String()), time.Now().Unix(), 10*time.Second).Err()

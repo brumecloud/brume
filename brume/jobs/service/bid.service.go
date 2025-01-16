@@ -85,9 +85,11 @@ func (s *BidService) AcceptBid(bidID string, machineID uuid.UUID) error {
 	defer cancel()
 
 	_, err = s.temporalClient.UpdateWorkflow(ctxWithTimeout, client.UpdateWorkflowOptions{
-		WorkflowID: bid.WorkflowID,
-		RunID:      bid.RunID,
-		UpdateName: "machine_found",
+		WorkflowID:   bid.WorkflowID,
+		RunID:        bid.RunID,
+		UpdateName:   "machine_found",
+		WaitForStage: client.WorkflowUpdateStageAccepted,
+		Args:         []interface{}{},
 	})
 	if err != nil {
 		logger.Error().Err(err).Str("bid_id", bidID).Str("machine_id", machineID.String()).Msg("Failed to update (machine found) workflow")
