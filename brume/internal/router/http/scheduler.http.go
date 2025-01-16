@@ -28,22 +28,31 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	// can run on their machine
 	router.HandleFunc("/job", func(w http.ResponseWriter, r *http.Request) {
 		// TODO: get only the right bids, not all
+		agentID := r.Header.Get("X-Brume-Agent-ID")
+
+		if agentID == "" {
+			logger.Error().Msg("Agent ID is required")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Agent ID is required"))
+			return
+		}
+
 		bids, err := s.bidService.GetAllCurrentBids()
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to get all current bids")
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 			return
 		}
 
+		logger.Info().Str("agent_id", agentID).Int("bids", len(bids)).Msg("Sending bids to agent")
 		json.NewEncoder(w).Encode(bids)
-		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodGet)
 
 	// multiple machine can bid for the same job, the scheduler will choose the best bid
 	// once one bid is made, the scheduler waits 3s max before giving a response
 	// TODO: for now the first bid is accepted
-	router.HandleFunc("/bid/{jobId}", func(w http.ResponseWriter, r *http.Request) {
-		logger.Trace().Msg("Getting bid")
+	router.HandleFunc("/bid/{bidId}", func(w http.ResponseWriter, r *http.Request) {
 		machineID := r.Header.Get("X-Brume-Machine-ID")
 		if machineID == "" {
 			logger.Error().Str("bid_id", mux.Vars(r)["bidId"]).Msg("Machine id is required")
@@ -51,10 +60,13 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			return
 		}
 
+		logger.Info().Str("bid_id", mux.Vars(r)["bidId"]).Str("machine_id", machineID).Msg("Ingesting bid")
+
 		machineIDUUID, err := uuid.Parse(machineID)
 		if err != nil {
 			logger.Error().Err(err).Str("bid_id", mux.Vars(r)["bidId"]).Msg("Failed to parse machine id")
 			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
 			return
 		}
 
@@ -62,6 +74,7 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		err = s.bidService.AcceptBid(bidID, machineIDUUID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 			return
 		}
 
@@ -72,7 +85,7 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	// once the job is finished (failed or not) on the machine side, the agent will send a release request
 	// this is used to inform the scheduler that the job is done and the machine is free to bid for a new job
 	router.HandleFunc("/release/{jobId}", func(w http.ResponseWriter, r *http.Request) {
-		logger.Trace().Msg("Releasing agent")
+		logger.Trace().Str("job_id", mux.Vars(r)["jobId"]).Msg("Releasing job")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("release"))
 	}).Methods(http.MethodPost)
