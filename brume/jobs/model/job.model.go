@@ -1,6 +1,8 @@
 package job_model
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"time"
 
 	deployment_model "brume.dev/deployment/model"
@@ -21,4 +23,24 @@ type Job struct {
 	ServiceID  uuid.UUID
 	MachineID  *uuid.UUID
 	Deployment *deployment_model.Deployment
+}
+
+type JobStatusEnum string
+
+const (
+	JobStatusEnumRunning JobStatusEnum = "running"
+	JobStatusEnumStopped JobStatusEnum = "stopped"
+)
+
+type JobStatus struct {
+	Status JobStatusEnum
+	JobID  string
+}
+
+func (j *JobStatus) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &j)
+}
+
+func (j *JobStatus) Value() (driver.Value, error) {
+	return json.Marshal(j)
 }

@@ -21,6 +21,7 @@ type HealthService struct {
 	cfg      *config.AgentConfig
 }
 
+// this service will send the health of the agent to the orchestrator
 func NewHealthService(lc fx.Lifecycle, runner runner.Runner, ticker *ticker.Ticker, intercom *intercom_service.IntercomService, cfg *config.AgentConfig) *HealthService {
 	stopChannel := make(chan struct{})
 	logger.Info().Int("retryMax", cfg.RetryMax).Msg("Starting health service")

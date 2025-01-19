@@ -33,7 +33,6 @@ type DockerService struct {
 
 func NewDockerService() *DockerService {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-
 	if err != nil {
 		panic(err)
 	}
@@ -49,8 +48,8 @@ func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runn
 	ctx := context.Background()
 	var command strslice.StrSlice
 
-	if runner.Command != "" {
-		command = strslice.StrSlice(strings.Split(runner.Command, " "))
+	if runner.Command != nil {
+		command = strslice.StrSlice(strings.Split(*runner.Command, " "))
 	}
 
 	response, err := d.dockerClient.ContainerCreate(ctx, &container.Config{
@@ -68,7 +67,6 @@ func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runn
 		// 	Retries:  3,
 		// },
 	}, nil, nil, nil, "")
-
 	if err != nil {
 		return "", err
 	}
@@ -76,7 +74,6 @@ func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runn
 	logger.Info().Str("containerId", response.ID).Msg("Container started")
 
 	err = d.dockerClient.ContainerStart(ctx, response.ID, container.StartOptions{})
-
 	if err != nil {
 		logger.Error().Err(err).Str("containerId", response.ID).Msg("Failed to start container")
 		return "", err
@@ -99,7 +96,6 @@ func (d *DockerService) PullImage(registry string, image_name string, tag string
 	totalImage := fmt.Sprintf("%s/%s:%s", registry, image_name, tag)
 	logger.Info().Str("image", totalImage).Msg("Pulling image")
 	reader, err := d.dockerClient.ImagePull(context.Background(), totalImage, image.PullOptions{})
-
 	if err != nil {
 		return "", err
 	}
@@ -123,7 +119,6 @@ func (d *DockerService) GetLogs(containerId string, since time.Time) (io.ReadClo
 
 func (d *DockerService) StatusContainer(containerId string) (*types.ContainerState, error) {
 	inspect, err := d.dockerClient.ContainerInspect(context.Background(), containerId)
-
 	if err != nil {
 		return nil, err
 	}

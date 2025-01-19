@@ -30,14 +30,28 @@ type RessourceConstraints struct {
 	Limit   float64 `json:"limit"`
 }
 
+type RunnerType string
+
+const (
+	RunnerTypeDocker RunnerType = "docker"
+	RunnerTypeStatic RunnerType = "static"
+)
+
+// only for docker
 type RunnerData struct {
-	Command        string
-	HealthCheckURL string
-	Memory         RessourceConstraints
-	CPU            RessourceConstraints
-	Port           int
-	PublicDomain   string
-	PrivateDomain  string
+	Type          RunnerType
+	PublicDomain  string
+	PrivateDomain string
+
+	// only for docker
+	Command        *string
+	HealthCheckURL *string
+	Memory         *RessourceConstraints
+	CPU            *RessourceConstraints
+	Port           *int
+
+	// for static
+	StaticPath *string
 }
 
 func (r *RunnerData) Scan(value interface{}) error {

@@ -39,7 +39,8 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		w.Write([]byte("monitoring is alive. yeah!"))
 	}).Methods(http.MethodGet)
 
-	router.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+	// send the general health of the agent
+	router.HandleFunc("/agent/status", func(w http.ResponseWriter, r *http.Request) {
 		// logger.Trace().Msg("Ingesting agent status")
 
 		var req StatusRequest
@@ -65,7 +66,14 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		w.Write([]byte("OK"))
 	}).Methods(http.MethodPost)
 
-	router.HandleFunc("/logs", func(w http.ResponseWriter, r *http.Request) {
+	// send the status of the running jobs
+	router.HandleFunc("/jobs/status", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	}).Methods(http.MethodPost)
+
+	// this will ingest all the log from the agent
+	router.HandleFunc("/jobs/logs", func(w http.ResponseWriter, r *http.Request) {
 		// logger.Trace().Msg("Ingesting agent logs")
 
 		var req LogsRequest

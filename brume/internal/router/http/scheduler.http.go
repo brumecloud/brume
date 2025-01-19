@@ -23,6 +23,7 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		w.Write([]byte("scheduler is alive. yeah!"))
 	}).Methods(http.MethodGet)
 
+	// AGENT -> ORCHESTRATOR
 	// this route is used by agent to poll the scheduler for a job
 	// their token is used to indentify them and get them the right job they
 	// can run on their machine
@@ -49,6 +50,7 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		json.NewEncoder(w).Encode(bids)
 	}).Methods(http.MethodGet)
 
+	// AGENT -> ORCHESTRATOR
 	// multiple machine can bid for the same job, the scheduler will choose the best bid
 	// once one bid is made, the scheduler waits 3s max before giving a response
 	// TODO: for now the first bid is accepted
@@ -82,8 +84,18 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		w.Write([]byte("OK"))
 	}).Methods(http.MethodPost)
 
-	// once the job is finished (failed or not) on the machine side, the agent will send a release request
-	// this is used to inform the scheduler that the job is done and the machine is free to bid for a new job
+	// ORCHESTRATOR -> AGENT
+	// this route is used to get the latest status of the job
+	// it can be running or stoped by the orchestrator
+	router.HandleFunc("/job/{jobId}", func(w http.ResponseWriter, r *http.Request) {
+		logger.Trace().Str("job_id", mux.Vars(r)["jobId"]).Msg("Getting job")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("job"))
+	}).Methods(http.MethodGet)
+
+	// this is a AGENT -> ORCHESTRATOR route
+	// it is used to inform the orchestrator that the job "released"
+	// a release job is failed or stopped
 	router.HandleFunc("/release/{jobId}", func(w http.ResponseWriter, r *http.Request) {
 		logger.Trace().Str("job_id", mux.Vars(r)["jobId"]).Msg("Releasing job")
 		w.WriteHeader(http.StatusOK)
