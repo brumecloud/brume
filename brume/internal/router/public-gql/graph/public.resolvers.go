@@ -12,7 +12,6 @@ import (
 	user_model "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
-	"brume.dev/internal/log"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	log_model "brume.dev/logs/model"
@@ -22,8 +21,6 @@ import (
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 )
-
-var logger = log.GetLogger("public_graph")
 
 // ID is the resolver for the id field.
 func (r *deploymentResolver) ID(ctx context.Context, obj *deployment_model.Deployment) (string, error) {
@@ -157,17 +154,20 @@ func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, d
 	}
 
 	runnerData := runner_model.RunnerData{
-		Command:        data.Command,
-		HealthCheckURL: data.HealthCheckURL,
-		Memory: runner_model.RessourceConstraints{
-			Request: data.Memory.Request,
-			Limit:   data.Memory.Limit,
+		Type: runner_model.RunnerTypeDocker,
+		Docker: &runner_model.DockerRunnerData{
+			Command:        data.Command,
+			HealthCheckURL: data.HealthCheckURL,
+			Memory: runner_model.RessourceConstraints{
+				Request: data.Memory.Request,
+				Limit:   data.Memory.Limit,
+			},
+			CPU: runner_model.RessourceConstraints{
+				Request: data.CPU.Request,
+				Limit:   data.CPU.Limit,
+			},
+			Port: data.Port,
 		},
-		CPU: runner_model.RessourceConstraints{
-			Request: data.CPU.Request,
-			Limit:   data.CPU.Limit,
-		},
-		Port:          data.Port,
 		PublicDomain:  data.PublicDomain,
 		PrivateDomain: data.PrivateDomain,
 	}
@@ -243,14 +243,36 @@ func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string) ([]*l
 func (r *queryResolver) Machine(ctx context.Context) ([]*machine_model.Machine, error) {
 	currentUser := ctx.Value("user").(string)
 	user, err := r.UserService.GetUserByEmail(currentUser)
-
-	logger.Info().Str("email", currentUser).Str("organization", user.OrganizationID.String()).Msg("getting machine")
-
 	if err != nil {
 		return nil, err
 	}
 
 	return r.MachineService.GetMachine(user.OrganizationID)
+}
+
+// Command is the resolver for the command field.
+func (r *runnerDataResolver) Command(ctx context.Context, obj *runner_model.RunnerData) (string, error) {
+	panic(fmt.Errorf("not implemented: Command - command"))
+}
+
+// HealthCheckURL is the resolver for the healthCheckURL field.
+func (r *runnerDataResolver) HealthCheckURL(ctx context.Context, obj *runner_model.RunnerData) (string, error) {
+	panic(fmt.Errorf("not implemented: HealthCheckURL - healthCheckURL"))
+}
+
+// Memory is the resolver for the memory field.
+func (r *runnerDataResolver) Memory(ctx context.Context, obj *runner_model.RunnerData) (*runner_model.RessourceConstraints, error) {
+	panic(fmt.Errorf("not implemented: Memory - memory"))
+}
+
+// CPU is the resolver for the cpu field.
+func (r *runnerDataResolver) CPU(ctx context.Context, obj *runner_model.RunnerData) (*runner_model.RessourceConstraints, error) {
+	panic(fmt.Errorf("not implemented: CPU - cpu"))
+}
+
+// Port is the resolver for the port field.
+func (r *runnerDataResolver) Port(ctx context.Context, obj *runner_model.RunnerData) (int, error) {
+	panic(fmt.Errorf("not implemented: Port - port"))
 }
 
 // ID is the resolver for the id field.
@@ -326,6 +348,9 @@ func (r *Resolver) Project() generated.ProjectResolver { return &projectResolver
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
+// RunnerData returns generated.RunnerDataResolver implementation.
+func (r *Resolver) RunnerData() generated.RunnerDataResolver { return &runnerDataResolver{r} }
+
 // Service returns generated.ServiceResolver implementation.
 func (r *Resolver) Service() generated.ServiceResolver { return &serviceResolver{r} }
 
@@ -335,16 +360,15 @@ func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subsc
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
-type (
-	deploymentResolver       struct{ *Resolver }
-	deploymentLogResolver    struct{ *Resolver }
-	deploymentSourceResolver struct{ *Resolver }
-	logResolver              struct{ *Resolver }
-	machineResolver          struct{ *Resolver }
-	mutationResolver         struct{ *Resolver }
-	projectResolver          struct{ *Resolver }
-	queryResolver            struct{ *Resolver }
-	serviceResolver          struct{ *Resolver }
-	subscriptionResolver     struct{ *Resolver }
-	userResolver             struct{ *Resolver }
-)
+type deploymentResolver struct{ *Resolver }
+type deploymentLogResolver struct{ *Resolver }
+type deploymentSourceResolver struct{ *Resolver }
+type logResolver struct{ *Resolver }
+type machineResolver struct{ *Resolver }
+type mutationResolver struct{ *Resolver }
+type projectResolver struct{ *Resolver }
+type queryResolver struct{ *Resolver }
+type runnerDataResolver struct{ *Resolver }
+type serviceResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }
+type userResolver struct{ *Resolver }

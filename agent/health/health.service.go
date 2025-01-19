@@ -6,7 +6,7 @@ import (
 
 	"github.com/brumecloud/agent/internal/config"
 	intercom_service "github.com/brumecloud/agent/internal/intercom"
-	runner "github.com/brumecloud/agent/runner"
+	"github.com/brumecloud/agent/runner"
 	"github.com/brumecloud/agent/ticker"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
@@ -15,14 +15,14 @@ import (
 var logger = log.With().Str("module", "health").Logger()
 
 type HealthService struct {
-	runner   runner.Runner
-	intercom *intercom_service.IntercomService
-	ticker   *ticker.Ticker
-	cfg      *config.AgentConfig
+	runnerService *runner.RunnerService
+	intercom      *intercom_service.IntercomService
+	ticker        *ticker.Ticker
+	cfg           *config.AgentConfig
 }
 
 // this service will send the health of the agent to the orchestrator
-func NewHealthService(lc fx.Lifecycle, runner runner.Runner, ticker *ticker.Ticker, intercom *intercom_service.IntercomService, cfg *config.AgentConfig) *HealthService {
+func NewHealthService(lc fx.Lifecycle, runnerService *runner.RunnerService, ticker *ticker.Ticker, intercom *intercom_service.IntercomService, cfg *config.AgentConfig) *HealthService {
 	stopChannel := make(chan struct{})
 	logger.Info().Int("retryMax", cfg.RetryMax).Msg("Starting health service")
 	lc.Append(fx.Hook{
@@ -33,7 +33,7 @@ func NewHealthService(lc fx.Lifecycle, runner runner.Runner, ticker *ticker.Tick
 					select {
 					// we use the rapid ticker to update the orchestrator with the health of the agent
 					case <-ticker.RapidTicker.C:
-						health, err := runner.GetRunnerHealth(context.Background())
+						health, err := runnerService.GetRunnerHealth(context.Background())
 						if err != nil {
 							logger.Error().Err(err).Int("errorCounter", errorCounter).Msg("Failed to get runner health")
 							errorCounter++
@@ -75,23 +75,5 @@ func NewHealthService(lc fx.Lifecycle, runner runner.Runner, ticker *ticker.Tick
 		},
 	})
 
-	return &HealthService{runner: runner, intercom: intercom, ticker: ticker, cfg: cfg}
-}
-
-// This is the main health function for the agent
-// if the agent is healthy, it will return true
-// if the agent is not healthy, it will return false
-// when an agent is not healthy, a new job will be created
-// on an healthy agent
-func (h *HealthService) AgentHealth() {
-	select {
-	// we use the rapid ticker to update the orchestrator with the health of the agent
-	case <-h.ticker.RapidTicker.C:
-		health, err := h.runner.GetRunnerHealth(context.Background())
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to get runner health")
-		}
-
-		h.intercom.SendGeneralHealth(health)
-	}
+	return &HealthService{runnerService: runnerService, intercom: intercom, ticker: ticker, cfg: cfg}
 }

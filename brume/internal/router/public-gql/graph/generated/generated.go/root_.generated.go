@@ -41,6 +41,7 @@ type ResolverRoot interface {
 	Mutation() MutationResolver
 	Project() ProjectResolver
 	Query() QueryResolver
+	RunnerData() RunnerDataResolver
 	Service() ServiceResolver
 	Subscription() SubscriptionResolver
 	User() UserResolver

@@ -22,6 +22,11 @@ func NewRunnerService(dockerRunner *docker.DockerEngineRunner) *RunnerService {
 	return &RunnerService{dockerRunner: dockerRunner}
 }
 
+// get the health of all the available runner types
+func (r *RunnerService) GetRunnerHealth(ctx context.Context) (string, error) {
+	return r.dockerRunner.GetRunnerHealth(ctx)
+}
+
 // TODO: also look for available runner type
 func (r *RunnerService) StartJob(ctx context.Context, deployment *deployment_model.Deployment) error {
 	logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Starting runner")

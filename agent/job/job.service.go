@@ -102,6 +102,10 @@ func (j *JobService) SlowTickerRun(ctx context.Context, tick int) {
 	// we do one tick per job to get if the job is stopped
 	// by the orchestrator
 	go func() {
+		if len(j.runningJobs) == 0 {
+			return
+		}
+
 		job := j.runningJobs[tick%len(j.runningJobs)]
 		jobStatus, err := j.intercom.GetJobStatus(ctx, job.ID.String())
 		if err != nil {

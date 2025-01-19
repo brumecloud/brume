@@ -25,6 +25,14 @@ type Runner struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
+func (r *Runner) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &r)
+}
+
+func (r *Runner) Value() (driver.Value, error) {
+	return json.Marshal(r)
+}
+
 type RessourceConstraints struct {
 	Request float64 `json:"request"`
 	Limit   float64 `json:"limit"`
@@ -43,21 +51,42 @@ type RunnerData struct {
 	PublicDomain  string
 	PrivateDomain string
 
-	// only for docker
-	Command        *string
-	HealthCheckURL *string
-	Memory         *RessourceConstraints
-	CPU            *RessourceConstraints
-	Port           *int
-
-	// for static
-	StaticPath *string
+	Docker *DockerRunnerData
+	Static *StaticRunnerData
 }
 
-func (r *RunnerData) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), &r)
+func (rd *RunnerData) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &rd)
 }
 
-func (r *RunnerData) Value() (driver.Value, error) {
-	return json.Marshal(r)
+func (rd *RunnerData) Value() (driver.Value, error) {
+	return json.Marshal(rd)
+}
+
+type StaticRunnerData struct {
+	Path string
+}
+
+func (sr *StaticRunnerData) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &sr)
+}
+
+func (sr *StaticRunnerData) Value() (driver.Value, error) {
+	return json.Marshal(sr)
+}
+
+type DockerRunnerData struct {
+	Command        string
+	HealthCheckURL string
+	Memory         RessourceConstraints
+	CPU            RessourceConstraints
+	Port           int
+}
+
+func (rr *DockerRunnerData) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &rr)
+}
+
+func (rr *DockerRunnerData) Value() (driver.Value, error) {
+	return json.Marshal(rr)
 }

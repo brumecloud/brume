@@ -68,13 +68,14 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 
 	// send the status of the running jobs
 	router.HandleFunc("/jobs/status", func(w http.ResponseWriter, r *http.Request) {
+		logger.Warn().Msg("Sending the status of the running jobs is not implemented yet")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	}).Methods(http.MethodPost)
 
 	// this will ingest all the log from the agent
 	router.HandleFunc("/jobs/logs", func(w http.ResponseWriter, r *http.Request) {
-		// logger.Trace().Msg("Ingesting agent logs")
+		logger.Trace().Msg("Ingesting agent logs")
 
 		var req LogsRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -2,6 +2,7 @@ package injection
 
 import (
 	fx_docker "github.com/brumecloud/agent/container/docker"
+	fx_container "github.com/brumecloud/agent/container/fx"
 	fx_health "github.com/brumecloud/agent/health/fx"
 	fx_config "github.com/brumecloud/agent/internal/config"
 	fx_intercom "github.com/brumecloud/agent/internal/intercom/fx"
@@ -29,6 +30,7 @@ func NewAgentInjector() *GlobalInjector {
 		fx_health.HealthModule,
 		fx_runner.RunnerModule,
 		fx_ticker.TickerModule,
+		fx_container.ContainerModule,
 		fx_job.JobModule,
 	)
 

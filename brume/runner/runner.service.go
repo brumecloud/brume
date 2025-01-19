@@ -24,7 +24,6 @@ func (e *RunnerService) GetRunner(runnerId uuid.UUID) (*runner.Runner, error) {
 
 func (e *RunnerService) DuplicateRunner(runnerId uuid.UUID) (*runner.Runner, error) {
 	runner, err := e.GetRunner(runnerId)
-
 	if err != nil {
 		return nil, err
 	}
@@ -48,17 +47,20 @@ func (e *RunnerService) CreateDockerExecutor(serviceId uuid.UUID) (*runner.Runne
 		Type:      "generic-docker",
 		ServiceId: serviceId,
 		Data: runner.RunnerData{
-			Command:        "",
-			HealthCheckURL: "http://localhost:8080/health",
-			Memory: runner.RessourceConstraints{
-				Request: 100,
-				Limit:   100,
+			Type: runner.RunnerTypeDocker,
+			Docker: &runner.DockerRunnerData{
+				Command:        "",
+				HealthCheckURL: "http://localhost:8080/health",
+				Memory: runner.RessourceConstraints{
+					Request: 100,
+					Limit:   100,
+				},
+				CPU: runner.RessourceConstraints{
+					Request: 0.5,
+					Limit:   0.5,
+				},
+				Port: 8080,
 			},
-			CPU: runner.RessourceConstraints{
-				Request: 0.5,
-				Limit:   0.5,
-			},
-			Port:          8080,
 			PublicDomain:  "",
 			PrivateDomain: "",
 		},

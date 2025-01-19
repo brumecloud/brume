@@ -47,9 +47,12 @@ func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runn
 
 	ctx := context.Background()
 	var command strslice.StrSlice
+	if runner.Docker == nil {
+		return "", fmt.Errorf("runner.Docker is nil")
+	}
 
-	if runner.Command != nil {
-		command = strslice.StrSlice(strings.Split(*runner.Command, " "))
+	if runner.Docker.Command != "" {
+		command = strslice.StrSlice(strings.Split(runner.Docker.Command, " "))
 	}
 
 	response, err := d.dockerClient.ContainerCreate(ctx, &container.Config{

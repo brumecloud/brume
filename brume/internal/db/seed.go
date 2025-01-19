@@ -103,8 +103,20 @@ func generateDeployment(serviceId uuid.UUID) *deployment_model.Deployment {
 			Date:     time.Now(),
 		},
 		RunnerData: runner_model.RunnerData{
-			Command:        "",
-			HealthCheckURL: "http://localhost:3000/health",
+			Type: runner_model.RunnerTypeDocker,
+			Docker: &runner_model.DockerRunnerData{
+				Command:        "",
+				HealthCheckURL: "http://localhost:3000/health",
+				Memory: runner_model.RessourceConstraints{
+					Request: 100,
+					Limit:   100,
+				},
+				CPU: runner_model.RessourceConstraints{
+					Request: 1,
+					Limit:   1,
+				},
+				Port: 80,
+			},
 		},
 		BuilderData: builder_model.BuilderData{
 			Image:    "nginx",
@@ -136,17 +148,20 @@ func SeedProjects(db *DB) []*project.Project {
 			ID:   uuid.MustParse("de56c895-c814-45fb-a859-ff943f293c3d"),
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
-				Command:        "",
-				HealthCheckURL: "http://localhost:3000/health",
-				Memory: runner_model.RessourceConstraints{
-					Request: 100,
-					Limit:   100,
+				Type: runner_model.RunnerTypeDocker,
+				Docker: &runner_model.DockerRunnerData{
+					Command:        "",
+					HealthCheckURL: "http://localhost:3000/health",
+					Memory: runner_model.RessourceConstraints{
+						Request: 100,
+						Limit:   100,
+					},
+					CPU: runner_model.RessourceConstraints{
+						Request: 1,
+						Limit:   1,
+					},
+					Port: 80,
 				},
-				CPU: runner_model.RessourceConstraints{
-					Request: 1,
-					Limit:   1,
-				},
-				Port:          80,
 				PublicDomain:  "user-api",
 				PrivateDomain: "user-api",
 			},
@@ -170,17 +185,20 @@ func SeedProjects(db *DB) []*project.Project {
 			ID:   uuid.MustParse("c73eb9cf-9143-401a-9c56-b035f1561470"),
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
-				Command:        "",
-				HealthCheckURL: "http://localhost:3000/health",
-				Memory: runner_model.RessourceConstraints{
-					Request: 100,
-					Limit:   100,
+				Type: runner_model.RunnerTypeDocker,
+				Docker: &runner_model.DockerRunnerData{
+					Command:        "",
+					HealthCheckURL: "http://localhost:3000/health",
+					Memory: runner_model.RessourceConstraints{
+						Request: 100,
+						Limit:   100,
+					},
+					CPU: runner_model.RessourceConstraints{
+						Request: 1,
+						Limit:   1,
+					},
+					Port: 80,
 				},
-				CPU: runner_model.RessourceConstraints{
-					Request: 1,
-					Limit:   1,
-				},
-				Port:          80,
 				PublicDomain:  "",
 				PrivateDomain: "",
 			},
@@ -226,17 +244,20 @@ func SeedProjects(db *DB) []*project.Project {
 			ID:   uuid.MustParse("6932f402-f633-48a9-bfc1-8489b1f3fd54"),
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
-				Command:        "",
-				HealthCheckURL: "http://localhost:3000/health",
-				Memory: runner_model.RessourceConstraints{
-					Request: 100,
-					Limit:   100,
+				Type: runner_model.RunnerTypeDocker,
+				Docker: &runner_model.DockerRunnerData{
+					Command:        "",
+					HealthCheckURL: "http://localhost:3000/health",
+					Memory: runner_model.RessourceConstraints{
+						Request: 100,
+						Limit:   100,
+					},
+					CPU: runner_model.RessourceConstraints{
+						Request: 1,
+						Limit:   1,
+					},
+					Port: 80,
 				},
-				CPU: runner_model.RessourceConstraints{
-					Request: 1,
-					Limit:   1,
-				},
-				Port:          80,
 				PublicDomain:  "openai-api",
 				PrivateDomain: "openai-api",
 			},
@@ -262,17 +283,20 @@ func SeedProjects(db *DB) []*project.Project {
 			Type: "generic-docker",
 			ID:   uuid.MustParse("e368e4c8-30b5-4eb2-9eb1-caf429984272"),
 			Data: runner_model.RunnerData{
-				Command:        "",
-				HealthCheckURL: "http://localhost:3000/health",
-				Memory: runner_model.RessourceConstraints{
-					Request: 100,
-					Limit:   100,
+				Type: runner_model.RunnerTypeDocker,
+				Docker: &runner_model.DockerRunnerData{
+					Command:        "",
+					HealthCheckURL: "http://localhost:3000/health",
+					Memory: runner_model.RessourceConstraints{
+						Request: 100,
+						Limit:   100,
+					},
+					CPU: runner_model.RessourceConstraints{
+						Request: 1,
+						Limit:   1,
+					},
+					Port: 80,
 				},
-				CPU: runner_model.RessourceConstraints{
-					Request: 1,
-					Limit:   1,
-				},
-				Port:          80,
 				PublicDomain:  "wrapper",
 				PrivateDomain: "wrapper",
 			},

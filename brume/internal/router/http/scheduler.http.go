@@ -88,7 +88,9 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	// this route is used to get the latest status of the job
 	// it can be running or stoped by the orchestrator
 	router.HandleFunc("/job/{jobId}", func(w http.ResponseWriter, r *http.Request) {
-		logger.Trace().Str("job_id", mux.Vars(r)["jobId"]).Msg("Getting job")
+		logger.Warn().Str("job_id", mux.Vars(r)["jobId"]).Msg("Getting the job status is not implemented yet")
+
+		// logger.Trace().Str("job_id", mux.Vars(r)["jobId"]).Msg("Getting job")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("job"))
 	}).Methods(http.MethodGet)
@@ -97,7 +99,9 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	// it is used to inform the orchestrator that the job "released"
 	// a release job is failed or stopped
 	router.HandleFunc("/release/{jobId}", func(w http.ResponseWriter, r *http.Request) {
-		logger.Trace().Str("job_id", mux.Vars(r)["jobId"]).Msg("Releasing job")
+		logger.Warn().Str("job_id", mux.Vars(r)["jobId"]).Msg("Releasing job is not implemented yet")
+
+		// logger.Trace().Str("job_id", mux.Vars(r)["jobId"]).Msg("Releasing job")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("release"))
 	}).Methods(http.MethodPost)
