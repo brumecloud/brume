@@ -53,9 +53,6 @@ func (j *JobService) Run(ctx context.Context) error {
 	for {
 		tick++
 		select {
-		case <-ctx.Done():
-			logger.Info().Msg("The job service is stopping")
-			return nil
 		case <-ticker.C:
 			j.SlowTickerRun(ctx, tick)
 		case <-j.ticker.RapidTicker.C:
@@ -87,6 +84,10 @@ func (j *JobService) SlowTickerRun(ctx context.Context, tick int) {
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to get job")
 			return
+		}
+
+		if len(jobs) > 0 {
+			logger.Info().Int("jobs", len(jobs)).Msg("Received jobs")
 		}
 
 		for _, job := range jobs {
@@ -121,6 +122,8 @@ func (j *JobService) SlowTickerRun(ctx context.Context, tick int) {
 }
 
 func (j *JobService) JobLifecycle(ctx context.Context, job *job_model.Job) error {
+	logger.Info().Str("job_id", job.ID.String()).Msg("Starting job lifecycle")
+
 	bid, err := j.ComputeBid(ctx, job)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to compute bid")
@@ -129,6 +132,8 @@ func (j *JobService) JobLifecycle(ctx context.Context, job *job_model.Job) error
 
 	// depending on the job, and how the runner is confident in running it
 	// well. we place a bid on the job
+	logger.Info().Int("bid", bid).Str("job_id", job.ID.String()).Msg("Placing bid")
+
 	accepted, err := j.intercom.PlaceBid(ctx, job, bid)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to place bid")
@@ -140,9 +145,11 @@ func (j *JobService) JobLifecycle(ctx context.Context, job *job_model.Job) error
 		return nil
 	}
 
-	logger.Info().Msg("Bid accepted")
+	logger.Info().Str("job_id", job.ID.String()).Msg("Bid accepted")
 
 	// add the job to the list of the running jobs on the agent
+	logger.Info().Str("job_id", job.ID.String()).Interface("deployment", job.Deployment).Msg("Try starting the job")
+
 	err = j.runner.StartJob(ctx, job.Deployment)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to start job")
@@ -152,6 +159,8 @@ func (j *JobService) JobLifecycle(ctx context.Context, job *job_model.Job) error
 	// appending the job to the running job list will put it on the status checking list
 	// that way the orchestrator will be informed of the status of the job
 	j.runningJobs = append(j.runningJobs, job)
+
+	logger.Info().Str("job_id", job.ID.String()).Msg("Job started")
 
 	return nil
 }

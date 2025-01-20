@@ -27,8 +27,6 @@ func NewIntercomService(cfg *config.AgentConfig) *IntercomService {
 }
 
 func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job, bid int) (bool, error) {
-	logger.Info().Str("job_id", job.ID.String()).Int("bid", bid).Msg("Placing bid")
-
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"job_id": job.ID,
 		"bid":    bid,
@@ -101,6 +99,9 @@ func (i *IntercomService) GetJobs(ctx context.Context) ([]*job_model.Job, error)
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
+
+	logger.Info().Str("body", string(body)).Msg("Received jobs")
+
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to read response body")
 		return nil, err
@@ -112,8 +113,6 @@ func (i *IntercomService) GetJobs(ctx context.Context) ([]*job_model.Job, error)
 		logger.Warn().Err(err).Str("body", string(body)).Msg("Failed to unmarshal job")
 		return nil, err
 	}
-
-	logger.Info().Int("jobs", len(jobs)).Msg("Received jobs")
 
 	return jobs, nil
 }
@@ -155,8 +154,6 @@ func (i *IntercomService) GetJobStatus(ctx context.Context, jobID string) (*job_
 }
 
 func (i *IntercomService) ReleaseJob(ctx context.Context, jobID string) error {
-	logger.Info().Str("job_id", jobID).Msg("Releasing job")
-
 	req, err := http.NewRequest("POST", i.cfg.OrchestratorURL+"/scheduler/v1/release/"+jobID, nil)
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to create request")
@@ -185,8 +182,6 @@ func (i *IntercomService) ReleaseJob(ctx context.Context, jobID string) error {
 }
 
 func (i *IntercomService) SendRunningJobHealth(jobHealth map[string]bool) error {
-	logger.Trace().Interface("health", jobHealth).Msg("Sending job health")
-
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"machine_id": i.cfg.AgentID,
@@ -227,8 +222,6 @@ func (i *IntercomService) SendRunningJobHealth(jobHealth map[string]bool) error 
 }
 
 func (i *IntercomService) SendGeneralHealth(health string) error {
-	logger.Trace().Str("health", health).Msg("Sending general health")
-
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"machine_id": i.cfg.AgentID,
@@ -271,11 +264,9 @@ func (i *IntercomService) SendGeneralHealth(health string) error {
 }
 
 func (i *IntercomService) SendJobHealth(health map[string]bool) {
-	logger.Trace().Interface("health", health).Msg("Sending job health")
 }
 
 func (i *IntercomService) SendJobLogs(logs []string) {
-	logger.Trace().Interface("logs", logs).Msg("Sending job logs")
 }
 
 // this token is generated using the current time,

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	job_model "brume.dev/jobs/model"
 	job_service "brume.dev/jobs/service"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -90,9 +91,12 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/job/{jobId}", func(w http.ResponseWriter, r *http.Request) {
 		logger.Warn().Str("job_id", mux.Vars(r)["jobId"]).Msg("Getting the job status is not implemented yet")
 
-		// logger.Trace().Str("job_id", mux.Vars(r)["jobId"]).Msg("Getting job")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("job"))
+		fakeJobStatus := &job_model.JobStatus{
+			JobID:  mux.Vars(r)["jobId"],
+			Status: job_model.JobStatusEnumRunning,
+		}
+
+		json.NewEncoder(w).Encode(fakeJobStatus)
 	}).Methods(http.MethodGet)
 
 	// this is a AGENT -> ORCHESTRATOR route
