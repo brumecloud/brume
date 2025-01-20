@@ -104,7 +104,7 @@ func generateDeployment(serviceId uuid.UUID) *deployment_model.Deployment {
 		},
 		RunnerData: runner_model.RunnerData{
 			Type: runner_model.RunnerTypeDocker,
-			Docker: &runner_model.DockerRunnerData{
+			Docker: runner_model.DockerRunnerData{
 				Command:        "",
 				HealthCheckURL: "http://localhost:3000/health",
 				Memory: runner_model.RessourceConstraints{
@@ -149,7 +149,7 @@ func SeedProjects(db *DB) []*project.Project {
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
 				Type: runner_model.RunnerTypeDocker,
-				Docker: &runner_model.DockerRunnerData{
+				Docker: runner_model.DockerRunnerData{
 					Command:        "",
 					HealthCheckURL: "http://localhost:3000/health",
 					Memory: runner_model.RessourceConstraints{
@@ -186,7 +186,7 @@ func SeedProjects(db *DB) []*project.Project {
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
 				Type: runner_model.RunnerTypeDocker,
-				Docker: &runner_model.DockerRunnerData{
+				Docker: runner_model.DockerRunnerData{
 					Command:        "",
 					HealthCheckURL: "http://localhost:3000/health",
 					Memory: runner_model.RessourceConstraints{
@@ -245,7 +245,7 @@ func SeedProjects(db *DB) []*project.Project {
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
 				Type: runner_model.RunnerTypeDocker,
-				Docker: &runner_model.DockerRunnerData{
+				Docker: runner_model.DockerRunnerData{
 					Command:        "",
 					HealthCheckURL: "http://localhost:3000/health",
 					Memory: runner_model.RessourceConstraints{
@@ -284,7 +284,7 @@ func SeedProjects(db *DB) []*project.Project {
 			ID:   uuid.MustParse("e368e4c8-30b5-4eb2-9eb1-caf429984272"),
 			Data: runner_model.RunnerData{
 				Type: runner_model.RunnerTypeDocker,
-				Docker: &runner_model.DockerRunnerData{
+				Docker: runner_model.DockerRunnerData{
 					Command:        "",
 					HealthCheckURL: "http://localhost:3000/health",
 					Memory: runner_model.RessourceConstraints{

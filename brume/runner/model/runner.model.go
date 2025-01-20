@@ -25,14 +25,6 @@ type Runner struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-func (r *Runner) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), &r)
-}
-
-func (r *Runner) Value() (driver.Value, error) {
-	return json.Marshal(r)
-}
-
 type RessourceConstraints struct {
 	Request float64 `json:"request"`
 	Limit   float64 `json:"limit"`
@@ -47,12 +39,11 @@ const (
 
 // only for docker
 type RunnerData struct {
-	Type          RunnerType
+	Type          RunnerType `gorm:"type:text"`
 	PublicDomain  string
 	PrivateDomain string
 
-	Docker *DockerRunnerData
-	Static *StaticRunnerData
+	Docker DockerRunnerData `gorm:"type:jsonb"`
 }
 
 func (rd *RunnerData) Scan(value interface{}) error {
@@ -63,23 +54,11 @@ func (rd *RunnerData) Value() (driver.Value, error) {
 	return json.Marshal(rd)
 }
 
-type StaticRunnerData struct {
-	Path string
-}
-
-func (sr *StaticRunnerData) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), &sr)
-}
-
-func (sr *StaticRunnerData) Value() (driver.Value, error) {
-	return json.Marshal(sr)
-}
-
 type DockerRunnerData struct {
 	Command        string
 	HealthCheckURL string
-	Memory         RessourceConstraints
-	CPU            RessourceConstraints
+	Memory         RessourceConstraints `gorm:"type:jsonb"`
+	CPU            RessourceConstraints `gorm:"type:jsonb"`
 	Port           int
 }
 

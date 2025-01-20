@@ -47,8 +47,8 @@ func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runn
 
 	ctx := context.Background()
 	var command strslice.StrSlice
-	if runner.Docker == nil {
-		return "", fmt.Errorf("runner.Docker is nil")
+	if runner.Type != runner_model.RunnerTypeDocker {
+		return "", fmt.Errorf("runner is not a docker runner")
 	}
 
 	if runner.Docker.Command != "" {

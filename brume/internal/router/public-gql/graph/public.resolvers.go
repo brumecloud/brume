@@ -155,7 +155,7 @@ func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, d
 
 	runnerData := runner_model.RunnerData{
 		Type: runner_model.RunnerTypeDocker,
-		Docker: &runner_model.DockerRunnerData{
+		Docker: runner_model.DockerRunnerData{
 			Command:        data.Command,
 			HealthCheckURL: data.HealthCheckURL,
 			Memory: runner_model.RessourceConstraints{
@@ -252,27 +252,27 @@ func (r *queryResolver) Machine(ctx context.Context) ([]*machine_model.Machine, 
 
 // Command is the resolver for the command field.
 func (r *runnerDataResolver) Command(ctx context.Context, obj *runner_model.RunnerData) (string, error) {
-	panic(fmt.Errorf("not implemented: Command - command"))
+	return obj.Docker.Command, nil
 }
 
 // HealthCheckURL is the resolver for the healthCheckURL field.
 func (r *runnerDataResolver) HealthCheckURL(ctx context.Context, obj *runner_model.RunnerData) (string, error) {
-	panic(fmt.Errorf("not implemented: HealthCheckURL - healthCheckURL"))
+	return obj.Docker.HealthCheckURL, nil
 }
 
 // Memory is the resolver for the memory field.
 func (r *runnerDataResolver) Memory(ctx context.Context, obj *runner_model.RunnerData) (*runner_model.RessourceConstraints, error) {
-	panic(fmt.Errorf("not implemented: Memory - memory"))
+	return &obj.Docker.Memory, nil
 }
 
 // CPU is the resolver for the cpu field.
 func (r *runnerDataResolver) CPU(ctx context.Context, obj *runner_model.RunnerData) (*runner_model.RessourceConstraints, error) {
-	panic(fmt.Errorf("not implemented: CPU - cpu"))
+	return &obj.Docker.CPU, nil
 }
 
 // Port is the resolver for the port field.
 func (r *runnerDataResolver) Port(ctx context.Context, obj *runner_model.RunnerData) (int, error) {
-	panic(fmt.Errorf("not implemented: Port - port"))
+	return obj.Docker.Port, nil
 }
 
 // ID is the resolver for the id field.
@@ -360,15 +360,17 @@ func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subsc
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
-type deploymentResolver struct{ *Resolver }
-type deploymentLogResolver struct{ *Resolver }
-type deploymentSourceResolver struct{ *Resolver }
-type logResolver struct{ *Resolver }
-type machineResolver struct{ *Resolver }
-type mutationResolver struct{ *Resolver }
-type projectResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }
-type runnerDataResolver struct{ *Resolver }
-type serviceResolver struct{ *Resolver }
-type subscriptionResolver struct{ *Resolver }
-type userResolver struct{ *Resolver }
+type (
+	deploymentResolver       struct{ *Resolver }
+	deploymentLogResolver    struct{ *Resolver }
+	deploymentSourceResolver struct{ *Resolver }
+	logResolver              struct{ *Resolver }
+	machineResolver          struct{ *Resolver }
+	mutationResolver         struct{ *Resolver }
+	projectResolver          struct{ *Resolver }
+	queryResolver            struct{ *Resolver }
+	runnerDataResolver       struct{ *Resolver }
+	serviceResolver          struct{ *Resolver }
+	subscriptionResolver     struct{ *Resolver }
+	userResolver             struct{ *Resolver }
+)
