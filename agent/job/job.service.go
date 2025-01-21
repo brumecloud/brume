@@ -1,11 +1,14 @@
-package job_service
+package job
 
 import (
 	"context"
+	"time"
 
-	job_model "brume.dev/jobs/model"
+	brume_job "brume.dev/jobs/model"
 	"github.com/brumecloud/agent/internal/config"
+	"github.com/brumecloud/agent/internal/db"
 	intercom_service "github.com/brumecloud/agent/internal/intercom"
+	running_job "github.com/brumecloud/agent/job/model"
 	runner_service "github.com/brumecloud/agent/runner"
 	"github.com/brumecloud/agent/ticker"
 	"go.uber.org/fx"
@@ -14,22 +17,21 @@ import (
 )
 
 type JobService struct {
-	cfg         *config.AgentConfig
-	ticker      *ticker.Ticker
-	intercom    *intercom_service.IntercomService
-	runningJobs []*job_model.Job
-	runner      *runner_service.RunnerService
+	cfg      *config.AgentConfig
+	ticker   *ticker.Ticker
+	intercom *intercom_service.IntercomService
+	db       *db.DB
+	runner   *runner_service.RunnerService
 }
 
 var logger = log.With().Str("module", "job").Logger()
 
-func NewJobService(lc fx.Lifecycle, runner *runner_service.RunnerService, cfg *config.AgentConfig, ticker *ticker.Ticker, intercom *intercom_service.IntercomService) *JobService {
+func NewJobService(lc fx.Lifecycle, db *db.DB, runner *runner_service.RunnerService, cfg *config.AgentConfig, ticker *ticker.Ticker, intercom *intercom_service.IntercomService) *JobService {
 	j := &JobService{
-		cfg:         cfg,
-		ticker:      ticker,
-		intercom:    intercom,
-		runningJobs: []*job_model.Job{},
-		runner:      runner,
+		cfg:      cfg,
+		ticker:   ticker,
+		intercom: intercom,
+		runner:   runner,
 	}
 
 	lc.Append(fx.Hook{
@@ -61,12 +63,35 @@ func (j *JobService) Run(ctx context.Context) error {
 	}
 }
 
+func (j *JobService) GetRunningJobs() ([]*running_job.RunningJob, error) {
+	var jobs []*running_job.RunningJob
+	err := j.db.Gorm.Find(&jobs).Error
+	logger.Info().Interface("jobs", jobs).Msg("Found running jobs")
+	return jobs, err
+}
+
+func (j *JobService) AddRunningJob(job *running_job.RunningJob) {
+	logger.Info().Interface("job", job).Msg("Adding running job")
+	j.db.Gorm.Create(job)
+}
+
+func (j *JobService) RemoveRunningJob(job *running_job.RunningJob) {
+	logger.Info().Interface("job", job).Msg("Removing running job")
+	j.db.Gorm.Delete(job)
+}
+
 // do the health check and logs of all the running jobs
 // this will send the status of the job and the status of the runner
 func (j *JobService) FastTickerRun(ctx context.Context, tick int) {
+	jobs, err := j.GetRunningJobs()
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get running jobs")
+		return
+	}
+
 	go func() {
-		for _, job := range j.runningJobs {
-			_, err := j.runner.GetJobStatus(ctx, job.Deployment)
+		for _, job := range jobs {
+			_, err := j.runner.GetJobStatus(ctx, job)
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to get job status")
 			}
@@ -77,6 +102,12 @@ func (j *JobService) FastTickerRun(ctx context.Context, tick int) {
 // get the new jobs from the scheduler
 // stop the old jobs
 func (j *JobService) SlowTickerRun(ctx context.Context, tick int) {
+	jobs, err := j.GetRunningJobs()
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get running jobs")
+		return
+	}
+
 	// each tick, we get all the available jobs
 	go func() {
 		// TODO: get the job from the scheduler
@@ -91,7 +122,7 @@ func (j *JobService) SlowTickerRun(ctx context.Context, tick int) {
 		}
 
 		for _, job := range jobs {
-			go func(job *job_model.Job) {
+			go func(job *brume_job.Job) {
 				err := j.JobLifecycle(ctx, job)
 				if err != nil {
 					logger.Error().Err(err).Msg("Failed to process job")
@@ -103,25 +134,25 @@ func (j *JobService) SlowTickerRun(ctx context.Context, tick int) {
 	// we do one tick per job to get if the job is stopped
 	// by the orchestrator
 	go func() {
-		if len(j.runningJobs) == 0 {
+		if len(jobs) == 0 {
 			return
 		}
 
-		job := j.runningJobs[tick%len(j.runningJobs)]
-		jobStatus, err := j.intercom.GetJobStatus(ctx, job.ID.String())
+		job := jobs[tick%len(jobs)]
+		jobStatus, err := j.intercom.GetJobStatus(ctx, job.ID)
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to get job status")
 		}
 
-		if jobStatus.Status == job_model.JobStatusEnumStopped {
+		if jobStatus.Status == brume_job.JobStatusEnumStopped {
 			// TODO: remove the job from the list of the running jobs
 			j.ReleaseJob(job)
-			logger.Info().Str("job_id", job.ID.String()).Msg("Job stopped by the orchestrator")
+			logger.Info().Str("job_id", job.ID).Msg("Job stopped by the orchestrator")
 		}
 	}()
 }
 
-func (j *JobService) JobLifecycle(ctx context.Context, job *job_model.Job) error {
+func (j *JobService) JobLifecycle(ctx context.Context, job *brume_job.Job) error {
 	logger.Info().Str("job_id", job.ID.String()).Msg("Starting job lifecycle")
 
 	bid, err := j.ComputeBid(ctx, job)
@@ -150,7 +181,7 @@ func (j *JobService) JobLifecycle(ctx context.Context, job *job_model.Job) error
 	// add the job to the list of the running jobs on the agent
 	logger.Info().Str("job_id", job.ID.String()).Interface("deployment", job.Deployment).Msg("Try starting the job")
 
-	err = j.runner.StartJob(ctx, job.Deployment)
+	containerId, err := j.runner.StartJob(ctx, job.Deployment)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to start job")
 		return err
@@ -158,43 +189,42 @@ func (j *JobService) JobLifecycle(ctx context.Context, job *job_model.Job) error
 
 	// appending the job to the running job list will put it on the status checking list
 	// that way the orchestrator will be informed of the status of the job
-	j.runningJobs = append(j.runningJobs, job)
+	runningJob := &running_job.RunningJob{
+		ID:           job.ID.String(),
+		DeploymentID: job.Deployment.ID.String(),
+		JobType:      running_job.DockerRunningJob,
+		ContainerID:  &containerId,
+		LastCheckAt:  time.Now(),
+	}
+
+	j.AddRunningJob(runningJob)
 
 	logger.Info().Str("job_id", job.ID.String()).Msg("Job started")
 
 	return nil
 }
 
-func (j *JobService) ReleaseJob(job *job_model.Job) error {
+func (j *JobService) ReleaseJob(job *running_job.RunningJob) error {
 	// communicate first and then remove from memory
-	err := j.intercom.ReleaseJob(context.Background(), job.ID.String())
+	err := j.intercom.ReleaseJob(context.Background(), job.ID)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to release job")
 		return err
 	}
 	// todo: do the proper cleanup
 	// ie logs, images etc
-	err = j.runner.StopJob(context.Background(), job.Deployment)
+	err = j.runner.StopJob(context.Background(), job)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to stop job")
 		return err
 	}
 
 	// remove the job from memory
-	j.runningJobs = removeJobFromList(j.runningJobs, job)
+	j.RemoveRunningJob(job)
 
 	return nil
 }
 
-func removeJobFromList(list []*job_model.Job, job *job_model.Job) []*job_model.Job {
-	for i, j := range list {
-		if j.ID == job.ID {
-			return append(list[:i], list[i+1:]...)
-		}
-	}
-	return list
-}
-
-func (j *JobService) ComputeBid(ctx context.Context, job *job_model.Job) (int, error) {
+func (j *JobService) ComputeBid(ctx context.Context, job *brume_job.Job) (int, error) {
 	return 1000, nil
 }

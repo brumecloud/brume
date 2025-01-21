@@ -9,6 +9,7 @@ import (
 	log_model "brume.dev/logs/model"
 	runner_model "brume.dev/runner/model"
 	"github.com/brumecloud/agent/container/docker"
+	running_job "github.com/brumecloud/agent/job/model"
 	"github.com/rs/zerolog/log"
 )
 
@@ -28,39 +29,42 @@ func (r *RunnerService) GetRunnerHealth(ctx context.Context) (string, error) {
 }
 
 // TODO: also look for available runner type
-func (r *RunnerService) StartJob(ctx context.Context, deployment *deployment_model.Deployment) error {
+func (r *RunnerService) StartJob(ctx context.Context, deployment *deployment_model.Deployment) (string, error) {
 	logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Starting runner")
 
 	if deployment.RunnerData.Type == runner_model.RunnerTypeDocker {
-		r.dockerRunner.StartJob(ctx, deployment)
-		return nil
+		containerId, err := r.dockerRunner.StartJob(ctx, deployment)
+		if err != nil {
+			return "", err
+		}
+		return containerId, nil
 	}
 
-	return errors.New("unsupported runner type")
+	return "", errors.New("unsupported runner type")
 }
 
-func (r *RunnerService) StopJob(ctx context.Context, deployment *deployment_model.Deployment) error {
-	logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Stopping runner")
+func (r *RunnerService) StopJob(ctx context.Context, runningJob *running_job.RunningJob) error {
+	logger.Info().Str("deploymentId", runningJob.DeploymentID).Msg("Stopping runner")
 
-	if deployment.RunnerData.Type == runner_model.RunnerTypeDocker {
-		r.dockerRunner.StopJob(ctx, deployment)
+	if runningJob.JobType == running_job.DockerRunningJob {
+		r.dockerRunner.StopJob(ctx, runningJob)
 		return nil
 	}
 
 	return errors.New("unsupported runner type, how did you get here?")
 }
 
-func (r *RunnerService) GetJobStatus(ctx context.Context, deployment *deployment_model.Deployment) (string, error) {
-	if deployment.RunnerData.Type == runner_model.RunnerTypeDocker {
-		return r.dockerRunner.GetJobStatus(ctx, deployment)
+func (r *RunnerService) GetJobStatus(ctx context.Context, runningJob *running_job.RunningJob) (string, error) {
+	if runningJob.JobType == running_job.DockerRunningJob {
+		return r.dockerRunner.GetJobStatus(ctx, runningJob)
 	}
 
-	return "", errors.New("unsupported runner type, how did you get here?")
+	return "", errors.New("unsupported job type, how did you get here?")
 }
 
-func (r *RunnerService) GetLogs(ctx context.Context, deployment *deployment_model.Deployment) ([]*log_model.Log, time.Time, error) {
-	if deployment.RunnerData.Type == runner_model.RunnerTypeDocker {
-		return r.dockerRunner.GetJobLogs(ctx, deployment)
+func (r *RunnerService) GetLogs(ctx context.Context, runningJob *running_job.RunningJob) ([]*log_model.Log, time.Time, error) {
+	if runningJob.JobType == running_job.DockerRunningJob {
+		return r.dockerRunner.GetJobLogs(ctx, runningJob)
 	}
 
 	return nil, time.Time{}, errors.New("unsupported runner type, how did you get here?")

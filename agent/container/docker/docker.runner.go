@@ -10,6 +10,8 @@ import (
 
 	deployment_model "brume.dev/deployment/model"
 	log_model "brume.dev/logs/model"
+	running_job "github.com/brumecloud/agent/job/model"
+	"github.com/google/uuid"
 )
 
 type DockerEngineRunner struct {
@@ -40,22 +42,33 @@ func (d *DockerEngineRunner) StartJob(ctx context.Context, deployment *deploymen
 	return containerId, nil
 }
 
-func (d *DockerEngineRunner) StopJob(ctx context.Context, deployment *deployment_model.Deployment) error {
-	logger.Info().Str("containerId", deployment.Execution.ContainerID).Str("service", deployment.ServiceID.String()).Msg("Stopping service")
+func (d *DockerEngineRunner) StopJob(ctx context.Context, runningJob *running_job.RunningJob) error {
+	container := runningJob.ContainerID
+	if container == nil {
+		logger.Error().Str("deploymentId", runningJob.ID).Msg("Trying to stop a non-running job")
+		return nil
+	}
 
-	err := d.dockerService.StopContainer(deployment.Execution.ContainerID)
+	logger.Info().Str("containerId", *container).Msg("Stopping service")
+
+	err := d.dockerService.StopContainer(*container)
 	if err != nil {
 		return err
 	}
 
-	logger.Debug().Str("containerId", deployment.Execution.ContainerID).Msg("Removing container")
-	err = d.dockerService.RemoveContainer(deployment.Execution.ContainerID)
+	logger.Debug().Str("containerId", *container).Msg("Removing container")
+	err = d.dockerService.RemoveContainer(*container)
 
 	return err
 }
 
-func (d *DockerEngineRunner) GetJobStatus(ctx context.Context, deployment *deployment_model.Deployment) (string, error) {
-	state, err := d.dockerService.StatusContainer(deployment.Execution.ContainerID)
+func (d *DockerEngineRunner) GetJobStatus(ctx context.Context, runningJob *running_job.RunningJob) (string, error) {
+	if runningJob.ContainerID == nil {
+		logger.Error().Str("deploymentId", runningJob.ID).Msg("Trying to get status of a non-running job")
+		return "dead", nil
+	}
+
+	state, err := d.dockerService.StatusContainer(*runningJob.ContainerID)
 	if err != nil {
 		return "dead", err
 	}
@@ -63,15 +76,15 @@ func (d *DockerEngineRunner) GetJobStatus(ctx context.Context, deployment *deplo
 	return state.Status, nil
 }
 
-func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deployment_model.Deployment) ([]*log_model.Log, time.Time, error) {
-	if deployment.Execution.ContainerID == "" {
-		logger.Error().Str("deploymentId", deployment.ID.String()).Msg("Container ID is empty")
+func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, runningJob *running_job.RunningJob) ([]*log_model.Log, time.Time, error) {
+	if runningJob.ContainerID == nil {
+		logger.Error().Str("deploymentId", runningJob.ID).Msg("Container ID is empty")
 		return nil, time.Now(), nil
 	}
 
 	now := time.Now()
 
-	out, err := d.dockerService.GetLogs(deployment.Execution.ContainerID, deployment.Execution.LastLogs)
+	out, err := d.dockerService.GetLogs(*runningJob.ContainerID, runningJob.LastCheckAt)
 	// need to convert the logs to the brume log format
 	if err != nil {
 		return nil, now, err
@@ -82,16 +95,16 @@ func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deploym
 	n, err := out.Read(dockerLogsHeader)
 	if err != nil {
 		if err == io.EOF {
-			logger.Debug().Str("containerId", deployment.Execution.ContainerID).Msg("No logs to return")
+			logger.Debug().Str("containerId", runningJob.ID).Msg("No logs to return")
 			return nil, now, nil
 		}
 
-		logger.Error().Err(err).Str("containerId", deployment.Execution.ContainerID).Msg("Error reading logs header")
+		logger.Error().Err(err).Str("containerId", runningJob.ID).Msg("Error reading logs header")
 		return nil, now, err
 	}
 
 	if n != 8 {
-		logger.Error().Str("containerId", deployment.Execution.ContainerID).Msg("Invalid logs header")
+		logger.Error().Str("containerId", runningJob.ID).Msg("Invalid logs header")
 		return nil, now, fmt.Errorf("invalid logs header")
 	}
 
@@ -106,7 +119,7 @@ func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deploym
 	count := binary.BigEndian.Uint32(dockerLogsHeader[4:8])
 
 	if count == 0 {
-		logger.Debug().Str("containerId", deployment.Execution.ContainerID).Msg("No logs to return")
+		logger.Debug().Str("containerId", runningJob.ID).Msg("No logs to return")
 		return nil, now, nil
 	}
 
@@ -115,12 +128,12 @@ func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deploym
 	n, err = out.Read(data)
 
 	if n != int(count) {
-		logger.Error().Str("containerId", deployment.Execution.ContainerID).Msg("Error reading logs content")
+		logger.Error().Str("containerId", runningJob.ID).Msg("Error reading logs content")
 		return nil, now, fmt.Errorf("error reading logs content")
 	}
 
 	if err != nil {
-		logger.Error().Str("containerId", deployment.Execution.ContainerID).Msg("Error reading logs content")
+		logger.Error().Str("containerId", runningJob.ID).Msg("Error reading logs content")
 		return nil, now, err
 	}
 
@@ -135,13 +148,11 @@ func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, deployment *deploym
 		fmt.Println("line", line)
 
 		logs = append(logs, &log_model.Log{
-			Message:        line,
-			ServiceID:      deployment.ServiceID,
-			DeploymentID:   deployment.ID,
-			DeploymentName: fmt.Sprintf("%s-%.6s-%s", deployment.ServiceName, deployment.ID.String(), deployment.Env),
-			ProjectID:      deployment.ProjectID,
-			Timestamp:      now,
-			Level:          logType,
+			Message:      line,
+			ServiceID:    uuid.MustParse(runningJob.ServiceID),
+			DeploymentID: uuid.MustParse(runningJob.DeploymentID),
+			Timestamp:    now,
+			Level:        logType,
 		})
 	}
 
