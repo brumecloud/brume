@@ -1,3 +1,4 @@
 bin
 brume.db
 tmp/*
+agent.db

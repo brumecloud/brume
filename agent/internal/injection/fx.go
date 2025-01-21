@@ -5,6 +5,7 @@ import (
 	fx_container "github.com/brumecloud/agent/container/fx"
 	fx_health "github.com/brumecloud/agent/health/fx"
 	fx_config "github.com/brumecloud/agent/internal/config"
+	fx_db "github.com/brumecloud/agent/internal/db/fx"
 	fx_intercom "github.com/brumecloud/agent/internal/intercom/fx"
 	brumelog "github.com/brumecloud/agent/internal/log"
 	fx_job "github.com/brumecloud/agent/job/fx"
@@ -32,6 +33,7 @@ func NewAgentInjector() *GlobalInjector {
 		fx_ticker.TickerModule,
 		fx_container.ContainerModule,
 		fx_job.JobModule,
+		fx_db.DBModule,
 	)
 
 	return &GlobalInjector{

@@ -2,7 +2,10 @@ package db
 
 import (
 	brumelog "github.com/brumecloud/agent/internal/log"
-	"gorm.io/driver/sqlite"
+	running_job "github.com/brumecloud/agent/job/model"
+	_ "github.com/ncruces/go-sqlite3/embed"
+	"github.com/ncruces/go-sqlite3/gormlite"
+
 	"gorm.io/gorm"
 )
 
@@ -18,6 +21,10 @@ func InitDB() *DB {
 		logger.Fatal().Err(err).Msg("Failed to open database connection")
 	}
 
+	logger.Info().Msg("Migrating SQLite database")
+	db.Gorm.AutoMigrate(&running_job.RunningJob{})
+	logger.Info().Msg("Migration complete")
+
 	return db
 }
 
@@ -27,7 +34,7 @@ func openDB(dsn string) (*DB, error) {
 	dblogger := NewDBLogger(brumelog.GetLogger().Level(globalLogLevel))
 
 	// sqlite db
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(gormlite.Open("agent.db"), &gorm.Config{
 		Logger: dblogger,
 	})
 	if err != nil {

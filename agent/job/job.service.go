@@ -31,6 +31,7 @@ func NewJobService(lc fx.Lifecycle, db *db.DB, runner *runner_service.RunnerServ
 		cfg:      cfg,
 		ticker:   ticker,
 		intercom: intercom,
+		db:       db,
 		runner:   runner,
 	}
 
