@@ -30,6 +30,7 @@ type JobStatusEnum string
 const (
 	JobStatusEnumRunning JobStatusEnum = "running"
 	JobStatusEnumStopped JobStatusEnum = "stopped"
+	JobStatusEnumFailed  JobStatusEnum = "failed"
 )
 
 type JobStatus struct {

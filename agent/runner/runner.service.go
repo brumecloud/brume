@@ -6,6 +6,7 @@ import (
 	"time"
 
 	deployment_model "brume.dev/deployment/model"
+	job_model "brume.dev/jobs/model"
 	log_model "brume.dev/logs/model"
 	runner_model "brume.dev/runner/model"
 	"github.com/brumecloud/agent/container/docker"
@@ -54,7 +55,7 @@ func (r *RunnerService) StopJob(ctx context.Context, runningJob *running_job.Run
 	return errors.New("unsupported runner type, how did you get here?")
 }
 
-func (r *RunnerService) GetJobStatus(ctx context.Context, runningJob *running_job.RunningJob) (string, error) {
+func (r *RunnerService) GetJobStatus(ctx context.Context, runningJob *running_job.RunningJob) (job_model.JobStatusEnum, error) {
 	if runningJob.JobType == running_job.DockerRunningJob {
 		return r.dockerRunner.GetJobStatus(ctx, runningJob)
 	}

@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	brume_job "brume.dev/jobs/model"
@@ -50,18 +51,19 @@ func NewJobService(lc fx.Lifecycle, db *db.DB, runner *runner_service.RunnerServ
 // it will poll the scheduler for a job
 // once a job is received, it will start the runner
 func (j *JobService) Run(ctx context.Context) error {
-	ticker := j.ticker.SlowTicker
 	tick := 0
 
 	for {
-		tick++
 		select {
-		case <-ticker.C:
+		case <-j.ticker.SlowTicker.C:
 			j.SlowTickerRun(ctx, tick)
 		case <-j.ticker.RapidTicker.C:
 			j.FastTickerRun(ctx, tick)
 		}
+		tick++
 	}
+
+	return nil
 }
 
 func (j *JobService) GetRunningJobs() ([]*running_job.RunningJob, error) {
@@ -83,21 +85,38 @@ func (j *JobService) RemoveRunningJob(job *running_job.RunningJob) {
 
 // do the health check and logs of all the running jobs
 // this will send the status of the job and the status of the runner
-func (j *JobService) FastTickerRun(ctx context.Context, tick int) {
+func (j *JobService) FastTickerRun(ctx context.Context, tick int) error {
+	// TODO find a way to avoid having the next tick firing before the current one is done
 	jobs, err := j.GetRunningJobs()
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to get running jobs")
-		return
+		return err
 	}
 
-	go func() {
-		for _, job := range jobs {
-			_, err := j.runner.GetJobStatus(ctx, job)
+	jobs_status := make(map[string]brume_job.JobStatusEnum)
+
+	wg := sync.WaitGroup{}
+	for _, job := range jobs {
+		// go routine to get the status of the job
+		wg.Add(1)
+		go func(job *running_job.RunningJob) {
+			defer wg.Done()
+			status, err := j.runner.GetJobStatus(ctx, job)
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to get job status")
+				jobs_status[job.ID] = "failed"
 			}
-		}
-	}()
+
+			jobs_status[job.ID] = status
+
+			logger.Info().Str("job_id", job.ID).Str("status", string(status)).Msg("Job status")
+		}(job)
+	}
+
+	wg.Wait()
+
+	j.intercom.SendRunningJobsHealth(jobs_status)
+	return nil
 }
 
 // get the new jobs from the scheduler
@@ -212,6 +231,7 @@ func (j *JobService) ReleaseJob(job *running_job.RunningJob) error {
 		logger.Error().Err(err).Msg("Failed to release job")
 		return err
 	}
+
 	// todo: do the proper cleanup
 	// ie logs, images etc
 	err = j.runner.StopJob(context.Background(), job)

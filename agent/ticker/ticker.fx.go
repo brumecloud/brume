@@ -16,7 +16,6 @@ type Ticker struct {
 }
 
 func NewTicker(cfg *config.AgentConfig) *Ticker {
-
 	logger.Info().Int("rapidTicker", cfg.RapidTicker).Int("slowTicker", cfg.SlowTicker).Msg("Starting the tickers")
 
 	rapidTicker := time.NewTicker(time.Duration(cfg.RapidTicker) * time.Second)
@@ -26,6 +25,11 @@ func NewTicker(cfg *config.AgentConfig) *Ticker {
 		RapidTicker: rapidTicker,
 		SlowTicker:  slowTicker,
 	}
+}
+
+func (t *Ticker) Stop() {
+	t.RapidTicker.Stop()
+	t.SlowTicker.Stop()
 }
 
 var TickerModule = fx.Module("ticker",

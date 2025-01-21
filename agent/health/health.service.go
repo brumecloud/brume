@@ -6,6 +6,7 @@ import (
 
 	"github.com/brumecloud/agent/internal/config"
 	intercom_service "github.com/brumecloud/agent/internal/intercom"
+	"github.com/brumecloud/agent/job"
 	"github.com/brumecloud/agent/runner"
 	"github.com/brumecloud/agent/ticker"
 	"github.com/rs/zerolog/log"
@@ -22,42 +23,28 @@ type HealthService struct {
 }
 
 // this service will send the health of the agent to the orchestrator
-func NewHealthService(lc fx.Lifecycle, runnerService *runner.RunnerService, ticker *ticker.Ticker, intercom *intercom_service.IntercomService, cfg *config.AgentConfig) *HealthService {
+func NewHealthService(lc fx.Lifecycle, runnerService *runner.RunnerService, jobService *job.JobService, ticker *ticker.Ticker, intercom *intercom_service.IntercomService, cfg *config.AgentConfig) *HealthService {
 	stopChannel := make(chan struct{})
-	logger.Info().Int("retryMax", cfg.RetryMax).Msg("Starting health service")
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			go func() {
-				errorCounter := 0
 				for {
 					select {
 					// we use the rapid ticker to update the orchestrator with the health of the agent
+					// it also get the health of the running jobs
 					case <-ticker.RapidTicker.C:
+						var err error
 						health, err := runnerService.GetRunnerHealth(context.Background())
 						if err != nil {
-							logger.Error().Err(err).Int("errorCounter", errorCounter).Msg("Failed to get runner health")
-							errorCounter++
-
-							if errorCounter > cfg.RetryMax && cfg.RetryMax != 0 {
-								logger.Error().Msg("Health service is not healthy, stopping")
-								os.Exit(1)
-							}
+							logger.Error().Err(err).Msg("Failed to get runner health")
 						}
 
-						err = intercom.SendGeneralHealth(health)
-
+						err = intercom.SendHealth(health)
 						if err != nil {
-							logger.Error().Err(err).Int("errorCounter", errorCounter).Msg("Error while sending health")
-							errorCounter++
-
-							if errorCounter > cfg.RetryMax && cfg.RetryMax != 0 {
-								logger.Error().Msg("Health service is not healthy, stopping")
-								os.Exit(1)
-							}
-						} else {
-							// full loop is healthy we reset the error counter
-							errorCounter = 0
+							logger.Error().Err(err).Msg("Failed to send health")
+							os.Exit(1)
 						}
+
 					// if the stop channel is closed, we stop the health service
 					case <-stopChannel:
 						logger.Info().Msg("Received health service stop signal")

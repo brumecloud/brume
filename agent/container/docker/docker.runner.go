@@ -9,6 +9,7 @@ import (
 	"time"
 
 	deployment_model "brume.dev/deployment/model"
+	job_model "brume.dev/jobs/model"
 	log_model "brume.dev/logs/model"
 	running_job "github.com/brumecloud/agent/job/model"
 	"github.com/google/uuid"
@@ -62,18 +63,25 @@ func (d *DockerEngineRunner) StopJob(ctx context.Context, runningJob *running_jo
 	return err
 }
 
-func (d *DockerEngineRunner) GetJobStatus(ctx context.Context, runningJob *running_job.RunningJob) (string, error) {
+func (d *DockerEngineRunner) GetJobStatus(ctx context.Context, runningJob *running_job.RunningJob) (job_model.JobStatusEnum, error) {
 	if runningJob.ContainerID == nil {
 		logger.Error().Str("deploymentId", runningJob.ID).Msg("Trying to get status of a non-running job")
-		return "dead", nil
+		return job_model.JobStatusEnumFailed, nil
 	}
 
 	state, err := d.dockerService.StatusContainer(*runningJob.ContainerID)
 	if err != nil {
-		return "dead", err
+		return job_model.JobStatusEnumFailed, err
 	}
 
-	return state.Status, nil
+	switch state.Status {
+	case "running":
+		return job_model.JobStatusEnumRunning, nil
+	case "exited":
+		return job_model.JobStatusEnumStopped, nil
+	default:
+		return job_model.JobStatusEnumFailed, nil
+	}
 }
 
 func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, runningJob *running_job.RunningJob) ([]*log_model.Log, time.Time, error) {

@@ -181,7 +181,7 @@ func (i *IntercomService) ReleaseJob(ctx context.Context, jobID string) error {
 	return nil
 }
 
-func (i *IntercomService) SendRunningJobHealth(jobHealth map[string]bool) error {
+func (i *IntercomService) SendRunningJobsHealth(jobHealth map[string]job_model.JobStatusEnum) error {
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"machine_id": i.cfg.AgentID,
@@ -221,11 +221,11 @@ func (i *IntercomService) SendRunningJobHealth(jobHealth map[string]bool) error 
 	return nil
 }
 
-func (i *IntercomService) SendGeneralHealth(health string) error {
+func (i *IntercomService) SendHealth(generalHealth string) error {
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
-		"machine_id": i.cfg.AgentID,
-		"status":     health,
+		"machine_id":     i.cfg.AgentID,
+		"general_health": generalHealth,
 	})
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to marshal health data")

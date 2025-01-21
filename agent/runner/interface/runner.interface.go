@@ -1,4 +1,4 @@
-package runner
+package runner_interfaces
 
 import (
 	"context"
@@ -15,3 +15,11 @@ type Runner interface {
 	GetJobLogs(ctx context.Context, deployment *deployment_model.Deployment) ([]*log_model.Log, time.Time, error)
 	GetRunnerHealth(ctx context.Context) (string, error)
 }
+
+type JobStatus string
+
+const (
+	JobStatusRunning    JobStatus = "running"
+	JobStatusStopped    JobStatus = "stopped"
+	AgentScrapingFailed JobStatus = "agent_scraping_failed"
+)

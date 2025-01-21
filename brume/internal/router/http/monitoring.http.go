@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	job_model "brume.dev/jobs/model"
+	job_service "brume.dev/jobs/service"
 	"brume.dev/machine"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
@@ -12,12 +14,18 @@ import (
 
 type MonitoringHTTPRouterV1 struct {
 	machineService *machine.MachineService
+	jobService     *job_service.JobService
 }
 
 type StatusRequest struct {
 	// machine id will comes from the token later
 	MachineId uuid.UUID `json:"machine_id" validate:"required"`
 	Status    string    `json:"status" validate:"required"`
+}
+
+type JobsStatusRequest struct {
+	MachineId uuid.UUID                          `json:"machine_id" validate:"required"`
+	Status    map[string]job_model.JobStatusEnum `json:"status" validate:"required"`
 }
 
 type LogsRequest struct {
@@ -27,9 +35,10 @@ type LogsRequest struct {
 
 var Validator = validator.New()
 
-func NewMonitoringHTTPRouterV1(machineService *machine.MachineService) *MonitoringHTTPRouterV1 {
+func NewMonitoringHTTPRouterV1(machineService *machine.MachineService, jobService *job_service.JobService) *MonitoringHTTPRouterV1 {
 	return &MonitoringHTTPRouterV1{
 		machineService: machineService,
+		jobService:     jobService,
 	}
 }
 
@@ -56,21 +65,46 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			return
 		}
 
-		err := m.machineService.RecordStatus(req.MachineId, req.Status)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		// dont stop the request
+		go func() {
+			err := m.machineService.RecordStatus(req.MachineId, req.Status)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		}()
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
 	}).Methods(http.MethodPost)
 
 	// send the status of the running jobs
 	router.HandleFunc("/jobs/status", func(w http.ResponseWriter, r *http.Request) {
-		logger.Warn().Msg("Sending the status of the running jobs is not implemented yet")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		var req JobsStatusRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if err := Validator.Struct(req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		var err error
+
+		// dont stop the request
+		go func() {
+			for jobID, status := range req.Status {
+				err = m.jobService.RecordJobStatus(jobID, status)
+				if err != nil {
+					// dont stop trying to record the status
+					// we should have a queue to retry
+					// TODO: create a queue to retry the job status
+					logger.Error().Err(err).Str("job_id", jobID).Str("status", string(status)).Msg("Failed to record job status")
+				}
+			}
+		}()
+
+		w.WriteHeader(http.StatusAccepted)
 	}).Methods(http.MethodPost)
 
 	// this will ingest all the log from the agent
