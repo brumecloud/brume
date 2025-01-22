@@ -224,8 +224,8 @@ func (i *IntercomService) SendRunningJobsHealth(jobHealth map[string]job_model.J
 func (i *IntercomService) SendHealth(generalHealth string) error {
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
-		"machine_id":     i.cfg.AgentID,
-		"general_health": generalHealth,
+		"machine_id": i.cfg.AgentID,
+		"status":     generalHealth,
 	})
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to marshal health data")

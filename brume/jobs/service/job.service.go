@@ -39,7 +39,7 @@ func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.Ti
 
 // store the status of the job in redis
 func (s *JobService) RecordJobStatus(jobID string, status job_model.JobStatusEnum) error {
-	return s.redisClient.Set(context.Background(), fmt.Sprintf("job:%s:status", jobID), status, 10*time.Second).Err()
+	return s.redisClient.Set(context.Background(), fmt.Sprintf("job:%s:status", jobID), string(status), 10*time.Second).Err()
 }
 
 // get the status of the job from redis

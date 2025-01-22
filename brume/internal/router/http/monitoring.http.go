@@ -104,7 +104,7 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			}
 		}()
 
-		w.WriteHeader(http.StatusAccepted)
+		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodPost)
 
 	// this will ingest all the log from the agent
