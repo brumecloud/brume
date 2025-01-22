@@ -1,6 +1,8 @@
 package db
 
 import (
+	"fmt"
+
 	brumelog "github.com/brumecloud/agent/internal/log"
 	running_job "github.com/brumecloud/agent/job/model"
 	_ "github.com/ncruces/go-sqlite3/embed"
@@ -34,7 +36,7 @@ func openDB(dsn string) (*DB, error) {
 	dblogger := NewDBLogger(brumelog.GetLogger().Level(globalLogLevel))
 
 	// sqlite db
-	db, err := gorm.Open(gormlite.Open("agent.db"), &gorm.Config{
+	db, err := gorm.Open(gormlite.Open(fmt.Sprintf("file:%s?mode=memory", "agent.db")), &gorm.Config{
 		Logger: dblogger,
 	})
 	if err != nil {

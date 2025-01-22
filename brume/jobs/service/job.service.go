@@ -52,20 +52,21 @@ func (s *JobService) GetJobStatus(jobID string) (job_model.JobStatusEnum, error)
 }
 
 // do the actual job health check
-func (s *JobService) WatchJob(job job_model.Job) {
+func (s *JobService) WatchJob(job job_model.Job) bool {
 	lastStatus, err := s.GetJobStatus(job.ID.String())
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to get the job status")
-		return
+		return false
 	}
 
 	if lastStatus == job_model.JobStatusEnumRunning {
-		return
+		return true
 	}
 
 	// problems
 	logger.Error().Str("job_id", job.ID.String()).Msg("Job is not healthy")
 
+	return false
 	// TODO: do something about it
 	// - delete this job
 	// - tell the deployment to create a new job
@@ -89,15 +90,25 @@ func (s *JobService) RunHealthLoop() {
 		}
 		wg := sync.WaitGroup{}
 
+		healthyJobs := []job_model.Job{}
+		unhealthyJobs := []job_model.Job{}
+
 		// run all the jobs in parallel
 		for _, job := range jobs {
 			wg.Add(1)
 			go func(job job_model.Job) {
 				defer wg.Done()
-				s.WatchJob(job)
+				healthy := s.WatchJob(job)
+				if healthy {
+					healthyJobs = append(healthyJobs, job)
+				} else {
+					unhealthyJobs = append(unhealthyJobs, job)
+				}
 			}(job)
 		}
 
 		wg.Wait()
+
+		logger.Info().Int("healthy_jobs", len(healthyJobs)).Int("unhealthy_jobs", len(unhealthyJobs)).Msg("Jobs health check results")
 	}
 }
