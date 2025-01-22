@@ -1,4 +1,4 @@
-package brume_ticker
+package fx_ticker
 
 import (
 	"time"
@@ -15,7 +15,7 @@ var TickerModule = fx.Module("ticker",
 )
 
 type TickerService struct {
-	rapidTicker *time.Ticker
+	RapidTicker *time.Ticker
 }
 
 func NewTickerService(cfg *config.BrumeConfig) *TickerService {
@@ -24,7 +24,7 @@ func NewTickerService(cfg *config.BrumeConfig) *TickerService {
 	rapidTicker := time.NewTicker(time.Duration(cfg.RapidTicker) * time.Second)
 
 	return &TickerService{
-		rapidTicker: rapidTicker,
+		RapidTicker: rapidTicker,
 	}
 }
 

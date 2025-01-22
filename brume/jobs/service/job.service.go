@@ -7,19 +7,19 @@ import (
 	"time"
 
 	"brume.dev/internal/db"
+	ticker "brume.dev/internal/ticker"
 	job_model "brume.dev/jobs/model"
-	"github.com/brumecloud/agent/ticker"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 )
 
 type JobService struct {
 	redisClient *redis.Client
-	ticker      *ticker.Ticker
+	ticker      *ticker.TickerService
 	db          *db.DB
 }
 
-func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.Ticker, db *db.DB) *JobService {
+func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.TickerService, db *db.DB) *JobService {
 	js := &JobService{redisClient: redisClient, ticker: ticker, db: db}
 
 	lc.Append(fx.Hook{

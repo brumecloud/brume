@@ -2,7 +2,6 @@ package health_service
 
 import (
 	"context"
-	"os"
 
 	"github.com/brumecloud/agent/internal/config"
 	intercom_service "github.com/brumecloud/agent/internal/intercom"
@@ -42,7 +41,6 @@ func NewHealthService(lc fx.Lifecycle, runnerService *runner.RunnerService, jobS
 						err = intercom.SendHealth(health)
 						if err != nil {
 							logger.Error().Err(err).Msg("Failed to send health")
-							os.Exit(1)
 						}
 
 					// if the stop channel is closed, we stop the health service
