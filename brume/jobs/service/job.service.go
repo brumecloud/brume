@@ -84,22 +84,18 @@ func (s *JobService) GetJobHealth(jobID string) (job_model.JobStatusEnum, error)
 	return job_model.JobStatusEnumRunning, nil
 }
 
-// set in the redis the job status to stopped
+// set the job status in the database
 func (s *JobService) SetJobStatus(jobID uuid.UUID, status job_model.JobStatusEnum) error {
 	key := fmt.Sprintf(JobStatusKey, jobID.String())
-	err := s.redisClient.Set(context.Background(), key, string(status), 0).Err()
+	err := s.db.Gorm.Model(&job_model.Job{}).Where("id = ?", jobID).Update("status", status).Error
 	jobLogger.Trace().Str("key", key).Str("status", string(status)).Msg("Setting job status")
 	return err
 }
 
 func (s *JobService) GetJobStatus(jobID uuid.UUID) (job_model.JobStatusEnum, error) {
-	key := fmt.Sprintf(JobStatusKey, jobID.String())
-	status, err := s.redisClient.Get(context.Background(), key).Result()
-	jobLogger.Trace().Str("key", key).Str("status", status).Msg("Getting job status")
-	if err != nil {
-		return job_model.JobStatusEnumStopped, err
-	}
-	return job_model.JobStatusEnum(status), nil
+	var job job_model.Job
+	err := s.db.Gorm.Where("id = ?", jobID).First(&job).Error
+	return job.Status, err
 }
 
 // do the actual job health check
@@ -128,7 +124,7 @@ func (s *JobService) WatchJob(job job_model.Job) bool {
 
 func (s *JobService) GetJobs() ([]job_model.Job, error) {
 	var jobs []job_model.Job
-	err := s.db.Gorm.Find(&job_model.Job{}).Where("accepted_at IS NOT NULL").Find(&jobs).Error
+	err := s.db.Gorm.Find(&job_model.Job{}).Where("accepted_at IS NOT NULL AND status != ?", job_model.JobStatusEnumStopped).Find(&jobs).Error
 	return jobs, err
 }
 
