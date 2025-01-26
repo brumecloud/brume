@@ -115,8 +115,6 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	// edge route
 	// this will ingest all the log from the agent
 	router.HandleFunc("/jobs/logs", func(w http.ResponseWriter, r *http.Request) {
-		logger.Trace().Msg("Ingesting agent logs")
-
 		var req LogsRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)

@@ -26,7 +26,6 @@ func NewBiddingWorkflow(bidService *job_service.BidService, jobService *job_serv
 // in the future, agent will be evaluated and the best will be selected
 // this bidding logic will have a lot of businnes constraints inside (network topology, machine type, etc)
 func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, job *job_model.Job) error {
-	bidLogger.Info().Interface("deployment", job.Deployment).Msg("Starting bid workflow")
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
 
@@ -65,8 +64,6 @@ func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, job *job_model.Job) 
 	// update the job status to running when the machine is found
 	// when a machine is found, the job is considered running
 	b.jobService.SetJobStatus(job.ID, job_model.JobStatusEnumRunning)
-
-	bidLogger.Info().Msg("Machine found, bidding process finished")
 
 	return nil
 }

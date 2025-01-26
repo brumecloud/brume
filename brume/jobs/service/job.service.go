@@ -88,14 +88,14 @@ func (s *JobService) GetJobHealth(jobID string) (job_model.JobStatusEnum, error)
 func (s *JobService) SetJobStatus(jobID uuid.UUID, status job_model.JobStatusEnum) error {
 	key := fmt.Sprintf(JobStatusKey, jobID.String())
 	err := s.redisClient.Set(context.Background(), key, string(status), 0).Err()
-	jobLogger.Info().Str("key", key).Str("status", string(status)).Msg("Setting job status")
+	jobLogger.Trace().Str("key", key).Str("status", string(status)).Msg("Setting job status")
 	return err
 }
 
 func (s *JobService) GetJobStatus(jobID uuid.UUID) (job_model.JobStatusEnum, error) {
 	key := fmt.Sprintf(JobStatusKey, jobID.String())
 	status, err := s.redisClient.Get(context.Background(), key).Result()
-	jobLogger.Info().Str("key", key).Str("status", status).Msg("Getting job status")
+	jobLogger.Trace().Str("key", key).Str("status", status).Msg("Getting job status")
 	if err != nil {
 		return job_model.JobStatusEnumStopped, err
 	}
@@ -170,8 +170,6 @@ func (s *JobService) RunHealthLoop() {
 		wg.Wait()
 
 		go s.unhandleUnhealthyJobs(unhealthyJobs)
-
-		jobLogger.Info().Int("healthy_jobs", len(healthyJobs)).Int("unhealthy_jobs", len(unhealthyJobs)).Msg("Jobs health check results")
 	}
 }
 

@@ -78,7 +78,7 @@ func (r *RunnerService) GetAllRunningJobs() (map[string]runner_interfaces.Contai
 		return nil, err
 	}
 
-	logger.Info().Interface("jobs", jobs).Msg("Got all running jobs (from docker engine)")
+	logger.Trace().Interface("jobs", jobs).Msg("Got all running jobs (from docker engine)")
 
 	return jobs, nil
 }

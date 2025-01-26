@@ -51,8 +51,6 @@ func (s *BidService) GetAllCurrentBids() ([]*job_model.Job, error) {
 
 // for the moment we accept the first bid
 func (s *BidService) AcceptBid(bidID string, machineID uuid.UUID) error {
-	bidLogger.Info().Str("bid_id", bidID).Str("machine_id", machineID.String()).Msg("Accepting bid")
-
 	bid := &job_model.Job{}
 	err := s.db.Gorm.Model(&job_model.Job{}).Where("id = ?", bidID).First(bid).Error
 	if err != nil {

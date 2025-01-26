@@ -49,7 +49,7 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			return
 		}
 
-		logger.Info().Str("agent_id", agentID).Int("bids", len(bids)).Msg("Sending bids to agent")
+		logger.Trace().Str("agent_id", agentID).Int("bids", len(bids)).Msg("Sending bids to agent")
 		json.NewEncoder(w).Encode(bids)
 	}).Methods(http.MethodGet)
 
@@ -66,7 +66,7 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			return
 		}
 
-		logger.Info().Str("bid_id", mux.Vars(r)["bidId"]).Str("machine_id", machineID).Msg("Ingesting bid")
+		logger.Trace().Str("bid_id", mux.Vars(r)["bidId"]).Str("machine_id", machineID).Msg("Ingesting bid")
 
 		machineIDUUID, err := uuid.Parse(machineID)
 		if err != nil {

@@ -36,7 +36,6 @@ func NewDeploymentWorkflow(jobService *job_service.JobService) *DeploymentWorkfl
 // This is responsible for the health of the service. Not logs and metrics. This is done
 // at the machine scrapping level.
 func (d *DeploymentWorkflow) DeploymentWorkflow(ctx workflow.Context, deployment *deployment_model.Deployment) error {
-	logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Starting deployment workflow")
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
 	// create a job for the deployment
@@ -61,6 +60,7 @@ func (d *DeploymentWorkflow) DeploymentWorkflow(ctx workflow.Context, deployment
 		unhealthyCounter++
 		logger.Info().Str("deploymentId", deployment.ID.String()).Int("unhealthyCounter", unhealthyCounter).Msg("Unhealthy job signal received")
 
+		// TODO find a way to restart the counter when the job is back
 		if unhealthyCounter >= JobUnhealthyCounter {
 			d.jobService.SetJobStatus(job.ID, job_model.JobStatusEnumUnhealthy)
 			logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Unhealthy counter is greater than 3, setting job status to unhealthy")

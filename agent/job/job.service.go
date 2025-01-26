@@ -72,7 +72,9 @@ func (j *JobService) FastTickerRun(ctx context.Context, tick int) error {
 
 	runningJobsStatus := make(map[string]brume_job.JobStatusEnum)
 	for _, job := range runningJobs {
-		runningJobsStatus[job.JobID] = job.Status
+		if job.Status == "running" {
+			runningJobsStatus[job.JobID] = job.Status
+		}
 	}
 
 	j.intercom.SendRunningJobsHealth(runningJobsStatus)
