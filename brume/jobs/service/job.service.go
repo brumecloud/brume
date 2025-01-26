@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	JobHealthKey = "job:%s:health"
-	JobStatusKey = "job:%s:status"
+	JobHealthKey = "job:health:%s"
+	JobStatusKey = "job:status:%s"
 )
 
 var jobLogger = log.GetLogger("job_service")
@@ -86,14 +86,17 @@ func (s *JobService) GetJobHealth(jobID string) (job_model.JobStatusEnum, error)
 
 // set in the redis the job status to stopped
 func (s *JobService) SetJobStatus(jobID uuid.UUID, status job_model.JobStatusEnum) error {
-	return s.redisClient.Set(context.Background(), fmt.Sprintf(JobStatusKey, jobID.String()), string(status), 0).Err()
+	key := fmt.Sprintf(JobStatusKey, jobID.String())
+	err := s.redisClient.Set(context.Background(), key, string(status), 0).Err()
+	jobLogger.Info().Str("key", key).Str("status", string(status)).Msg("Setting job status")
+	return err
 }
 
 func (s *JobService) GetJobStatus(jobID uuid.UUID) (job_model.JobStatusEnum, error) {
-	status, err := s.redisClient.Get(context.Background(), fmt.Sprintf(JobStatusKey, jobID.String())).Result()
+	key := fmt.Sprintf(JobStatusKey, jobID.String())
+	status, err := s.redisClient.Get(context.Background(), key).Result()
+	jobLogger.Info().Str("key", key).Str("status", status).Msg("Getting job status")
 	if err != nil {
-		// if redis has no value for this key, we consider the job as failed
-		// thus, we need to stop it
 		return job_model.JobStatusEnumStopped, err
 	}
 	return job_model.JobStatusEnum(status), nil
@@ -103,11 +106,13 @@ func (s *JobService) GetJobStatus(jobID uuid.UUID) (job_model.JobStatusEnum, err
 func (s *JobService) WatchJob(job job_model.Job) bool {
 	lastStatus, err := s.GetJobHealth(job.ID.String())
 	if err != nil {
-		jobLogger.Error().Err(err).Str("job_id", job.ID.String()).Msg("Failed to get the job status")
+		jobLogger.Error().Err(err).Str("job_id", job.ID.String()).Msg("Failed to get the job health")
 		return false
 	}
 
+	// if we got one good health check, we set the job status to running
 	if lastStatus == job_model.JobStatusEnumRunning {
+		s.SetJobStatus(job.ID, job_model.JobStatusEnumRunning)
 		return true
 	}
 
@@ -175,7 +180,6 @@ func (s *JobService) unhandleUnhealthyJobs(jobs []job_model.Job) {
 	contextWithTimeout, _ := context.WithTimeout(context.Background(), 10*time.Second)
 
 	for _, job := range jobs {
-		s.SetJobStatus(job.ID, job_model.JobStatusEnumUnhealthy)
 		// send a message to the deployment workflow
 		s.temporalClient.UpdateWorkflow(contextWithTimeout, client.UpdateWorkflowOptions{
 			WorkflowID:   job.DeploymentWorkflowID,

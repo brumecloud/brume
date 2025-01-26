@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	UnhealthyCounter       = 3
+	JobUnhealthyCounter    = 3
+	JobFailedCounter       = 5
 	MaxFullRestartCounter  = 1
 	ReadynessCheckInterval = time.Second * 3
 	StatusCheckInterval    = time.Second * 3
@@ -38,12 +39,32 @@ func (d *DeploymentWorkflow) DeploymentWorkflow(ctx workflow.Context, deployment
 	logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Starting deployment workflow")
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
+	// create a job for the deployment
+	// the job is linked to the deployment which created it
+	// because this is where the unhealthy counter is set
+	job, err := d.jobService.CreateJob(deployment, workflowID, runID)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to create job")
+		return err
+	}
+
+	err = d.startBidding(ctx, job)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to start bidding workflow")
+		return err
+	}
 
 	fullRestartCounter := 0
-
 	unhealthyCounter := 0
-	err := workflow.SetUpdateHandlerWithOptions(ctx, temporal_constants.UnhealthyJobSignal, func(ctx workflow.Context, data interface{}) error {
+
+	err = workflow.SetUpdateHandlerWithOptions(ctx, temporal_constants.UnhealthyJobSignal, func(ctx workflow.Context, data interface{}) error {
 		unhealthyCounter++
+		logger.Info().Str("deploymentId", deployment.ID.String()).Int("unhealthyCounter", unhealthyCounter).Msg("Unhealthy job signal received")
+
+		if unhealthyCounter >= JobUnhealthyCounter {
+			d.jobService.SetJobStatus(job.ID, job_model.JobStatusEnumUnhealthy)
+			logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Unhealthy counter is greater than 3, setting job status to unhealthy")
+		}
 		return nil
 	}, workflow.UpdateHandlerOptions{})
 	if err != nil {
@@ -62,29 +83,14 @@ func (d *DeploymentWorkflow) DeploymentWorkflow(ctx workflow.Context, deployment
 		return err
 	}
 
-	// create a job for the deployment
-	// the job is linked to the deployment which created it
-	// because this is where the unhealthy counter is set
-	job, err := d.jobService.CreateJob(deployment, workflowID, runID)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to create job")
-		return err
-	}
-
-	err = d.startBidding(ctx, job)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to start bidding workflow")
-		return err
-	}
-
 	// we wait for an update on the job : the job is unhealthy or the deployment is stopped
 	for {
 		// we wait for the unhealthy counter to be greater than 3 or the stop signal to be received
 		workflow.Await(ctx, func() bool {
-			return unhealthyCounter >= UnhealthyCounter || shouldStop
+			return unhealthyCounter >= JobFailedCounter || shouldStop
 		})
 
-		if unhealthyCounter >= UnhealthyCounter {
+		if unhealthyCounter >= JobFailedCounter {
 			// if fullRestartCounter >= MaxFullRestartCounter {
 			// 	logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Max full restart counter reached, stopping deployment")
 			// 	return nil

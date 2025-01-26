@@ -72,7 +72,7 @@ func (j *JobService) FastTickerRun(ctx context.Context, tick int) error {
 
 	runningJobsStatus := make(map[string]brume_job.JobStatusEnum)
 	for _, job := range runningJobs {
-		runningJobsStatus[job.ContainerID] = job.Status
+		runningJobsStatus[job.JobID] = job.Status
 	}
 
 	j.intercom.SendRunningJobsHealth(runningJobsStatus)
@@ -106,24 +106,43 @@ func (j *JobService) SlowTickerRun(ctx context.Context, tick int) {
 		}
 	}()
 
-	// todo: make this work
-	// garbage collection of the stopped jobs
-	// we need to inform the orchestrator that the job is stopped
-	// go func() {
-	// 	runningJobs, err := j.runner.GetAllRunningJobs()
-	// 	if err != nil {
-	// 		logger.Error().Err(err).Msg("Failed to get running jobs")
-	// 		return
-	// 	}
+	go func() {
+		runningJobs, err := j.runner.GetAllRunningJobs()
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to get running jobs")
+			return
+		}
 
-	// 	for id, job := range runningJobs {
-	// 		if job.Status == brume_job.JobStatusEnumStopped {
-	// 			// TODO: remove the job from the list of the running jobs
-	// 			j.ReleaseJob(job)
-	// 			logger.Info().Str("job_id", id).Msg("Job stopped by the orchestrator")
-	// 		}
-	// 	}
-	// }()
+		numberOfJobs := len(runningJobs)
+
+		// get the job at index tick % numberOfJobs
+		job := runner_interfaces.ContainerStatusResult{}
+		index := 0
+		// todo refactor this
+		for _, job_ := range runningJobs {
+			if index == tick%numberOfJobs {
+				job = job_
+				break
+			}
+			index++
+		}
+
+		if job.JobID == "" {
+			return
+		}
+
+		orchestratorJobStatus, err := j.intercom.GetJobStatus(context.Background(), job.JobID)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to get job status")
+			return
+		}
+
+		// the orchestrator wants this job to be stopped
+		// this is not urgent, this is a garbage collection
+		if orchestratorJobStatus.Status == brume_job.JobStatusEnumStopped {
+			j.ReleaseJob(job)
+		}
+	}()
 }
 
 // spawn new jobs
