@@ -25,7 +25,7 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		w.Write([]byte("scheduler is alive. yeah!"))
 	}).Methods(http.MethodGet)
 
-	// AGENT -> ORCHESTRATOR
+	// ORCHESTRATOR -> AGENT
 	// orchestrator core route
 	// this route is used by agent to poll the scheduler for a job
 	// their token is used to indentify them and get them the right job they

@@ -9,13 +9,15 @@ import (
 
 type BiddingWorkflow struct {
 	bidService *job_service.BidService
+	jobService *job_service.JobService
 }
 
 var bidLogger = log.GetLogger("job_workflows").With().Str("workflow", "bid").Logger()
 
-func NewBiddingWorkflow(bidService *job_service.BidService) *BiddingWorkflow {
+func NewBiddingWorkflow(bidService *job_service.BidService, jobService *job_service.JobService) *BiddingWorkflow {
 	return &BiddingWorkflow{
 		bidService: bidService,
+		jobService: jobService,
 	}
 }
 
@@ -59,6 +61,10 @@ func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, job *job_model.Job) 
 	workflow.Await(ctx, func() bool {
 		return machineFound
 	})
+
+	// update the job status to running when the machine is found
+	// when a machine is found, the job is considered running
+	b.jobService.SetJobStatus(job.ID, job_model.JobStatusEnumRunning)
 
 	bidLogger.Info().Msg("Machine found, bidding process finished")
 

@@ -61,6 +61,9 @@ func (s *JobService) CreateJob(deployment *deployment_model.Deployment, workflow
 		DeploymentRunID:      runID,
 	}
 
+	// set the job status to creating
+	s.redisClient.Set(context.Background(), fmt.Sprintf(JobStatusKey, job.ID.String()), string(job_model.JobStatusEnumCreating), 0).Err()
+
 	return job, s.db.Gorm.Create(job).Error
 }
 

@@ -161,7 +161,7 @@ func (j *JobService) SlowTickerRun(ctx context.Context, tick int) {
 		job := jobs[tick%len(jobs)]
 		jobStatus, err := j.intercom.GetJobStatus(ctx, job.ID)
 		if err != nil {
-			logger.Error().Err(err).Msg("Failed to get job status")
+			return
 		}
 
 		if jobStatus.Status == brume_job.JobStatusEnumStopped {
