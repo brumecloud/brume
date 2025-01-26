@@ -48,6 +48,8 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		w.Write([]byte("monitoring is alive. yeah!"))
 	}).Methods(http.MethodGet)
 
+	// AGENT -> ORCHESTRATOR
+	// edge route
 	// send the general health of the agent
 	router.HandleFunc("/agent/status", func(w http.ResponseWriter, r *http.Request) {
 		// logger.Trace().Msg("Ingesting agent status")
@@ -76,6 +78,8 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodPost)
 
+	// AGENT -> ORCHESTRATOR
+	// edge route
 	// send the status of the running jobs
 	router.HandleFunc("/jobs/status", func(w http.ResponseWriter, r *http.Request) {
 		var req JobsStatusRequest
@@ -94,7 +98,7 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		// dont stop the request
 		go func() {
 			for jobID, status := range req.Status {
-				err = m.jobService.RecordJobStatus(jobID, status)
+				err = m.jobService.SetJobHealth(jobID)
 				if err != nil {
 					// dont stop trying to record the status
 					// we should have a queue to retry
@@ -107,6 +111,8 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodPost)
 
+	// AGENT -> ORCHESTRATOR
+	// edge route
 	// this will ingest all the log from the agent
 	router.HandleFunc("/jobs/logs", func(w http.ResponseWriter, r *http.Request) {
 		logger.Trace().Msg("Ingesting agent logs")

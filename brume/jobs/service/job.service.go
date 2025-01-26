@@ -6,25 +6,38 @@ import (
 	"sync"
 	"time"
 
+	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
+	"brume.dev/internal/log"
+	temporal_constants "brume.dev/internal/temporal/constants"
 	ticker "brume.dev/internal/ticker"
 	job_model "brume.dev/jobs/model"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"go.temporal.io/sdk/client"
 	"go.uber.org/fx"
 )
 
+const (
+	JobHealthKey = "job:%s:health"
+	JobStatusKey = "job:%s:status"
+)
+
+var jobLogger = log.GetLogger("job_service")
+
 type JobService struct {
-	redisClient *redis.Client
-	ticker      *ticker.TickerService
-	db          *db.DB
+	redisClient    *redis.Client
+	ticker         *ticker.TickerService
+	db             *db.DB
+	temporalClient client.Client
 }
 
-func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.TickerService, db *db.DB) *JobService {
-	js := &JobService{redisClient: redisClient, ticker: ticker, db: db}
+func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.TickerService, db *db.DB, temporalClient client.Client) *JobService {
+	js := &JobService{redisClient: redisClient, ticker: ticker, db: db, temporalClient: temporalClient}
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Info().Msg("Starting the job health loop")
+			jobLogger.Info().Msg("Starting the job health loop")
 			go js.RunHealthLoop()
 			return nil
 		},
@@ -37,25 +50,56 @@ func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.Ti
 	return js
 }
 
+func (s *JobService) CreateJob(deployment *deployment_model.Deployment, workflowID string, runID string) (*job_model.Job, error) {
+	job := &job_model.Job{
+		ID:                   uuid.New(),
+		Price:                9999999999,
+		Status:               job_model.JobStatusEnumCreating,
+		ServiceID:            deployment.ServiceID,
+		Deployment:           deployment,
+		DeploymentWorkflowID: workflowID,
+		DeploymentRunID:      runID,
+	}
+
+	return job, s.db.Gorm.Create(job).Error
+}
+
 // store the status of the job in redis
-func (s *JobService) RecordJobStatus(jobID string, status job_model.JobStatusEnum) error {
-	return s.redisClient.Set(context.Background(), fmt.Sprintf("job:%s:status", jobID), string(status), 10*time.Second).Err()
+// the health of a job has a ttl of 10 seconds
+// thus you can only set the health of a job if it is healthy
+func (s *JobService) SetJobHealth(jobID string) error {
+	return s.redisClient.Set(context.Background(), fmt.Sprintf(JobHealthKey, jobID), "OK", 10*time.Second).Err()
 }
 
 // get the status of the job from redis
-func (s *JobService) GetJobStatus(jobID string) (job_model.JobStatusEnum, error) {
-	status, err := s.redisClient.Get(context.Background(), fmt.Sprintf("job:%s:status", jobID)).Result()
+func (s *JobService) GetJobHealth(jobID string) (job_model.JobStatusEnum, error) {
+	status, err := s.redisClient.Get(context.Background(), fmt.Sprintf(JobHealthKey, jobID)).Result()
 	if err != nil {
 		return job_model.JobStatusEnumFailed, err
 	}
 	return job_model.JobStatusEnum(status), nil
 }
 
+// set in the redis the job status to stopped
+func (s *JobService) SetJobStatus(jobID uuid.UUID, status job_model.JobStatusEnum) error {
+	return s.redisClient.Set(context.Background(), fmt.Sprintf(JobStatusKey, jobID.String()), string(status), 0).Err()
+}
+
+func (s *JobService) GetJobStatus(jobID uuid.UUID) (job_model.JobStatusEnum, error) {
+	status, err := s.redisClient.Get(context.Background(), fmt.Sprintf(JobStatusKey, jobID.String())).Result()
+	if err != nil {
+		// if redis has no value for this key, we consider the job as failed
+		// thus, we need to stop it
+		return job_model.JobStatusEnumStopped, err
+	}
+	return job_model.JobStatusEnum(status), nil
+}
+
 // do the actual job health check
 func (s *JobService) WatchJob(job job_model.Job) bool {
-	lastStatus, err := s.GetJobStatus(job.ID.String())
+	lastStatus, err := s.GetJobHealth(job.ID.String())
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get the job status")
+		jobLogger.Error().Err(err).Msg("Failed to get the job status")
 		return false
 	}
 
@@ -64,7 +108,7 @@ func (s *JobService) WatchJob(job job_model.Job) bool {
 	}
 
 	// problems
-	logger.Error().Str("job_id", job.ID.String()).Msg("Job is not healthy")
+	jobLogger.Error().Str("job_id", job.ID.String()).Msg("Job is not healthy")
 
 	return false
 	// TODO: do something about it
@@ -79,13 +123,20 @@ func (s *JobService) GetJobs() ([]job_model.Job, error) {
 	return jobs, err
 }
 
+func (s *JobService) GetJob(jobID uuid.UUID) (job_model.Job, error) {
+	var job job_model.Job
+	err := s.db.Gorm.Where("id = ?", jobID).First(&job).Error
+	return job, err
+}
+
 // check on the rapid ticker frequency if all the watched jobs are healthy
+// this is the main loop, multi tenant. it will inform the deployment workflow is something is not healthy
 // healty = having a healthy status in redis
 func (s *JobService) RunHealthLoop() {
 	for range s.ticker.RapidTicker.C {
 		jobs, err := s.GetJobs()
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Failed to get the running jobs to check their health")
+			jobLogger.Fatal().Err(err).Msg("Failed to get the running jobs to check their health")
 			continue
 		}
 		wg := sync.WaitGroup{}
@@ -109,6 +160,25 @@ func (s *JobService) RunHealthLoop() {
 
 		wg.Wait()
 
-		logger.Info().Int("healthy_jobs", len(healthyJobs)).Int("unhealthy_jobs", len(unhealthyJobs)).Msg("Jobs health check results")
+		go s.unhandleUnhealthyJobs(unhealthyJobs)
+
+		jobLogger.Info().Int("healthy_jobs", len(healthyJobs)).Int("unhealthy_jobs", len(unhealthyJobs)).Msg("Jobs health check results")
+	}
+}
+
+// this will update the job status and send a signal to the deployment workflow
+func (s *JobService) unhandleUnhealthyJobs(jobs []job_model.Job) {
+	contextWithTimeout, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	for _, job := range jobs {
+		s.SetJobStatus(job.ID, job_model.JobStatusEnumUnhealthy)
+		// send a message to the deployment workflow
+		s.temporalClient.UpdateWorkflow(contextWithTimeout, client.UpdateWorkflowOptions{
+			WorkflowID:   job.DeploymentWorkflowID,
+			RunID:        job.DeploymentRunID,
+			UpdateName:   temporal_constants.UnhealthyJobSignal,
+			WaitForStage: client.WorkflowUpdateStageAccepted,
+			Args:         []interface{}{},
+		})
 	}
 }

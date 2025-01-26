@@ -12,10 +12,11 @@ import (
 
 type SchedulerHTTPRouterV1 struct {
 	bidService *job_service.BidService
+	jobService *job_service.JobService
 }
 
-func NewSchedulerHTTPRouterV1(bidService *job_service.BidService) *SchedulerHTTPRouterV1 {
-	return &SchedulerHTTPRouterV1{bidService: bidService}
+func NewSchedulerHTTPRouterV1(bidService *job_service.BidService, jobService *job_service.JobService) *SchedulerHTTPRouterV1 {
+	return &SchedulerHTTPRouterV1{bidService: bidService, jobService: jobService}
 }
 
 func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
@@ -25,6 +26,7 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	}).Methods(http.MethodGet)
 
 	// AGENT -> ORCHESTRATOR
+	// orchestrator core route
 	// this route is used by agent to poll the scheduler for a job
 	// their token is used to indentify them and get them the right job they
 	// can run on their machine
@@ -52,6 +54,7 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	}).Methods(http.MethodGet)
 
 	// AGENT -> ORCHESTRATOR
+	// orchestrator core route
 	// multiple machine can bid for the same job, the scheduler will choose the best bid
 	// once one bid is made, the scheduler waits 3s max before giving a response
 	// TODO: for now the first bid is accepted
@@ -86,27 +89,43 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	}).Methods(http.MethodPost)
 
 	// ORCHESTRATOR -> AGENT
+	// edge route
 	// this route is used to get the latest status of the job
 	// it can be running or stoped by the orchestrator
 	router.HandleFunc("/job/{jobId}", func(w http.ResponseWriter, r *http.Request) {
-		logger.Warn().Str("job_id", mux.Vars(r)["jobId"]).Msg("Getting the job status is not implemented yet")
-
-		fakeJobStatus := &job_model.JobStatus{
-			JobID:  mux.Vars(r)["jobId"],
-			Status: job_model.JobStatusEnumRunning,
+		jobID, err := uuid.Parse(mux.Vars(r)["jobId"])
+		if err != nil {
+			logger.Error().Err(err).Str("job_id", mux.Vars(r)["jobId"]).Msg("Failed to parse job id")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
 		}
 
-		json.NewEncoder(w).Encode(fakeJobStatus)
+		status, err := s.jobService.GetJobStatus(jobID)
+		// this should never happen
+		if err != nil {
+			logger.Error().Err(err).Str("job_id", jobID.String()).Msg("Failed to get job status")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		jobStatus := &job_model.JobStatus{
+			JobID:  jobID.String(),
+			Status: status,
+		}
+
+		json.NewEncoder(w).Encode(jobStatus)
 	}).Methods(http.MethodGet)
 
-	// this is a AGENT -> ORCHESTRATOR route
+	// AGENT -> ORCHESTRATOR
+	// orchestrator core route
 	// it is used to inform the orchestrator that the job "released"
 	// a release job is failed or stopped
 	router.HandleFunc("/release/{jobId}", func(w http.ResponseWriter, r *http.Request) {
 		logger.Warn().Str("job_id", mux.Vars(r)["jobId"]).Msg("Releasing job is not implemented yet")
 
 		// logger.Trace().Str("job_id", mux.Vars(r)["jobId"]).Msg("Releasing job")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("release"))
+		w.WriteHeader(http.StatusNotImplemented)
 	}).Methods(http.MethodPost)
 }

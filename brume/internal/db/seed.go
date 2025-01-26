@@ -128,7 +128,7 @@ func generateDeployment(serviceId uuid.UUID) *deployment_model.Deployment {
 }
 
 func SeedProjects(db *DB) []*project.Project {
-	projects := make([]*project.Project, 2)
+	projects := make([]*project.Project, 1)
 
 	user_api_id := uuid.MustParse("2c77b616-fc35-4ab3-b4e9-0c57966dfd87")
 	user_api := &service.Service{
@@ -226,100 +226,100 @@ func SeedProjects(db *DB) []*project.Project {
 
 	projects[0] = firstProject
 
-	open_ai_id := uuid.MustParse("a94cfd9e-5e61-4e5f-9fda-bb17d638a9ee")
-	open_ai := &service.Service{
-		Name:        "OpenAI-API",
-		ID:          open_ai_id,
-		Deployments: []*deployment_model.Deployment{},
-		DraftBuilder: &builder_model.Builder{
-			ID:   uuid.MustParse("4f6788dd-a317-4771-8afa-878b0b017b17"),
-			Type: "generic-docker",
-			Data: builder_model.BuilderData{
-				Image:    "nginx",
-				Registry: "docker.io",
-				Tag:      "latest",
-			},
-		},
-		DraftRunner: &runner_model.Runner{
-			ID:   uuid.MustParse("6932f402-f633-48a9-bfc1-8489b1f3fd54"),
-			Type: "generic-docker",
-			Data: runner_model.RunnerData{
-				Type: runner_model.RunnerTypeDocker,
-				Docker: runner_model.DockerRunnerData{
-					Command:        "",
-					HealthCheckURL: "http://localhost:3000/health",
-					Memory: runner_model.RessourceConstraints{
-						Request: 100,
-						Limit:   100,
-					},
-					CPU: runner_model.RessourceConstraints{
-						Request: 1,
-						Limit:   1,
-					},
-					Port: 80,
-				},
-				PublicDomain:  "openai-api",
-				PrivateDomain: "openai-api",
-			},
-		},
-	}
+	// open_ai_id := uuid.MustParse("a94cfd9e-5e61-4e5f-9fda-bb17d638a9ee")
+	// open_ai := &service.Service{
+	// 	Name:        "OpenAI-API",
+	// 	ID:          open_ai_id,
+	// 	Deployments: []*deployment_model.Deployment{},
+	// 	DraftBuilder: &builder_model.Builder{
+	// 		ID:   uuid.MustParse("4f6788dd-a317-4771-8afa-878b0b017b17"),
+	// 		Type: "generic-docker",
+	// 		Data: builder_model.BuilderData{
+	// 			Image:    "nginx",
+	// 			Registry: "docker.io",
+	// 			Tag:      "latest",
+	// 		},
+	// 	},
+	// 	DraftRunner: &runner_model.Runner{
+	// 		ID:   uuid.MustParse("6932f402-f633-48a9-bfc1-8489b1f3fd54"),
+	// 		Type: "generic-docker",
+	// 		Data: runner_model.RunnerData{
+	// 			Type: runner_model.RunnerTypeDocker,
+	// 			Docker: runner_model.DockerRunnerData{
+	// 				Command:        "",
+	// 				HealthCheckURL: "http://localhost:3000/health",
+	// 				Memory: runner_model.RessourceConstraints{
+	// 					Request: 100,
+	// 					Limit:   100,
+	// 				},
+	// 				CPU: runner_model.RessourceConstraints{
+	// 					Request: 1,
+	// 					Limit:   1,
+	// 				},
+	// 				Port: 80,
+	// 			},
+	// 			PublicDomain:  "openai-api",
+	// 			PrivateDomain: "openai-api",
+	// 		},
+	// 	},
+	// }
 
-	wrapper_api_id := uuid.MustParse("b29dcba3-a2d3-40a5-bb70-2bd01002a062")
-	wrapper_api := &service.Service{
-		Name:        "Wrapper",
-		ID:          wrapper_api_id,
-		Deployments: []*deployment_model.Deployment{},
-		DraftBuilder: &builder_model.Builder{
-			Type: "generic-docker",
-			ID:   uuid.MustParse("9376ac2a-ea1b-407b-a430-aabc0b687112"),
-			Data: builder_model.BuilderData{
-				Image:    "nginx",
-				Registry: "docker.io",
-				Tag:      "latest",
-			},
-		},
-		DraftRunner: &runner_model.Runner{
-			Name: "wrapper-runner",
-			Type: "generic-docker",
-			ID:   uuid.MustParse("e368e4c8-30b5-4eb2-9eb1-caf429984272"),
-			Data: runner_model.RunnerData{
-				Type: runner_model.RunnerTypeDocker,
-				Docker: runner_model.DockerRunnerData{
-					Command:        "",
-					HealthCheckURL: "http://localhost:3000/health",
-					Memory: runner_model.RessourceConstraints{
-						Request: 100,
-						Limit:   100,
-					},
-					CPU: runner_model.RessourceConstraints{
-						Request: 1,
-						Limit:   1,
-					},
-					Port: 80,
-				},
-				PublicDomain:  "wrapper",
-				PrivateDomain: "wrapper",
-			},
-		},
-	}
+	// wrapper_api_id := uuid.MustParse("b29dcba3-a2d3-40a5-bb70-2bd01002a062")
+	// wrapper_api := &service.Service{
+	// 	Name:        "Wrapper",
+	// 	ID:          wrapper_api_id,
+	// 	Deployments: []*deployment_model.Deployment{},
+	// 	DraftBuilder: &builder_model.Builder{
+	// 		Type: "generic-docker",
+	// 		ID:   uuid.MustParse("9376ac2a-ea1b-407b-a430-aabc0b687112"),
+	// 		Data: builder_model.BuilderData{
+	// 			Image:    "nginx",
+	// 			Registry: "docker.io",
+	// 			Tag:      "latest",
+	// 		},
+	// 	},
+	// 	DraftRunner: &runner_model.Runner{
+	// 		Name: "wrapper-runner",
+	// 		Type: "generic-docker",
+	// 		ID:   uuid.MustParse("e368e4c8-30b5-4eb2-9eb1-caf429984272"),
+	// 		Data: runner_model.RunnerData{
+	// 			Type: runner_model.RunnerTypeDocker,
+	// 			Docker: runner_model.DockerRunnerData{
+	// 				Command:        "",
+	// 				HealthCheckURL: "http://localhost:3000/health",
+	// 				Memory: runner_model.RessourceConstraints{
+	// 					Request: 100,
+	// 					Limit:   100,
+	// 				},
+	// 				CPU: runner_model.RessourceConstraints{
+	// 					Request: 1,
+	// 					Limit:   1,
+	// 				},
+	// 				Port: 80,
+	// 			},
+	// 			PublicDomain:  "wrapper",
+	// 			PrivateDomain: "wrapper",
+	// 		},
+	// 	},
+	// }
 
-	stringID = "bbbbbbbb-91d1-4b9a-be84-b340e40614d3"
-	id, _ = uuid.Parse(stringID)
-	secondProject := &project.Project{
-		ID:          id,
-		Name:        "GenAI",
-		Description: "This is a test project",
-		Services:    []*service.Service{open_ai, wrapper_api},
-	}
+	// stringID = "bbbbbbbb-91d1-4b9a-be84-b340e40614d3"
+	// id, _ = uuid.Parse(stringID)
+	// secondProject := &project.Project{
+	// 	ID:          id,
+	// 	Name:        "GenAI",
+	// 	Description: "This is a test project",
+	// 	Services:    []*service.Service{open_ai, wrapper_api},
+	// }
 
-	if err := db.Gorm.First(secondProject, "id = ?", stringID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Info().Msg("GenAI project not found, creating it")
+	// if err := db.Gorm.First(secondProject, "id = ?", stringID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+	// 	logger.Info().Msg("GenAI project not found, creating it")
 
-		db.Gorm.Create(secondProject)
-		logger.Info().Msg("GenAI project created")
-	}
+	// 	db.Gorm.Create(secondProject)
+	// 	logger.Info().Msg("GenAI project created")
+	// }
 
-	projects[1] = secondProject
+	// projects[1] = secondProject
 
 	return projects
 }

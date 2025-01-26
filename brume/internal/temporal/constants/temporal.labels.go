@@ -25,3 +25,9 @@ const (
 
 // Signals
 const StopDeploymentSignal = "StopDeploymentSignal"
+
+// Jobs
+const (
+	UnhealthyJobSignal = "UnhealthyJobSignal"
+	StopJobSignal      = "StopJobSignal"
+)

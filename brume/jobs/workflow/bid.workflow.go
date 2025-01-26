@@ -1,8 +1,8 @@
-package bid_workflow
+package job_workflows
 
 import (
-	deployment_model "brume.dev/deployment/model"
-	brume_log "brume.dev/internal/log"
+	"brume.dev/internal/log"
+	job_model "brume.dev/jobs/model"
 	job_service "brume.dev/jobs/service"
 	"go.temporal.io/sdk/workflow"
 )
@@ -11,7 +11,7 @@ type BiddingWorkflow struct {
 	bidService *job_service.BidService
 }
 
-var logger = brume_log.GetLogger("bid_workflow")
+var bidLogger = log.GetLogger("job_workflows").With().Str("workflow", "bid").Logger()
 
 func NewBiddingWorkflow(bidService *job_service.BidService) *BiddingWorkflow {
 	return &BiddingWorkflow{
@@ -19,19 +19,25 @@ func NewBiddingWorkflow(bidService *job_service.BidService) *BiddingWorkflow {
 	}
 }
 
-func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, deployment *deployment_model.Deployment) error {
-	logger.Info().Interface("deployment", deployment).Msg("Starting bid workflow")
+// this workflow is responsible for the bidding process
+// of the job, for the moment, we accept any bid (first come first serve)
+// in the future, agent will be evaluated and the best will be selected
+// this bidding logic will have a lot of businnes constraints inside (network topology, machine type, etc)
+func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, job *job_model.Job) error {
+	bidLogger.Info().Interface("deployment", job.Deployment).Msg("Starting bid workflow")
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
 
-	// we create the bid, any agent can pick it
-	bid, err := b.bidService.CreateBid(deployment, deployment.ServiceID, workflowID, runID)
+	job.BidWorkflowID = &workflowID
+	job.BidRunID = &runID
+	job.Price = 1000
+	job.Status = job_model.JobStatusEnumPending
+
+	err := b.bidService.UpdateBid(job)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to create bid")
+		bidLogger.Error().Err(err).Msg("Failed to update bid")
 		return err
 	}
-
-	logger.Info().Interface("bid", bid).Msg("Bid created")
 
 	// brume waits for an agent to make a bid
 	// then its attribute the bid to the highest bidder
@@ -43,7 +49,7 @@ func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, deployment *deployme
 		return nil
 	})
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to set update handler")
+		bidLogger.Error().Err(err).Msg("Failed to set update handler")
 		return err
 	}
 
@@ -54,7 +60,7 @@ func (b *BiddingWorkflow) BidWorkflow(ctx workflow.Context, deployment *deployme
 		return machineFound
 	})
 
-	logger.Info().Msg("Machine found, bidding process finished")
+	bidLogger.Info().Msg("Machine found, bidding process finished")
 
 	return nil
 }

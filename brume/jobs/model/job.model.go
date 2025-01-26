@@ -10,15 +10,19 @@ import (
 )
 
 type Job struct {
-	ID uuid.UUID
+	ID     uuid.UUID
+	Status JobStatusEnum
 
 	Price int
 
 	CreatedAt  time.Time
 	AcceptedAt *time.Time
 
-	WorkflowID string
-	RunID      string
+	DeploymentWorkflowID string
+	DeploymentRunID      string
+
+	BidWorkflowID *string
+	BidRunID      *string
 
 	ServiceID  uuid.UUID
 	MachineID  *uuid.UUID
@@ -28,9 +32,12 @@ type Job struct {
 type JobStatusEnum string
 
 const (
-	JobStatusEnumRunning JobStatusEnum = "running"
-	JobStatusEnumStopped JobStatusEnum = "stopped"
-	JobStatusEnumFailed  JobStatusEnum = "failed"
+	JobStatusEnumCreating  JobStatusEnum = "creating"
+	JobStatusEnumPending   JobStatusEnum = "pending"
+	JobStatusEnumRunning   JobStatusEnum = "running"
+	JobStatusEnumStopped   JobStatusEnum = "stopped"
+	JobStatusEnumUnhealthy JobStatusEnum = "unhealthy"
+	JobStatusEnumFailed    JobStatusEnum = "failed"
 )
 
 type JobStatus struct {
