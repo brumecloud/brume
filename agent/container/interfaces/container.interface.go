@@ -5,8 +5,15 @@ import (
 	"time"
 
 	deployment_model "brume.dev/deployment/model"
+	job_model "brume.dev/jobs/model"
 	log_model "brume.dev/logs/model"
 )
+
+type ContainerStatusResult struct {
+	ContainerID string
+	JobID       string
+	Status      job_model.JobStatusEnum
+}
 
 // ContainerRunner is the interface to interact for all runners running OCI images
 type ContainerRunner interface {
@@ -25,4 +32,7 @@ type ContainerRunner interface {
 
 	// Get the health of the container runner
 	GetRunnerHealth(ctx context.Context) (bool, error)
+
+	// Get all the running jobs
+	GetAllRunningJobs() (map[string]ContainerStatusResult, error)
 }

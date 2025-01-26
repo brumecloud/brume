@@ -11,6 +11,7 @@ import (
 	runner_model "brume.dev/runner/model"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
@@ -42,8 +43,8 @@ func NewDockerService() *DockerService {
 	return &DockerService{dockerClient: cli}
 }
 
-func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runner *runner_model.RunnerData) (string, error) {
-	logger.Info().Str("imageId", imageId).Str("serviceId", serviceID.String()).Msg("Starting container")
+func (d *DockerService) StartContainer(imageId string, jobID uuid.UUID, runner *runner_model.RunnerData) (string, error) {
+	logger.Info().Str("imageId", imageId).Str("jobId", jobID.String()).Msg("Starting container")
 
 	ctx := context.Background()
 	var command strslice.StrSlice
@@ -59,8 +60,8 @@ func (d *DockerService) StartContainer(imageId string, serviceID uuid.UUID, runn
 		Image: imageId,
 		Tty:   false,
 		Labels: map[string]string{
-			"brume.dev/managed":    "true",
-			"brume.dev/service-id": serviceID.String(),
+			"brume.dev/managed": "true",
+			"brume.dev/job-id":  jobID.String(),
 		},
 		Cmd: command,
 		// Healthcheck: &container.HealthConfig{
@@ -127,4 +128,16 @@ func (d *DockerService) StatusContainer(containerId string) (*types.ContainerSta
 	}
 
 	return inspect.State, nil
+}
+
+func (d *DockerService) GetAllRunningContainers() ([]types.Container, error) {
+	list, err := d.dockerClient.ContainerList(context.Background(), container.ListOptions{
+		All:     true,
+		Filters: filters.NewArgs(filters.Arg("label", "brume.dev/managed")),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return list, nil
 }

@@ -5,6 +5,7 @@ x-brume-default: &brume-default
   <<: *restart_policy
   networks:
     brume-net:
+
 services:
   orchestrator:
     <<: *brume-default

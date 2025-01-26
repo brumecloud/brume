@@ -85,36 +85,36 @@ func (d *DeploymentWorkflow) DeploymentWorkflow(ctx workflow.Context, deployment
 		})
 
 		if unhealthyCounter >= UnhealthyCounter {
-			if fullRestartCounter >= MaxFullRestartCounter {
-				logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Max full restart counter reached, stopping deployment")
-				return nil
-			}
+			// if fullRestartCounter >= MaxFullRestartCounter {
+			// 	logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Max full restart counter reached, stopping deployment")
+			// 	return nil
+			// }
 
-			logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Unhealthy counter is greater than 3, starting bidding workflow")
-			newJob, err := d.jobService.CreateJob(deployment, workflowID, runID)
-			if err != nil {
-				logger.Error().Err(err).Msg("Failed to create job")
-				return err
-			}
+			// logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Unhealthy counter is greater than 3, starting bidding workflow")
+			// newJob, err := d.jobService.CreateJob(deployment, workflowID, runID)
+			// if err != nil {
+			// 	logger.Error().Err(err).Msg("Failed to create job")
+			// 	return err
+			// }
 
-			err = d.startBidding(ctx, newJob)
-			if err != nil {
-				logger.Error().Err(err).Msg("Failed to start bidding workflow of the new job")
-				return err
-			}
+			// err = d.startBidding(ctx, newJob)
+			// if err != nil {
+			// 	logger.Error().Err(err).Msg("Failed to start bidding workflow of the new job")
+			// 	return err
+			// }
 
-			err = d.jobService.SetJobStatus(job.ID, job_model.JobStatusEnumStopped)
-			if err != nil {
-				logger.Error().Err(err).Msg("Failed to set job status of the old job")
-				return err
-			}
+			// err = d.jobService.SetJobStatus(job.ID, job_model.JobStatusEnumStopped)
+			// if err != nil {
+			// 	logger.Error().Err(err).Msg("Failed to set job status of the old job")
+			// 	return err
+			// }
 
-			job = newJob
-			newJob = nil
+			// job = newJob
+			// newJob = nil
 
 			fullRestartCounter++
-			unhealthyCounter = 0
-			shouldStop = false
+			// unhealthyCounter = 0
+			// shouldStop = false
 		}
 
 		if shouldStop {

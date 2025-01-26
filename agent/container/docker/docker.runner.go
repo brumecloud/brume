@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	deployment_model "brume.dev/deployment/model"
 	job_model "brume.dev/jobs/model"
 	log_model "brume.dev/logs/model"
+	runner_interfaces "github.com/brumecloud/agent/container/interfaces"
 	running_job "github.com/brumecloud/agent/job/model"
 	"github.com/google/uuid"
 )
@@ -25,15 +25,15 @@ func NewDockerEngineRunner(dockerService *DockerService) *DockerEngineRunner {
 	return &DockerEngineRunner{dockerService: dockerService}
 }
 
-func (d *DockerEngineRunner) StartJob(ctx context.Context, deployment *deployment_model.Deployment) (string, error) {
-	logger.Info().Str("image", deployment.BuilderData.Image).Str("serviceId", deployment.ServiceID.String()).Msg("Starting container")
+func (d *DockerEngineRunner) StartJob(ctx context.Context, job *job_model.Job) (string, error) {
+	logger.Info().Str("image", job.Deployment.BuilderData.Image).Str("serviceId", job.Deployment.ServiceID.String()).Msg("Starting container")
 
-	image, err := d.dockerService.PullImage(deployment.BuilderData.Registry, deployment.BuilderData.Image, deployment.BuilderData.Tag)
+	image, err := d.dockerService.PullImage(job.Deployment.BuilderData.Registry, job.Deployment.BuilderData.Image, job.Deployment.BuilderData.Tag)
 	if err != nil {
 		return "", err
 	}
 
-	containerId, err := d.dockerService.StartContainer(image, deployment.ServiceID, &deployment.RunnerData)
+	containerId, err := d.dockerService.StartContainer(image, job.ID, &job.Deployment.RunnerData)
 	if err != nil {
 		return "", err
 	}
@@ -61,6 +61,38 @@ func (d *DockerEngineRunner) StopJob(ctx context.Context, runningJob *running_jo
 	err = d.dockerService.RemoveContainer(*container)
 
 	return err
+}
+
+// this will query the docker daemon and return the status of all the running jobs
+// map[job-id] -> status
+func (d *DockerEngineRunner) GetAllRunningJobs() (map[string]runner_interfaces.ContainerStatusResult, error) {
+	containers, err := d.dockerService.GetAllRunningContainers()
+	if err != nil {
+		return nil, err
+	}
+
+	runningJobs := make(map[string]runner_interfaces.ContainerStatusResult)
+
+	for _, container := range containers {
+		runningJobs[container.Labels["brume.dev/job-id"]] = runner_interfaces.ContainerStatusResult{
+			ContainerID: container.ID,
+			JobID:       container.Labels["brume.dev/job-id"],
+			Status:      dockerStateToJobStatus(container.State),
+		}
+	}
+
+	return runningJobs, nil
+}
+
+func dockerStateToJobStatus(state string) job_model.JobStatusEnum {
+	switch state {
+	case "running":
+		return job_model.JobStatusEnumRunning
+	case "exited":
+		return job_model.JobStatusEnumStopped
+	default:
+		return job_model.JobStatusEnumFailed
+	}
 }
 
 func (d *DockerEngineRunner) GetJobStatus(ctx context.Context, runningJob *running_job.RunningJob) (job_model.JobStatusEnum, error) {

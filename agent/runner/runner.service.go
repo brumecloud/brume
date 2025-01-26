@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	deployment_model "brume.dev/deployment/model"
 	job_model "brume.dev/jobs/model"
 	log_model "brume.dev/logs/model"
 	runner_model "brume.dev/runner/model"
 	"github.com/brumecloud/agent/container/docker"
+	runner_interfaces "github.com/brumecloud/agent/container/interfaces"
 	running_job "github.com/brumecloud/agent/job/model"
 	"github.com/rs/zerolog/log"
 )
@@ -30,11 +30,11 @@ func (r *RunnerService) GetRunnerHealth(ctx context.Context) (string, error) {
 }
 
 // TODO: also look for available runner type
-func (r *RunnerService) StartJob(ctx context.Context, deployment *deployment_model.Deployment) (string, error) {
-	logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Starting runner")
+func (r *RunnerService) StartJob(ctx context.Context, job *job_model.Job) (string, error) {
+	logger.Info().Str("deploymentId", job.Deployment.ID.String()).Msg("Starting runner")
 
-	if deployment.RunnerData.Type == runner_model.RunnerTypeDocker {
-		containerId, err := r.dockerRunner.StartJob(ctx, deployment)
+	if job.Deployment.RunnerData.Type == runner_model.RunnerTypeDocker {
+		containerId, err := r.dockerRunner.StartJob(ctx, job)
 		if err != nil {
 			return "", err
 		}
@@ -69,4 +69,9 @@ func (r *RunnerService) GetLogs(ctx context.Context, runningJob *running_job.Run
 	}
 
 	return nil, time.Time{}, errors.New("unsupported runner type, how did you get here?")
+}
+
+// todo: implement this for all the runners
+func (r *RunnerService) GetAllRunningJobs() (map[string]runner_interfaces.ContainerStatusResult, error) {
+	return r.dockerRunner.GetAllRunningJobs()
 }
