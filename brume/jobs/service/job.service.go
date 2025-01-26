@@ -76,11 +76,12 @@ func (s *JobService) SetJobHealth(jobID string) error {
 
 // get the status of the job from redis
 func (s *JobService) GetJobHealth(jobID string) (job_model.JobStatusEnum, error) {
-	status, err := s.redisClient.Get(context.Background(), fmt.Sprintf(JobHealthKey, jobID)).Result()
+	// we do not care about the value, we just want to check if the key exists
+	_, err := s.redisClient.Get(context.Background(), fmt.Sprintf(JobHealthKey, jobID)).Result()
 	if err != nil {
 		return job_model.JobStatusEnumFailed, err
 	}
-	return job_model.JobStatusEnum(status), nil
+	return job_model.JobStatusEnumRunning, nil
 }
 
 // set in the redis the job status to stopped
@@ -102,7 +103,7 @@ func (s *JobService) GetJobStatus(jobID uuid.UUID) (job_model.JobStatusEnum, err
 func (s *JobService) WatchJob(job job_model.Job) bool {
 	lastStatus, err := s.GetJobHealth(job.ID.String())
 	if err != nil {
-		jobLogger.Error().Err(err).Msg("Failed to get the job status")
+		jobLogger.Error().Err(err).Str("job_id", job.ID.String()).Msg("Failed to get the job status")
 		return false
 	}
 
