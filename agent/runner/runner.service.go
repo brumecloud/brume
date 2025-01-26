@@ -73,5 +73,12 @@ func (r *RunnerService) GetLogs(ctx context.Context, runningJob *running_job.Run
 
 // todo: implement this for all the runners
 func (r *RunnerService) GetAllRunningJobs() (map[string]runner_interfaces.ContainerStatusResult, error) {
-	return r.dockerRunner.GetAllRunningJobs()
+	jobs, err := r.dockerRunner.GetAllRunningJobs()
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Info().Interface("jobs", jobs).Msg("Got all running jobs (from docker engine)")
+
+	return jobs, nil
 }

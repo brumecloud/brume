@@ -106,23 +106,24 @@ func (j *JobService) SlowTickerRun(ctx context.Context, tick int) {
 		}
 	}()
 
-	// we do one tick per job to get if the job is stopped
-	// by the orchestrator
-	go func() {
-		runningJobs, err := j.runner.GetAllRunningJobs()
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to get running jobs")
-			return
-		}
+	// todo: make this work
+	// garbage collection of the stopped jobs
+	// we need to inform the orchestrator that the job is stopped
+	// go func() {
+	// 	runningJobs, err := j.runner.GetAllRunningJobs()
+	// 	if err != nil {
+	// 		logger.Error().Err(err).Msg("Failed to get running jobs")
+	// 		return
+	// 	}
 
-		for id, job := range runningJobs {
-			if job.Status == brume_job.JobStatusEnumStopped {
-				// TODO: remove the job from the list of the running jobs
-				j.ReleaseJob(job)
-				logger.Info().Str("job_id", id).Msg("Job stopped by the orchestrator")
-			}
-		}
-	}()
+	// 	for id, job := range runningJobs {
+	// 		if job.Status == brume_job.JobStatusEnumStopped {
+	// 			// TODO: remove the job from the list of the running jobs
+	// 			j.ReleaseJob(job)
+	// 			logger.Info().Str("job_id", id).Msg("Job stopped by the orchestrator")
+	// 		}
+	// 	}
+	// }()
 }
 
 // spawn new jobs
