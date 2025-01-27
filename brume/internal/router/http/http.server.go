@@ -79,7 +79,7 @@ func NewHTTPServer(
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			go func() {
-				listenAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.GraphqlPort)
+				listenAddr := fmt.Sprintf("%s:%d", cfg.ServerConfig.Host, cfg.ServerConfig.GraphqlPort)
 				logger.Info().Str("listenAddr", listenAddr).Msg("Launching Public HTTP server")
 
 				if err := http.ListenAndServe(listenAddr, http_middleware.CorsHandler.Handler(frontend_api_router)); err != nil {
@@ -88,7 +88,7 @@ func NewHTTPServer(
 			}()
 
 			go func() {
-				listenAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.OrchestratorPort)
+				listenAddr := fmt.Sprintf("%s:%d", cfg.ServerConfig.Host, cfg.ServerConfig.OrchestratorPort)
 				logger.Info().Str("listenAddr", listenAddr).Msg("Launching Orchestrator HTTP server")
 
 				if err := http.ListenAndServe(listenAddr, http_middleware.CorsHandler.Handler(orchestrator_server)); err != nil {

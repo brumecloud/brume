@@ -36,7 +36,7 @@ func NewGRPCRouter(lc fx.Lifecycle, authService *common.AuthentificationService,
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			var lis net.Listener
-			listenAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.GRPCPort)
+			listenAddr := fmt.Sprintf("%s:%d", cfg.ServerConfig.Host, cfg.ServerConfig.GRPCPort)
 
 			logger.Info().Str("listenAddr", listenAddr).Msg("Launching gRPC server")
 

@@ -11,7 +11,7 @@ import (
 var logger = log.GetLogger("temporal")
 
 func NewClient(cfg *config.BrumeConfig) client.Client {
-	dsn := fmt.Sprintf("%s:%d", cfg.TemporalHost, cfg.TemporalPort)
+	dsn := fmt.Sprintf("%s:%d", cfg.TemporalConfig.Host, cfg.TemporalConfig.Port)
 
 	logger.Info().Str("dsn", dsn).Msg("Initializing Temporal client")
 

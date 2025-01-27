@@ -14,9 +14,9 @@ var logger = brume_log.GetLogger("redis")
 
 func NewRedisClient(cfg *config.BrumeConfig) *redis.Client {
 	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       cfg.RedisDB,
+		Addr:     fmt.Sprintf("%s:%d", cfg.RedisConfig.Host, cfg.RedisConfig.Port),
+		Password: cfg.RedisConfig.Password,
+		DB:       cfg.RedisConfig.DB,
 	})
 
 	_, err := client.Ping(context.Background()).Result()

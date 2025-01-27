@@ -19,9 +19,9 @@ type TickerService struct {
 }
 
 func NewTickerService(cfg *config.BrumeConfig) *TickerService {
-	logger.Info().Int("rapidTicker", cfg.RapidTicker).Msg("Starting the tickers")
+	logger.Info().Int("rapidTicker", cfg.TickerConfig.RapidTicker).Msg("Starting the tickers")
 
-	rapidTicker := time.NewTicker(time.Duration(cfg.RapidTicker) * time.Second)
+	rapidTicker := time.NewTicker(time.Duration(cfg.TickerConfig.RapidTicker) * time.Second)
 
 	return &TickerService{
 		RapidTicker: rapidTicker,

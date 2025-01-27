@@ -1,0 +1,38 @@
+[log]
+level = "debug"
+db_level = "info"
+
+[ticker]
+rapid_ticker = 5
+
+[server]
+host = "0.0.0.0"
+orchestrator_port = 8080
+graphql_port = 8081
+grpc_port = 8082
+
+[db]
+host = "postgres"
+port = 5432
+db = "brume"
+user = "brume"
+password = "brumepass"
+max_idle = 1
+max_open = 1
+
+[redis]
+host = "redis"
+port = 6379
+db = 0
+password = ""
+
+[temporal]
+host = "temporal"
+port = 7233
+
+[clickhouse]
+host = "clickhouse"
+port = 9000
+db = "brume"
+user = "brume"
+password = "brumepass"

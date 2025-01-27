@@ -44,7 +44,7 @@ func openCHDB(cfg *config.BrumeConfig) (*ClickhouseDB, error) {
 	globalLogLevel := logger.GetLevel()
 	dblogger := db.NewDBLogger(log.Level(globalLogLevel))
 
-	dsn := fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?dial_timeout=10s&read_timeout=20s", cfg.ClickhouseUser, cfg.ClickhousePassword, cfg.ClickhouseHost, cfg.ClickhousePort, cfg.ClickhouseDB)
+	dsn := fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?dial_timeout=10s&read_timeout=20s", cfg.ClickhouseConfig.User, cfg.ClickhouseConfig.Password, cfg.ClickhouseConfig.Host, cfg.ClickhouseConfig.Port, cfg.ClickhouseConfig.DB)
 
 	logger.Info().Str("dsn", dsn).Msg("Opening the clickhouse database connection")
 

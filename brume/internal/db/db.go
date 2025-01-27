@@ -1,7 +1,11 @@
 package db
 
 import (
+	"fmt"
+
+	"brume.dev/internal/config"
 	brume_log "brume.dev/internal/log"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 	"gorm.io/driver/postgres"
@@ -13,11 +17,13 @@ var logger = brume_log.GetLogger("rdb")
 var DBModule = fx.Module("db", fx.Provide(InitDB))
 
 type DB struct {
-	Gorm *gorm.DB
+	Gorm   *gorm.DB
+	Config *config.BrumeConfig
 }
 
-func InitDB() *DB {
-	db, err := openDB("user=brume password=brumepass dbname=brume host=postgres sslmode=disable")
+func InitDB(config *config.BrumeConfig) *DB {
+	dsn := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=disable", config.PostgresConfig.User, config.PostgresConfig.Password, config.PostgresConfig.DB, config.PostgresConfig.Host)
+	db, err := openDB(dsn, config)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to open database connection")
 	}
@@ -29,10 +35,15 @@ func InitDB() *DB {
 	return db
 }
 
-func openDB(dsn string) (*DB, error) {
+func openDB(dsn string, config *config.BrumeConfig) (*DB, error) {
 	logger.Info().Str("dsn", dsn).Msg("Opening database connection")
-	globalLogLevel := logger.GetLevel()
-	dblogger := NewDBLogger(log.Level(globalLogLevel))
+
+	level, err := zerolog.ParseLevel(config.LogConfig.DBLogLevel)
+	if err != nil {
+		level = zerolog.InfoLevel
+	}
+
+	dblogger := NewDBLogger(log.Level(level))
 
 	dialector := postgres.Open(dsn)
 	gorm, err := gorm.Open(dialector, &gorm.Config{
@@ -51,8 +62,8 @@ func openDB(dsn string) (*DB, error) {
 		return nil, err
 	}
 
-	sqlDB.SetMaxIdleConns(1)
-	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(config.PostgresConfig.MaxIdle)
+	sqlDB.SetMaxOpenConns(config.PostgresConfig.MaxOpen)
 
 	return db, nil
 }
