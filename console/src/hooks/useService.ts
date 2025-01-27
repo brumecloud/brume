@@ -4,7 +4,10 @@ import {
   UPDATE_SERVICE_SETTINGS_MUTATION,
 } from "@/gql/service.graphql";
 import type { RouteParams } from "@/router/router";
-import { ProjectSchema } from "@/schemas/project.schema";
+import {
+  ProjectSchema,
+  type Project,
+} from "@/schemas/project.schema";
 import { useMutation } from "@apollo/client";
 import { useParams } from "react-router-dom";
 
@@ -38,15 +41,15 @@ export const useDeleteService = (_serviceId?: string) => {
         // we dont update the cache here...
         if (!projectId) return;
 
+        // get all the projects from the cache
         const rawProject = cache.readQuery({
           query: PROJECT_BY_ID_QUERY,
           variables: { projectId },
         });
 
-        console.log(rawProject);
-
+        // parse them
         const { data: project, error } = ProjectSchema.safeParse(
-          // @ts-expect-error
+          // @ts-expect-error this data is going to be parsed by zod
           rawProject?.getProjectById
         );
 
@@ -55,6 +58,7 @@ export const useDeleteService = (_serviceId?: string) => {
           throw error;
         }
 
+        // remove the deleted service from the project
         const filteredServices = project.services.filter(
           (service) => service.id !== serviceId
         );

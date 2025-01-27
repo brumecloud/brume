@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	org_model "brume.dev/account/org/model"
 	builder_model "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
@@ -180,6 +181,13 @@ func (s *ProjectService) CreateProject(name string, description string) (*projec
 	}
 
 	err := s.db.Gorm.Create(project).Error
+
+	return project, err
+}
+
+func (s *ProjectService) AssignProjectToOrganization(project *project.Project, organization *org_model.Organization) (*project.Project, error) {
+	organization.Projects = append(organization.Projects, project)
+	err := s.db.Gorm.Save(organization).Error
 
 	return project, err
 }

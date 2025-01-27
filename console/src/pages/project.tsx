@@ -1,8 +1,11 @@
 import ProjectFlow from "@/components/flow/project.flow";
 import { Button } from "@/components/ui/button";
+import { modalState } from "@/state/modal.state";
 import { ReactFlowProvider } from "@xyflow/react";
+import { useSnapshot } from "valtio";
 
 export function Project() {
+  const snap = useSnapshot(modalState);
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-full max-h-[200px] flex-row items-center justify-between px-32 pt-16">
@@ -13,6 +16,9 @@ export function Project() {
             overview of the project and the services.
           </p>
         </div>
+        <Button onClick={() => snap.setCreateServiceModalOpen(true)}>
+          Add a service
+        </Button>
       </div>
       <div className="h-full w-full">
         <ReactFlowProvider>

@@ -93,9 +93,14 @@ export default function ProjectFlow() {
     if (project) {
       const newNodes = getNodes(project.services);
       console.log(newNodes);
-      setNodes(newNodes);
+      if (project.services.length == 0) {
+        // dont show the app group
+        setNodes([]);
+      } else {
+        setNodes(newNodes);
+      }
     }
-  }, [project?.id]);
+  }, [project?.id, project?.services.length]);
 
   useLayoutEffect(() => {
     // throttle the fitView to 100ms

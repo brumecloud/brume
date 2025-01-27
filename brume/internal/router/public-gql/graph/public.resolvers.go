@@ -90,7 +90,23 @@ func (r *machineResolver) ID(ctx context.Context, obj *machine_model.Machine) (s
 
 // CreateProject is the resolver for the createProject field.
 func (r *mutationResolver) CreateProject(ctx context.Context, name string, description *string) (*project_model.Project, error) {
-	return r.ProjectService.CreateProject(name, *description)
+	currentUser := ctx.Value("user").(string)
+	user, err := r.UserService.GetUserByEmail(currentUser)
+	if err != nil {
+		return nil, err
+	}
+
+	org, err := r.UserService.GetUserOrganization(user)
+	if err != nil {
+		return nil, err
+	}
+
+	project, err := r.ProjectService.CreateProject(name, *description)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ProjectService.AssignProjectToOrganization(project, org)
 }
 
 // AddServiceToProject is the resolver for the addServiceToProject field.

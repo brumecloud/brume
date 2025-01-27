@@ -2,6 +2,7 @@ package user
 
 import (
 	org_service "brume.dev/account/org"
+	org_model "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	"brume.dev/internal/db"
 	project "brume.dev/project/model"
@@ -23,7 +24,6 @@ func (s *UserService) GetUserByEmail(email string) (*user.User, error) {
 	var user *user.User
 
 	err := s.db.Gorm.First(&user, "email = ?", email).Error
-
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,6 @@ func (s *UserService) GetUserByEmail(email string) (*user.User, error) {
 
 func (s *UserService) GetUserProjects(user *user.User) ([]*project.Project, error) {
 	orgs, err := s.orgService.GetUserOrganization(user.Email)
-
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +40,6 @@ func (s *UserService) GetUserProjects(user *user.User) ([]*project.Project, erro
 	org := orgs[0]
 
 	projects, err := s.orgService.GetOrganizationProjects(org)
-
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +50,6 @@ func (s *UserService) GetUserProjects(user *user.User) ([]*project.Project, erro
 
 func (s *UserService) AddUserProject(user *user.User, project *project.Project) (*user.User, error) {
 	orgs, err := s.orgService.GetUserOrganization(user.Email)
-
 	if err != nil {
 		return nil, err
 	}
@@ -60,4 +57,12 @@ func (s *UserService) AddUserProject(user *user.User, project *project.Project) 
 	err = s.orgService.AddProjectToOrganization(orgs[0], project)
 
 	return user, err
+}
+
+func (s *UserService) GetUserOrganization(user *user.User) (*org_model.Organization, error) {
+	var org *org_model.Organization
+
+	err := s.db.Gorm.First(&org, "id = ?", user.OrganizationID).Error
+
+	return org, err
 }
