@@ -109,7 +109,7 @@ func (m *MachineWorkflow) HealthCheck(ctx workflow.Context) error {
 	for _, machine := range allMachines {
 		_, err := m.redis.Get(context.Background(), fmt.Sprintf("machine:last_alive:%s", machine.ID.String())).Result()
 		if err != nil {
-			logger.Error().Err(err).Str("machine_id", machine.ID.String()).Msg("Machine not healthy: failed to get last alive")
+			logger.Warn().Err(err).Str("machine_id", machine.ID.String()).Msg("Machine not healthy: failed to get last alive")
 			unhealthyMachines = append(unhealthyMachines, machine)
 		} else {
 			healthyMachines = append(healthyMachines, machine)
