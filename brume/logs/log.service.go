@@ -6,16 +6,20 @@ import (
 	"time"
 
 	clickhouse "brume.dev/internal/clickhouse"
+	job_service "brume.dev/jobs/service"
 	log_model "brume.dev/logs/model"
 	"github.com/google/uuid"
+	redis "github.com/redis/go-redis/v9"
 )
 
 type LogService struct {
-	chdb *clickhouse.ClickhouseDB
+	chdb       *clickhouse.ClickhouseDB
+	redis      *redis.Client
+	jobService *job_service.JobService
 }
 
-func NewLogService(chdb *clickhouse.ClickhouseDB) *LogService {
-	return &LogService{chdb: chdb}
+func NewLogService(chdb *clickhouse.ClickhouseDB, redis *redis.Client, jobService *job_service.JobService) *LogService {
+	return &LogService{chdb: chdb, redis: redis, jobService: jobService}
 }
 
 func (l *LogService) GetDummyLog(ctx context.Context) ([]*log_model.Log, error) {
@@ -80,4 +84,49 @@ func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_m
 	err := l.chdb.Gorm.Where(&log_model.Log{ProjectID: projectID}).Order("timestamp asc").Limit(500).Find(&logs).Error
 
 	return logs, err
+}
+
+// push directly to clickhouse
+func (l *LogService) IngestLogs(logs []*log_model.AgentLogs) error {
+	chLogs := make([]*log_model.Log, 0)
+
+	for _, log := range logs {
+		timestamp, err := time.Parse(time.RFC3339, log.Timestamp)
+		if err != nil {
+			timestamp = time.Now()
+		}
+
+		jobID, err := uuid.Parse(log.JobID)
+		if err != nil {
+			logger.Error().Err(err).Str("job_id", log.JobID).Msg("Failed to parse job id")
+			continue
+		}
+
+		// todo: cache and optimize this
+		job, err := l.jobService.GetJob(jobID)
+		if err != nil {
+			logger.Error().Err(err).Str("job_id", log.JobID).Msg("Failed to get job")
+			continue
+		}
+
+		// TODO need to find the job id and the deployment id
+		chLogs = append(chLogs, &log_model.Log{
+			ID:             uuid.New(),
+			ServiceID:      job.ServiceID,
+			DeploymentID:   job.Deployment.ID,
+			DeploymentName: job.Deployment.ServiceName,
+			Message:        log.Message,
+			Level:          log.Level,
+			Timestamp:      timestamp,
+		})
+	}
+
+	err := l.chdb.Gorm.Create(&chLogs).Error
+	if err != nil {
+		return err
+	}
+
+	logger.Debug().Uint("logs", uint(len(logs))).Msg("Ingesting logs")
+
+	return nil
 }

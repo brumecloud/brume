@@ -6,6 +6,8 @@ import (
 
 	job_model "brume.dev/jobs/model"
 	job_service "brume.dev/jobs/service"
+	log "brume.dev/logs"
+	log_model "brume.dev/logs/model"
 	"brume.dev/machine"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
@@ -15,6 +17,7 @@ import (
 type MonitoringHTTPRouterV1 struct {
 	machineService *machine.MachineService
 	jobService     *job_service.JobService
+	logService     *log.LogService
 }
 
 type StatusRequest struct {
@@ -29,16 +32,17 @@ type JobsStatusRequest struct {
 }
 
 type LogsRequest struct {
-	MachineId uuid.UUID `json:"machine_id" validate:"required"`
-	Logs      []string  `json:"logs" validate:"required"`
+	MachineId uuid.UUID              `json:"machine_id" validate:"required"`
+	Logs      []*log_model.AgentLogs `json:"logs" validate:"required,dive"`
 }
 
 var Validator = validator.New()
 
-func NewMonitoringHTTPRouterV1(machineService *machine.MachineService, jobService *job_service.JobService) *MonitoringHTTPRouterV1 {
+func NewMonitoringHTTPRouterV1(machineService *machine.MachineService, jobService *job_service.JobService, logService *log.LogService) *MonitoringHTTPRouterV1 {
 	return &MonitoringHTTPRouterV1{
 		machineService: machineService,
 		jobService:     jobService,
+		logService:     logService,
 	}
 }
 
@@ -61,7 +65,8 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			return
 		}
 
-		if err := Validator.Struct(req); err != nil {
+		val := validator.New(validator.WithRequiredStructEnabled())
+		if err := val.Struct(req); err != nil {
 			logger.Error().Err(err).Msg("Could not validate request")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -88,7 +93,9 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			return
 		}
 
-		if err := Validator.Struct(req); err != nil {
+		val := validator.New(validator.WithRequiredStructEnabled())
+		if err := val.Struct(req); err != nil {
+			logger.Error().Err(err).Msg("Could not validate request")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -121,15 +128,23 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			return
 		}
 
-		if err := Validator.Struct(req); err != nil {
+		val := validator.New(validator.WithRequiredStructEnabled())
+		if err := val.Struct(req); err != nil {
+			logger.Error().Err(err).Msg("Could not validate request")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		// TODO: ingest logs to clickhouse
-		// in batch
+		logger.Debug().Interface("logs", req.Logs).Msg("logs in http")
+
+		// this is calling directly the clickhouse database
+		err := m.logService.IngestLogs(req.Logs)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to ingest logs")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
 	}).Methods(http.MethodPost)
 }

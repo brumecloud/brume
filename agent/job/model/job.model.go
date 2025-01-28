@@ -2,8 +2,6 @@ package job_model
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 type JobType string
@@ -13,8 +11,6 @@ const (
 )
 
 type RunningJob struct {
-	gorm.Model
-
 	ID           string `gorm:"primaryKey"`
 	JobType      JobType
 	DeploymentID string

@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	job_model "brume.dev/jobs/model"
+	log_model "brume.dev/logs/model"
 	"github.com/brumecloud/agent/internal/config"
 
 	"github.com/rs/zerolog/log"
@@ -263,10 +264,46 @@ func (i *IntercomService) SendHealth(generalHealth string) error {
 	return nil
 }
 
-func (i *IntercomService) SendJobHealth(health map[string]bool) {
+func (i *IntercomService) SendLogs(logs []*log_model.AgentLogs) {
+	logs_request := map[string]interface{}{
+		"logs":       logs,
+		"machine_id": i.cfg.AgentID,
+	}
+
+	jsonData, err := json.Marshal(logs_request)
+	if err != nil {
+		logger.Warn().Err(err).Msg("Failed to marshal logs data")
+		return
+	}
+
+	body := bytes.NewBuffer(jsonData)
+
+	req, err := http.NewRequest("POST", i.cfg.OrchestratorURL+"/monitoring/v1/jobs/logs", body)
+	if err != nil {
+		logger.Warn().Err(err).Msg("Failed to create request")
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+i.GenerateToken())
+	req.Header.Set("X-Brume-Agent-ID", i.cfg.AgentID)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Warn().Err(err).Msg("Failed to send logs to orchestrator")
+		return
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Warn().Int("status", resp.StatusCode).Str("url", req.URL.String()).Str("body", body.String()).Msg("Orchestrator returned non-200 status code")
+		return
+	}
 }
 
-func (i *IntercomService) SendJobLogs(logs []string) {
+func (i *IntercomService) SendJobHealth(health map[string]bool) {
 }
 
 // this token is generated using the current time,

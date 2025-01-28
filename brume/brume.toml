@@ -7,9 +7,9 @@ rapid_ticker = 5
 
 [server]
 host = "0.0.0.0"
-orchestrator_port = 8080
-graphql_port = 8081
-grpc_port = 8082
+orchestrator_port = 9876
+graphql_port = 9877
+grpc_port = 9878
 
 [postgres]
 host = "postgres"

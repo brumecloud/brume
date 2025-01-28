@@ -89,8 +89,6 @@ func LoadBrumeConfig() *BrumeConfig {
 		panic(err)
 	}
 
-	logger.Info().Interface("config", cfg).Msg("Loaded raw config")
-
 	// validate the config
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	err = validate.Struct(cfg)

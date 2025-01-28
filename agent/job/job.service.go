@@ -2,11 +2,14 @@ package job
 
 import (
 	"context"
+	"time"
 
 	brume_job "brume.dev/jobs/model"
+	log_model "brume.dev/logs/model"
 	runner_interfaces "github.com/brumecloud/agent/container/interfaces"
 	"github.com/brumecloud/agent/internal/config"
 	intercom_service "github.com/brumecloud/agent/internal/intercom"
+	job_model "github.com/brumecloud/agent/job/model"
 	runner_service "github.com/brumecloud/agent/runner"
 	"github.com/brumecloud/agent/ticker"
 	"go.uber.org/fx"
@@ -15,6 +18,8 @@ import (
 )
 
 type JobService struct {
+	lastLogsTimestamp time.Time
+
 	cfg      *config.AgentConfig
 	ticker   *ticker.Ticker
 	intercom *intercom_service.IntercomService
@@ -25,10 +30,11 @@ var logger = log.With().Str("module", "job").Logger()
 
 func NewJobService(lc fx.Lifecycle, runner *runner_service.RunnerService, cfg *config.AgentConfig, ticker *ticker.Ticker, intercom *intercom_service.IntercomService) *JobService {
 	j := &JobService{
-		cfg:      cfg,
-		ticker:   ticker,
-		intercom: intercom,
-		runner:   runner,
+		lastLogsTimestamp: time.Time{},
+		cfg:               cfg,
+		ticker:            ticker,
+		intercom:          intercom,
+		runner:            runner,
 	}
 
 	lc.Append(fx.Hook{
@@ -63,21 +69,55 @@ func (j *JobService) Run(ctx context.Context) error {
 // this will send the status of the job and the status of the runner
 func (j *JobService) FastTickerRun(ctx context.Context, tick int) error {
 	// TODO find a way to avoid having the next tick firing before the current one is done
-
 	runningJobs, err := j.runner.GetAllRunningJobs()
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get all running jobs")
-		return err
-	}
-
-	runningJobsStatus := make(map[string]brume_job.JobStatusEnum)
-	for _, job := range runningJobs {
-		if job.Status == "running" {
-			runningJobsStatus[job.JobID] = job.Status
+	go func() {
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to get all running jobs")
+			return
 		}
-	}
 
-	j.intercom.SendRunningJobsHealth(runningJobsStatus)
+		runningJobsStatus := make(map[string]brume_job.JobStatusEnum)
+		for _, job := range runningJobs {
+			if job.Status == "running" {
+				runningJobsStatus[job.JobID] = job.Status
+			}
+		}
+
+		j.intercom.SendRunningJobsHealth(runningJobsStatus)
+	}()
+
+	go func() {
+		logs_batch := make([]*log_model.AgentLogs, 0)
+		for _, job := range runningJobs {
+			logs, err := j.runner.GetLogs(ctx, &job_model.RunningJob{
+				ContainerID: &job.ContainerID,
+				JobType:     job_model.DockerRunningJob,
+				LastCheckAt: j.lastLogsTimestamp,
+			})
+			if err != nil {
+				logger.Error().Err(err).Msg("Failed to get logs")
+				continue
+			}
+
+			for _, log := range logs {
+				logs_batch = append(logs_batch, &log_model.AgentLogs{
+					JobID:     job.JobID,
+					Message:   log.Message,
+					Level:     log.Level,
+					Timestamp: log.Timestamp,
+				})
+			}
+		}
+
+		j.lastLogsTimestamp = time.Now()
+
+		logger.Debug().Interface("logs", logs_batch).Msg("Sending logs")
+
+		if len(logs_batch) > 0 {
+			j.intercom.SendLogs(logs_batch)
+		}
+	}()
+
 	return nil
 }
 

@@ -7,10 +7,13 @@ import (
 
 	deployment_model "brume.dev/deployment/model"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type Job struct {
-	ID     uuid.UUID
+	gorm.Model
+
+	ID     uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Status JobStatusEnum
 
 	Price int
@@ -24,9 +27,11 @@ type Job struct {
 	BidWorkflowID *string
 	BidRunID      *string
 
-	ServiceID  uuid.UUID
-	MachineID  *uuid.UUID
-	Deployment *deployment_model.Deployment
+	ServiceID uuid.UUID
+	MachineID *uuid.UUID
+
+	DeploymentID *uuid.UUID
+	Deployment   *deployment_model.Deployment `gorm:"foreignKey:DeploymentID"`
 }
 
 type JobStatusEnum string

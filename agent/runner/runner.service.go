@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"errors"
-	"time"
 
 	job_model "brume.dev/jobs/model"
 	log_model "brume.dev/logs/model"
@@ -63,12 +62,12 @@ func (r *RunnerService) GetJobStatus(ctx context.Context, runningJob *running_jo
 	return "", errors.New("unsupported job type, how did you get here?")
 }
 
-func (r *RunnerService) GetLogs(ctx context.Context, runningJob *running_job.RunningJob) ([]*log_model.Log, time.Time, error) {
+func (r *RunnerService) GetLogs(ctx context.Context, runningJob *running_job.RunningJob) ([]*log_model.AgentLogs, error) {
 	if runningJob.JobType == running_job.DockerRunningJob {
 		return r.dockerRunner.GetJobLogs(ctx, runningJob)
 	}
 
-	return nil, time.Time{}, errors.New("unsupported runner type, how did you get here?")
+	return nil, errors.New("unsupported runner type, how did you get here?")
 }
 
 // todo: implement this for all the runners

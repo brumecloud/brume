@@ -130,7 +130,7 @@ func (s *JobService) GetJobs() ([]job_model.Job, error) {
 
 func (s *JobService) GetJob(jobID uuid.UUID) (job_model.Job, error) {
 	var job job_model.Job
-	err := s.db.Gorm.Where("id = ?", jobID).First(&job).Error
+	err := s.db.Gorm.First(&job, jobID).Error
 	return job, err
 }
 
