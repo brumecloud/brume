@@ -11,7 +11,7 @@ orchestrator_port = 8080
 graphql_port = 8081
 grpc_port = 8082
 
-[db]
+[postgres]
 host = "postgres"
 port = 5432
 db = "brume"

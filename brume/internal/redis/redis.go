@@ -16,7 +16,7 @@ func NewRedisClient(cfg *config.BrumeConfig) *redis.Client {
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", cfg.RedisConfig.Host, cfg.RedisConfig.Port),
 		Password: cfg.RedisConfig.Password,
-		DB:       cfg.RedisConfig.DB,
+		DB:       *cfg.RedisConfig.DB,
 	})
 
 	_, err := client.Ping(context.Background()).Result()
