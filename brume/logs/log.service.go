@@ -115,6 +115,7 @@ func (l *LogService) IngestLogs(logs []*log_model.AgentLogs) error {
 			ServiceID:      job.ServiceID,
 			DeploymentID:   job.Deployment.ID,
 			DeploymentName: job.Deployment.ServiceName,
+			ProjectID:      job.Deployment.ProjectID,
 			Message:        log.Message,
 			Level:          log.Level,
 			Timestamp:      timestamp,
