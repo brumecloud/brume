@@ -12,4 +12,10 @@ FROM base_brume AS agent
 
 WORKDIR /brume/agent
 
+
+# install the otel collector
+RUN apk add --no-cache curl
+RUN mkdir -p /brume/agent/collector/bin
+RUN curl -L https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.119.0/otelcol_0.119.0_linux_amd64.deb -o /brume/agent/collector/bin/otelcol.deb
+
 CMD ["air", "-c", ".air.toml"]
