@@ -146,6 +146,27 @@ services:
     ports:
       - 6379:6379
 
+  otel-test:
+    <<: *brume-default
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: brume-otel-test
+    command: ["--config", "/etc/otel/otel-test.yaml"]
+    volumes:
+      - ./agent/collector/otel.yaml:/etc/otel/otel-test.yaml
+
+  otel-ingest:
+    <<: *brume-default
+    image: otel/opentelemetry-collector-contrib:latest
+    restart: always
+    container_name: brume-otel
+    command: ["--config", "/etc/otel/otel-ingest.yaml"]
+    ports:
+      - 9910:9910
+    volumes:
+      - ./infra/otel-ingest.yaml:/etc/otel/otel-ingest.yaml
+    depends_on:
+      - clickhouse
+
 networks:
   brume-net:
     driver: bridge

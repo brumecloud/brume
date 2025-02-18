@@ -1,0 +1,31 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:9910
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+
+exporters:
+  debug:
+  clickhouse:
+    endpoint: tcp://clickhouse:9000
+    username: brume
+    password: brumepass
+    database: brume
+    create_schema: true
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse, debug]
+  telemetry:
+    logs:
+      level: debug
+      development: true
+      encoding: json

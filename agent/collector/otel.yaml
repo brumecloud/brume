@@ -1,0 +1,65 @@
+receivers:
+  filelog:
+    include:
+      - /var/lib/docker/containers/*/*-json.log
+    encoding: utf-8
+    fingerprint_size: 1kb
+    force_flush_period: "0"
+    include_file_name: false
+    include_file_path: true
+    max_concurrent_files: 1024
+    max_log_size: 1MiB
+    operators:
+      - id: parser-docker
+        timestamp:
+          layout: "%Y-%m-%dT%H:%M:%S.%LZ"
+          parse_from: attributes.time
+        type: json_parser
+      - id: extract_metadata_from_docker_tag
+        parse_from: attributes.attrs.tag
+        regex: ^(?P<name>[^\|]+)\|(?P<image_name>[^\|]+)\|(?P<id>[^$]+)$
+        type: regex_parser
+        if: "attributes?.attrs?.tag != nil"
+      - from: attributes.name
+        to: resource["dev.brume.service"]
+        type: copy
+        if: "attributes?.name != nil"
+      - from: attributes.name
+        to: resource["docker.container.name"]
+        type: move
+        if: "attributes?.name != nil"
+      - from: attributes.image_name
+        to: resource["docker.image.name"]
+        type: move
+        if: "attributes?.image_name != nil"
+      - from: attributes.id
+        to: resource["docker.container.id"]
+        type: move
+        if: "attributes?.id != nil"
+      - from: attributes.stream
+        to: resource["log.io.stream"]
+        type: move
+      - field: attributes.attrs.tag
+        type: remove
+        if: "attributes?.attrs?.tag != nil"
+      - from: attributes.log
+        to: body
+        type: move
+    poll_interval: 200ms
+    start_at: beginning
+
+# export to the global ingest
+# todo: add a way to authN the logs
+exporters:
+  debug:
+  otlp:
+    endpoint: otel-ingest:9910
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    logs:
+      receivers: [filelog]
+      processors: []
+      exporters: [debug, otlp]

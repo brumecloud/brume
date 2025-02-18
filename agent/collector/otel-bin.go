@@ -59,5 +59,17 @@ func (b *OtelBin) watch() {
 	close(b.waitCh)
 }
 
-func (b *OtelBin) Stop() {
+func (b *OtelBin) Stop() error {
+	if b.cmd == nil || b.cmd.Process == nil {
+		return nil
+	}
+
+	logger.Info().Msg("Stopping otel collector")
+
+	if err := b.cmd.Process.Kill(); err != nil {
+		logger.Error().Err(err).Msg("Failed to kill otel collector")
+		return err
+	}
+
+	return nil
 }
