@@ -8,7 +8,7 @@ type CollectorService struct{}
 
 var logger = log.With().Str("module", "collector").Logger()
 
-var PATH_TO_BINARY = "./"
+var PATH_TO_BINARY = "./bin/otelcol"
 
 func NewCollectorService() *CollectorService {
 	return &CollectorService{}
