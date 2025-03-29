@@ -11,11 +11,10 @@ import (
 	job_model "brume.dev/jobs/model"
 	log_model "brume.dev/logs/model"
 	"github.com/brumecloud/agent/internal/config"
-
-	"github.com/rs/zerolog/log"
+	"github.com/brumecloud/agent/internal/log"
 )
 
-var logger = log.With().Str("module", "intercom").Logger()
+var logger = log.GetLogger("intercom")
 
 type IntercomService struct {
 	cfg *config.AgentConfig

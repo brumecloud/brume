@@ -9,6 +9,7 @@ import (
 	"time"
 
 	runner_model "brume.dev/runner/model"
+	"github.com/brumecloud/agent/internal/log"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -16,13 +17,12 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
 // this is the file doing the docker client interaction
 
-var logger = log.With().Str("module", "docker").Logger()
+var logger = log.GetLogger("docker")
 
 var DockerModule = fx.Module("docker",
 	fx.Provide(NewDockerService),

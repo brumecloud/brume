@@ -13,7 +13,7 @@ type AgentConfig struct {
 	RetryMax        int    `mapstructure:"RETRY_MAX"`
 	Env             string `mapstructure:"ENV"`
 	AgentID         string `mapstructure:"AGENT_ID"`
-	LoopLog         bool   `mapstructure:"LOOP_LOG"`
+	LogFilter       string `mapstructure:"LOG_FILTER"`
 	LogLevel        string `mapstructure:"LOG_LEVEL"`
 }
 
@@ -54,8 +54,9 @@ func SetDefaultConfig() {
 	// infinite retries
 	viper.SetDefault("RETRY_MAX", 0)
 
-	viper.SetDefault("LOOP_LOG", false)
-	viper.SetDefault("LOG_LEVEL", "debug")
+	// comma separated list of modules to log
+	viper.SetDefault("LOG_FILTER", "collector")
+	viper.SetDefault("LOG_LEVEL", "test")
 }
 
 var ConfigModule = fx.Module("config", fx.Provide(LoadAgentConfig), fx.Invoke(func(cfg *AgentConfig) {}))

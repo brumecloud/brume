@@ -5,14 +5,14 @@ import (
 
 	"github.com/brumecloud/agent/internal/config"
 	intercom_service "github.com/brumecloud/agent/internal/intercom"
+	"github.com/brumecloud/agent/internal/log"
 	"github.com/brumecloud/agent/job"
 	"github.com/brumecloud/agent/runner"
 	"github.com/brumecloud/agent/ticker"
-	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
-var logger = log.With().Str("module", "health").Logger()
+var logger = log.GetLogger("health")
 
 type HealthService struct {
 	runnerService *runner.RunnerService

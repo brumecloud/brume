@@ -1,7 +1,7 @@
 package collector
 
 import (
-	"github.com/rs/zerolog/log"
+	"github.com/brumecloud/agent/internal/log"
 	"go.uber.org/fx"
 )
 
@@ -9,7 +9,7 @@ type CollectorService struct {
 	otelBin *OtelBin
 }
 
-var logger = log.With().Str("module", "collector").Logger()
+var logger = log.GetLogger("collector")
 
 var PATH_TO_BINARY = "./bin/otelcol"
 

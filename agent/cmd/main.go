@@ -2,12 +2,13 @@ package main
 
 import (
 	"github.com/brumecloud/agent/internal/injection"
-
-	"github.com/rs/zerolog/log"
+	"github.com/brumecloud/agent/internal/log"
 )
 
+var logger = log.GetLogger("main")
+
 func main() {
-	log.Info().Msg("Starting Brume Agent")
+	logger.Info().Msg("Starting Brume Agent")
 
 	injector := injection.NewAgentInjector()
 	injector.Run()

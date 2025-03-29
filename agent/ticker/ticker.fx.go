@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"github.com/brumecloud/agent/internal/config"
-	"github.com/rs/zerolog/log"
+	"github.com/brumecloud/agent/internal/log"
 	"go.uber.org/fx"
 )
 
-var logger = log.With().Str("module", "ticker").Logger()
+var logger = log.GetLogger("ticker")
 
 type Ticker struct {
 	RapidTicker *time.Ticker

@@ -2,11 +2,6 @@ package docker
 
 import (
 	"context"
-	"encoding/binary"
-	"fmt"
-	"io"
-	"strings"
-	"time"
 
 	job_model "brume.dev/jobs/model"
 	log_model "brume.dev/logs/model"
@@ -116,85 +111,7 @@ func (d *DockerEngineRunner) GetJobStatus(ctx context.Context, runningJob *runni
 }
 
 func (d *DockerEngineRunner) GetJobLogs(ctx context.Context, runningJob *running_job.RunningJob) ([]*log_model.AgentLogs, error) {
-	if runningJob.ContainerID == nil {
-		logger.Error().Str("deploymentId", runningJob.ID).Msg("Container ID is empty")
-		return nil, nil
-	}
-
-	now := time.Now()
-
-	out, err := d.dockerService.GetLogs(*runningJob.ContainerID, runningJob.LastCheckAt)
-	// need to convert the logs to the brume log format
-	if err != nil {
-		return nil, err
-	}
-
-	dockerLogsHeader := []byte{0, 0, 0, 0, 0, 0, 0, 0}
-	// read the logs header
-	n, err := out.Read(dockerLogsHeader)
-	if err != nil {
-		if err == io.EOF {
-			logger.Debug().Str("containerId", runningJob.ID).Msg("No logs to return")
-			return nil, nil
-		}
-
-		logger.Error().Err(err).Str("containerId", runningJob.ID).Msg("Error reading logs header")
-		return nil, err
-	}
-
-	if n != 8 {
-		logger.Error().Str("containerId", runningJob.ID).Msg("Invalid logs header")
-		return nil, fmt.Errorf("invalid logs header")
-	}
-
-	var logType string
-
-	if dockerLogsHeader[0] == 1 {
-		logType = "stdout"
-	} else {
-		logType = "stderr"
-	}
-
-	count := binary.BigEndian.Uint32(dockerLogsHeader[4:8])
-
-	if count == 0 {
-		logger.Debug().Str("containerId", runningJob.ID).Msg("No logs to return")
-		return nil, nil
-	}
-
-	data := make([]byte, count)
-
-	n, err = out.Read(data)
-
-	if n != int(count) {
-		logger.Error().Str("containerId", runningJob.ID).Msg("Error reading logs content")
-		return nil, fmt.Errorf("error reading logs content")
-	}
-
-	if err != nil {
-		logger.Error().Str("containerId", runningJob.ID).Msg("Error reading logs content")
-		return nil, err
-	}
-
-	logsLine := strings.Split(string(data), "\n")
-	logs := make([]*log_model.AgentLogs, 0)
-
-	for _, line := range logsLine {
-		if line == "" {
-			continue
-		}
-
-		fmt.Println("line", line)
-
-		logs = append(logs, &log_model.AgentLogs{
-			JobID:     runningJob.ID,
-			Message:   line,
-			Level:     logType,
-			Timestamp: now.Format(time.RFC3339),
-		})
-	}
-
-	return logs, nil
+	return []*log_model.AgentLogs{}, nil
 }
 
 func (d *DockerEngineRunner) GetRunnerHealth(ctx context.Context) (string, error) {

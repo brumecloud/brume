@@ -2,6 +2,7 @@ package log
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/brumecloud/agent/internal/config"
@@ -12,7 +13,9 @@ import (
 
 var cfg *config.AgentConfig
 
-func GetLogger(module string) zerolog.Logger {
+var logger = RootLogger().With().Str("module", "log").Logger()
+
+func RootLogger() zerolog.Logger {
 	if cfg == nil {
 		cfg = config.LoadAgentConfig()
 	}
@@ -22,7 +25,22 @@ func GetLogger(module string) zerolog.Logger {
 		level = zerolog.DebugLevel
 	}
 
-	return zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(level).With().Str("module", module).Logger()
+	return zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(level)
+}
+
+func GetLogger(module string) zerolog.Logger {
+	// some filter are set
+	if cfg.LogFilter != "" {
+		if strings.Contains(cfg.LogFilter, module) {
+			return RootLogger().With().Str("module", module).Logger()
+		}
+
+		logger.Warn().Str("module", module).Str("log_filter", cfg.LogFilter).Msg("module not in log filters")
+		return zerolog.Nop()
+	} else {
+		// we dont have a log filters
+		return RootLogger().With().Str("module", module).Logger()
+	}
 }
 
 func InitLogger() {

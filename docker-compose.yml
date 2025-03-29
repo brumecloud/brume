@@ -35,10 +35,14 @@ services:
       dockerfile: ./agent/Dockerfile.dev
     command: ["air", "-c", ".air.toml"]
     working_dir: /brume/agent
+    # for the collector to read the logs
+    user: "0"
     volumes:
       - .:/brume
       # to call the local docker daemon
       - /var/run/docker.sock:/var/run/docker.sock
+      # for the collector to read the logs
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
     restart: always
     ports:
       - 9878:9878
@@ -145,16 +149,6 @@ services:
     container_name: brume-redis
     ports:
       - 6379:6379
-
-  otel-test:
-    <<: *brume-default
-    image: otel/opentelemetry-collector-contrib:latest
-    container_name: brume-otel-test
-    command: ["--config", "/etc/otel/otel-test.yaml"]
-    user: "0"
-    volumes:
-      - ./agent/collector/otel.yaml:/etc/otel/otel-test.yaml
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
 
   otel-ingest:
     <<: *brume-default
