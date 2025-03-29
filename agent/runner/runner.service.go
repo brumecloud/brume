@@ -9,11 +9,11 @@ import (
 	runner_model "brume.dev/runner/model"
 	"github.com/brumecloud/agent/container/docker"
 	runner_interfaces "github.com/brumecloud/agent/container/interfaces"
+	"github.com/brumecloud/agent/internal/log"
 	running_job "github.com/brumecloud/agent/job/model"
-	"github.com/rs/zerolog/log"
 )
 
-var logger = log.With().Str("module", "runner").Logger()
+var logger = log.GetLogger("runner")
 
 type RunnerService struct {
 	dockerRunner *docker.DockerEngineRunner

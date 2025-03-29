@@ -9,12 +9,11 @@ import (
 	runner_interfaces "github.com/brumecloud/agent/container/interfaces"
 	"github.com/brumecloud/agent/internal/config"
 	intercom_service "github.com/brumecloud/agent/internal/intercom"
+	"github.com/brumecloud/agent/internal/log"
 	job_model "github.com/brumecloud/agent/job/model"
 	runner_service "github.com/brumecloud/agent/runner"
 	"github.com/brumecloud/agent/ticker"
 	"go.uber.org/fx"
-
-	"github.com/rs/zerolog/log"
 )
 
 type JobService struct {
@@ -26,7 +25,7 @@ type JobService struct {
 	runner   *runner_service.RunnerService
 }
 
-var logger = log.With().Str("module", "job").Logger()
+var logger = log.GetLogger("job")
 
 func NewJobService(lc fx.Lifecycle, runner *runner_service.RunnerService, cfg *config.AgentConfig, ticker *ticker.Ticker, intercom *intercom_service.IntercomService) *JobService {
 	j := &JobService{

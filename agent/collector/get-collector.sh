@@ -1,5 +1,5 @@
 VERSION=0.122.1
-OS=darwin_arm64
+OS=linux_amd64
 URL=https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${VERSION}/otelcol-contrib_${VERSION}_${OS}.tar.gz
 HERE=$(pwd)
 
@@ -15,6 +15,7 @@ tar -xzvf /tmp/otelcol-contrib_${VERSION}_${OS}.tar.gz -C /tmp/otelcol
 
 echo "Moving otel-bin to ${HERE}/bin/otelcol"
 
+mkdir -p ${HERE}/bin
 mv /tmp/otelcol/otelcol-contrib ${HERE}/bin/otelcol
 
 echo "Cleaning up"

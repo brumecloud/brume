@@ -1,6 +1,7 @@
 package injection
 
 import (
+	fx_collector "github.com/brumecloud/agent/collector/fx"
 	fx_docker "github.com/brumecloud/agent/container/docker"
 	fx_container "github.com/brumecloud/agent/container/fx"
 	fx_health "github.com/brumecloud/agent/health/fx"
@@ -23,7 +24,7 @@ func NewAgentInjector() *GlobalInjector {
 	log.Info().Msg("Initializing agent injector")
 
 	app := fx.New(
-		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger())),
+		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger("fx"))),
 		fx_config.ConfigModule,
 		fx_docker.DockerModule,
 		fx_intercom.IntercomModule,
@@ -32,6 +33,7 @@ func NewAgentInjector() *GlobalInjector {
 		fx_ticker.TickerModule,
 		fx_container.ContainerModule,
 		fx_job.JobModule,
+		fx_collector.CollectorModule,
 	)
 
 	return &GlobalInjector{

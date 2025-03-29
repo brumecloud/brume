@@ -151,8 +151,10 @@ services:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: brume-otel-test
     command: ["--config", "/etc/otel/otel-test.yaml"]
+    user: "0"
     volumes:
       - ./agent/collector/otel.yaml:/etc/otel/otel-test.yaml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
 
   otel-ingest:
     <<: *brume-default
