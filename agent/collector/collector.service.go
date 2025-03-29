@@ -11,7 +11,7 @@ type CollectorService struct {
 
 var logger = log.GetLogger("collector")
 
-var PATH_TO_BINARY = "./bin/otelcol"
+var PATH_TO_BINARY = "/brume/agent/collector/bin/otelcol"
 
 func NewCollectorService(lc fx.Lifecycle) *CollectorService {
 	collector := &CollectorService{

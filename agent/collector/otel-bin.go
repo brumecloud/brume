@@ -1,8 +1,8 @@
 package collector
 
 import (
+	"bufio"
 	"context"
-	"os"
 	"os/exec"
 	"sync/atomic"
 
@@ -18,23 +18,43 @@ type OtelBin struct {
 	running int64
 }
 
-const DEFAULT_BINARY_PATH = "./bin/otelcol"
-
 func NewOtelBin() *OtelBin {
 	return &OtelBin{
 		// use the logger from the collector service
 		logger: &logger,
 		doneCh: make(chan struct{}),
+		args:   []string{"--config", "/brume/agent/collector/otel.yaml"},
 	}
 }
 
 func (b *OtelBin) Start() error {
 	logger.Info().Msg("Starting otel collector")
 
-	b.cmd = exec.CommandContext(context.Background(), DEFAULT_BINARY_PATH, b.args...)
+	b.cmd = exec.CommandContext(context.Background(), PATH_TO_BINARY, b.args...)
 
-	b.cmd.Stdout = os.Stdout
-	b.cmd.Stderr = os.Stderr
+	stdoutPipe, err := b.cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	stderrPipe, err := b.cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		scanner := bufio.NewScanner(stdoutPipe)
+		for scanner.Scan() {
+			b.logger.Info().Msg(scanner.Text())
+		}
+	}()
+
+	go func() {
+		scanner := bufio.NewScanner(stderrPipe)
+		for scanner.Scan() {
+			b.logger.Warn().Msg(scanner.Text())
+		}
+	}()
 
 	b.waitCh = make(chan struct{}, 1)
 	b.doneCh = make(chan struct{})
@@ -43,7 +63,6 @@ func (b *OtelBin) Start() error {
 		logger.Error().Err(err).Msg("Failed to start otel collector")
 	}
 
-	logger.Info().Msg("Otel collector started")
 	atomic.StoreInt64(&b.running, 1)
 
 	go b.watch()
@@ -63,8 +82,6 @@ func (b *OtelBin) Stop() error {
 	if b.cmd == nil || b.cmd.Process == nil {
 		return nil
 	}
-
-	logger.Info().Msg("Stopping otel collector")
 
 	if err := b.cmd.Process.Kill(); err != nil {
 		logger.Error().Err(err).Msg("Failed to kill otel collector")

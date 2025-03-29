@@ -7,4 +7,5 @@ import (
 
 var CollectorModule = fx.Module("collector",
 	fx.Provide(collector.NewCollectorService),
+	fx.Invoke(func(c *collector.CollectorService) {}),
 )

@@ -15,38 +15,31 @@ receivers:
           layout: "%Y-%m-%dT%H:%M:%S.%LZ"
           parse_from: attributes.time
         type: json_parser
-      - id: extract_metadata_from_docker_tag
-        parse_from: attributes.attrs.tag
-        regex: ^(?P<name>[^\|]+)\|(?P<image_name>[^\|]+)\|(?P<id>[^$]+)$
+      - id: message
+        type: move
+        from: attributes.log
+        to: attributes.body
+      - id: container_id
         type: regex_parser
-        if: "attributes?.attrs?.tag != nil"
-      - from: attributes.name
-        to: resource["dev.brume.service"]
-        type: copy
-        if: "attributes?.name != nil"
-      - from: attributes.name
-        to: resource["docker.container.name"]
+        regex: '\/var\/lib\/docker\/containers\/(?P<container_id>[^_]+)\/.*'
+        parse_from: attributes["log.file.path"]
+        extract: [container_id]
+      - id: container_id_move
         type: move
-        if: "attributes?.name != nil"
-      - from: attributes.image_name
-        to: resource["docker.image.name"]
+        from: attributes.container_id
+        to: attributes.container_id
+      - id: level_str
         type: move
-        if: "attributes?.image_name != nil"
-      - from: attributes.id
-        to: resource["docker.container.id"]
+        from: attributes.stream
+        to: attributes.level
+        if: "attributes?.stream != nil"
+      - id: level
         type: move
-        if: "attributes?.id != nil"
-      - from: attributes.stream
-        to: resource["log.io.stream"]
-        type: move
-      - field: attributes.attrs.tag
-        type: remove
-        if: "attributes?.attrs?.tag != nil"
-      - from: attributes.log
-        to: body
-        type: move
+        from: attributes.level
+        to: attributes.level
+        if: "attributes?.level != nil"
     poll_interval: 200ms
-    start_at: beginning
+    start_at: end
 
 # export to the global ingest
 # todo: add a way to authN the logs
@@ -62,4 +55,4 @@ service:
     logs:
       receivers: [filelog]
       processors: []
-      exporters: [debug, otlp]
+      exporters: [otlp]
