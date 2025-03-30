@@ -156,7 +156,7 @@ func (i *IntercomService) sendRequest(method, url string, body []byte) ([]byte, 
 		return nil, err
 	}
 
-	logger.Info().Str("method", method).Str("url", url).Msg("Sending request")
+	logger.Trace().Str("method", method).Str("url", url).Msg("Sending request")
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+i.GenerateToken())
