@@ -2,30 +2,49 @@ package log
 
 import (
 	"os"
+	"strings"
 	"time"
 
+	"brume.dev/internal/config"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/rs/zerolog/pkgerrors"
 	"go.temporal.io/sdk/log"
 )
 
-func GetLogger(module string) zerolog.Logger {
-	return GetMainLogger().With().Str("module", module).Timestamp().Logger()
-}
+var cfg *config.BrumeConfig
 
-func GetMainLogger() zerolog.Logger {
-	return zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
-}
+var logger = RootLogger().With().Str("module", "log").Logger()
 
-func InitLogger() {
+func RootLogger() zerolog.Logger {
 	zerolog.TimeFieldFormat = time.RFC3339Nano
 	zerolog.DurationFieldUnit = time.Nanosecond
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 
-	_ = os.Mkdir("logs", os.ModePerm)
+	if cfg == nil {
+		cfg = config.LoadBrumeConfig()
+	}
 
-	zlog.Logger = GetMainLogger()
+	level, err := zerolog.ParseLevel(cfg.LogConfig.LogLevel)
+	if err != nil {
+		level = zerolog.DebugLevel
+	}
+
+	return zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(level)
+}
+
+func GetLogger(module string) zerolog.Logger {
+	if cfg.LogConfig.Filter != "" {
+		if strings.Contains(cfg.LogConfig.Filter, module) {
+			return RootLogger().With().Str("module", module).Logger()
+		}
+
+		logger.Warn().Str("module", module).Str("log_filter", cfg.LogConfig.Filter).Msg("module not in log filters")
+		return zerolog.Nop()
+	} else {
+		// we dont have a log filters
+		return RootLogger().With().Str("module", module).Logger()
+	}
 }
 
 // TemporalZeroLogger implements temporal's log.Logger interface using zerolog

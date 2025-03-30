@@ -9,7 +9,6 @@ import (
 
 	"github.com/briandowns/spinner"
 	"github.com/manifoldco/promptui"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -101,7 +100,7 @@ func emailPassword() error {
 		return err
 	}
 
-	log.Debug().Str("token", token)
+	logger.Debug().Str("token", token)
 
 	fmt.Println("Login successful 🎉")
 	return nil

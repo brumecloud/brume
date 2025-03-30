@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"brume.dev/internal/log"
 	"github.com/go-playground/validator/v10"
+	"github.com/rs/zerolog"
+	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
@@ -13,6 +14,7 @@ import (
 type LogConfig struct {
 	LogLevel   string `mapstructure:"level" validate:"required,oneof=debug info warn error"`
 	DBLogLevel string `mapstructure:"db_level" validate:"required,oneof=silent error warn info"`
+	Filter     string `mapstructure:"filter" validate:"required,comma_separated_list"`
 }
 
 type ServerConfig struct {
@@ -67,7 +69,9 @@ type BrumeConfig struct {
 	PostgresConfig   PostgresConfig   `mapstructure:"postgres" validate:"required"`
 }
 
-var logger = log.GetLogger("config")
+// we want to avoid import cycle
+// this is the only logger using directly the zerolog package
+var logger = zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
 
 func LoadBrumeConfig() *BrumeConfig {
 	cfg := &BrumeConfig{}
@@ -98,8 +102,6 @@ func LoadBrumeConfig() *BrumeConfig {
 		}
 		os.Exit(1)
 	}
-
-	logger.Info().Interface("config", cfg).Msg("Loaded config")
 
 	return cfg
 }

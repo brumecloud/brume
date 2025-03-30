@@ -1,16 +1,26 @@
+# everything related to logging
 [log]
 level = "debug"
 db_level = "info"
 
+# can be one of
+# - "*" for all logs
+# - "account.user" for the user service
+# - "account.org" for the organization service
+filter = "*"
+
+# ticker configuration
 [ticker]
 rapid_ticker = 5
 
+# all servers running on the orchestrator
 [server]
 host = "0.0.0.0"
 orchestrator_port = 9876
 graphql_port = 9877
 grpc_port = 9878
 
+# postgres configuration
 [postgres]
 host = "postgres"
 port = 5432
@@ -20,16 +30,19 @@ password = "brumepass"
 max_idle = 1
 max_open = 1
 
+# redis configuration
 [redis]
 host = "redis"
 port = 6379
 db = 0
 password = ""
 
+# temporal configuration
 [temporal]
 host = "temporal"
 port = 7233
 
+# clickhouse configuration
 [clickhouse]
 host = "clickhouse"
 port = 9000
