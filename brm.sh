@@ -9,7 +9,7 @@ start() {
 
 stop() {
     echo "BRUME STOPPING..."
-    remove_jobs
+    remove_jobs > /dev/null 2>&1
     cd ~/brume && docker compose down
 }
 
@@ -20,7 +20,8 @@ restart() {
 
 remove_jobs() {
     # remove all jobs launched by brume
-    docker ps -f label=brume.dev/managed=true -q | xargs docker rm -f > /dev/null 2>&1
+    # if we have contaiern we delete
+    docker ps -f label=brume.dev/managed=true -q | ifne xargs docker rm -f
 }
 
 show_jobs() {
@@ -33,7 +34,7 @@ nuke() {
     # remove all containers launched by brume
     echo "BRUME NUKING EVERYTHING..."
     stop > /dev/null 2>&1
-    remove_jobs
+    remove_jobs > /dev/null 2>&1
     cd ~/brume && docker compose down -v
 }
 
