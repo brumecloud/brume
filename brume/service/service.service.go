@@ -241,3 +241,9 @@ func (s *ServiceService) CreateService(name string, projectId uuid.UUID, image s
 
 	return service, err
 }
+
+func (s *ServiceService) GetServiceJobs(serviceId uuid.UUID) ([]*job_model.Job, error) {
+	jobs := []*job_model.Job{}
+	err := s.db.Gorm.Where("service_id = ?", serviceId).Find(&jobs).Error
+	return jobs, err
+}
