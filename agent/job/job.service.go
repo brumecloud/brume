@@ -77,10 +77,17 @@ func (j *JobService) FastTickerRun(ctx context.Context, tick int) error {
 		for _, job := range runningJobs {
 			runningJobsStatus[job.JobID] = brume_job.JobStatus{
 				Status: job.Status,
+				JobID:  job.JobID,
 			}
 		}
 
-		j.intercom.SendRunningJobsHealth(runningJobsStatus)
+		logger.Info().Interface("runningJobsStatus", runningJobsStatus).Msg("Sending jobs health")
+
+		err := j.intercom.SendJobsHealth(runningJobsStatus)
+
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to send jobs health")
+		}
 	}()
 
 	return nil
@@ -195,11 +202,9 @@ func (j *JobService) SpawnJob(ctx context.Context, job *brume_job.Job) error {
 	// inform the orchestrator that the job is running
 	// this is also used to update the orchestrator about the container id
 	// which is used later to filter the logs
-	go func() {
-		_ = j.intercom.SendJobMetadata(context.Background(), job.ID.String(), brume_job.JobMetadata{
-			ContainerID: containerID,
-		})
-	}()
+	_ = j.intercom.SendJobMetadata(context.Background(), job.ID.String(), brume_job.JobMetadata{
+		ContainerID: containerID,
+	})
 
 	return nil
 }

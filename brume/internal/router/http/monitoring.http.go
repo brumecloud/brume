@@ -99,14 +99,8 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 		}
 
 		go func() {
-			for jobID, status := range req.Status {
-				jobID, err := uuid.Parse(jobID)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-
-				err = m.jobService.SetJobStatus(jobID, status.Status)
+			for jobID := range req.Status {
+				err := m.jobService.SetJobHealth(jobID)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				}

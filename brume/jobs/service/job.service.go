@@ -87,9 +87,8 @@ func (s *JobService) GetJobHealth(jobID string) (job_model.JobStatusEnum, error)
 // set the job status in the database
 func (s *JobService) SetJobStatus(jobID uuid.UUID, status job_model.JobStatusEnum) error {
 	err := s.db.Gorm.Model(&job_model.Job{
-		ID:     jobID,
-		Status: status,
-	}).Error
+		ID: jobID,
+	}).Update("status", status).Error
 	jobLogger.Trace().Str("job_id", jobID.String()).Str("status", string(status)).Msg("Setting job status")
 	return err
 }
@@ -98,7 +97,7 @@ func (s *JobService) SetJobContainerID(jobID uuid.UUID, containerID string) erro
 	err := s.db.Gorm.Model(&job_model.Job{
 		ID:          jobID,
 		ContainerID: &containerID,
-	}).Error
+	}).Update("container_id", containerID).Error
 	jobLogger.Trace().Str("job_id", jobID.String()).Str("container_id", containerID).Msg("Setting job container id")
 	return err
 }

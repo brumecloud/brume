@@ -61,14 +61,21 @@ type PostgresConfig struct {
 	MaxOpen  int    `mapstructure:"max_open" validate:"required,min=1"`
 }
 
+type OrchestratorConfig struct {
+	UnhealthyMachineThreshold int   `mapstructure:"unhealthy_machine_threshold" validate:"required,min=1"`
+	UnhealthyJobThreshold     int   `mapstructure:"unhealthy_job_threshold" validate:"required,min=1"`
+	RescheduleJobs            *bool `mapstructure:"reschedule_jobs" validate:"required,boolean"`
+}
+
 type BrumeConfig struct {
-	LogConfig        LogConfig        `mapstructure:"log" validate:"required"`
-	ServerConfig     ServerConfig     `mapstructure:"server" validate:"required"`
-	TickerConfig     TickerConfig     `mapstructure:"ticker" validate:"required"`
-	ClickhouseConfig ClickhouseConfig `mapstructure:"clickhouse" validate:"required"`
-	RedisConfig      RedisConfig      `mapstructure:"redis" validate:"required"`
-	TemporalConfig   TemporalConfig   `mapstructure:"temporal" validate:"required"`
-	PostgresConfig   PostgresConfig   `mapstructure:"postgres" validate:"required"`
+	LogConfig          LogConfig          `mapstructure:"log" validate:"required"`
+	ServerConfig       ServerConfig       `mapstructure:"server" validate:"required"`
+	TickerConfig       TickerConfig       `mapstructure:"ticker" validate:"required"`
+	ClickhouseConfig   ClickhouseConfig   `mapstructure:"clickhouse" validate:"required"`
+	RedisConfig        RedisConfig        `mapstructure:"redis" validate:"required"`
+	TemporalConfig     TemporalConfig     `mapstructure:"temporal" validate:"required"`
+	PostgresConfig     PostgresConfig     `mapstructure:"postgres" validate:"required"`
+	OrchestratorConfig OrchestratorConfig `mapstructure:"orchestrator" validate:"required"`
 }
 
 // we want to avoid import cycle

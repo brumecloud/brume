@@ -4,6 +4,7 @@ import (
 	"time"
 
 	deployment_model "brume.dev/deployment/model"
+	"brume.dev/internal/config"
 	"brume.dev/internal/log"
 	temporal_constants "brume.dev/internal/temporal/constants"
 	job_model "brume.dev/jobs/model"
@@ -13,7 +14,6 @@ import (
 )
 
 const (
-	JobUnhealthyCounter    = 3
 	JobFailedCounter       = 5
 	ReadynessCheckInterval = time.Second * 3
 	StatusCheckInterval    = time.Second * 3
@@ -23,10 +23,11 @@ var logger = log.GetLogger("deployment.workflow")
 
 type DeploymentWorkflow struct {
 	jobService *job_service.JobService
+	cfg        *config.BrumeConfig
 }
 
-func NewDeploymentWorkflow(jobService *job_service.JobService) *DeploymentWorkflow {
-	return &DeploymentWorkflow{jobService: jobService}
+func NewDeploymentWorkflow(jobService *job_service.JobService, cfg *config.BrumeConfig) *DeploymentWorkflow {
+	return &DeploymentWorkflow{jobService: jobService, cfg: cfg}
 }
 
 // This workflow is used to deploy a version of a service, making
@@ -62,7 +63,7 @@ func (d *DeploymentWorkflow) DeploymentWorkflow(ctx workflow.Context, deployment
 		logger.Info().Str("deploymentId", deployment.ID.String()).Int("unhealthyCounter", unhealthyCounter).Msg("Unhealthy job signal received")
 
 		// TODO find a way to restart the counter when the job is back
-		if unhealthyCounter >= JobUnhealthyCounter {
+		if unhealthyCounter >= d.cfg.OrchestratorConfig.UnhealthyJobThreshold {
 			d.jobService.SetJobStatus(job.ID, job_model.JobStatusEnumUnhealthy)
 			logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Unhealthy counter is greater than 3, setting job status to unhealthy")
 		}
@@ -91,7 +92,12 @@ func (d *DeploymentWorkflow) DeploymentWorkflow(ctx workflow.Context, deployment
 			return unhealthyCounter >= JobFailedCounter || shouldStop
 		})
 
-		if unhealthyCounter >= JobUnhealthyCounter {
+		if unhealthyCounter >= d.cfg.OrchestratorConfig.UnhealthyJobThreshold {
+			if !*d.cfg.OrchestratorConfig.RescheduleJobs {
+				logger.Warn().Msg("Will not reschedule job because of user configuration")
+				return nil
+			}
+
 			logger.Info().Str("deploymentId", deployment.ID.String()).Msg("Unhealthy counter is greater than 3, starting bidding workflow")
 			newJob, err := d.jobService.CreateJob(deployment, workflowID, runID)
 			if err != nil {

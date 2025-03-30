@@ -135,6 +135,7 @@ func (d *DockerService) GetAllRunningContainers() ([]types.Container, error) {
 		All:     true,
 		Filters: filters.NewArgs(filters.Arg("label", "brume.dev/managed"), filters.Arg("status", "running")),
 	})
+
 	if err != nil {
 		return nil, err
 	}

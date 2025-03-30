@@ -62,8 +62,11 @@ func (d *DockerEngineRunner) StopJob(ctx context.Context, runningJob *running_jo
 func (d *DockerEngineRunner) GetAllRunningJobs() (map[string]runner_interfaces.ContainerStatusResult, error) {
 	containers, err := d.dockerService.GetAllRunningContainers()
 	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get all running containers")
 		return nil, err
 	}
+
+	logger.Info().Int("containers", len(containers)).Msg("Got all running containers")
 
 	runningJobs := make(map[string]runner_interfaces.ContainerStatusResult)
 

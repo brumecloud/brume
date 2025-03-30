@@ -38,7 +38,7 @@ func NewHealthService(lc fx.Lifecycle, runnerService *runner.RunnerService, jobS
 							logger.Error().Err(err).Msg("Failed to get runner health")
 						}
 
-						err = intercom.SendHealth(health)
+						err = intercom.SendMachineHealth(health)
 						if err != nil {
 							logger.Error().Err(err).Msg("Failed to send health")
 						}

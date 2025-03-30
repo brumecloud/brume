@@ -10,7 +10,6 @@ import (
 	"net/http"
 
 	job_model "brume.dev/jobs/model"
-	log_model "brume.dev/logs/model"
 	"github.com/brumecloud/agent/internal/config"
 	"github.com/brumecloud/agent/internal/log"
 )
@@ -28,6 +27,7 @@ func NewIntercomService(cfg *config.GeneralConfig) *IntercomService {
 }
 
 func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job, bid int) (bool, error) {
+	logger.Info().Str("job_id", job.ID.String()).Msg("Placing bid to orchestrator")
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"job_id": job.ID,
 		"bid":    bid,
@@ -54,6 +54,7 @@ func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job, bid 
 }
 
 func (i *IntercomService) GetJobs(ctx context.Context) ([]*job_model.Job, error) {
+	logger.Info().Msg("Getting jobs from orchestrator")
 	body, err := i.sendRequest("GET", i.cfg.Orchestrator.URL+"/scheduler/v1/job", nil)
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to get jobs")
@@ -70,7 +71,10 @@ func (i *IntercomService) GetJobs(ctx context.Context) ([]*job_model.Job, error)
 	return jobs, nil
 }
 
+// Get the job status from the orchestrator
+// this is used to see if the job should be stopped
 func (i *IntercomService) GetJobStatus(ctx context.Context, jobID string) (*job_model.JobStatus, error) {
+	logger.Info().Str("job_id", jobID).Msg("Getting job status to orchestrator")
 	body, err := i.sendRequest("GET", i.cfg.Orchestrator.URL+"/scheduler/v1/job/"+jobID, nil)
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to get job status")
@@ -87,14 +91,16 @@ func (i *IntercomService) GetJobStatus(ctx context.Context, jobID string) (*job_
 	return jobStatus, nil
 }
 
-// this route is used to release a job from the agent
+// Release a job from the agent
+// Send a request to the orchestrator informing that the job is no longer running on the machine
 func (i *IntercomService) ReleaseJob(ctx context.Context, jobID string) error {
 	_, err := i.sendRequest("POST", i.cfg.Orchestrator.URL+"/scheduler/v1/release/"+jobID, nil)
 	return err
 }
 
-// this route is used to update the status of one job
+// Send the job metadata to the orchestrator
 func (i *IntercomService) SendJobMetadata(ctx context.Context, jobID string, metadata job_model.JobMetadata) error {
+	logger.Info().Str("job_id", jobID).Msg("Sending job metadata to orchestrator")
 	jsonData, err := json.Marshal(metadata)
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to marshal job status")
@@ -105,9 +111,8 @@ func (i *IntercomService) SendJobMetadata(ctx context.Context, jobID string, met
 	return err
 }
 
-// this route is used to update the status of all the running jobs
-// and thus, also the health of the agent
-func (i *IntercomService) SendRunningJobsHealth(jobHealth map[string]job_model.JobStatus) error {
+// Send in batch the health of all the jobs running on the machine
+func (i *IntercomService) SendJobsHealth(jobHealth map[string]job_model.JobStatus) error {
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"machine_id": i.cfg.MachineID,
@@ -122,7 +127,8 @@ func (i *IntercomService) SendRunningJobsHealth(jobHealth map[string]job_model.J
 	return err
 }
 
-func (i *IntercomService) SendHealth(generalHealth string) error {
+// Send the health of the machine to the orchestrator
+func (i *IntercomService) SendMachineHealth(generalHealth string) error {
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"machine_id": i.cfg.MachineID,
@@ -137,39 +143,20 @@ func (i *IntercomService) SendHealth(generalHealth string) error {
 	return err
 }
 
-func (i *IntercomService) SendLogs(logs []*log_model.AgentLogs) {
-	logs_request := map[string]interface{}{
-		"logs":       logs,
-		"machine_id": i.cfg.MachineID,
-	}
-
-	jsonData, err := json.Marshal(logs_request)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to marshal logs data")
-		return
-	}
-
-	_, err = i.sendRequest("POST", i.cfg.Orchestrator.URL+"/monitoring/v1/jobs/logs", jsonData)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to send logs to orchestrator")
-		return
-	}
-}
-
-func (i *IntercomService) SendJobHealth(health map[string]bool) {
-}
-
 // this token is generated using the current time,
 // sign using the agent private key
 func (i *IntercomService) GenerateToken() string {
 	return "TEST"
 }
 
+// private function to send a request to the orchestrator
 func (i *IntercomService) sendRequest(method, url string, body []byte) ([]byte, error) {
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Info().Str("method", method).Str("url", url).Msg("Sending request")
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+i.GenerateToken())

@@ -25,6 +25,11 @@ db_level = "info"
 allowed_modules = "*"
 muted_modules = "machine.workflow"
 
+[orchestrator]
+unhealthy_machine_threshold = 10
+unhealthy_job_threshold = 10
+reschedule_jobs = false
+
 # ticker configuration
 [ticker]
 rapid_ticker = 5
