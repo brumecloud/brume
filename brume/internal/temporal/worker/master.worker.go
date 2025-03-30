@@ -15,7 +15,7 @@ import (
 
 type MasterWorker struct{}
 
-var logger = log.GetLogger("temporal_worker")
+var logger = log.GetLogger("temporal.worker")
 
 func StartMasterWorker(temporalClient client.Client, logActivity *brume_log.LogActivity, deploymentWorkflow *deployment_workflow.DeploymentWorkflow, biddingWorkflow *bid_workflow.BiddingWorkflow, machineWorkflow *machine_workflow.MachineWorkflow) *MasterWorker {
 	w := worker.New(temporalClient, temporal_constants.MasterTaskQueue, worker.Options{})

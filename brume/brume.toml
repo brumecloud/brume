@@ -3,10 +3,24 @@
 level = "debug"
 db_level = "info"
 
-# can be one of
+# can be a comma separated list of
 # - "*" for all logs
 # - "account.user" for the user service
 # - "account.org" for the organization service
+# - "builder" for the builder service
+# - "deployment" for the deployment service
+# - "deployment.workflow" for the deployment workflow
+# - "clickhouse" for the clickhouse service
+# - "authentification" for the authentification (token & authN) service
+# - "db" for postgres
+# - "fx" for uber fx injector
+# - "redis" for redis
+# - "grpc" for grpc
+# - "http" for http
+# - "graphql.public" for the public graphql
+# - "temporal.client" for the temporal client
+# - "temporal.worker" for the temporal worker
+# - "ticker" for the ticker
 filter = "*"
 
 # ticker configuration

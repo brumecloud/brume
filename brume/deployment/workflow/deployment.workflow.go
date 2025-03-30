@@ -19,7 +19,7 @@ const (
 	StatusCheckInterval    = time.Second * 3
 )
 
-var logger = log.GetLogger("deployment_workflow")
+var logger = log.GetLogger("deployment.workflow")
 
 type DeploymentWorkflow struct {
 	jobService *job_service.JobService
@@ -35,6 +35,8 @@ func NewDeploymentWorkflow(jobService *job_service.JobService) *DeploymentWorkfl
 // This is responsible for the health of the service. Not logs and metrics. This is done
 // at the machine scrapping level.
 func (d *DeploymentWorkflow) DeploymentWorkflow(ctx workflow.Context, deployment *deployment_model.Deployment) error {
+	logger.Trace().Str("deployment_id", deployment.ID.String()).Msg("Starting deployment workflow")
+
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
 	// create a job for the deployment
@@ -132,6 +134,8 @@ func (d *DeploymentWorkflow) DeploymentWorkflow(ctx workflow.Context, deployment
 }
 
 func (d *DeploymentWorkflow) startBidding(ctx workflow.Context, job *job_model.Job) error {
+	logger.Trace().Str("job_id", job.ID.String()).Msg("Starting bidding workflow")
+
 	biddingWorkflowOpts := workflow.ChildWorkflowOptions{
 		TaskQueue: temporal_constants.MasterTaskQueue,
 	}

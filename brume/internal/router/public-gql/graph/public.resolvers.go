@@ -12,6 +12,7 @@ import (
 	user_model "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
+	brume_log "brume.dev/internal/log"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	log_model "brume.dev/logs/model"
@@ -21,6 +22,8 @@ import (
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 )
+
+var logger = brume_log.GetLogger("graphql.public")
 
 // ID is the resolver for the id field.
 func (r *deploymentResolver) ID(ctx context.Context, obj *deployment_model.Deployment) (string, error) {
@@ -90,19 +93,24 @@ func (r *machineResolver) ID(ctx context.Context, obj *machine_model.Machine) (s
 
 // CreateProject is the resolver for the createProject field.
 func (r *mutationResolver) CreateProject(ctx context.Context, name string, description *string) (*project_model.Project, error) {
+	logger.Trace().Str("name", name).Str("description", *description).Msg("Creating project")
+
 	currentUser := ctx.Value("user").(string)
 	user, err := r.UserService.GetUserByEmail(currentUser)
 	if err != nil {
+		logger.Error().Err(err).Str("currentUser", currentUser).Msg("Failed to get user by email")
 		return nil, err
 	}
 
 	org, err := r.UserService.GetUserOrganization(user)
 	if err != nil {
+		logger.Error().Err(err).Str("currentUser", currentUser).Msg("Failed to get user organization")
 		return nil, err
 	}
 
 	project, err := r.ProjectService.CreateProject(name, *description)
 	if err != nil {
+		logger.Error().Err(err).Str("currentUser", currentUser).Msg("Failed to create project")
 		return nil, err
 	}
 
@@ -111,25 +119,37 @@ func (r *mutationResolver) CreateProject(ctx context.Context, name string, descr
 
 // AddServiceToProject is the resolver for the addServiceToProject field.
 func (r *mutationResolver) AddServiceToProject(ctx context.Context, projectID string, input public_graph_model.CreateServiceInput) (*service_model.Service, error) {
+	logger.Trace().Str("projectID", projectID).Str("input", input.Name).Msg("Adding service to project")
+
 	service, err := r.ServiceService.CreateService(input.Name, uuid.MustParse(projectID), input.Image)
 	if err != nil {
+		logger.Error().Err(err).Str("projectID", projectID).Str("input", input.Name).Msg("Failed to create service")
 		return nil, err
 	}
 
 	project, perr := r.ProjectService.GetProjectByID(uuid.MustParse(projectID))
 
 	if perr != nil {
+		logger.Error().Err(perr).Str("projectID", projectID).Str("input", input.Name).Msg("Failed to get project")
 		return nil, perr
 	}
 
 	_, err = r.ProjectService.AddServiceToProject(project, service)
-	return service, err
+	if err != nil {
+		logger.Error().Err(err).Str("projectID", projectID).Str("input", input.Name).Msg("Failed to add service to project")
+		return nil, err
+	}
+
+	return service, nil
 }
 
 // DeleteService is the resolver for the deleteService field.
 func (r *mutationResolver) DeleteService(ctx context.Context, serviceID string) (*service_model.Service, error) {
+	logger.Trace().Str("serviceID", serviceID).Msg("Deleting service")
+
 	service_uuid, err := uuid.Parse(serviceID)
 	if err != nil {
+		logger.Error().Err(err).Str("serviceID", serviceID).Msg("Failed to parse serviceID")
 		return nil, err
 	}
 
@@ -138,8 +158,11 @@ func (r *mutationResolver) DeleteService(ctx context.Context, serviceID string) 
 
 // UpdateServiceSettings is the resolver for the updateServiceSettings field.
 func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID string, input public_graph_model.ServiceSettingsInput) (*service_model.Service, error) {
+	logger.Trace().Str("serviceID", serviceID).Str("input", input.Name).Msg("Updating service settings")
+
 	service_uuid, err := uuid.Parse(serviceID)
 	if err != nil {
+		logger.Error().Err(err).Str("serviceID", serviceID).Msg("Failed to parse serviceID")
 		return nil, err
 	}
 
@@ -148,8 +171,11 @@ func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID 
 
 // UpdateBuilder is the resolver for the updateBuilder field.
 func (r *mutationResolver) UpdateBuilder(ctx context.Context, serviceID string, data public_graph_model.BuilderDataInput) (*builder_model.Builder, error) {
+	logger.Trace().Str("serviceID", serviceID).Str("input", data.Image).Msg("Updating builder")
+
 	service_uuid, err := uuid.Parse(serviceID)
 	if err != nil {
+		logger.Error().Err(err).Str("serviceID", serviceID).Msg("Failed to parse serviceID")
 		return nil, err
 	}
 
@@ -164,8 +190,11 @@ func (r *mutationResolver) UpdateBuilder(ctx context.Context, serviceID string, 
 
 // UpdateRunner is the resolver for the updateRunner field.
 func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, data public_graph_model.RunnerDataInput) (*runner_model.Runner, error) {
+	logger.Trace().Str("serviceID", serviceID).Str("input", data.Command).Msg("Updating runner")
+
 	service_uuid, err := uuid.Parse(serviceID)
 	if err != nil {
+		logger.Error().Err(err).Str("serviceID", serviceID).Msg("Failed to parse serviceID")
 		return nil, err
 	}
 
@@ -193,8 +222,11 @@ func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, d
 
 // DeleteDraft is the resolver for the deleteDraft field.
 func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error) {
+	logger.Trace().Str("projectID", projectID).Msg("Deleting draft")
+
 	project_uuid, err := uuid.Parse(projectID)
 	if err != nil {
+		logger.Error().Err(err).Str("projectID", projectID).Msg("Failed to parse projectID")
 		return nil, err
 	}
 
@@ -203,8 +235,11 @@ func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*
 
 // DeployProject is the resolver for the deployProject field.
 func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) (*project_model.Project, error) {
+	logger.Trace().Str("projectID", projectID).Msg("Deploying project")
+
 	project_uuid, err := uuid.Parse(projectID)
 	if err != nil {
+		logger.Error().Err(err).Str("projectID", projectID).Msg("Failed to parse projectID")
 		return nil, err
 	}
 
@@ -213,32 +248,47 @@ func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) 
 
 // ID is the resolver for the id field.
 func (r *projectResolver) ID(ctx context.Context, obj *project_model.Project) (string, error) {
+	logger.Trace().Str("projectID", obj.ID.String()).Msg("Getting project ID")
+
 	return obj.ID.String(), nil
 }
 
 // IsDirty is the resolver for the isDirty field.
 func (r *projectResolver) IsDirty(ctx context.Context, obj *project_model.Project) (bool, error) {
+	logger.Trace().Str("projectID", obj.ID.String()).Msg("Checking if project is dirty")
+
 	return r.ProjectService.IsDirty(obj)
 }
 
 // Services is the resolver for the services field.
 func (r *projectResolver) Services(ctx context.Context, obj *project_model.Project) ([]*service_model.Service, error) {
+	logger.Trace().Str("projectID", obj.ID.String()).Msg("Getting project services")
+
 	betterProject, err := r.ProjectService.GetProjectServices(obj)
 	return betterProject.Services, err
 }
 
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*user_model.User, error) {
+	logger.Trace().Msg("Getting current user")
+
 	email := ctx.Value("user").(string)
 	user, err := r.UserService.GetUserByEmail(email)
+	if err != nil {
+		logger.Error().Err(err).Str("email", email).Msg("Failed to get user by email")
+		return nil, err
+	}
 
-	return user, err
+	return user, nil
 }
 
 // GetProjectByID is the resolver for the getProjectById field.
 func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project_model.Project, error) {
+	logger.Trace().Str("id", id).Msg("Getting project by ID")
+
 	project_uuid, err := uuid.Parse(id)
 	if err != nil {
+		logger.Error().Err(err).Str("id", id).Msg("Failed to parse project ID")
 		return nil, err
 	}
 
@@ -247,19 +297,26 @@ func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project
 
 // ProjectLogs is the resolver for the projectLogs field.
 func (r *queryResolver) ProjectLogs(ctx context.Context, projectID string) ([]*log_model.Log, error) {
+	logger.Trace().Str("projectID", projectID).Msg("Getting project logs")
+
 	return r.LogService.GetLogs(ctx, uuid.MustParse(projectID))
 }
 
 // ServiceLogs is the resolver for the serviceLogs field.
 func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string) ([]*log_model.Log, error) {
-	return []*log_model.Log{}, nil
+	logger.Trace().Str("serviceID", serviceID).Msg("Getting service logs")
+
+	return r.LogService.GetLogs(ctx, uuid.MustParse(serviceID))
 }
 
 // Machine is the resolver for the machine field.
 func (r *queryResolver) Machine(ctx context.Context) ([]*machine_model.Machine, error) {
+	logger.Trace().Msg("Getting machine")
+
 	currentUser := ctx.Value("user").(string)
 	user, err := r.UserService.GetUserByEmail(currentUser)
 	if err != nil {
+		logger.Error().Err(err).Str("currentUser", currentUser).Msg("Failed to get user by email")
 		return nil, err
 	}
 

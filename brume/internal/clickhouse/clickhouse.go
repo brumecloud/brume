@@ -8,7 +8,7 @@ import (
 	db "brume.dev/internal/db"
 	brume_log "brume.dev/internal/log"
 	log_model "brume.dev/logs/model"
-	"github.com/unknwon/log"
+	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 	"gorm.io/driver/clickhouse"
 	"gorm.io/gorm"

@@ -8,7 +8,7 @@ import (
 	"go.temporal.io/sdk/client"
 )
 
-var logger = log.GetLogger("temporal")
+var logger = log.GetLogger("temporal.client")
 
 func NewClient(cfg *config.BrumeConfig) client.Client {
 	dsn := fmt.Sprintf("%s:%d", cfg.TemporalConfig.Host, cfg.TemporalConfig.Port)

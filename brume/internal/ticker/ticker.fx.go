@@ -28,5 +28,4 @@ func NewTickerService(cfg *config.BrumeConfig) *TickerService {
 	}
 }
 
-func (t *TickerService) Start() {
-}
+func (t *TickerService) Start() {}

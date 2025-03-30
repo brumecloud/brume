@@ -27,7 +27,7 @@ import (
 	"go.uber.org/fx"
 )
 
-var logger = brume_log.GetLogger("injector")
+var logger = brume_log.GetLogger("fx")
 
 type GlobalInjector struct {
 	Injector *fx.App
