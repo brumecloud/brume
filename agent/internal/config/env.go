@@ -8,12 +8,6 @@ import (
 	"go.uber.org/fx"
 )
 
-type GeneralConfig struct {
-	Orchestrator OrchestratorConfig `mapstructure:"orchestrator" validate:"required,dive"`
-	MachineID    string             `mapstructure:"machine_id" validate:"required"`
-	Logs         Logs               `mapstructure:"logs" validate:"required,dive"`
-}
-
 type OrchestratorConfig struct {
 	URL         string `mapstructure:"url" validate:"required"`
 	RapidTicker int    `mapstructure:"rapid_ticker"`
@@ -23,7 +17,13 @@ type OrchestratorConfig struct {
 
 type Logs struct {
 	Level  string `mapstructure:"level" validate:"required"`
-	Filter string `mapstructure:"filter" validate:"required,comma_separated_list"`
+	Filter string `mapstructure:"filter" validate:"required"`
+}
+
+type GeneralConfig struct {
+	Orchestrator OrchestratorConfig `mapstructure:"orchestrator" validate:"required"`
+	MachineID    string             `mapstructure:"machine_id" validate:"required"`
+	Logs         Logs               `mapstructure:"logs" validate:"required"`
 }
 
 var logger = log.With().Str("module", "config").Logger()

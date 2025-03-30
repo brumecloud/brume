@@ -21,7 +21,7 @@ func NewLogService(chdb *clickhouse.ClickhouseDB, redis *redis.Client, jobServic
 }
 
 func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_model.Log, error) {
-	logger.Info().Str("projectId", projectID.String()).Msg("Getting logs")
+	logger.Trace().Str("projectId", projectID.String()).Msg("Getting logs")
 
 	logs := make([]*log_model.Log, 0)
 

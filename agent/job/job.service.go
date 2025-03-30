@@ -62,7 +62,7 @@ func (j *JobService) Run(ctx context.Context) error {
 	}
 }
 
-// do the health check and logs of all the running jobs
+// do the health check of all the running jobs
 // this will send the status of the job and the status of the runner
 func (j *JobService) FastTickerRun(ctx context.Context, tick int) error {
 	// TODO find a way to avoid having the next tick firing before the current one is done
@@ -196,7 +196,7 @@ func (j *JobService) SpawnJob(ctx context.Context, job *brume_job.Job) error {
 	// this is also used to update the orchestrator about the container id
 	// which is used later to filter the logs
 	go func() {
-		_ = j.intercom.SendJobStatus(context.Background(), job.ID.String(), brume_job.JobMetadata{
+		_ = j.intercom.SendJobMetadata(context.Background(), job.ID.String(), brume_job.JobMetadata{
 			ContainerID: containerID,
 		})
 	}()

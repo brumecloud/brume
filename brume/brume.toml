@@ -21,7 +21,8 @@ db_level = "info"
 # - "temporal.client" for the temporal client
 # - "temporal.worker" for the temporal worker
 # - "ticker" for the ticker
-filter = "*"
+allowed_modules = "*"
+muted_modules = "machine.workflow"
 
 # ticker configuration
 [ticker]

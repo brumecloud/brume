@@ -94,7 +94,7 @@ func (i *IntercomService) ReleaseJob(ctx context.Context, jobID string) error {
 }
 
 // this route is used to update the status of one job
-func (i *IntercomService) SendJobStatus(ctx context.Context, jobID string, metadata job_model.JobMetadata) error {
+func (i *IntercomService) SendJobMetadata(ctx context.Context, jobID string, metadata job_model.JobMetadata) error {
 	jsonData, err := json.Marshal(metadata)
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to marshal job status")

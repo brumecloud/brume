@@ -12,9 +12,10 @@ import (
 )
 
 type LogConfig struct {
-	LogLevel   string `mapstructure:"level" validate:"required,oneof=debug info warn error"`
-	DBLogLevel string `mapstructure:"db_level" validate:"required,oneof=silent error warn info"`
-	Filter     string `mapstructure:"filter" validate:"required,comma_separated_list"`
+	LogLevel       string `mapstructure:"level" validate:"required,oneof=debug info warn error"`
+	DBLogLevel     string `mapstructure:"db_level" validate:"required,oneof=silent error warn info"`
+	AllowedModules string `mapstructure:"allowed_modules" validate:"required"`
+	MutedModules   string `mapstructure:"muted_modules" validate:""`
 }
 
 type ServerConfig struct {
@@ -59,6 +60,7 @@ type PostgresConfig struct {
 	MaxIdle  int    `mapstructure:"max_idle" validate:"required,min=1"`
 	MaxOpen  int    `mapstructure:"max_open" validate:"required,min=1"`
 }
+
 type BrumeConfig struct {
 	LogConfig        LogConfig        `mapstructure:"log" validate:"required"`
 	ServerConfig     ServerConfig     `mapstructure:"server" validate:"required"`

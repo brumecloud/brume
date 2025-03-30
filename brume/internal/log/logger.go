@@ -34,12 +34,18 @@ func RootLogger() zerolog.Logger {
 }
 
 func GetLogger(module string) zerolog.Logger {
-	if cfg.LogConfig.Filter != "" {
-		if strings.Contains(cfg.LogConfig.Filter, module) {
+	// mute certain modules from logging
+	if strings.Contains(cfg.LogConfig.MutedModules, module) {
+		return zerolog.Nop()
+	}
+
+	// allow certain modules to log
+	if cfg.LogConfig.AllowedModules != "*" {
+		if strings.Contains(cfg.LogConfig.AllowedModules, module) {
 			return RootLogger().With().Str("module", module).Logger()
 		}
 
-		logger.Warn().Str("module", module).Str("log_filter", cfg.LogConfig.Filter).Msg("module not in log filters")
+		logger.Warn().Str("module", module).Str("allowed_modules", cfg.LogConfig.AllowedModules).Str("muted_modules", cfg.LogConfig.MutedModules).Msg("module not in log filters")
 		return zerolog.Nop()
 	} else {
 		// we dont have a log filters

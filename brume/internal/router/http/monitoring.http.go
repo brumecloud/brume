@@ -143,7 +143,6 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 
 		val := validator.New(validator.WithRequiredStructEnabled())
 		if err := val.Struct(req); err != nil {
-			logger.Error().Err(err).Msg("Could not validate request")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

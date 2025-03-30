@@ -3,6 +3,7 @@ package service_model
 import (
 	builder_model "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
+	job_model "brume.dev/jobs/model"
 	runner_model "brume.dev/runner/model"
 
 	"github.com/google/uuid"
@@ -36,6 +37,7 @@ type Service struct {
 	DraftBuilderID *uuid.UUID
 
 	Deployments []*deployment_model.Deployment `gorm:"foreignKey:ServiceID"`
+	Jobs        []*job_model.Job               `gorm:"foreignKey:ServiceID"`
 
 	ProjectID uuid.UUID
 }

@@ -30,7 +30,7 @@ func RootLogger() zerolog.Logger {
 
 func GetLogger(module string) zerolog.Logger {
 	// some filter are set
-	if cfg.Logs.Filter != "" {
+	if cfg.Logs.Filter != "*" {
 		if strings.Contains(cfg.Logs.Filter, module) {
 			return RootLogger().With().Str("module", module).Logger()
 		}

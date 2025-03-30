@@ -7,6 +7,7 @@ x-brume-default: &brume-default
     brume-net:
 
 services:
+  # brume code land
   orchestrator:
     <<: *brume-default
     image: brume-orchestrator
@@ -47,7 +48,7 @@ services:
     ports:
       - 9878:9878
     depends_on:
-      - postgres
+      - orchestrator
 
   console:
     <<: *brume-default
@@ -62,6 +63,8 @@ services:
       - ./console/src:/app/src
     depends_on:
       - orchestrator
+
+  # service land
 
   postgres:
     <<: *brume-default
@@ -164,6 +167,8 @@ services:
       - ./infra/otel-ingest.yaml:/etc/otel/otel-ingest.yaml
     depends_on:
       - clickhouse
+      - orchestrator
+      - agent
 
 networks:
   brume-net:

@@ -1,4 +1,4 @@
-machine_id = "test-machine"
+machine_id = "b36d84e9-bec2-4ba1-8b51-536884f06bc7"
 
 [orchestrator]
 url = "http://orchestrator:9876"
@@ -8,4 +8,4 @@ retry_max = 3
 
 [logs]
 level = "debug"
-filter = "job,intercom"
+filter = "*"
