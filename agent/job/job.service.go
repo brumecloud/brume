@@ -17,7 +17,7 @@ import (
 type JobService struct {
 	lastLogsTimestamp time.Time
 
-	cfg      *config.AgentConfig
+	cfg      *config.GeneralConfig
 	ticker   *ticker.Ticker
 	intercom *intercom_service.IntercomService
 	runner   *runner_service.RunnerService
@@ -25,7 +25,7 @@ type JobService struct {
 
 var logger = log.GetLogger("job")
 
-func NewJobService(lc fx.Lifecycle, runner *runner_service.RunnerService, cfg *config.AgentConfig, ticker *ticker.Ticker, intercom *intercom_service.IntercomService) *JobService {
+func NewJobService(lc fx.Lifecycle, runner *runner_service.RunnerService, cfg *config.GeneralConfig, ticker *ticker.Ticker, intercom *intercom_service.IntercomService) *JobService {
 	j := &JobService{
 		lastLogsTimestamp: time.Time{},
 		cfg:               cfg,
@@ -76,8 +76,7 @@ func (j *JobService) FastTickerRun(ctx context.Context, tick int) error {
 		runningJobsStatus := make(map[string]brume_job.JobStatus)
 		for _, job := range runningJobs {
 			runningJobsStatus[job.JobID] = brume_job.JobStatus{
-				Status:      job.Status,
-				ContainerID: &job.ContainerID,
+				Status: job.Status,
 			}
 		}
 
@@ -197,9 +196,8 @@ func (j *JobService) SpawnJob(ctx context.Context, job *brume_job.Job) error {
 	// this is also used to update the orchestrator about the container id
 	// which is used later to filter the logs
 	go func() {
-		_ = j.intercom.SendJobStatus(context.Background(), job.ID.String(), brume_job.JobStatus{
-			Status:      brume_job.JobStatusEnumRunning,
-			ContainerID: &containerID,
+		_ = j.intercom.SendJobStatus(context.Background(), job.ID.String(), brume_job.JobMetadata{
+			ContainerID: containerID,
 		})
 	}()
 

@@ -1,0 +1,11 @@
+machine_id = "test-machine"
+
+[orchestrator]
+url = "http://orchestrator:9876"
+rapid_ticker = 2
+slow_ticker = 5
+retry_max = 3
+
+[logs]
+level = "debug"
+filter = "job,intercom"

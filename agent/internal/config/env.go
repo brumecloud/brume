@@ -1,36 +1,44 @@
 package config
 
 import (
+	"github.com/go-playground/validator/v10"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
 
-type AgentConfig struct {
-	OrchestratorURL string `mapstructure:"ORCHESTRATOR_URL"`
-	RapidTicker     int    `mapstructure:"RAPID_TICKER"`
-	SlowTicker      int    `mapstructure:"SLOW_TICKER"`
-	RetryMax        int    `mapstructure:"RETRY_MAX"`
-	Env             string `mapstructure:"ENV"`
-	AgentID         string `mapstructure:"AGENT_ID"`
-	LogFilter       string `mapstructure:"LOG_FILTER"`
-	LogLevel        string `mapstructure:"LOG_LEVEL"`
+type GeneralConfig struct {
+	Orchestrator OrchestratorConfig `mapstructure:"orchestrator" validate:"required,dive"`
+	MachineID    string             `mapstructure:"machine_id" validate:"required"`
+	Logs         Logs               `mapstructure:"logs" validate:"required,dive"`
+}
+
+type OrchestratorConfig struct {
+	URL         string `mapstructure:"url" validate:"required"`
+	RapidTicker int    `mapstructure:"rapid_ticker"`
+	SlowTicker  int    `mapstructure:"slow_ticker"`
+	RetryMax    int    `mapstructure:"retry_max"`
+}
+
+type Logs struct {
+	Level  string `mapstructure:"level" validate:"required"`
+	Filter string `mapstructure:"filter" validate:"required,comma_separated_list"`
 }
 
 var logger = log.With().Str("module", "config").Logger()
 
-func LoadAgentConfig() *AgentConfig {
-	cfg := &AgentConfig{}
+func LoadAgentConfig() *GeneralConfig {
+	cfg := &GeneralConfig{}
 
-	SetDefaultConfig()
-
+	viper.SetConfigName("agent")
+	viper.AddConfigPath(".")
 	viper.AutomaticEnv()
-	viper.SetConfigFile(".env")
 
 	err := viper.ReadInConfig()
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to read config file")
-		logger.Info().Msg("Using the default values for the agent config")
+		panic(err)
 	}
 
 	err = viper.Unmarshal(cfg)
@@ -39,24 +47,23 @@ func LoadAgentConfig() *AgentConfig {
 		panic(err)
 	}
 
+	val := validator.New()
+	err = val.Struct(cfg)
+	if err != nil {
+		for _, err := range err.(validator.ValidationErrors) {
+			logger.Error().Err(err).Msg("Failed to validate config")
+		}
+		panic(err)
+	}
+
+	level, err := zerolog.ParseLevel(cfg.Logs.Level)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to parse log level")
+		panic(err)
+	}
+	zerolog.SetGlobalLevel(level)
+
 	return cfg
 }
 
-func SetDefaultConfig() {
-	viper.SetDefault("ORCHESTRATOR_URL", "http://orchestrator:9876")
-
-	viper.SetDefault("RAPID_TICKER", 2)
-	viper.SetDefault("SLOW_TICKER", 5)
-
-	viper.SetDefault("ENV", "dev")
-	viper.SetDefault("AGENT_ID", "b36d84e9-bec2-4ba1-8b51-536884f06bc7")
-
-	// infinite retries
-	viper.SetDefault("RETRY_MAX", 0)
-
-	// comma separated list of modules to log
-	viper.SetDefault("LOG_FILTER", "collector")
-	viper.SetDefault("LOG_LEVEL", "test")
-}
-
-var ConfigModule = fx.Module("config", fx.Provide(LoadAgentConfig), fx.Invoke(func(cfg *AgentConfig) {}))
+var ConfigModule = fx.Module("config", fx.Provide(LoadAgentConfig), fx.Invoke(func(cfg *GeneralConfig) {}))

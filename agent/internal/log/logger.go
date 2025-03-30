@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/pkgerrors"
 )
 
-var cfg *config.AgentConfig
+var cfg *config.GeneralConfig
 
 var logger = RootLogger().With().Str("module", "log").Logger()
 
@@ -20,7 +20,7 @@ func RootLogger() zerolog.Logger {
 		cfg = config.LoadAgentConfig()
 	}
 
-	level, err := zerolog.ParseLevel(cfg.LogLevel)
+	level, err := zerolog.ParseLevel(cfg.Logs.Level)
 	if err != nil {
 		level = zerolog.DebugLevel
 	}
@@ -30,12 +30,12 @@ func RootLogger() zerolog.Logger {
 
 func GetLogger(module string) zerolog.Logger {
 	// some filter are set
-	if cfg.LogFilter != "" {
-		if strings.Contains(cfg.LogFilter, module) {
+	if cfg.Logs.Filter != "" {
+		if strings.Contains(cfg.Logs.Filter, module) {
 			return RootLogger().With().Str("module", module).Logger()
 		}
 
-		logger.Warn().Str("module", module).Str("log_filter", cfg.LogFilter).Msg("module not in log filters")
+		logger.Warn().Str("module", module).Str("log_filter", cfg.Logs.Filter).Msg("module not in log filters")
 		return zerolog.Nop()
 	} else {
 		// we dont have a log filters

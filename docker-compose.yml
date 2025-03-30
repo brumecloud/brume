@@ -149,6 +149,8 @@ services:
     container_name: brume-redis
     ports:
       - 6379:6379
+    volumes:
+      - redis-data:/data
 
   otel-ingest:
     <<: *brume-default
@@ -170,3 +172,4 @@ networks:
 volumes:
   postgres:
   clickhouse-data:
+  redis-data:

@@ -32,12 +32,12 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	// can run on their machine
 	router.HandleFunc("/job", func(w http.ResponseWriter, r *http.Request) {
 		// TODO: get only the right bids, not all
-		agentID := r.Header.Get("X-Brume-Agent-ID")
+		machineID := r.Header.Get("X-Brume-Machine-ID")
 
-		if agentID == "" {
-			logger.Error().Msg("Agent ID is required")
+		if machineID == "" {
+			logger.Error().Msg("Machine ID is required")
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Agent ID is required"))
+			w.Write([]byte("Machine ID is required"))
 			return
 		}
 
@@ -49,7 +49,7 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			return
 		}
 
-		logger.Trace().Str("agent_id", agentID).Int("bids", len(bids)).Msg("Sending bids to agent")
+		logger.Trace().Str("machine_id", machineID).Int("bids", len(bids)).Msg("Sending bids to machine")
 		json.NewEncoder(w).Encode(bids)
 	}).Methods(http.MethodGet)
 

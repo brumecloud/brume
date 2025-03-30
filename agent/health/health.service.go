@@ -18,11 +18,11 @@ type HealthService struct {
 	runnerService *runner.RunnerService
 	intercom      *intercom_service.IntercomService
 	ticker        *ticker.Ticker
-	cfg           *config.AgentConfig
+	cfg           *config.GeneralConfig
 }
 
 // this service will send the health of the agent to the orchestrator
-func NewHealthService(lc fx.Lifecycle, runnerService *runner.RunnerService, jobService *job.JobService, ticker *ticker.Ticker, intercom *intercom_service.IntercomService, cfg *config.AgentConfig) *HealthService {
+func NewHealthService(lc fx.Lifecycle, runnerService *runner.RunnerService, jobService *job.JobService, ticker *ticker.Ticker, intercom *intercom_service.IntercomService, cfg *config.GeneralConfig) *HealthService {
 	stopChannel := make(chan struct{})
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {

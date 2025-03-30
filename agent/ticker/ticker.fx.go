@@ -15,11 +15,11 @@ type Ticker struct {
 	SlowTicker  *time.Ticker
 }
 
-func NewTicker(cfg *config.AgentConfig) *Ticker {
-	logger.Info().Int("rapidTicker", cfg.RapidTicker).Int("slowTicker", cfg.SlowTicker).Msg("Starting the tickers")
+func NewTicker(cfg *config.GeneralConfig) *Ticker {
+	logger.Info().Int("rapidTicker", cfg.Orchestrator.RapidTicker).Int("slowTicker", cfg.Orchestrator.SlowTicker).Msg("Starting the tickers")
 
-	rapidTicker := time.NewTicker(time.Duration(cfg.RapidTicker) * time.Second)
-	slowTicker := time.NewTicker(time.Duration(cfg.SlowTicker) * time.Second)
+	rapidTicker := time.NewTicker(time.Duration(cfg.Orchestrator.RapidTicker) * time.Second)
+	slowTicker := time.NewTicker(time.Duration(cfg.Orchestrator.SlowTicker) * time.Second)
 
 	return &Ticker{
 		RapidTicker: rapidTicker,
