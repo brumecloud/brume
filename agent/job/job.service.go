@@ -5,12 +5,10 @@ import (
 	"time"
 
 	brume_job "brume.dev/jobs/model"
-	log_model "brume.dev/logs/model"
 	runner_interfaces "github.com/brumecloud/agent/container/interfaces"
 	"github.com/brumecloud/agent/internal/config"
 	intercom_service "github.com/brumecloud/agent/internal/intercom"
 	"github.com/brumecloud/agent/internal/log"
-	job_model "github.com/brumecloud/agent/job/model"
 	runner_service "github.com/brumecloud/agent/runner"
 	"github.com/brumecloud/agent/ticker"
 	"go.uber.org/fx"
@@ -75,46 +73,15 @@ func (j *JobService) FastTickerRun(ctx context.Context, tick int) error {
 			return
 		}
 
-		runningJobsStatus := make(map[string]brume_job.JobStatusEnum)
+		runningJobsStatus := make(map[string]brume_job.JobStatus)
 		for _, job := range runningJobs {
-			if job.Status == "running" {
-				runningJobsStatus[job.JobID] = job.Status
+			runningJobsStatus[job.JobID] = brume_job.JobStatus{
+				Status:      job.Status,
+				ContainerID: &job.ContainerID,
 			}
 		}
 
 		j.intercom.SendRunningJobsHealth(runningJobsStatus)
-	}()
-
-	go func() {
-		logs_batch := make([]*log_model.AgentLogs, 0)
-		for _, job := range runningJobs {
-			logs, err := j.runner.GetLogs(ctx, &job_model.RunningJob{
-				ContainerID: &job.ContainerID,
-				JobType:     job_model.DockerRunningJob,
-				LastCheckAt: j.lastLogsTimestamp,
-			})
-			if err != nil {
-				logger.Error().Err(err).Msg("Failed to get logs")
-				continue
-			}
-
-			for _, log := range logs {
-				logs_batch = append(logs_batch, &log_model.AgentLogs{
-					JobID:     job.JobID,
-					Message:   log.Message,
-					Level:     log.Level,
-					Timestamp: log.Timestamp,
-				})
-			}
-		}
-
-		j.lastLogsTimestamp = time.Now()
-
-		logger.Debug().Interface("logs", logs_batch).Msg("Sending logs")
-
-		if len(logs_batch) > 0 {
-			j.intercom.SendLogs(logs_batch)
-		}
 	}()
 
 	return nil
@@ -147,6 +114,8 @@ func (j *JobService) SlowTickerRun(ctx context.Context, tick int) {
 		}
 	}()
 
+	// get the status of running jobs
+	// to see if we need to stop them
 	go func() {
 		runningJobs, err := j.runner.GetAllRunningJobs()
 		if err != nil {
@@ -216,13 +185,23 @@ func (j *JobService) SpawnJob(ctx context.Context, job *brume_job.Job) error {
 	// add the job to the list of the running jobs on the agent
 	logger.Info().Str("job_id", job.ID.String()).Interface("deployment", job.Deployment).Msg("Try starting the job")
 
-	_, err = j.runner.StartJob(ctx, job)
+	containerID, err := j.runner.StartJob(ctx, job)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to start job")
 		return err
 	}
 
 	logger.Info().Str("job_id", job.ID.String()).Msg("Job started")
+
+	// inform the orchestrator that the job is running
+	// this is also used to update the orchestrator about the container id
+	// which is used later to filter the logs
+	go func() {
+		_ = j.intercom.SendJobStatus(context.Background(), job.ID.String(), brume_job.JobStatus{
+			Status:      brume_job.JobStatusEnumRunning,
+			ContainerID: &containerID,
+		})
+	}()
 
 	return nil
 }

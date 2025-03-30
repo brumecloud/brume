@@ -252,7 +252,7 @@ func (r *queryResolver) ProjectLogs(ctx context.Context, projectID string) ([]*l
 
 // ServiceLogs is the resolver for the serviceLogs field.
 func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string) ([]*log_model.Log, error) {
-	return r.LogService.GetDummyLog(ctx)
+	return []*log_model.Log{}, nil
 }
 
 // Machine is the resolver for the machine field.
@@ -313,7 +313,7 @@ func (r *serviceResolver) Deployments(ctx context.Context, obj *service_model.Se
 
 // ServiceLogs is the resolver for the serviceLogs field.
 func (r *subscriptionResolver) ServiceLogs(ctx context.Context, serviceID string) (<-chan []*log_model.Log, error) {
-	return r.LogService.GetDummyLogsSub(ctx)
+	return nil, nil
 }
 
 // ProjectLogs is the resolver for the projectLogs field.

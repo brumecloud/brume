@@ -13,8 +13,9 @@ import (
 type Job struct {
 	gorm.Model
 
-	ID     uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Status JobStatusEnum
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Status      JobStatusEnum
+	ContainerID *string
 
 	Price int
 
@@ -48,6 +49,10 @@ const (
 type JobStatus struct {
 	Status JobStatusEnum
 	JobID  string
+}
+
+type JobMetadata struct {
+	ContainerID string
 }
 
 func (j *JobStatus) Scan(value interface{}) error {

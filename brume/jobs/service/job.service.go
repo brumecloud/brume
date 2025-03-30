@@ -86,12 +86,24 @@ func (s *JobService) GetJobHealth(jobID string) (job_model.JobStatusEnum, error)
 
 // set the job status in the database
 func (s *JobService) SetJobStatus(jobID uuid.UUID, status job_model.JobStatusEnum) error {
-	key := fmt.Sprintf(JobStatusKey, jobID.String())
-	err := s.db.Gorm.Model(&job_model.Job{}).Where("id = ?", jobID).Update("status", status).Error
-	jobLogger.Trace().Str("key", key).Str("status", string(status)).Msg("Setting job status")
+	err := s.db.Gorm.Model(&job_model.Job{
+		ID:     jobID,
+		Status: status,
+	}).Error
+	jobLogger.Trace().Str("job_id", jobID.String()).Str("status", string(status)).Msg("Setting job status")
 	return err
 }
 
+func (s *JobService) SetJobContainerID(jobID uuid.UUID, containerID string) error {
+	err := s.db.Gorm.Model(&job_model.Job{
+		ID:          jobID,
+		ContainerID: &containerID,
+	}).Error
+	jobLogger.Trace().Str("job_id", jobID.String()).Str("container_id", containerID).Msg("Setting job container id")
+	return err
+}
+
+// get the status of the job from the database
 func (s *JobService) GetJobStatus(jobID uuid.UUID) (job_model.JobStatusEnum, error) {
 	var job job_model.Job
 	err := s.db.Gorm.Where("id = ?", jobID).First(&job).Error

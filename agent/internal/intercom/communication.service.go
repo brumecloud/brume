@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -36,35 +37,9 @@ func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job, bid 
 		return false, err
 	}
 
-	body := bytes.NewBuffer(jsonData)
-
-	req, err := http.NewRequest("POST", i.cfg.OrchestratorURL+"/scheduler/v1/bid/"+job.ID.String(), body)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to create request")
-		return false, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+i.GenerateToken())
-	req.Header.Set("X-Brume-Machine-ID", i.cfg.AgentID)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	respBody, err := i.sendRequest("POST", i.cfg.OrchestratorURL+"/scheduler/v1/bid/"+job.ID.String(), jsonData)
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to send bid to orchestrator")
-		return false, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= http.StatusBadRequest {
-		logger.Warn().Int("status", resp.StatusCode).Str("url", req.URL.String()).Str("body", body.String()).Msg("Orchestrator returned non-200 status code")
-		return false, err
-	}
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to read response body")
 		return false, err
 	}
 
@@ -79,31 +54,9 @@ func (i *IntercomService) PlaceBid(ctx context.Context, job *job_model.Job, bid 
 }
 
 func (i *IntercomService) GetJobs(ctx context.Context) ([]*job_model.Job, error) {
-	req, err := http.NewRequest("GET", i.cfg.OrchestratorURL+"/scheduler/v1/job", nil)
+	body, err := i.sendRequest("GET", i.cfg.OrchestratorURL+"/scheduler/v1/job", nil)
 	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to create request")
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+i.GenerateToken())
-	req.Header.Set("X-Brume-Agent-ID", i.cfg.AgentID)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to send health status to orchestrator")
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-
-	logger.Info().Str("body", string(body)).Msg("Received jobs")
-
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to read response body")
+		logger.Warn().Err(err).Msg("Failed to get jobs")
 		return nil, err
 	}
 
@@ -118,28 +71,9 @@ func (i *IntercomService) GetJobs(ctx context.Context) ([]*job_model.Job, error)
 }
 
 func (i *IntercomService) GetJobStatus(ctx context.Context, jobID string) (*job_model.JobStatus, error) {
-	req, err := http.NewRequest("GET", i.cfg.OrchestratorURL+"/scheduler/v1/job/"+jobID, nil)
+	body, err := i.sendRequest("GET", i.cfg.OrchestratorURL+"/scheduler/v1/job/"+jobID, nil)
 	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to create request")
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer TEST")
-	req.Header.Set("X-Brume-Agent-ID", i.cfg.AgentID)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to send health status to orchestrator")
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to read response body")
+		logger.Warn().Err(err).Msg("Failed to get job status")
 		return nil, err
 	}
 
@@ -153,35 +87,27 @@ func (i *IntercomService) GetJobStatus(ctx context.Context, jobID string) (*job_
 	return jobStatus, nil
 }
 
+// this route is used to release a job from the agent
 func (i *IntercomService) ReleaseJob(ctx context.Context, jobID string) error {
-	req, err := http.NewRequest("POST", i.cfg.OrchestratorURL+"/scheduler/v1/release/"+jobID, nil)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to create request")
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+i.GenerateToken())
-	req.Header.Set("X-Brume-Agent-ID", i.cfg.AgentID)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to send release job to orchestrator")
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		logger.Warn().Int("status", resp.StatusCode).Str("url", req.URL.String()).Msg("Orchestrator returned non-200 release job status code.")
-		return err
-	}
-
-	return nil
+	_, err := i.sendRequest("POST", i.cfg.OrchestratorURL+"/scheduler/v1/release/"+jobID, nil)
+	return err
 }
 
-func (i *IntercomService) SendRunningJobsHealth(jobHealth map[string]job_model.JobStatusEnum) error {
+// this route is used to update the status of one job
+func (i *IntercomService) SendJobStatus(ctx context.Context, jobID string, status job_model.JobStatus) error {
+	jsonData, err := json.Marshal(status)
+	if err != nil {
+		logger.Warn().Err(err).Msg("Failed to marshal job status")
+		return err
+	}
+
+	_, err = i.sendRequest("POST", i.cfg.OrchestratorURL+"/monitoring/v1/jobs/"+jobID+"/status", jsonData)
+	return err
+}
+
+// this route is used to update the status of all the running jobs
+// and thus, also the health of the agent
+func (i *IntercomService) SendRunningJobsHealth(jobHealth map[string]job_model.JobStatus) error {
 	// do HTTP call to the orchestrator
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"machine_id": i.cfg.AgentID,
@@ -192,33 +118,8 @@ func (i *IntercomService) SendRunningJobsHealth(jobHealth map[string]job_model.J
 		return err
 	}
 
-	body := bytes.NewBuffer(jsonData)
-
-	req, err := http.NewRequest("POST", i.cfg.OrchestratorURL+"/monitoring/v1/jobs/status", body)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to create request")
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+i.GenerateToken())
-	req.Header.Set("X-Brume-Agent-ID", i.cfg.AgentID)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to send running job health to orchestrator")
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		logger.Warn().Int("status", resp.StatusCode).Str("url", req.URL.String()).Str("body", body.String()).Msg("Orchestrator returned non-200 status code")
-		return err
-	}
-
-	return nil
+	_, err = i.sendRequest("POST", i.cfg.OrchestratorURL+"/monitoring/v1/jobs/status", jsonData)
+	return err
 }
 
 func (i *IntercomService) SendHealth(generalHealth string) error {
@@ -232,35 +133,8 @@ func (i *IntercomService) SendHealth(generalHealth string) error {
 		return err
 	}
 
-	body := bytes.NewBuffer(jsonData)
-
-	req, err := http.NewRequest(
-		"POST",
-		i.cfg.OrchestratorURL+"/monitoring/v1/agent/status",
-		body,
-	)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to create request")
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+i.GenerateToken())
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to send health status to orchestrator")
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		logger.Warn().Int("status", resp.StatusCode).Str("url", req.URL.String()).Str("body", body.String()).Msg("Orchestrator returned non-200 status code")
-		return err
-	}
-
-	return nil
+	_, err = i.sendRequest("POST", i.cfg.OrchestratorURL+"/monitoring/v1/agent/status", jsonData)
+	return err
 }
 
 func (i *IntercomService) SendLogs(logs []*log_model.AgentLogs) {
@@ -275,29 +149,9 @@ func (i *IntercomService) SendLogs(logs []*log_model.AgentLogs) {
 		return
 	}
 
-	body := bytes.NewBuffer(jsonData)
-
-	req, err := http.NewRequest("POST", i.cfg.OrchestratorURL+"/monitoring/v1/jobs/logs", body)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to create request")
-		return
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+i.GenerateToken())
-	req.Header.Set("X-Brume-Agent-ID", i.cfg.AgentID)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	_, err = i.sendRequest("POST", i.cfg.OrchestratorURL+"/monitoring/v1/jobs/logs", jsonData)
 	if err != nil {
 		logger.Warn().Err(err).Msg("Failed to send logs to orchestrator")
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		logger.Warn().Int("status", resp.StatusCode).Str("url", req.URL.String()).Str("body", body.String()).Msg("Orchestrator returned non-200 status code")
 		return
 	}
 }
@@ -309,4 +163,35 @@ func (i *IntercomService) SendJobHealth(health map[string]bool) {
 // sign using the agent private key
 func (i *IntercomService) GenerateToken() string {
 	return "TEST"
+}
+
+func (i *IntercomService) sendRequest(method, url string, body []byte) ([]byte, error) {
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+i.GenerateToken())
+	req.Header.Set("X-Brume-Agent-ID", i.cfg.AgentID)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Warn().Int("status", resp.StatusCode).Str("url", req.URL.String()).Msg("Orchestrator returned non-200 status code")
+		return nil, errors.New(string(body))
+	}
+
+	return body, nil
 }

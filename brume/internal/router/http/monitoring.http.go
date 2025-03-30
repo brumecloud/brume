@@ -27,8 +27,8 @@ type StatusRequest struct {
 }
 
 type JobsStatusRequest struct {
-	MachineId uuid.UUID                          `json:"machine_id" validate:"required"`
-	Status    map[string]job_model.JobStatusEnum `json:"status" validate:"required"`
+	MachineId uuid.UUID                      `json:"machine_id" validate:"required"`
+	Status    map[string]job_model.JobStatus `json:"status" validate:"required"`
 }
 
 type LogsRequest struct {
@@ -84,8 +84,7 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	}).Methods(http.MethodPost)
 
 	// AGENT -> ORCHESTRATOR
-	// edge route
-	// send the status of the running jobs
+	// edge route to update the status of running job on a machine
 	router.HandleFunc("/jobs/status", func(w http.ResponseWriter, r *http.Request) {
 		var req JobsStatusRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -95,34 +94,48 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 
 		val := validator.New(validator.WithRequiredStructEnabled())
 		if err := val.Struct(req); err != nil {
-			logger.Error().Err(err).Msg("Could not validate request")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		var err error
-
-		// dont stop the request
 		go func() {
 			for jobID, status := range req.Status {
-				err = m.jobService.SetJobHealth(jobID)
+				jobID, err := uuid.Parse(jobID)
 				if err != nil {
-					// dont stop trying to record the status
-					// we should have a queue to retry
-					// TODO: create a queue to retry the job status
-					logger.Error().Err(err).Str("job_id", jobID).Str("status", string(status)).Msg("Failed to record job status")
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+
+				err = m.jobService.SetJobStatus(jobID, status.Status)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
 				}
 			}
 		}()
 
-		w.WriteHeader(http.StatusOK)
-	}).Methods(http.MethodPost)
+	})
 
 	// AGENT -> ORCHESTRATOR
-	// edge route
-	// this will ingest all the log from the agent
-	router.HandleFunc("/jobs/logs", func(w http.ResponseWriter, r *http.Request) {
-		var req LogsRequest
+	// edge route used to update the metadata of a job
+	// ie the container id
+	router.HandleFunc("/jobs/{job_id}/metadata", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		jobIDRaw := vars["job_id"]
+
+		if jobIDRaw == "" {
+			http.Error(w, "Job ID is required", http.StatusBadRequest)
+			return
+		}
+
+		var err error
+		jobID, err := uuid.Parse(jobIDRaw)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		var req job_model.JobMetadata
+
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -135,15 +148,12 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			return
 		}
 
-		logger.Debug().Interface("logs", req.Logs).Msg("logs in http")
-
-		// this is calling directly the clickhouse database
-		err := m.logService.IngestLogs(req.Logs)
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to ingest logs")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		go func() {
+			err := m.jobService.SetJobContainerID(jobID, req.ContainerID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		}()
 
 		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodPost)
