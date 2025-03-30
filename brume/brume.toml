@@ -10,6 +10,7 @@ db_level = "info"
 # - "builder" for the builder service
 # - "deployment" for the deployment service
 # - "deployment.workflow" for the deployment workflow
+# - "machine.workflow" for the machine workflow
 # - "clickhouse" for the clickhouse service
 # - "authentification" for the authentification (token & authN) service
 # - "db" for postgres

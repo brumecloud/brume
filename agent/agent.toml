@@ -8,4 +8,5 @@ retry_max = 3
 
 [logs]
 level = "debug"
-filter = "*"
+allowed_modules = "*"
+muted_modules = "collector"

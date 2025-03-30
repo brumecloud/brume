@@ -29,13 +29,17 @@ func RootLogger() zerolog.Logger {
 }
 
 func GetLogger(module string) zerolog.Logger {
+	if strings.Contains(cfg.Logs.MutedModules, module) {
+		return zerolog.Nop()
+	}
+
 	// some filter are set
-	if cfg.Logs.Filter != "*" {
-		if strings.Contains(cfg.Logs.Filter, module) {
+	if cfg.Logs.AllowedModules != "*" {
+		if strings.Contains(cfg.Logs.AllowedModules, module) {
 			return RootLogger().With().Str("module", module).Logger()
 		}
 
-		logger.Warn().Str("module", module).Str("log_filter", cfg.Logs.Filter).Msg("module not in log filters")
+		logger.Warn().Str("module", module).Str("log_filter", cfg.Logs.AllowedModules).Msg("module not in log filters")
 		return zerolog.Nop()
 	} else {
 		// we dont have a log filters

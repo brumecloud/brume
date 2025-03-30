@@ -16,8 +16,9 @@ type OrchestratorConfig struct {
 }
 
 type Logs struct {
-	Level  string `mapstructure:"level" validate:"required"`
-	Filter string `mapstructure:"filter" validate:"required"`
+	Level          string `mapstructure:"level" validate:"required"`
+	AllowedModules string `mapstructure:"allowed_modules"`
+	MutedModules   string `mapstructure:"muted_modules"`
 }
 
 type GeneralConfig struct {
