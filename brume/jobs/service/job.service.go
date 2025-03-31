@@ -57,6 +57,7 @@ func (s *JobService) CreateJob(deployment *deployment_model.Deployment, workflow
 		Status:               job_model.JobStatusEnumCreating,
 		ServiceID:            deployment.ServiceID,
 		Deployment:           deployment,
+		DeploymentID:         &deployment.ID,
 		DeploymentWorkflowID: workflowID,
 		DeploymentRunID:      runID,
 	}
@@ -147,7 +148,7 @@ func (s *JobService) GetJob(jobID uuid.UUID) (job_model.Job, error) {
 
 func (s *JobService) GetJobsByServiceID(serviceID uuid.UUID) ([]job_model.Job, error) {
 	var jobs []job_model.Job
-	err := s.db.Gorm.Find(&job_model.Job{}).Where("service_id = ?", serviceID).Find(&jobs).Error
+	err := s.db.Gorm.Where("service_id = ?", serviceID).Find(&jobs).Error
 	return jobs, err
 }
 

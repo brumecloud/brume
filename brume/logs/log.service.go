@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	deployment_service "brume.dev/deployment"
+	deployment_model "brume.dev/deployment/model"
 	clickhouse "brume.dev/internal/clickhouse"
 	job_service "brume.dev/jobs/service"
 	log_model "brume.dev/logs/model"
@@ -14,14 +16,15 @@ import (
 )
 
 type LogService struct {
-	chdb           *clickhouse.ClickhouseDB
-	redis          *redis.Client
-	jobService     *job_service.JobService
-	ProjectService *project_service.ProjectService
+	chdb              *clickhouse.ClickhouseDB
+	redis             *redis.Client
+	jobService        *job_service.JobService
+	ProjectService    *project_service.ProjectService
+	DeploymentService *deployment_service.DeploymentService
 }
 
-func NewLogService(chdb *clickhouse.ClickhouseDB, redis *redis.Client, jobService *job_service.JobService, projectService *project_service.ProjectService) *LogService {
-	return &LogService{chdb: chdb, redis: redis, jobService: jobService, ProjectService: projectService}
+func NewLogService(chdb *clickhouse.ClickhouseDB, redis *redis.Client, jobService *job_service.JobService, projectService *project_service.ProjectService, deploymentService *deployment_service.DeploymentService) *LogService {
+	return &LogService{chdb: chdb, redis: redis, jobService: jobService, ProjectService: projectService, DeploymentService: deploymentService}
 }
 
 // Get the logs for all the services in the project, across all the machines and the differents containers
@@ -36,19 +39,43 @@ func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_m
 		return nil, err
 	}
 
-	containersIds := make([]string, 0)
+	logs := make([]*log_model.Log, 0)
 
 	for _, service := range project.Services {
-		// get all the jobs for the service
-		jobs, err := l.jobService.GetJobsByServiceID(service.ID)
+		localLogs, err := l.GetLogsByServiceID(ctx, service.ID)
 		if err != nil {
-			logger.Error().Err(err).Str("serviceId", service.ID.String()).Msg("Failed to get jobs")
+			logger.Error().Err(err).Str("serviceId", service.ID.String()).Msg("Failed to get logs")
 			return nil, err
 		}
 
-		for _, job := range jobs {
-			if job.ContainerID != nil {
-				containersIds = append(containersIds, *job.ContainerID)
+		logs = append(logs, localLogs...)
+	}
+
+	return logs, nil
+}
+
+func (l *LogService) GetLogsByServiceID(ctx context.Context, serviceID uuid.UUID) ([]*log_model.Log, error) {
+	containersIds := make([]string, 0)
+
+	// get all the jobs for the service
+	jobs, err := l.jobService.GetJobsByServiceID(serviceID)
+	if err != nil {
+		logger.Error().Err(err).Str("serviceId", serviceID.String()).Msg("Failed to get jobs")
+		return nil, err
+	}
+
+	containerDeploymentMap := make(map[string]*deployment_model.Deployment)
+
+	for _, job := range jobs {
+		if job.ContainerID != nil {
+			containersIds = append(containersIds, fmt.Sprintf("'%s'", *job.ContainerID))
+
+			deployment, err := l.DeploymentService.GetDeployment(*job.DeploymentID)
+			if err != nil {
+				logger.Warn().Err(err).Str("deploymentId", job.DeploymentID.String()).Msg("Failed to get deployment")
+				continue
+			} else {
+				containerDeploymentMap[*job.ContainerID] = deployment
 			}
 		}
 	}
@@ -63,6 +90,8 @@ func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_m
 
 	query := fmt.Sprintf("SELECT `Timestamp`, `SeverityText`, `LogAttributes` FROM brume.otel_logs WHERE LogAttributes['container_id'] IN (%s)", strings.Join(containersIds, ","))
 
+	logger.Debug().Str("query", query).Msg("Query")
+
 	rows, err := l.chdb.Conn.Query(context.Background(), query)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to get logs")
@@ -70,15 +99,33 @@ func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_m
 	}
 
 	for rows.Next() {
-		var log log_model.Log
-		err = rows.Scan(&log.Timestamp, &log.SeverityText, &log.LogAttributes)
+		var raw log_model.RawLog
+		err = rows.Scan(&raw.Timestamp, &raw.SeverityText, &raw.LogAttributes)
+
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to scan log")
 		}
-		logs = append(logs, &log)
-	}
 
-	logger.Info().Interface("logs", logs).Msg("Logs")
+		deployment := containerDeploymentMap[raw.LogAttributes["container_id"]]
+
+		// how??
+		if deployment == nil {
+			logger.Error().Str("containerId", raw.LogAttributes["container_id"]).Msg("Deployment not found")
+			continue
+		} else {
+			log := log_model.Log{
+				ContainerID:    raw.LogAttributes["container_id"],
+				Message:        raw.LogAttributes["body"],
+				Level:          raw.LogAttributes["level"],
+				Timestamp:      raw.Timestamp,
+				ServiceID:      serviceID.String(),
+				DeploymentID:   deployment.ID.String(),
+				DeploymentName: deployment.Name,
+			}
+
+			logs = append(logs, &log)
+		}
+	}
 
 	return logs, nil
 }

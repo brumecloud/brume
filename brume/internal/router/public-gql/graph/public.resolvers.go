@@ -63,39 +63,9 @@ func (r *deploymentSourceResolver) Type(ctx context.Context, obj *deployment_mod
 	return string(obj.Type), nil
 }
 
-// ID is the resolver for the id field.
-func (r *logResolver) ID(ctx context.Context, obj *log_model.Log) (string, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
-}
-
-// Message is the resolver for the message field.
-func (r *logResolver) Message(ctx context.Context, obj *log_model.Log) (string, error) {
-	panic(fmt.Errorf("not implemented: Message - message"))
-}
-
-// Level is the resolver for the level field.
-func (r *logResolver) Level(ctx context.Context, obj *log_model.Log) (string, error) {
-	panic(fmt.Errorf("not implemented: Level - level"))
-}
-
 // Timestamp is the resolver for the timestamp field.
 func (r *logResolver) Timestamp(ctx context.Context, obj *log_model.Log) (string, error) {
 	return obj.Timestamp.Format(time.RFC3339), nil
-}
-
-// ServiceID is the resolver for the serviceId field.
-func (r *logResolver) ServiceID(ctx context.Context, obj *log_model.Log) (string, error) {
-	panic(fmt.Errorf("not implemented: ServiceID - serviceId"))
-}
-
-// DeploymentName is the resolver for the deploymentName field.
-func (r *logResolver) DeploymentName(ctx context.Context, obj *log_model.Log) (string, error) {
-	panic(fmt.Errorf("not implemented: DeploymentName - deploymentName"))
-}
-
-// DeploymentID is the resolver for the deploymentId field.
-func (r *logResolver) DeploymentID(ctx context.Context, obj *log_model.Log) (string, error) {
-	panic(fmt.Errorf("not implemented: DeploymentID - deploymentId"))
 }
 
 // ID is the resolver for the id field.

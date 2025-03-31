@@ -12,9 +12,9 @@ import (
 )
 
 type Deployment struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
-	ServiceID   uuid.UUID `gorm:"type:uuid"`
-	ServiceName string
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ServiceID uuid.UUID `gorm:"type:uuid"`
+	Name      string
 
 	ProjectID uuid.UUID `gorm:"type:uuid"`
 

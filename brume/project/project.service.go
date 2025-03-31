@@ -124,10 +124,10 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 		}
 
 		deployment := &deployment_model.Deployment{
-			ID:          uuid.New(),
-			ServiceID:   service.ID,
-			ServiceName: service.Name,
-			ProjectID:   project.ID,
+			ID:        uuid.New(),
+			ServiceID: service.ID,
+			Name:      service.Name,
+			ProjectID: project.ID,
 
 			Source: deployment_model.DeploymentSource{
 				Type: deployment_model.DeploymentSourceTypeConsole,

@@ -2,7 +2,6 @@ package brume_clickhouse
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 
 	"brume.dev/internal/config"
@@ -40,9 +39,6 @@ func (c *ClickhouseDB) Connect(ctx context.Context, config *config.BrumeConfig) 
 			Database: config.ClickhouseConfig.DB,
 			Username: config.ClickhouseConfig.User,
 			Password: config.ClickhouseConfig.Password,
-		},
-		TLS: &tls.Config{
-			InsecureSkipVerify: true,
 		},
 	})
 
