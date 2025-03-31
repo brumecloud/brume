@@ -145,6 +145,12 @@ func (s *JobService) GetJob(jobID uuid.UUID) (job_model.Job, error) {
 	return job, err
 }
 
+func (s *JobService) GetJobsByServiceID(serviceID uuid.UUID) ([]job_model.Job, error) {
+	var jobs []job_model.Job
+	err := s.db.Gorm.Find(&job_model.Job{}).Where("service_id = ?", serviceID).Find(&jobs).Error
+	return jobs, err
+}
+
 // check on the rapid ticker frequency if all the watched jobs are healthy
 // this is the main loop, multi tenant. it will inform the deployment workflow is something is not healthy
 // healty = having a healthy status in redis

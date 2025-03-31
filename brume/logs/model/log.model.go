@@ -2,20 +2,13 @@ package log_model
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
+// otel log model
 type Log struct {
-	ProjectID      uuid.UUID `gorm:"type:UUID;index"`
-	ServiceID      uuid.UUID `gorm:"type:UUID;index"`
-	DeploymentID   uuid.UUID `gorm:"type:UUID;index"`
-	DeploymentName string
-
-	ID        uuid.UUID
-	Message   string
-	Level     string
-	Timestamp time.Time
+	Timestamp     time.Time
+	SeverityText  string
+	LogAttributes map[string]interface{}
 }
 
 // this is the format of the logs that the agent sends to the orchestrator

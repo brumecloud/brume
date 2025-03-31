@@ -5,6 +5,7 @@ tmp_dir = "tmp"
 cmd = "go build -o bin/brume cmd/brume/main.go"
 bin = "./bin/brume"
 args_bin = ["master"]
+include_ext = ["go", "toml"]
 delay = 1000
 kill_delay = "0s"
 send_interrupt = true

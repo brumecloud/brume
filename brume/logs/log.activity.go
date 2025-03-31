@@ -22,14 +22,7 @@ func NewLogActivity(logService *LogService, chdb *clickhouse.ClickhouseDB) *LogA
 // once we are in the master, the log are formatted and ready to be ingested
 // this where we should inform the chan, if connected
 // Logs can come from any type of runner
+// TODO REMOVE ME
 func (l *LogActivity) IngestLogs(ctx context.Context, logs []*log_model.Log) error {
-	logger.Info().Uint("logs", uint(len(logs))).Msg("Ingesting logs")
-
-	err := l.chdb.Gorm.Create(logs).Error
-	if err != nil {
-		logger.Error().Err(err).Msg("Error ingesting logs")
-		return err
-	}
-
 	return nil
 }

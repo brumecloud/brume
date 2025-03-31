@@ -5,6 +5,7 @@ tmp_dir = "tmp"
 cmd = "go build -o bin/agent cmd/main.go"
 bin = "./bin/agent"
 args_bin = ["agent"]
+include_ext = ["go", "toml"]
 delay = 1000
 kill_delay = "0s"
 send_interrupt = false

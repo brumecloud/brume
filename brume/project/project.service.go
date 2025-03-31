@@ -57,7 +57,7 @@ func (s *ProjectService) IsDirty(project *project.Project) (bool, error) {
 func (s *ProjectService) GetProjectByID(id uuid.UUID) (*project.Project, error) {
 	var project *project.Project
 
-	err := s.db.Gorm.First(&project, "id = ?", id).Error
+	err := s.db.Gorm.Preload("Services").First(&project, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}

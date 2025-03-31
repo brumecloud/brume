@@ -1,84 +1,65 @@
 package brume_clickhouse
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
-	"time"
 
-	config "brume.dev/internal/config"
-	db "brume.dev/internal/db"
+	"brume.dev/internal/config"
 	brume_log "brume.dev/internal/log"
-	log_model "brume.dev/logs/model"
-	"github.com/rs/zerolog/log"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"go.uber.org/fx"
-	"gorm.io/driver/clickhouse"
-	"gorm.io/gorm"
 )
 
 var logger = brume_log.GetLogger("clickhouse")
 
 type ClickhouseDB struct {
-	Gorm *gorm.DB
+	Conn driver.Conn
 }
 
-func InitClickhouse(cfg *config.BrumeConfig) *ClickhouseDB {
-	logger.Info().Msg("Initializing Clickhouse connection")
+func NewClickhouseDB(lc fx.Lifecycle, config *config.BrumeConfig) *ClickhouseDB {
+	clickhouse := ClickhouseDB{}
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			return clickhouse.Connect(ctx, config)
+		},
+		OnStop: func(ctx context.Context) error {
+			return nil
+		},
+	})
+	return &clickhouse
+}
 
-	for i := 0; i < 5; i++ {
-		chdb, err := openCHDB(cfg)
-		if err != nil {
-			logger.Warn().Int("attempt", i).Err(err).Msg("Could not connect to Clickhouse, retrying...")
+func (c *ClickhouseDB) Connect(ctx context.Context, config *config.BrumeConfig) error {
+	logger.Debug().Str("host", config.ClickhouseConfig.Host).Int("port", config.ClickhouseConfig.Port).Msg("Connecting to clickhouse")
+	logger.Debug().Str("db", config.ClickhouseConfig.DB).Str("user", config.ClickhouseConfig.User).Str("password", config.ClickhouseConfig.Password).Msg("Clickhouse credentials")
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", config.ClickhouseConfig.Host, config.ClickhouseConfig.Port)},
+		Auth: clickhouse.Auth{
+			Database: config.ClickhouseConfig.DB,
+			Username: config.ClickhouseConfig.User,
+			Password: config.ClickhouseConfig.Password,
+		},
+		TLS: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	})
 
-			// some kind of exponential backoff
-			time.Sleep(time.Second * 2 * time.Duration(i))
-		} else {
-			chdb.Migrate()
-			return chdb
-		}
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to validate clickhouse connection")
+		return err
 	}
 
-	logger.Fatal().Msg("Failed to connect to Clickhouse")
+	logger.Debug().Msg("Trying to ping clickhouse")
+
+	if err := conn.Ping(ctx); err != nil {
+		logger.Error().Err(err).Msg("Failed to ping clickhouse")
+		return err
+	}
+	logger.Info().Msg("Connected to clickhouse")
+	c.Conn = conn
 	return nil
 }
 
-func openCHDB(cfg *config.BrumeConfig) (*ClickhouseDB, error) {
-	globalLogLevel := logger.GetLevel()
-	dblogger := db.NewDBLogger(log.Level(globalLogLevel))
-
-	dsn := fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?dial_timeout=10s&read_timeout=20s", cfg.ClickhouseConfig.User, cfg.ClickhouseConfig.Password, cfg.ClickhouseConfig.Host, cfg.ClickhouseConfig.Port, cfg.ClickhouseConfig.DB)
-
-	logger.Info().Str("dsn", dsn).Msg("Opening the clickhouse database connection")
-
-	db, err := gorm.Open(clickhouse.Open(dsn), &gorm.Config{
-		Logger: dblogger,
-	})
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to connect to Clickhouse")
-	}
-
-	db.Set("gorm:table_options", "ENGINE=Distributed(cluster, default, hits)")
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to get sqlDB from Clickhouse")
-	}
-
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
-
-	return &ClickhouseDB{
-		Gorm: db,
-	}, nil
-}
-
-var AllClickhouseModels = []interface{}{
-	&log_model.Log{},
-}
-
-func (chdb *ClickhouseDB) Migrate() {
-	logger.Info().Msg("Migrating Clickhouse database")
-	chdb.Gorm.AutoMigrate(AllClickhouseModels...)
-	logger.Info().Msg("Clickhouse migrations finished")
-}
-
-var ClickhouseModule = fx.Module("clickhouse", fx.Provide(InitClickhouse))
+var ClickhouseModule = fx.Module("clickhouse", fx.Provide(NewClickhouseDB), fx.Invoke(func(c *ClickhouseDB) {}))

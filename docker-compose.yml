@@ -143,6 +143,8 @@ services:
       - 8123:8123
       - 9000:9000
       - 8009:9009
+    networks:
+      - brume-net
     volumes:
       - clickhouse-data:/var/lib/clickhouse
 
