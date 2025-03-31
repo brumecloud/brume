@@ -5,7 +5,7 @@ import (
 	"github.com/brumecloud/agent/internal/log"
 )
 
-var logger = log.GetLogger("main")
+var logger = log.GetLogger("cmd")
 
 func main() {
 	logger.Info().Msg("Starting Brume Agent")

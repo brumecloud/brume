@@ -15,7 +15,7 @@ import (
 	"go.uber.org/fx"
 )
 
-var logger = brumelog.GetLogger("injector")
+var logger = brumelog.GetLogger("fx")
 
 type GlobalInjector struct {
 	Injector *fx.App
@@ -25,7 +25,7 @@ func NewAgentInjector() *GlobalInjector {
 	logger.Info().Msg("Initializing agent injector")
 
 	app := fx.New(
-		fx.WithLogger(fxlogger.WithZerolog(brumelog.GetLogger("fx"))),
+		fx.WithLogger(fxlogger.WithZerolog(logger)),
 		fx_config.ConfigModule,
 		fx_docker.DockerModule,
 		fx_intercom.IntercomModule,

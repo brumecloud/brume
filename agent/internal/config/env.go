@@ -2,7 +2,6 @@ package config
 
 import (
 	"github.com/go-playground/validator/v10"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -15,21 +14,21 @@ type OrchestratorConfig struct {
 	RetryMax    int    `mapstructure:"retry_max"`
 }
 
-type Logs struct {
-	Level          string `mapstructure:"level" validate:"required"`
-	AllowedModules string `mapstructure:"allowed_modules"`
-	MutedModules   string `mapstructure:"muted_modules"`
-}
-
 type GeneralConfig struct {
 	Orchestrator OrchestratorConfig `mapstructure:"orchestrator" validate:"required"`
 	MachineID    string             `mapstructure:"machine_id" validate:"required"`
-	Logs         Logs               `mapstructure:"logs" validate:"required"`
+	Logs         map[string]string  `mapstructure:"logs" validate:"required"`
 }
 
 var logger = log.With().Str("module", "config").Logger()
 
-func LoadAgentConfig() *GeneralConfig {
+var config *GeneralConfig
+
+func GetConfig() *GeneralConfig {
+	if config != nil {
+		return config
+	}
+
 	cfg := &GeneralConfig{}
 
 	viper.SetConfigName("agent")
@@ -57,14 +56,8 @@ func LoadAgentConfig() *GeneralConfig {
 		panic(err)
 	}
 
-	level, err := zerolog.ParseLevel(cfg.Logs.Level)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to parse log level")
-		panic(err)
-	}
-	zerolog.SetGlobalLevel(level)
-
+	config = cfg
 	return cfg
 }
 
-var ConfigModule = fx.Module("config", fx.Provide(LoadAgentConfig), fx.Invoke(func(cfg *GeneralConfig) {}))
+var ConfigModule = fx.Module("config", fx.Provide(GetConfig), fx.Invoke(func(cfg *GeneralConfig) {}))

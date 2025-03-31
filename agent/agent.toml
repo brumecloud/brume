@@ -7,6 +7,13 @@ slow_ticker = 5
 retry_max = 3
 
 [logs]
-level = "debug"
-allowed_modules = "*"
-muted_modules = "collector"
+collector = "silent"
+runner_docker = "silent"
+health = "silent"
+job = "silent"
+runner = "silent"
+ticker = "silent"
+fx = "silent"
+intercom = "silent"
+docker = "silent"
+cmd = "silent"
