@@ -8,7 +8,7 @@ import (
 	log_model "brume.dev/logs/model"
 )
 
-var logger = log.GetLogger("log.activity")
+var logger = log.GetLogger("log_activity")
 
 type LogActivity struct {
 	logService *LogService

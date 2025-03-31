@@ -38,7 +38,7 @@ func InitDB(config *config.BrumeConfig) *DB {
 func openDB(dsn string, config *config.BrumeConfig) (*DB, error) {
 	logger.Info().Str("dsn", dsn).Msg("Opening database connection")
 
-	level, err := zerolog.ParseLevel(config.LogConfig.DBLogLevel)
+	level, err := zerolog.ParseLevel(config.PostgresConfig.Logs)
 	if err != nil {
 		level = zerolog.InfoLevel
 	}

@@ -37,7 +37,7 @@ func NewMasterInjector() *GlobalInjector {
 	logger.Info().Msg("Initializing master injector")
 
 	app := fx.New(
-		fx.WithLogger(fxlogger.WithZerolog(brume_log.RootLogger().With().Str("module", "fx").Logger())),
+		fx.WithLogger(fxlogger.WithZerolog(logger)),
 
 		fx_common.CommonModule,
 		fx_org.OrgModule,

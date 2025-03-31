@@ -1,29 +1,33 @@
-# everything related to logging
-[log]
-level = "debug"
-db_level = "info"
+[logs]
+cmd = "silent"
+authentification = "silent"
+account_user = "silent"
+account_org = "silent"
+builder = "silent"
+deployment_workflow = "silent"
+deployment_service = "silent"
+machine_workflow = "silent"
+clickhouse = "silent"
+db = "silent"
+fx = "info"
+redis = "silent"
+grpc = "silent"
+http = "silent"
+graphql_public = "silent"
+temporal_client = "silent"
+temporal_worker = "silent"
+ticker = "silent"
+http_middleware = "silent"
+machine = "silent"
+grpc_interceptor = "silent"
+grpc_server = "silent"
+bid_service = "silent"
+job_service = "silent"
+log_activity = "silent"
+service = "silent"
+project = "silent"
+job_workflow = "silent"
 
-# can be a comma separated list of
-# - "*" for all logs
-# - "account.user" for the user service
-# - "account.org" for the organization service
-# - "builder" for the builder service
-# - "deployment" for the deployment service
-# - "deployment.workflow" for the deployment workflow
-# - "machine.workflow" for the machine workflow
-# - "clickhouse" for the clickhouse service
-# - "authentification" for the authentification (token & authN) service
-# - "db" for postgres
-# - "fx" for uber fx injector
-# - "redis" for redis
-# - "grpc" for grpc
-# - "http" for http
-# - "graphql.public" for the public graphql
-# - "temporal.client" for the temporal client
-# - "temporal.worker" for the temporal worker
-# - "ticker" for the ticker
-allowed_modules = "*"
-muted_modules = "machine.workflow"
 
 [orchestrator]
 unhealthy_machine_threshold = 10
@@ -50,6 +54,7 @@ user = "brume"
 password = "brumepass"
 max_idle = 1
 max_open = 1
+logs = "info"
 
 # redis configuration
 [redis]

@@ -11,13 +11,6 @@ import (
 	"go.uber.org/fx"
 )
 
-type LogConfig struct {
-	LogLevel       string `mapstructure:"level" validate:"required,oneof=debug info warn error"`
-	DBLogLevel     string `mapstructure:"db_level" validate:"required,oneof=silent error warn info"`
-	AllowedModules string `mapstructure:"allowed_modules" validate:"required"`
-	MutedModules   string `mapstructure:"muted_modules" validate:""`
-}
-
 type ServerConfig struct {
 	Host             string `mapstructure:"host" validate:"required,ip"`
 	OrchestratorPort int    `mapstructure:"orchestrator_port" validate:"required,min=1,max=65535"`
@@ -59,6 +52,7 @@ type PostgresConfig struct {
 	Password string `mapstructure:"password" validate:"required,min=1"`
 	MaxIdle  int    `mapstructure:"max_idle" validate:"required,min=1"`
 	MaxOpen  int    `mapstructure:"max_open" validate:"required,min=1"`
+	Logs     string `mapstructure:"logs" validate:"required"`
 }
 
 type OrchestratorConfig struct {
@@ -68,7 +62,7 @@ type OrchestratorConfig struct {
 }
 
 type BrumeConfig struct {
-	LogConfig          LogConfig          `mapstructure:"log" validate:"required"`
+	Logs               map[string]string  `mapstructure:"logs" validate:"required"`
 	ServerConfig       ServerConfig       `mapstructure:"server" validate:"required"`
 	TickerConfig       TickerConfig       `mapstructure:"ticker" validate:"required"`
 	ClickhouseConfig   ClickhouseConfig   `mapstructure:"clickhouse" validate:"required"`
@@ -82,7 +76,13 @@ type BrumeConfig struct {
 // this is the only logger using directly the zerolog package
 var logger = zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
 
-func LoadBrumeConfig() *BrumeConfig {
+var Config *BrumeConfig
+
+func GetConfig() *BrumeConfig {
+	if Config != nil {
+		return Config
+	}
+
 	cfg := &BrumeConfig{}
 
 	viper.AutomaticEnv()
@@ -112,7 +112,8 @@ func LoadBrumeConfig() *BrumeConfig {
 		os.Exit(1)
 	}
 
+	Config = cfg
 	return cfg
 }
 
-var ConfigModule = fx.Module("config", fx.Provide(LoadBrumeConfig), fx.Invoke(func(cfg *BrumeConfig) {}))
+var ConfigModule = fx.Module("config", fx.Provide(GetConfig), fx.Invoke(func(cfg *BrumeConfig) {}))

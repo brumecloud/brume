@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var logger = log.GetLogger("main")
+var logger = log.GetLogger("cmd")
 
 func NewMasterCommand() *cobra.Command {
 	cmd := &cobra.Command{

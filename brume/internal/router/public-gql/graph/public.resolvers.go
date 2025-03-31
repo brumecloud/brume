@@ -23,7 +23,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var logger = brume_log.GetLogger("graphql.public")
+var logger = brume_log.GetLogger("graphql_public")
 
 // ID is the resolver for the id field.
 func (r *deploymentResolver) ID(ctx context.Context, obj *deployment_model.Deployment) (string, error) {

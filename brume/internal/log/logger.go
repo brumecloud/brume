@@ -2,7 +2,6 @@ package log
 
 import (
 	"os"
-	"strings"
 	"time"
 
 	"brume.dev/internal/config"
@@ -12,8 +11,6 @@ import (
 	"go.temporal.io/sdk/log"
 )
 
-var cfg *config.BrumeConfig
-
 var logger = RootLogger().With().Str("module", "log").Logger()
 
 func RootLogger() zerolog.Logger {
@@ -21,36 +18,31 @@ func RootLogger() zerolog.Logger {
 	zerolog.DurationFieldUnit = time.Nanosecond
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 
-	if cfg == nil {
-		cfg = config.LoadBrumeConfig()
-	}
-
-	level, err := zerolog.ParseLevel(cfg.LogConfig.LogLevel)
-	if err != nil {
-		level = zerolog.DebugLevel
-	}
-
-	return zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(level)
+	return zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.InfoLevel)
 }
 
+// GetLogger returns a logger for a given module
+// it will mute certain modules from logging
 func GetLogger(module string) zerolog.Logger {
-	// mute certain modules from logging
-	if strings.Contains(cfg.LogConfig.MutedModules, module) {
-		return zerolog.Nop()
-	}
+	cfg := config.GetConfig()
 
-	// allow certain modules to log
-	if cfg.LogConfig.AllowedModules != "*" {
-		if strings.Contains(cfg.LogConfig.AllowedModules, module) {
-			return RootLogger().With().Str("module", module).Logger()
+	// mute certain modules from logging
+	if level, ok := cfg.Logs[module]; ok {
+		logger.Info().Str("module", module).Str("log_level", level).Msg("Module logger level")
+		if level == "silent" {
+			return zerolog.Nop()
 		}
 
-		logger.Warn().Str("module", module).Str("allowed_modules", cfg.LogConfig.AllowedModules).Str("muted_modules", cfg.LogConfig.MutedModules).Msg("module not in log filters")
-		return zerolog.Nop()
-	} else {
-		// we dont have a log filters
-		return RootLogger().With().Str("module", module).Logger()
+		level, err := zerolog.ParseLevel(level)
+		if err != nil {
+			level = zerolog.InfoLevel
+		}
+
+		return RootLogger().Level(level).With().Str("module", module).Logger()
 	}
+
+	logger.Error().Str("module", module).Msg("module not in log filters")
+	return zerolog.Nop()
 }
 
 // TemporalZeroLogger implements temporal's log.Logger interface using zerolog

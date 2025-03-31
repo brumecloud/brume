@@ -12,7 +12,7 @@ type BiddingWorkflow struct {
 	jobService *job_service.JobService
 }
 
-var bidLogger = log.GetLogger("job_workflows").With().Str("workflow", "bid").Logger()
+var bidLogger = log.GetLogger("job_workflow").With().Str("workflow", "bid").Logger()
 
 func NewBiddingWorkflow(bidService *job_service.BidService, jobService *job_service.JobService) *BiddingWorkflow {
 	return &BiddingWorkflow{
