@@ -1,6 +1,6 @@
-import { gql } from "@apollo/client";
+import { gql } from "@/_apollo/gql";
 
-export const RUNNER_FRAGMENT = gql`
+export const RUNNER_FRAGMENT = gql(`
   fragment RunnerFragment on Runner {
     type
     data {
@@ -19,9 +19,9 @@ export const RUNNER_FRAGMENT = gql`
       privateDomain
     }
   }
-`;
+`);
 
-export const UPDATE_RUNNER_MUTATION = gql`
+export const UPDATE_RUNNER_MUTATION = gql(`
   mutation UpdateRunner(
     $serviceId: String!
     $input: RunnerDataInput!
@@ -30,5 +30,4 @@ export const UPDATE_RUNNER_MUTATION = gql`
       ...RunnerFragment
     }
   }
-  ${RUNNER_FRAGMENT}
-`;
+`);

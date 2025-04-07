@@ -10,6 +10,13 @@ export const useUpdateRunner = () => {
     UPDATE_RUNNER_MUTATION,
     {
       update(cache, { data }) {
+        if (!data) {
+          console.error(
+            `No data returned from updateRunnerMutation for service ${serviceId}`
+          );
+          return;
+        }
+
         cache.modify({
           id: `Service:${serviceId}`,
           fields: {

@@ -61,6 +61,8 @@ services:
       - 3000:5173
     volumes:
       - ./console/src:/app/src
+      - ./console/codegen.ts:/app/codegen.ts
+      - ./brume/internal/router/public-gql/graph/public.graphql:/graph/public.graphql
     depends_on:
       - orchestrator
 

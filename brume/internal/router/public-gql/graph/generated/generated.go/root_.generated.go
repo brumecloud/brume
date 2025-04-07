@@ -122,8 +122,8 @@ type ComplexityRoot struct {
 		GetProjectByID func(childComplexity int, id string) int
 		Machine        func(childComplexity int) int
 		Me             func(childComplexity int) int
-		ProjectLogs    func(childComplexity int, projectID string) int
-		ServiceLogs    func(childComplexity int, serviceID string) int
+		ProjectLogs    func(childComplexity int, projectID string, input public_graph_model.GetLogsInput) int
+		ServiceLogs    func(childComplexity int, serviceID string, input public_graph_model.GetLogsInput) int
 	}
 
 	RessourceConstraints struct {
@@ -165,9 +165,9 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		ProjectLogs   func(childComplexity int, projectID string) int
+		ProjectLogs   func(childComplexity int, projectID string, input public_graph_model.GetLogsInput) int
 		ServiceEvents func(childComplexity int, serviceID string) int
-		ServiceLogs   func(childComplexity int, serviceID string) int
+		ServiceLogs   func(childComplexity int, serviceID string, input public_graph_model.GetLogsInput) int
 	}
 
 	User struct {
@@ -553,7 +553,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.ProjectLogs(childComplexity, args["projectId"].(string)), true
+		return e.complexity.Query.ProjectLogs(childComplexity, args["projectId"].(string), args["input"].(public_graph_model.GetLogsInput)), true
 
 	case "Query.serviceLogs":
 		if e.complexity.Query.ServiceLogs == nil {
@@ -565,7 +565,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.ServiceLogs(childComplexity, args["serviceId"].(string)), true
+		return e.complexity.Query.ServiceLogs(childComplexity, args["serviceId"].(string), args["input"].(public_graph_model.GetLogsInput)), true
 
 	case "RessourceConstraints.limit":
 		if e.complexity.RessourceConstraints.Limit == nil {
@@ -738,7 +738,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Subscription.ProjectLogs(childComplexity, args["projectId"].(string)), true
+		return e.complexity.Subscription.ProjectLogs(childComplexity, args["projectId"].(string), args["input"].(public_graph_model.GetLogsInput)), true
 
 	case "Subscription.serviceEvents":
 		if e.complexity.Subscription.ServiceEvents == nil {
@@ -762,7 +762,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Subscription.ServiceLogs(childComplexity, args["serviceId"].(string)), true
+		return e.complexity.Subscription.ServiceLogs(childComplexity, args["serviceId"].(string), args["input"].(public_graph_model.GetLogsInput)), true
 
 	case "User.avatar":
 		if e.complexity.User.Avatar == nil {
@@ -802,6 +802,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputBuilderDataInput,
 		ec.unmarshalInputCreateServiceInput,
+		ec.unmarshalInputGetLogsInput,
 		ec.unmarshalInputRessourceConstraintsInput,
 		ec.unmarshalInputRunnerDataInput,
 		ec.unmarshalInputServiceSettingsInput,
@@ -1058,13 +1059,19 @@ type ServiceEvent {
   data: String!
 }
 
+input GetLogsInput {
+  since: String!
+  limit: Int!
+  filters: [String!]
+}
+
 type Query {
   # get the current user
   me: User!
 
   getProjectById(id: String!): Project!
-  projectLogs(projectId: String!): [Log]!
-  serviceLogs(serviceId: String!): [Log]!
+  projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
+  serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
 
   # all the machine associated to the current user
   # all the machine are filtred based on the user role in the organization
@@ -1087,8 +1094,8 @@ type Mutation {
 }
 
 type Subscription {
-  serviceLogs(serviceId: String!): [Log]!
-  projectLogs(projectId: String!): [Log]!
+  serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
+  projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
   serviceEvents(serviceId: String!): [ServiceEvent]!
 }
 `, BuiltIn: false},

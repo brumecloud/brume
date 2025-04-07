@@ -43,6 +43,10 @@ const LogsHeader = () => {
 export const LogsPage = () => {
   const { projectId } = useParams();
 
+  if (!projectId) {
+    throw new Error("No project ID found");
+  }
+
   const { data, subscribeToMore } = useQuery(LOG_BY_PROJECT_ID, {
     variables: {
       projectId: projectId,

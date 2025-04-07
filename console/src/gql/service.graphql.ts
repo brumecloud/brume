@@ -1,6 +1,6 @@
-import { gql } from "@apollo/client";
+import { gql } from "@/_apollo/gql";
 
-export const ADD_SERVICE_MUTATION = gql`
+export const ADD_SERVICE_MUTATION = gql(`
   mutation AddServiceToProject(
     $projectId: String!
     $input: CreateServiceInput!
@@ -10,17 +10,17 @@ export const ADD_SERVICE_MUTATION = gql`
       name
     }
   }
-`;
+`);
 
-export const DELETE_SERVICE_MUTATION = gql`
+export const DELETE_SERVICE_MUTATION = gql(`
   mutation DeleteService($serviceId: String!) {
     deleteService(serviceId: $serviceId) {
       id
     }
   }
-`;
+`);
 
-export const UPDATE_SERVICE_SETTINGS_MUTATION = gql`
+export const UPDATE_SERVICE_SETTINGS_MUTATION = gql(`
   mutation UpdateServiceSettings(
     $serviceId: String!
     $input: ServiceSettingsInput!
@@ -30,4 +30,4 @@ export const UPDATE_SERVICE_SETTINGS_MUTATION = gql`
       name
     }
   }
-`;
+`);

@@ -20,4 +20,8 @@ export default defineConfig({
     host: "0.0.0.0",
     strictPort: true,
   },
+  optimizeDeps: {
+    include: ["@/_apollo/gql"],
+    exclude: ["@graphql-typed-document-node/core"],
+  },
 });

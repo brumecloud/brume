@@ -68,8 +68,8 @@ type ProjectResolver interface {
 type QueryResolver interface {
 	Me(ctx context.Context) (*user_model.User, error)
 	GetProjectByID(ctx context.Context, id string) (*project_model.Project, error)
-	ProjectLogs(ctx context.Context, projectID string) ([]*log_model.Log, error)
-	ServiceLogs(ctx context.Context, serviceID string) ([]*log_model.Log, error)
+	ProjectLogs(ctx context.Context, projectID string, input public_graph_model.GetLogsInput) ([]*log_model.Log, error)
+	ServiceLogs(ctx context.Context, serviceID string, input public_graph_model.GetLogsInput) ([]*log_model.Log, error)
 	Machine(ctx context.Context) ([]*machine_model.Machine, error)
 }
 type RunnerDataResolver interface {
@@ -87,8 +87,8 @@ type ServiceResolver interface {
 	Deployments(ctx context.Context, obj *service_model.Service) ([]*deployment_model.Deployment, error)
 }
 type SubscriptionResolver interface {
-	ServiceLogs(ctx context.Context, serviceID string) (<-chan []*log_model.Log, error)
-	ProjectLogs(ctx context.Context, projectID string) (<-chan []*log_model.Log, error)
+	ServiceLogs(ctx context.Context, serviceID string, input public_graph_model.GetLogsInput) (<-chan []*log_model.Log, error)
+	ProjectLogs(ctx context.Context, projectID string, input public_graph_model.GetLogsInput) (<-chan []*log_model.Log, error)
 	ServiceEvents(ctx context.Context, serviceID string) (<-chan []*public_graph_model.ServiceEvent, error)
 }
 type UserResolver interface {
@@ -564,6 +564,11 @@ func (ec *executionContext) field_Query_projectLogs_args(ctx context.Context, ra
 		return nil, err
 	}
 	args["projectId"] = arg0
+	arg1, err := ec.field_Query_projectLogs_argsInput(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Query_projectLogs_argsProjectID(
@@ -588,6 +593,28 @@ func (ec *executionContext) field_Query_projectLogs_argsProjectID(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Query_projectLogs_argsInput(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (public_graph_model.GetLogsInput, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["input"]
+	if !ok {
+		var zeroVal public_graph_model.GetLogsInput
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+	if tmp, ok := rawArgs["input"]; ok {
+		return ec.unmarshalNGetLogsInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐGetLogsInput(ctx, tmp)
+	}
+
+	var zeroVal public_graph_model.GetLogsInput
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Query_serviceLogs_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -596,6 +623,11 @@ func (ec *executionContext) field_Query_serviceLogs_args(ctx context.Context, ra
 		return nil, err
 	}
 	args["serviceId"] = arg0
+	arg1, err := ec.field_Query_serviceLogs_argsInput(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Query_serviceLogs_argsServiceID(
@@ -620,6 +652,28 @@ func (ec *executionContext) field_Query_serviceLogs_argsServiceID(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Query_serviceLogs_argsInput(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (public_graph_model.GetLogsInput, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["input"]
+	if !ok {
+		var zeroVal public_graph_model.GetLogsInput
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+	if tmp, ok := rawArgs["input"]; ok {
+		return ec.unmarshalNGetLogsInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐGetLogsInput(ctx, tmp)
+	}
+
+	var zeroVal public_graph_model.GetLogsInput
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Subscription_projectLogs_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -628,6 +682,11 @@ func (ec *executionContext) field_Subscription_projectLogs_args(ctx context.Cont
 		return nil, err
 	}
 	args["projectId"] = arg0
+	arg1, err := ec.field_Subscription_projectLogs_argsInput(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Subscription_projectLogs_argsProjectID(
@@ -649,6 +708,28 @@ func (ec *executionContext) field_Subscription_projectLogs_argsProjectID(
 	}
 
 	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_projectLogs_argsInput(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (public_graph_model.GetLogsInput, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["input"]
+	if !ok {
+		var zeroVal public_graph_model.GetLogsInput
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+	if tmp, ok := rawArgs["input"]; ok {
+		return ec.unmarshalNGetLogsInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐGetLogsInput(ctx, tmp)
+	}
+
+	var zeroVal public_graph_model.GetLogsInput
 	return zeroVal, nil
 }
 
@@ -692,6 +773,11 @@ func (ec *executionContext) field_Subscription_serviceLogs_args(ctx context.Cont
 		return nil, err
 	}
 	args["serviceId"] = arg0
+	arg1, err := ec.field_Subscription_serviceLogs_argsInput(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Subscription_serviceLogs_argsServiceID(
@@ -713,6 +799,28 @@ func (ec *executionContext) field_Subscription_serviceLogs_argsServiceID(
 	}
 
 	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_serviceLogs_argsInput(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (public_graph_model.GetLogsInput, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["input"]
+	if !ok {
+		var zeroVal public_graph_model.GetLogsInput
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+	if tmp, ok := rawArgs["input"]; ok {
+		return ec.unmarshalNGetLogsInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐGetLogsInput(ctx, tmp)
+	}
+
+	var zeroVal public_graph_model.GetLogsInput
 	return zeroVal, nil
 }
 
@@ -2846,7 +2954,7 @@ func (ec *executionContext) _Query_projectLogs(ctx context.Context, field graphq
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().ProjectLogs(rctx, fc.Args["projectId"].(string))
+		return ec.resolvers.Query().ProjectLogs(rctx, fc.Args["projectId"].(string), fc.Args["input"].(public_graph_model.GetLogsInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2915,7 +3023,7 @@ func (ec *executionContext) _Query_serviceLogs(ctx context.Context, field graphq
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().ServiceLogs(rctx, fc.Args["serviceId"].(string))
+		return ec.resolvers.Query().ServiceLogs(rctx, fc.Args["serviceId"].(string), fc.Args["input"].(public_graph_model.GetLogsInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4231,7 +4339,7 @@ func (ec *executionContext) _Subscription_serviceLogs(ctx context.Context, field
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().ServiceLogs(rctx, fc.Args["serviceId"].(string))
+		return ec.resolvers.Subscription().ServiceLogs(rctx, fc.Args["serviceId"].(string), fc.Args["input"].(public_graph_model.GetLogsInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4314,7 +4422,7 @@ func (ec *executionContext) _Subscription_projectLogs(ctx context.Context, field
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().ProjectLogs(rctx, fc.Args["projectId"].(string))
+		return ec.resolvers.Subscription().ProjectLogs(rctx, fc.Args["projectId"].(string), fc.Args["input"].(public_graph_model.GetLogsInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4725,6 +4833,47 @@ func (ec *executionContext) unmarshalInputCreateServiceInput(ctx context.Context
 				return it, err
 			}
 			it.Image = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputGetLogsInput(ctx context.Context, obj interface{}) (public_graph_model.GetLogsInput, error) {
+	var it public_graph_model.GetLogsInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"since", "limit", "filters"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "since":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("since"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Since = data
+		case "limit":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Limit = data
+		case "filters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filters"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Filters = data
 		}
 	}
 
@@ -6747,6 +6896,11 @@ func (ec *executionContext) marshalNDeploymentLog2ᚖbrumeᚗdevᚋdeploymentᚋ
 
 func (ec *executionContext) marshalNDeploymentSource2brumeᚗdevᚋdeploymentᚋmodelᚐDeploymentSource(ctx context.Context, sel ast.SelectionSet, v deployment_model.DeploymentSource) graphql.Marshaler {
 	return ec._DeploymentSource(ctx, sel, &v)
+}
+
+func (ec *executionContext) unmarshalNGetLogsInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐGetLogsInput(ctx context.Context, v interface{}) (public_graph_model.GetLogsInput, error) {
+	res, err := ec.unmarshalInputGetLogsInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNLog2ᚕᚖbrumeᚗdevᚋlogsᚋmodelᚐLog(ctx context.Context, sel ast.SelectionSet, v []*log_model.Log) graphql.Marshaler {

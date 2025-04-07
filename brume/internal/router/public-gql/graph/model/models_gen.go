@@ -13,6 +13,12 @@ type CreateServiceInput struct {
 	Image string `json:"image"`
 }
 
+type GetLogsInput struct {
+	Since   string   `json:"since"`
+	Limit   int      `json:"limit"`
+	Filters []string `json:"filters,omitempty"`
+}
+
 type Mutation struct {
 }
 

@@ -238,13 +238,23 @@ func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project
 }
 
 // ProjectLogs is the resolver for the projectLogs field.
-func (r *queryResolver) ProjectLogs(ctx context.Context, projectID string) ([]*log_model.Log, error) {
-	return r.LogService.GetLogs(ctx, uuid.MustParse(projectID))
+func (r *queryResolver) ProjectLogs(ctx context.Context, projectID string, input public_graph_model.GetLogsInput) ([]*log_model.Log, error) {
+	since, err := time.Parse(time.RFC3339, input.Since)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.LogService.GetLogs(ctx, uuid.MustParse(projectID), since, input.Limit)
 }
 
 // ServiceLogs is the resolver for the serviceLogs field.
-func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string) ([]*log_model.Log, error) {
-	return r.LogService.GetLogs(ctx, uuid.MustParse(serviceID))
+func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string, input public_graph_model.GetLogsInput) ([]*log_model.Log, error) {
+	since, err := time.Parse(time.RFC3339, input.Since)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.LogService.GetLogs(ctx, uuid.MustParse(serviceID), since, input.Limit)
 }
 
 // Machine is the resolver for the machine field.
@@ -304,12 +314,12 @@ func (r *serviceResolver) Deployments(ctx context.Context, obj *service_model.Se
 }
 
 // ServiceLogs is the resolver for the serviceLogs field.
-func (r *subscriptionResolver) ServiceLogs(ctx context.Context, serviceID string) (<-chan []*log_model.Log, error) {
+func (r *subscriptionResolver) ServiceLogs(ctx context.Context, serviceID string, input public_graph_model.GetLogsInput) (<-chan []*log_model.Log, error) {
 	return nil, nil
 }
 
 // ProjectLogs is the resolver for the projectLogs field.
-func (r *subscriptionResolver) ProjectLogs(ctx context.Context, projectID string) (<-chan []*log_model.Log, error) {
+func (r *subscriptionResolver) ProjectLogs(ctx context.Context, projectID string, input public_graph_model.GetLogsInput) (<-chan []*log_model.Log, error) {
 	panic(fmt.Errorf("not implemented: ProjectLogs - projectLogs"))
 }
 

@@ -1,3 +1,4 @@
+import type { Deployment } from "@/_apollo/graphql";
 import {
   Avatar,
   AvatarFallback,
@@ -6,7 +7,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useService } from "@/hooks/useService";
 import { useUser } from "@/hooks/useUser";
-import type { Deployment } from "@/schemas/service.schema";
 import { cn } from "@/utils";
 import { GitBranch, GitCommit } from "lucide-react";
 

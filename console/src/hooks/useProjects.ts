@@ -1,13 +1,12 @@
-import { ProjectFragment } from "@/gql/project.graphql";
+import { gql } from "@/_apollo/gql";
 import {
   ProjectSchema,
   type Project,
 } from "@/schemas/project.schema";
-import { gql, useQuery } from "@apollo/client";
+import { useQuery } from "@apollo/client";
 import { z } from "zod";
 
-const PROJECTS_QUERY = gql`
-  ${ProjectFragment}
+const PROJECTS_QUERY = gql(`
   query myProjects {
     me {
       projects {
@@ -15,7 +14,7 @@ const PROJECTS_QUERY = gql`
       }
     }
   }
-`;
+`);
 
 const ProjectListSchema = z.array(ProjectSchema);
 

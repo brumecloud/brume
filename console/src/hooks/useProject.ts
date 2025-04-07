@@ -1,22 +1,18 @@
 import { PROJECT_BY_ID_QUERY } from "@/gql/project.graphql";
 import type { RouteParams } from "@/router/router";
-import {
-  ProjectSchema,
-  type Project,
-} from "@/schemas/project.schema";
 import { useQuery } from "@apollo/client";
 import { useParams } from "react-router-dom";
 
-export const useProject = (): {
-  project?: Project;
-  loading: boolean;
-  error?: Error;
-} => {
+export const useProject = () => {
   const { projectId } = useParams<RouteParams>();
+
+  if (!projectId) {
+    throw new Error("No project ID found in the URL");
+  }
 
   const { data, loading } = useQuery(PROJECT_BY_ID_QUERY, {
     variables: {
-      projectId: projectId ?? "no-id-bug",
+      projectId: projectId,
     },
     // data can come from me query, or need to be fetch when direct link
     fetchPolicy: "cache-first",
@@ -27,15 +23,9 @@ export const useProject = (): {
       loading: true,
     };
   } else {
-    const rawData = ProjectSchema.safeParse(data?.getProjectById);
-
-    if (!rawData.success) {
-      throw new Error(rawData.error.message);
-    } else {
-      return {
-        project: rawData.data,
-        loading: false,
-      };
-    }
+    return {
+      project: data.getProjectById,
+      loading: false,
+    };
   }
 };

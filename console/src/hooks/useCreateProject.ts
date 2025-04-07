@@ -1,9 +1,5 @@
 import { CREATE_PROJECT_MUTATION } from "@/gql/project.graphql";
 import { ME_QUERY } from "@/gql/user.graphql";
-import {
-  type Project,
-  ProjectSchema,
-} from "@/schemas/project.schema";
 import { useMutation } from "@apollo/client";
 
 export const useCreateProject = () => {
@@ -11,24 +7,23 @@ export const useCreateProject = () => {
     CREATE_PROJECT_MUTATION,
     {
       update(cache, { data }) {
-        // add the project to the me query (for the navbar)
-        const meQuery = cache.readQuery({ query: ME_QUERY }) as {
-          me: {
-            projects: Project[];
-          };
-        };
-        const projects: Project[] = meQuery.me.projects;
-
-        const newProject = ProjectSchema.safeParse(
-          data.createProject
-        );
-
-        if (newProject.error) {
-          throw newProject.error;
+        if (!data) {
+          return;
         }
 
-        const updatedProjects = [newProject.data, ...projects];
-        console.log(updatedProjects);
+        // add the project to the me query (for the navbar)
+        const meQuery = cache.readQuery({ query: ME_QUERY });
+        if (!meQuery?.me) {
+          return;
+        }
+
+        const projects = meQuery.me.projects;
+        if (!projects) {
+          return;
+        }
+
+        const updatedProjects = [data.createProject, ...projects];
+
         cache.writeQuery({
           query: ME_QUERY,
           data: {

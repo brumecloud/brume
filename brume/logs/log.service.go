@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	deployment_service "brume.dev/deployment"
 	deployment_model "brume.dev/deployment/model"
@@ -30,7 +31,7 @@ func NewLogService(chdb *clickhouse.ClickhouseDB, redis *redis.Client, jobServic
 // Get the logs for all the services in the project, across all the machines and the differents containers
 // we need to cache the project -> container id mapping
 // this is easy to burst, as we know when we deploy a new version of a service
-func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_model.Log, error) {
+func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID, timestamp time.Time, limit int) ([]*log_model.Log, error) {
 	logger.Trace().Str("projectId", projectID.String()).Msg("Getting logs")
 
 	project, err := l.ProjectService.GetProjectByID(projectID)
@@ -42,7 +43,7 @@ func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_m
 	logs := make([]*log_model.Log, 0)
 
 	for _, service := range project.Services {
-		localLogs, err := l.GetLogsByServiceID(ctx, service.ID)
+		localLogs, err := l.GetLogsByServiceID(ctx, service.ID, timestamp, limit)
 		if err != nil {
 			logger.Error().Err(err).Str("serviceId", service.ID.String()).Msg("Failed to get logs")
 			return nil, err
@@ -54,7 +55,7 @@ func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID) ([]*log_m
 	return logs, nil
 }
 
-func (l *LogService) GetLogsByServiceID(ctx context.Context, serviceID uuid.UUID) ([]*log_model.Log, error) {
+func (l *LogService) GetLogsByServiceID(ctx context.Context, serviceID uuid.UUID, timestamp time.Time, limit int) ([]*log_model.Log, error) {
 	containersIds := make([]string, 0)
 
 	// get all the jobs for the service
@@ -88,7 +89,7 @@ func (l *LogService) GetLogsByServiceID(ctx context.Context, serviceID uuid.UUID
 
 	logs := make([]*log_model.Log, 0)
 
-	query := fmt.Sprintf("SELECT `Timestamp`, `SeverityText`, `LogAttributes` FROM brume.otel_logs WHERE LogAttributes['container_id'] IN (%s)", strings.Join(containersIds, ","))
+	query := fmt.Sprintf("SELECT `Timestamp`, `SeverityText`, `LogAttributes` FROM brume.otel_logs WHERE LogAttributes['container_id'] IN (%s) AND `Timestamp` >= %s LIMIT %d", strings.Join(containersIds, ","), timestamp.Format(time.RFC3339), limit)
 
 	logger.Debug().Str("query", query).Msg("Query")
 

@@ -1,9 +1,6 @@
-import { gql } from "@apollo/client";
+import { gql } from "@/_apollo/gql";
 
-import { ProjectFragment } from "./project.graphql";
-
-export const ME_QUERY = gql`
-  ${ProjectFragment}
+export const ME_QUERY = gql(`
   query me {
     me {
       id
@@ -14,4 +11,4 @@ export const ME_QUERY = gql`
       }
     }
   }
-`;
+`);

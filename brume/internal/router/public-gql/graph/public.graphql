@@ -137,13 +137,19 @@ type ServiceEvent {
   data: String!
 }
 
+input GetLogsInput {
+  since: String!
+  limit: Int!
+  filters: [String!]
+}
+
 type Query {
   # get the current user
   me: User!
 
   getProjectById(id: String!): Project!
-  projectLogs(projectId: String!): [Log]!
-  serviceLogs(serviceId: String!): [Log]!
+  projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
+  serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
 
   # all the machine associated to the current user
   # all the machine are filtred based on the user role in the organization
@@ -166,7 +172,7 @@ type Mutation {
 }
 
 type Subscription {
-  serviceLogs(serviceId: String!): [Log]!
-  projectLogs(projectId: String!): [Log]!
+  serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
+  projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
   serviceEvents(serviceId: String!): [ServiceEvent]!
 }

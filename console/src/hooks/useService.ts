@@ -4,10 +4,6 @@ import {
   UPDATE_SERVICE_SETTINGS_MUTATION,
 } from "@/gql/service.graphql";
 import type { RouteParams } from "@/router/router";
-import {
-  ProjectSchema,
-  type Project,
-} from "@/schemas/project.schema";
 import { useMutation } from "@apollo/client";
 import { useParams } from "react-router-dom";
 
@@ -26,10 +22,10 @@ export const useService = () => {
   };
 };
 
-export const useDeleteService = (_serviceId?: string) => {
+export const useDeleteService = () => {
   const { serviceId, projectId } = useParams<RouteParams>();
 
-  if (!_serviceId && !serviceId) {
+  if (!serviceId) {
     throw new Error("Service ID is required");
   }
 
@@ -39,7 +35,12 @@ export const useDeleteService = (_serviceId?: string) => {
       variables: { serviceId },
       update(cache) {
         // we dont update the cache here...
-        if (!projectId) return;
+        if (!projectId) {
+          console.error(
+            `Project ID is required for deleting service ${serviceId}`
+          );
+          return;
+        }
 
         // get all the projects from the cache
         const rawProject = cache.readQuery({
@@ -47,21 +48,18 @@ export const useDeleteService = (_serviceId?: string) => {
           variables: { projectId },
         });
 
-        // parse them
-        const { data: project, error } = ProjectSchema.safeParse(
-          // @ts-expect-error this data is going to be parsed by zod
-          rawProject?.getProjectById
-        );
-
-        if (error) {
-          console.error(error);
-          throw error;
+        if (!rawProject) {
+          console.error(
+            `Project with id ${projectId} not found in cache`
+          );
+          return;
         }
 
         // remove the deleted service from the project
-        const filteredServices = project.services.filter(
-          (service) => service.id !== serviceId
-        );
+        const filteredServices =
+          rawProject.getProjectById.services.filter(
+            (service) => service.id !== serviceId
+          );
 
         cache.modify({
           id: `Project:${projectId}`,
@@ -86,6 +84,13 @@ export const useUpdateServiceSettings = () => {
   const [updateServiceSettingsMutation, { loading, error }] =
     useMutation(UPDATE_SERVICE_SETTINGS_MUTATION, {
       update(cache, { data }) {
+        if (!data) {
+          console.error(
+            `No data returned from updateServiceSettingsMutation for service ${serviceId}`
+          );
+          return;
+        }
+
         cache.modify({
           id: `Service:${serviceId}`,
           fields: {

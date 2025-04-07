@@ -10,11 +10,9 @@ export const useAddService = (projectId: string) => {
           id: `Project:${projectId}`,
           fields: {
             services: (existing, { toReference }) => {
-              console.log(
-                "existing",
-                existing,
-                toReference(data.addServiceToProject)
-              );
+              if (!data) {
+                return existing;
+              }
               return [
                 toReference(data.addServiceToProject),
                 ...existing,

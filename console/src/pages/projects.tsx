@@ -1,9 +1,23 @@
 import { ProjectCard } from "@/components/cards/projects";
-import { useUser } from "@/hooks/useUser";
+import { useQuery } from "@apollo/client";
 import { ArrowRight } from "lucide-react";
 
+import { ME_QUERY } from "../gql/user.graphql";
+
 export function Projects() {
-  const { me } = useUser();
+  const { data, loading } = useQuery(ME_QUERY, {
+    fetchPolicy: "cache-first",
+  });
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!data) {
+    throw new Error("No data for the current user ?");
+  }
+
+  const me = data.me;
 
   return (
     <div className="mx-16">

@@ -1,6 +1,6 @@
-import { gql } from "@apollo/client";
+import { gql } from "@/_apollo/gql";
 
-export const DEPLOYMENT_FRAGMENT = gql`
+export const DEPLOYMENT_FRAGMENT = gql(`
   fragment DeploymentFragment on Deployment {
     id
     env
@@ -17,4 +17,4 @@ export const DEPLOYMENT_FRAGMENT = gql`
     }
     createdAt
   }
-`;
+`);

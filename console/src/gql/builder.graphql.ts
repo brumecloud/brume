@@ -1,6 +1,6 @@
-import { gql } from "@apollo/client";
+import { gql } from "@/_apollo/gql";
 
-export const BUILDER_FRAGMENT = gql`
+export const BUILDER_FRAGMENT = gql(`
   fragment BuilderFragment on Builder {
     type
     data {
@@ -9,9 +9,9 @@ export const BUILDER_FRAGMENT = gql`
       registry
     }
   }
-`;
+`);
 
-export const UPDATE_BUILDER_MUTATION = gql`
+export const UPDATE_BUILDER_MUTATION = gql(`
   mutation UpdateBuilder(
     $serviceId: String!
     $input: BuilderDataInput!
@@ -20,5 +20,4 @@ export const UPDATE_BUILDER_MUTATION = gql`
       ...BuilderFragment
     }
   }
-  ${BUILDER_FRAGMENT}
-`;
+`);

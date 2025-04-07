@@ -1,6 +1,6 @@
-import { gql } from "@apollo/client";
+import { gql } from "@/_apollo/gql";
 
-export const GET_MACHINES = gql`
+export const GET_MACHINES = gql(`
   query GetMachines {
     machine {
       id
@@ -8,4 +8,4 @@ export const GET_MACHINES = gql`
       ip
     }
   }
-`;
+`);

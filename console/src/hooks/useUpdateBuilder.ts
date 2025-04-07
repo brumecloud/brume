@@ -10,6 +10,13 @@ export const useUpdateBuilder = () => {
     UPDATE_BUILDER_MUTATION,
     {
       update(cache, { data }) {
+        if (!data) {
+          console.error(
+            `No data returned from updateBuilderMutation for service ${serviceId}`
+          );
+          return;
+        }
+
         cache.modify({
           id: `Service:${serviceId}`,
           fields: {
