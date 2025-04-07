@@ -4,6 +4,11 @@ export const DEPLOYMENT_FRAGMENT = gql(`
   fragment DeploymentFragment on Deployment {
     id
     env
+    author {
+      id
+      name
+      avatar
+    }
     source {
       type
       branch

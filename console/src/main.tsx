@@ -112,6 +112,7 @@ const graphqlClient = new ApolloClient({
       }
     },
   }),
+  dataMasking: true,
 });
 
 function ErrorFallback({

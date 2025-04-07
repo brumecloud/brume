@@ -16,7 +16,7 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
 type Documents = {
     "\n  fragment BuilderFragment on Builder {\n    type\n    data {\n      tag\n      image\n      registry\n    }\n  }\n": typeof types.BuilderFragmentFragmentDoc,
     "\n  mutation UpdateBuilder(\n    $serviceId: String!\n    $input: BuilderDataInput!\n  ) {\n    updateBuilder(serviceId: $serviceId, data: $input) {\n      ...BuilderFragment\n    }\n  }\n": typeof types.UpdateBuilderDocument,
-    "\n  fragment DeploymentFragment on Deployment {\n    id\n    env\n    source {\n      type\n      branch\n      commit\n      message\n    }\n    logs {\n      status\n      date\n      duration\n    }\n    createdAt\n  }\n": typeof types.DeploymentFragmentFragmentDoc,
+    "\n  fragment DeploymentFragment on Deployment {\n    id\n    env\n    author {\n      id\n      name\n      avatar\n    }\n    source {\n      type\n      branch\n      commit\n      message\n    }\n    logs {\n      status\n      date\n      duration\n    }\n    createdAt\n  }\n": typeof types.DeploymentFragmentFragmentDoc,
     "\n  fragment LogFragment on Log {\n    message\n    level\n    timestamp\n    serviceId\n    deploymentId\n    deploymentName\n  }\n": typeof types.LogFragmentFragmentDoc,
     "\n  query GetLogPerProjectID(\n    $projectId: String!\n    $since: String!\n    $limit: Int!\n  ) {\n    projectLogs(\n      projectId: $projectId\n      input: { since: $since, limit: $limit }\n    ) {\n      ...LogFragment\n    }\n  }\n": typeof types.GetLogPerProjectIdDocument,
     "\n  subscription GetLogPerServiceIDSub(\n    $serviceId: String!\n    $since: String!\n    $limit: Int!\n  ) {\n    serviceLogs(\n      serviceId: $serviceId\n      input: { since: $since, limit: $limit }\n    ) {\n      ...LogFragment\n    }\n  }\n": typeof types.GetLogPerServiceIdSubDocument,
@@ -37,7 +37,7 @@ type Documents = {
 const documents: Documents = {
     "\n  fragment BuilderFragment on Builder {\n    type\n    data {\n      tag\n      image\n      registry\n    }\n  }\n": types.BuilderFragmentFragmentDoc,
     "\n  mutation UpdateBuilder(\n    $serviceId: String!\n    $input: BuilderDataInput!\n  ) {\n    updateBuilder(serviceId: $serviceId, data: $input) {\n      ...BuilderFragment\n    }\n  }\n": types.UpdateBuilderDocument,
-    "\n  fragment DeploymentFragment on Deployment {\n    id\n    env\n    source {\n      type\n      branch\n      commit\n      message\n    }\n    logs {\n      status\n      date\n      duration\n    }\n    createdAt\n  }\n": types.DeploymentFragmentFragmentDoc,
+    "\n  fragment DeploymentFragment on Deployment {\n    id\n    env\n    author {\n      id\n      name\n      avatar\n    }\n    source {\n      type\n      branch\n      commit\n      message\n    }\n    logs {\n      status\n      date\n      duration\n    }\n    createdAt\n  }\n": types.DeploymentFragmentFragmentDoc,
     "\n  fragment LogFragment on Log {\n    message\n    level\n    timestamp\n    serviceId\n    deploymentId\n    deploymentName\n  }\n": types.LogFragmentFragmentDoc,
     "\n  query GetLogPerProjectID(\n    $projectId: String!\n    $since: String!\n    $limit: Int!\n  ) {\n    projectLogs(\n      projectId: $projectId\n      input: { since: $since, limit: $limit }\n    ) {\n      ...LogFragment\n    }\n  }\n": types.GetLogPerProjectIdDocument,
     "\n  subscription GetLogPerServiceIDSub(\n    $serviceId: String!\n    $since: String!\n    $limit: Int!\n  ) {\n    serviceLogs(\n      serviceId: $serviceId\n      input: { since: $since, limit: $limit }\n    ) {\n      ...LogFragment\n    }\n  }\n": types.GetLogPerServiceIdSubDocument,
@@ -81,7 +81,7 @@ export function gql(source: "\n  mutation UpdateBuilder(\n    $serviceId: String
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  fragment DeploymentFragment on Deployment {\n    id\n    env\n    source {\n      type\n      branch\n      commit\n      message\n    }\n    logs {\n      status\n      date\n      duration\n    }\n    createdAt\n  }\n"): (typeof documents)["\n  fragment DeploymentFragment on Deployment {\n    id\n    env\n    source {\n      type\n      branch\n      commit\n      message\n    }\n    logs {\n      status\n      date\n      duration\n    }\n    createdAt\n  }\n"];
+export function gql(source: "\n  fragment DeploymentFragment on Deployment {\n    id\n    env\n    author {\n      id\n      name\n      avatar\n    }\n    source {\n      type\n      branch\n      commit\n      message\n    }\n    logs {\n      status\n      date\n      duration\n    }\n    createdAt\n  }\n"): (typeof documents)["\n  fragment DeploymentFragment on Deployment {\n    id\n    env\n    author {\n      id\n      name\n      avatar\n    }\n    source {\n      type\n      branch\n      commit\n      message\n    }\n    logs {\n      status\n      date\n      duration\n    }\n    createdAt\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

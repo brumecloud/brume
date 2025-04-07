@@ -12,7 +12,7 @@
     "generate": "graphql-codegen --config codegen.ts --watch"
   },
   "dependencies": {
-    "@apollo/client": "^3.10.6",
+    "@apollo/client": "^3.13",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.2",
