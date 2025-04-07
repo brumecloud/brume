@@ -11,10 +11,6 @@ export const useMachine = (): {
   loading: boolean;
   error?: Error;
 } => {
-  const { data, loading, error } = useQuery(GET_MACHINES, {
-    fetchPolicy: "cache-first",
-  });
-
   if (loading || !data) {
     return {
       loading: true,

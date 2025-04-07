@@ -3,12 +3,16 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar";
-import { useUser } from "@/hooks/useUser";
+import { USER_FRAGMENT } from "@/gql/user.graphql";
+import { useFragment } from "@apollo/client";
 
 export const UserMenu = () => {
-  const { me, loading } = useUser();
+  const { data: me, complete } = useFragment({
+    fragment: USER_FRAGMENT,
+    from: "me",
+  });
 
-  if (loading || !me) {
+  if (!complete) {
     return (
       <div className="flex animate-pulse select-none flex-row items-center gap-x-3 transition-all">
         <div className="h-[30px] w-[30px] rounded-full bg-gray-200" />

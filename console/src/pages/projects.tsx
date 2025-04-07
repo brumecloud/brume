@@ -1,8 +1,38 @@
+import type { UserFragmentFragment } from "@/_apollo/graphql";
 import { ProjectCard } from "@/components/cards/projects";
-import { useQuery } from "@apollo/client";
+import { ME_QUERY, USER_FRAGMENT } from "@/gql/user.graphql";
+import {
+  useFragment,
+  useQuery,
+  type FragmentType,
+} from "@apollo/client";
 import { ArrowRight } from "lucide-react";
 
-import { ME_QUERY } from "../gql/user.graphql";
+type ProjectHeaderProps = {
+  projectData: FragmentType<UserFragmentFragment>;
+};
+
+function ProjectHeader({ projectData }: ProjectHeaderProps) {
+  const { data, complete } = useFragment({
+    fragment: USER_FRAGMENT,
+    from: projectData,
+  });
+
+  if (!complete) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div>
+      <h1 className="select-none py-16 text-xl">
+        Hello{" "}
+        <span className="font-bold italic transition-all ease-in">
+          {data.name}
+        </span>
+      </h1>
+    </div>
+  );
+}
 
 export function Projects() {
   const { data, loading } = useQuery(ME_QUERY, {
@@ -17,18 +47,9 @@ export function Projects() {
     throw new Error("No data for the current user ?");
   }
 
-  const me = data.me;
-
   return (
     <div className="mx-16">
-      <div>
-        <h1 className="select-none py-16 text-xl">
-          Hello{" "}
-          <span className="font-bold italic transition-all ease-in">
-            {me?.name}
-          </span>
-        </h1>
-      </div>
+      <ProjectHeader projectData={data.me} />
       <div className="flex flex-col gap-16">
         <div>
           <h2 className="flex select-none flex-row items-center gap-x-2 py-4">

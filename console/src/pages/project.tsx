@@ -6,6 +6,7 @@ import { useSnapshot } from "valtio";
 
 export function Project() {
   const snap = useSnapshot(modalState);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-full max-h-[200px] flex-row items-center justify-between px-32 pt-16">

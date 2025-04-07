@@ -13,7 +13,13 @@ export const useService = () => {
   const { serviceId } = useParams<RouteParams>();
   const { project } = useProject();
 
-  const el = project?.services.find(
+  if (!project) {
+    return {
+      service: null,
+    };
+  }
+
+  const el = project.services.find(
     (service) => service.id === serviceId
   );
 

@@ -1,8 +1,21 @@
 import { MachineCard } from "@/components/cards/machine";
-import { useMachine } from "@/hooks/useMachine";
+import { GET_MACHINES } from "@/gql/machine.graphql";
+import { useQuery } from "@apollo/client";
 
 export default function Machines() {
-  const { machines } = useMachine();
+  const { data, loading, error } = useQuery(GET_MACHINES, {
+    fetchPolicy: "cache-first",
+  });
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  const machines = data?.machine;
 
   return (
     <div className="flex flex-col">

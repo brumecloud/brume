@@ -6,8 +6,8 @@ import {
 } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useService } from "@/hooks/useService";
-import { useUser } from "@/hooks/useUser";
 import { cn } from "@/utils";
+import { useQuery } from "@apollo/client";
 import { GitBranch, GitCommit } from "lucide-react";
 
 const DeploymentCard = ({
@@ -19,7 +19,7 @@ const DeploymentCard = ({
   isLive?: boolean;
   className?: string;
 }) => {
-  const { me } = useUser();
+  const { data } = useQuery()
 
   const status = data.logs.status;
   const readyState =

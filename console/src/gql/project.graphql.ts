@@ -1,6 +1,6 @@
 import { gql } from "@/_apollo/gql";
 
-export const ProjectFragment = gql(`
+export const PROJECT_FRAGMENT = gql(`
   fragment ProjectFragment on Project {
     id
     name
@@ -31,6 +31,7 @@ export const ProjectFragment = gql(`
 export const PROJECT_BY_ID_QUERY = gql(`
   query GetProjectById($projectId: String!) {
     getProjectById(id: $projectId) {
+      name
       ...ProjectFragment
     }
   }
