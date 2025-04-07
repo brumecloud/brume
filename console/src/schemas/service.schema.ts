@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/**
+ * @deprecated use direct validation from graphql
+ */
 export const DockerRunnerSchema = z.object({
   type: z.literal("generic-docker"),
   data: z.object({
@@ -63,12 +66,21 @@ export const DockerRunnerSchema = z.object({
   }),
 });
 
+/**
+ * @deprecated use validation from graphql
+ */
 export const RunnerSchema = z.discriminatedUnion("type", [
   DockerRunnerSchema,
 ]);
 
+/**
+ * @deprecated use type from @/_apollo/graphql
+ */
 export type Runner = z.infer<typeof RunnerSchema>;
 
+/**
+ * @deprecated use direct validation from graphql
+ */
 export const GenericDockerImageBuilderSchema = z.object({
   type: z.literal("generic-docker"),
   data: z.object({
@@ -78,12 +90,21 @@ export const GenericDockerImageBuilderSchema = z.object({
   }),
 });
 
+/**
+ * @deprecated use type from @/_apollo/graphql
+ */
 export const BuilderSchema = z.discriminatedUnion("type", [
   GenericDockerImageBuilderSchema,
 ]);
 
+/**
+ * @deprecated use type from @/_apollo/graphql
+ */
 export type Builder = z.infer<typeof BuilderSchema>;
 
+/**
+ * @deprecated use direct validation from graphql
+ */
 export const DeploymentSchema = z.object({
   __typename: z.literal("Deployment"),
   id: z.string(),
@@ -107,8 +128,14 @@ export const DeploymentSchema = z.object({
   }),
 });
 
+/**
+ * @deprecated use type from @/_apollo/graphql
+ */
 export type Deployment = z.infer<typeof DeploymentSchema>;
 
+/**
+ * @deprecated use direct validation from graphql
+ */
 export const ServiceSchema = z.object({
   __typename: z.literal("Service"),
   name: z.string(),
@@ -120,4 +147,7 @@ export const ServiceSchema = z.object({
   deployments: z.array(DeploymentSchema),
 });
 
+/**
+ * @deprecated use type from @/_apollo/graphql
+ */
 export type Service = z.infer<typeof ServiceSchema>;

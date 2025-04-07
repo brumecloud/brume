@@ -7,15 +7,9 @@ import browserUsage, {
 } from "@visx/mock-data/lib/generators/genDateValue.js";
 import { scaleTime, scaleLinear } from "@visx/scale";
 import { AreaClosed, Line, Bar } from "@visx/shape";
-import {
-  withTooltip,
-  Tooltip,
-  TooltipWithBounds,
-  defaultStyles,
-} from "@visx/tooltip";
+import { withTooltip } from "@visx/tooltip";
 import type { WithTooltipProvidedProps } from "@visx/tooltip/lib/enhancers/withTooltip";
 import { max, extent, bisector } from "@visx/vendor/d3-array";
-import { timeFormat } from "@visx/vendor/d3-time-format";
 import React, { useMemo, useCallback } from "react";
 
 type TooltipData = DateValue;
@@ -25,9 +19,6 @@ export const background = "#ffffff";
 export const background2 = "#ffffff";
 export const accentColor = "#569cda";
 export const accentColorDark = "#4999de";
-
-// util
-const formatDate = timeFormat("%b %d, '%y");
 
 // accessors
 const getDate = (d: DateValue) => new Date(d.date);
@@ -98,6 +89,9 @@ export const AreaChart = withTooltip<AreaProps, TooltipData>(
         const index = bisectDate(stock, x0, 1);
         const d0 = stock[index - 1];
         const d1 = stock[index];
+        if (!d0) {
+          return;
+        }
         let d = d0;
         if (d1 && getDate(d1)) {
           d =
@@ -106,6 +100,11 @@ export const AreaChart = withTooltip<AreaProps, TooltipData>(
               ? d1
               : d0;
         }
+
+        if (!d) {
+          return;
+        }
+
         showTooltip({
           tooltipData: d,
           tooltipLeft: x,

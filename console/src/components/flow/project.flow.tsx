@@ -11,8 +11,6 @@ import {
   BackgroundVariant,
   Background,
   type Node,
-  type Edge,
-  Position,
   Controls,
   useReactFlow,
   useNodesState,

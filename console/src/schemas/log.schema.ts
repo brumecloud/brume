@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/**
+ * @deprecated use direct validation from graphql
+ */
 export const LogSchema = z.object({
   id: z.string(),
   message: z.string(),
@@ -10,4 +13,7 @@ export const LogSchema = z.object({
   deploymentName: z.string(),
 });
 
+/**
+ * @deprecated use type from @/_apollo/graphql
+ */
 export type Log = z.infer<typeof LogSchema>;
