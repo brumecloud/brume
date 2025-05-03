@@ -1,4 +1,4 @@
-import type { Log } from "@/schemas/log.schema";
+import type { Log } from "@/_apollo/graphql";
 
 export const LogLine = ({ data }: { data: Log }) => {
   function formatDate(date: Date): string {

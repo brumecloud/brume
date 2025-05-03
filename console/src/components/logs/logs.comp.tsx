@@ -54,9 +54,12 @@ export const LogsRender = ({
           ref={virtuosoScrollerRef}
           data={logs}
           totalCount={logs.length}
-          itemContent={(_, data) => (
-            <LogLine key={data.id} data={data} />
-          )}
+          itemContent={(_, data) => {
+            if (!data) {
+              return null;
+            }
+            return <LogLine key={data.timestamp} data={data} />;
+          }}
         />
       </div>
     </div>
