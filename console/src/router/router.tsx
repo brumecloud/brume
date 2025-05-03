@@ -12,6 +12,7 @@ import { RunnerPage } from "@/pages/service/runner";
 import { SettingPage } from "@/pages/service/settings";
 import { VariablesPage } from "@/pages/service/variables";
 import { ServicePage } from "@/pages/services";
+import { ProjectLayout } from "@/router/layout/project.layout";
 import { Route, createRoutesFromElements } from "react-router-dom";
 
 import { ConsoleLayout } from "./layout/console.layout";
@@ -35,7 +36,9 @@ export const Router = createRoutesFromElements(
         <Route path="/monitoring" element={<h1>Monitoring</h1>} /> */}
         <Route path="/settings" element={<h1>Settings</h1>} />
 
-        <Route path={`/:${RouteParams.ProjectID}/`}>
+        <Route
+          path={`/:${RouteParams.ProjectID}/`}
+          element={<ProjectLayout />}>
           <Route path="variables" element={<ProjectVariable />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="metrics" element={<h1>Project Metrics</h1>} />

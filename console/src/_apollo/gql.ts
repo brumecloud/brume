@@ -21,8 +21,8 @@ type Documents = {
     "\n  query GetLogPerProjectID(\n    $projectId: String!\n    $since: String!\n    $limit: Int!\n  ) {\n    projectLogs(\n      projectId: $projectId\n      input: { since: $since, limit: $limit }\n    ) {\n      ...LogFragment\n    }\n  }\n": typeof types.GetLogPerProjectIdDocument,
     "\n  subscription GetLogPerServiceIDSub(\n    $serviceId: String!\n    $since: String!\n    $limit: Int!\n  ) {\n    serviceLogs(\n      serviceId: $serviceId\n      input: { since: $since, limit: $limit }\n    ) {\n      ...LogFragment\n    }\n  }\n": typeof types.GetLogPerServiceIdSubDocument,
     "\n  query GetMachines {\n    machine {\n      id\n      name\n      ip\n    }\n  }\n": typeof types.GetMachinesDocument,
-    "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      name\n      id\n      deployments {\n        ...DeploymentFragment\n      }\n      liveRunner {\n        ...RunnerFragment\n      }\n      draftRunner {\n        ...RunnerFragment\n      }\n      liveBuilder {\n        ...BuilderFragment\n      }\n      draftBuilder {\n        ...BuilderFragment\n      }\n    }\n  }\n": typeof types.ProjectFragmentFragmentDoc,
-    "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      name\n      ...ProjectFragment\n    }\n  }\n": typeof types.GetProjectByIdDocument,
+    "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n  }\n": typeof types.ProjectFragmentFragmentDoc,
+    "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": typeof types.GetProjectByIdDocument,
     "\n  mutation CreateProject($name: String!, $description: String) {\n    createProject(name: $name, description: $description) {\n      ...ProjectFragment\n    }\n  }\n": typeof types.CreateProjectDocument,
     "\n  mutation DeployProject($projectId: String!) {\n    deployProject(projectId: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": typeof types.DeployProjectDocument,
     "\n  mutation DeleteDraft($projectId: String!) {\n    deleteDraft(projectId: $projectId) {\n      id\n    }\n  }\n": typeof types.DeleteDraftDocument,
@@ -34,6 +34,8 @@ type Documents = {
     "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n  }\n": typeof types.UserFragmentFragmentDoc,
     "\n  query me {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n      ...UserFragment\n    }\n  }\n": typeof types.MeDocument,
     "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n": typeof types.MyProjectsDocument,
+    "\n  fragment ServiceFragment on Service {\n      name\n      id\n      deployments {\n        ...DeploymentFragment @unmask\n      }\n      liveRunner {\n        ...RunnerFragment @unmask\n      }\n      draftRunner {\n        ...RunnerFragment @unmask\n      }\n      liveBuilder {\n        ...BuilderFragment @unmask\n      }\n      draftBuilder {\n        ...BuilderFragment @unmask\n      }\n  }\n": typeof types.ServiceFragmentFragmentDoc,
+    "\n  query ProjectQuery($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n\n      services {\n        ...ServiceFragment\n      }\n    }\n  }\n": typeof types.ProjectQueryDocument,
 };
 const documents: Documents = {
     "\n  fragment BuilderFragment on Builder {\n    type\n    data {\n      tag\n      image\n      registry\n    }\n  }\n": types.BuilderFragmentFragmentDoc,
@@ -43,8 +45,8 @@ const documents: Documents = {
     "\n  query GetLogPerProjectID(\n    $projectId: String!\n    $since: String!\n    $limit: Int!\n  ) {\n    projectLogs(\n      projectId: $projectId\n      input: { since: $since, limit: $limit }\n    ) {\n      ...LogFragment\n    }\n  }\n": types.GetLogPerProjectIdDocument,
     "\n  subscription GetLogPerServiceIDSub(\n    $serviceId: String!\n    $since: String!\n    $limit: Int!\n  ) {\n    serviceLogs(\n      serviceId: $serviceId\n      input: { since: $since, limit: $limit }\n    ) {\n      ...LogFragment\n    }\n  }\n": types.GetLogPerServiceIdSubDocument,
     "\n  query GetMachines {\n    machine {\n      id\n      name\n      ip\n    }\n  }\n": types.GetMachinesDocument,
-    "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      name\n      id\n      deployments {\n        ...DeploymentFragment\n      }\n      liveRunner {\n        ...RunnerFragment\n      }\n      draftRunner {\n        ...RunnerFragment\n      }\n      liveBuilder {\n        ...BuilderFragment\n      }\n      draftBuilder {\n        ...BuilderFragment\n      }\n    }\n  }\n": types.ProjectFragmentFragmentDoc,
-    "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      name\n      ...ProjectFragment\n    }\n  }\n": types.GetProjectByIdDocument,
+    "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n  }\n": types.ProjectFragmentFragmentDoc,
+    "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": types.GetProjectByIdDocument,
     "\n  mutation CreateProject($name: String!, $description: String) {\n    createProject(name: $name, description: $description) {\n      ...ProjectFragment\n    }\n  }\n": types.CreateProjectDocument,
     "\n  mutation DeployProject($projectId: String!) {\n    deployProject(projectId: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": types.DeployProjectDocument,
     "\n  mutation DeleteDraft($projectId: String!) {\n    deleteDraft(projectId: $projectId) {\n      id\n    }\n  }\n": types.DeleteDraftDocument,
@@ -56,6 +58,8 @@ const documents: Documents = {
     "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n  }\n": types.UserFragmentFragmentDoc,
     "\n  query me {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n      ...UserFragment\n    }\n  }\n": types.MeDocument,
     "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n": types.MyProjectsDocument,
+    "\n  fragment ServiceFragment on Service {\n      name\n      id\n      deployments {\n        ...DeploymentFragment @unmask\n      }\n      liveRunner {\n        ...RunnerFragment @unmask\n      }\n      draftRunner {\n        ...RunnerFragment @unmask\n      }\n      liveBuilder {\n        ...BuilderFragment @unmask\n      }\n      draftBuilder {\n        ...BuilderFragment @unmask\n      }\n  }\n": types.ServiceFragmentFragmentDoc,
+    "\n  query ProjectQuery($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n\n      services {\n        ...ServiceFragment\n      }\n    }\n  }\n": types.ProjectQueryDocument,
 };
 
 /**
@@ -103,11 +107,11 @@ export function gql(source: "\n  query GetMachines {\n    machine {\n      id\n 
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      name\n      id\n      deployments {\n        ...DeploymentFragment\n      }\n      liveRunner {\n        ...RunnerFragment\n      }\n      draftRunner {\n        ...RunnerFragment\n      }\n      liveBuilder {\n        ...BuilderFragment\n      }\n      draftBuilder {\n        ...BuilderFragment\n      }\n    }\n  }\n"): (typeof documents)["\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      name\n      id\n      deployments {\n        ...DeploymentFragment\n      }\n      liveRunner {\n        ...RunnerFragment\n      }\n      draftRunner {\n        ...RunnerFragment\n      }\n      liveBuilder {\n        ...BuilderFragment\n      }\n      draftBuilder {\n        ...BuilderFragment\n      }\n    }\n  }\n"];
+export function gql(source: "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n  }\n"): (typeof documents)["\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      name\n      ...ProjectFragment\n    }\n  }\n"): (typeof documents)["\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      name\n      ...ProjectFragment\n    }\n  }\n"];
+export function gql(source: "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n    }\n  }\n"): (typeof documents)["\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -152,6 +156,14 @@ export function gql(source: "\n  query me {\n    me {\n      projects {\n       
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n"): (typeof documents)["\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  fragment ServiceFragment on Service {\n      name\n      id\n      deployments {\n        ...DeploymentFragment @unmask\n      }\n      liveRunner {\n        ...RunnerFragment @unmask\n      }\n      draftRunner {\n        ...RunnerFragment @unmask\n      }\n      liveBuilder {\n        ...BuilderFragment @unmask\n      }\n      draftBuilder {\n        ...BuilderFragment @unmask\n      }\n  }\n"): (typeof documents)["\n  fragment ServiceFragment on Service {\n      name\n      id\n      deployments {\n        ...DeploymentFragment @unmask\n      }\n      liveRunner {\n        ...RunnerFragment @unmask\n      }\n      draftRunner {\n        ...RunnerFragment @unmask\n      }\n      liveBuilder {\n        ...BuilderFragment @unmask\n      }\n      draftBuilder {\n        ...BuilderFragment @unmask\n      }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  query ProjectQuery($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n\n      services {\n        ...ServiceFragment\n      }\n    }\n  }\n"): (typeof documents)["\n  query ProjectQuery($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n\n      services {\n        ...ServiceFragment\n      }\n    }\n  }\n"];
 
 export function gql(source: string) {
   return (documents as any)[source] ?? {};

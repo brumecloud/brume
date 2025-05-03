@@ -1,10 +1,29 @@
+import { gql } from "@/_apollo";
 import { Button } from "@/components/ui/button";
-import { PROJECT_BY_ID_QUERY } from "@/gql/project.graphql";
+import { PROJECT_FRAGMENT } from "@/gql/project.graphql";
 import type { RouteParams } from "@/router/router";
 import { modalState } from "@/state/modal.state";
-import { useQuery } from "@apollo/client";
+import { useFragment } from "@apollo/client";
 import { useParams } from "react-router-dom";
 import { useSnapshot } from "valtio";
+
+export const ServiceFragment = gql(`
+  fragment ServiceFragment on Service {
+      name
+      id
+      deployments {
+        ...DeploymentFragment @unmask
+      }
+      liveRunner {
+        ...RunnerFragment @unmask
+      }
+      draftRunner {
+        ...RunnerFragment @unmask
+      }
+      ...DraftBuilderFragment
+      ...LiveBuilderFragment
+   }
+`);
 
 export const ServicePage = () => {
   const snap = useSnapshot(modalState);
@@ -14,26 +33,18 @@ export const ServicePage = () => {
     throw new Error("No project ID found in the URL");
   }
 
-  const { data, loading } = useQuery(PROJECT_BY_ID_QUERY, {
-    variables: {
-      projectId: projectId,
-    },
-    fetchPolicy: "cache-first",
+  const { data } = useFragment({
+    from: `Project:${projectId}`,
+    fragment: PROJECT_FRAGMENT,
   });
-
-  if (loading) {
-    return <>loading</>;
-  }
 
   if (!data) {
     throw new Error("No data for the current project ?");
   }
 
-  const { getProjectById } = data;
-
   return (
     <div>
-      Project {getProjectById.name}'s services
+      Project {data.name}'s services
       <Button onClick={() => snap.setCreateServiceModalOpen(true)}>
         Add a service
       </Button>

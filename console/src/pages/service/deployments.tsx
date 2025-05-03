@@ -7,7 +7,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useService } from "@/hooks/useService";
 import { cn } from "@/utils";
-import { useQuery } from "@apollo/client";
+import { gql, useQuery } from "@apollo/client";
 import { GitBranch, GitCommit } from "lucide-react";
 
 const DeploymentCard = ({
@@ -109,6 +109,8 @@ const DeploymentCard = ({
   );
 };
 
+// we are in a subpage of the project route
+// we should be working on fragments
 export const DeploymentsPage = () => {
   const { service } = useService();
 

@@ -6,32 +6,12 @@ export const PROJECT_FRAGMENT = gql(`
     name
     description
     isDirty
-    services {
-      name
-      id
-      deployments {
-        ...DeploymentFragment
-      }
-      liveRunner {
-        ...RunnerFragment
-      }
-      draftRunner {
-        ...RunnerFragment
-      }
-      liveBuilder {
-        ...BuilderFragment
-      }
-      draftBuilder {
-        ...BuilderFragment
-      }
-    }
   }
 `);
 
 export const PROJECT_BY_ID_QUERY = gql(`
   query GetProjectById($projectId: String!) {
     getProjectById(id: $projectId) {
-      name
       ...ProjectFragment
     }
   }

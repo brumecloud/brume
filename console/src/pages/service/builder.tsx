@@ -1,3 +1,4 @@
+import { gql } from "@/_apollo";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -8,13 +9,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useService } from "@/hooks/useService";
 import { useUpdateBuilder } from "@/hooks/useUpdateBuilder";
+import type { RouteParams } from "@/router/router";
 import {
   BuilderSchema,
   type Builder,
 } from "@/schemas/service.schema";
 import { cn } from "@/utils";
+import { useFragment } from "@apollo/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowUpFromLine,
@@ -24,7 +26,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Form, useForm } from "react-hook-form";
-import { useBlocker } from "react-router-dom";
+import { useBlocker, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Label } from "src/components/ui/label";
 import {
@@ -41,11 +43,57 @@ export const BuildTypeValues = {
 export type BuildType =
   (typeof BuildTypeValues)[keyof typeof BuildTypeValues];
 
+export const GenericRunnerFragment = gql(`
+  fragment GenericRunnerFragment on Builder {
+    type
+    data {
+      command
+      healthCheckURL
+      memory {
+        limit
+        request
+      }
+      cpu {
+        limit
+        request
+      }
+      port
+      publicDomain
+      privateDomain
+    }
+  }
+  }
+`);
+
+export const DraftBuilderFragment = gql(`
+  fragment DraftBuilderFragment on Service {
+    draftBuilder {
+      ...GenericRunnerFragment @unmask
+    }
+  }
+`);
+
+export const LiveBuilderFragment = gql(`
+  fragment LiveBuilderFragment on Service {
+    liveBuilder {
+      ...GenericRunnerFragment @unmask
+    }
+  }
+`);
+
 const GenericImageOptions = () => {
-  const { service } = useService();
+  const { serviceId } = useParams<RouteParams>();
+
   const [wasDraft, setWasDraft] = useState(false);
-  const draftBuilder = service?.draftBuilder;
-  const builder = service?.liveBuilder;
+  // TODO : regarder pour passer sur deux useFragment ici au lieu de prendre tout le service
+  const { data: draftBuilder } = useFragment({
+    from: `Service:${serviceId}`,
+    fragment: DraftBuilderFragment,
+  });
+  const { data: builder } = useFragment({
+    from: `Service:${serviceId}`,
+    fragment: LiveBuilderFragment,
+  });
 
   const { updateBuilderMutation, loading } = useUpdateBuilder();
 
