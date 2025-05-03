@@ -1,4 +1,4 @@
-import { gql } from "@/_apollo/gql";
+import { gql } from "@/_apollo";
 
 export const BUILDER_FRAGMENT = gql(`
   fragment BuilderFragment on Builder {

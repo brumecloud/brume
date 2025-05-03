@@ -1,4 +1,3 @@
-import { gql } from "@/_apollo";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DraftBuilderFragment,
+  LiveBuilderFragment,
+} from "@/gql/builder.graphql";
 import { useUpdateBuilder } from "@/hooks/useUpdateBuilder";
 import type { RouteParams } from "@/router/router";
 import {
@@ -42,44 +45,6 @@ export const BuildTypeValues = {
 
 export type BuildType =
   (typeof BuildTypeValues)[keyof typeof BuildTypeValues];
-
-export const GenericRunnerFragment = gql(`
-  fragment GenericRunnerFragment on Builder {
-    type
-    data {
-      command
-      healthCheckURL
-      memory {
-        limit
-        request
-      }
-      cpu {
-        limit
-        request
-      }
-      port
-      publicDomain
-      privateDomain
-    }
-  }
-  }
-`);
-
-export const DraftBuilderFragment = gql(`
-  fragment DraftBuilderFragment on Service {
-    draftBuilder {
-      ...GenericRunnerFragment @unmask
-    }
-  }
-`);
-
-export const LiveBuilderFragment = gql(`
-  fragment LiveBuilderFragment on Service {
-    liveBuilder {
-      ...GenericRunnerFragment @unmask
-    }
-  }
-`);
 
 const GenericImageOptions = () => {
   const { serviceId } = useParams<RouteParams>();

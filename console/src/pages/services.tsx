@@ -14,14 +14,19 @@ export const ServiceFragment = gql(`
       deployments {
         ...DeploymentFragment @unmask
       }
+
+      liveBuilder {
+        ...BuilderFragment @unmask
+      }
+      draftBuilder {
+        ...BuilderFragment @unmask
+      }
       liveRunner {
         ...RunnerFragment @unmask
       }
       draftRunner {
         ...RunnerFragment @unmask
       }
-      ...DraftBuilderFragment
-      ...LiveBuilderFragment
    }
 `);
 
