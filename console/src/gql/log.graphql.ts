@@ -21,7 +21,7 @@ export const LOG_BY_PROJECT_ID = gql(`
       projectId: $projectId
       input: { since: $since, limit: $limit }
     ) {
-      ...LogFragment
+      ...LogFragment @unmask
     }
   }
 `);

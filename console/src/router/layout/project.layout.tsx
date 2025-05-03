@@ -1,5 +1,5 @@
 import { gql } from "@/_apollo";
-import type { RouteParams } from "@/router/router";
+import { RouteParams } from "@/router/router.param";
 import { useQuery } from "@apollo/client";
 import React from "react";
 import { Outlet, useParams } from "react-router-dom";
@@ -83,9 +83,13 @@ export const ProjectLayout = () => {
     projectId: string;
   };
 
-  useQuery(ProjectQuery, {
+  const { loading } = useQuery(ProjectQuery, {
     variables: { projectId },
   });
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   // we do not need to render anything here
   // we only data querying

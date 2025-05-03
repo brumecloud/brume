@@ -1,5 +1,6 @@
-import type { Log } from "@/schemas/log.schema";
+import type { Log } from "@/_apollo/graphql";
 import { liveLogs } from "@/state/live-log.state";
+import type { Nullable } from "@/utils/types";
 import { useEffect, useRef } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { useSnapshot } from "valtio";
@@ -7,7 +8,7 @@ import { useSnapshot } from "valtio";
 import { LogLine } from "./logs-body.comp";
 
 type LogsRenderProps = {
-  logs: Log[];
+  logs: Nullable<Log>[];
   logsSubscription: () => void;
 };
 

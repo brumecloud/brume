@@ -1,10 +1,6 @@
 import { LogsChart } from "@/components/logs/logs-chart.comp";
 import { LogsRender } from "@/components/logs/logs.comp";
-import {
-  LOG_BY_PROJECT_ID,
-  LOG_BY_SERVICE_ID_SUB,
-} from "@/gql/log.graphql";
-import type { Log } from "@/schemas/log.schema";
+import { LOG_BY_PROJECT_ID } from "@/gql/log.graphql";
 import { liveLogs } from "@/state/live-log.state";
 import { cn } from "@/utils";
 import { useQuery } from "@apollo/client";
@@ -50,6 +46,9 @@ export const LogsPage = () => {
   const { data, subscribeToMore } = useQuery(LOG_BY_PROJECT_ID, {
     variables: {
       projectId: projectId,
+      // todo: change that
+      since: "2021-01-01",
+      limit: 100,
     },
     pollInterval: 1000,
   });
@@ -106,15 +105,19 @@ export const LogsPage = () => {
         logs={data?.projectLogs ?? []}
         logsSubscription={() => {
           return subscribeToMore({
-            document: LOG_BY_SERVICE_ID_SUB,
-            variables: { serviceId: "service-id-here" },
+            document: LOG_BY_PROJECT_ID,
+            variables: {
+              projectId: projectId,
+              since: "2021-01-01",
+              limit: 100,
+            },
             updateQuery: (prev, { subscriptionData }) => {
               if (!subscriptionData.data) return prev;
-              const newLogs = subscriptionData.data.serviceLogs;
-              const data = prev.serviceLogs as Log[];
+              const newLogs = subscriptionData.data.projectLogs;
+              const data = prev.projectLogs;
 
               return {
-                serviceLogs: [...data, ...newLogs],
+                projectLogs: [...data, ...newLogs],
               };
             },
           });

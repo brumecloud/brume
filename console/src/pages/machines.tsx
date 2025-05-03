@@ -30,7 +30,7 @@ export default function Machines() {
         </div>
         <div className="flex flex-row gap-4">
           {machines?.map((machine) => (
-            <MachineCard key={machine.id} machine={machine} />
+            <MachineCard id={machine.id} />
           ))}
         </div>
       </div>

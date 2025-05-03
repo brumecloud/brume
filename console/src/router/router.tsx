@@ -13,16 +13,12 @@ import { SettingPage } from "@/pages/service/settings";
 import { VariablesPage } from "@/pages/service/variables";
 import { ServicePage } from "@/pages/services";
 import { ProjectLayout } from "@/router/layout/project.layout";
+import { RouteParams } from "@/router/router.param";
 import { Route, createRoutesFromElements } from "react-router-dom";
 
 import { ConsoleLayout } from "./layout/console.layout";
 import { PageLayout } from "./layout/page.layout";
 import { RunnerLayout } from "./layout/runner.layout";
-
-export enum RouteParams {
-  ProjectID = "projectId",
-  ServiceID = "serviceId",
-}
 
 export const Router = createRoutesFromElements(
   <Route path="/" errorElement={<ErrorPage />}>
