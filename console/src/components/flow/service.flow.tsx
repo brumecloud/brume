@@ -14,6 +14,7 @@ export default function ServiceFlow({
   style: CSSProperties;
   width: number;
   height: number;
+  id: string;
 }) {
   const { projectId } = useParams();
   const navigate = useNavigate();

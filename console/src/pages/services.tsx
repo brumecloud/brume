@@ -37,13 +37,17 @@ export const ServicePage = () => {
     throw new Error("No project ID found in the URL");
   }
 
-  const { data } = useFragment({
+  const { data, complete } = useFragment({
     from: `Project:${projectId}`,
     fragment: PROJECT_FRAGMENT,
   });
 
   if (!data) {
     throw new Error("No data for the current project ?");
+  }
+
+  if (!complete) {
+    throw new Error("Project not complete");
   }
 
   return (

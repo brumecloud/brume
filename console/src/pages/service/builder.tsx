@@ -51,19 +51,28 @@ const GenericImageOptions = () => {
 
   const [wasDraft, setWasDraft] = useState(false);
   // TODO : regarder pour passer sur deux useFragment ici au lieu de prendre tout le service
-  const { data: draftBuilderData } = useFragment({
-    from: `Service:${serviceId}`,
-    fragment: DraftBuilderFragment,
-  });
+  const { data: draftBuilderData, complete: draftBuilderComplete } =
+    useFragment({
+      from: `Service:${serviceId}`,
+      fragment: DraftBuilderFragment,
+    });
 
-  const draftBuilder = draftBuilderData?.draftBuilder;
+  const { data: builderData, complete: builderComplete } =
+    useFragment({
+      from: `Service:${serviceId}`,
+      fragment: LiveBuilderFragment,
+    });
 
-  const { data: builderData } = useFragment({
-    from: `Service:${serviceId}`,
-    fragment: LiveBuilderFragment,
-  });
+  if (!draftBuilderComplete) {
+    throw new Error("Draft builder not complete");
+  }
 
-  const builder = builderData?.liveBuilder;
+  if (!builderComplete) {
+    throw new Error("Live Builder not complete");
+  }
+
+  const draftBuilder = draftBuilderData.draftBuilder;
+  const builder = builderData.liveBuilder;
 
   const { updateBuilderMutation, loading } = useUpdateBuilder();
 
@@ -136,16 +145,9 @@ const GenericImageOptions = () => {
     form.reset(form.getValues());
   };
 
-  if (
-    !serviceId ||
-    !builder ||
-    !draftBuilder ||
-    !builder.data ||
-    !draftBuilder.data ||
-    builder.data == undefined ||
-    draftBuilder.data == undefined
-  )
+  if (!draftBuilder || !builder) {
     return null;
+  }
 
   return (
     <Form {...form}>

@@ -4,8 +4,12 @@ import IngestNodeFlow from "@/components/flow/ingest-node.flow";
 import MachineNodeFlow from "@/components/flow/machine.flow";
 import ProxyNodeFlow from "@/components/flow/proxy-node.flow";
 import ServiceFlow from "@/components/flow/service.flow";
+import { PROJECT_FRAGMENT } from "@/gql/project.graphql";
 import { useProject } from "@/hooks/useProject";
+import { ProjectQuery } from "@/router/layout/project.layout";
+import type { RouteParams } from "@/router/router.param";
 import type { Service } from "@/schemas/service.schema";
+import { useFragment, useQuery } from "@apollo/client";
 import {
   ReactFlow,
   BackgroundVariant,
@@ -18,6 +22,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import throttle from "lodash/throttle";
 import { useEffect, useLayoutEffect } from "react";
+import { useParams } from "react-router-dom";
 
 const APP_GROUP_X_PADDING = 20;
 const APP_GROUP_Y_PADDING = 20;
@@ -83,7 +88,16 @@ const getNodes = (services: Service[]) => {
 };
 
 export default function ProjectFlow() {
-  const { project } = useProject();
+  const { projectId } = useParams<RouteParams>() as {
+    projectId: string;
+  };
+
+  const { data } = useQuery(ProjectQuery, {
+    variables: { projectId },
+  });
+
+  const project = data?.getProjectById;
+
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const reactFlow = useReactFlow();
 

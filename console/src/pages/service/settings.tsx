@@ -1,3 +1,4 @@
+import type { ServiceFragmentFragment } from "@/_apollo/graphql";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,12 +14,12 @@ import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
   useDeleteService,
-  useService,
   useUpdateServiceSettings,
 } from "@/hooks/useService";
-import type { RouteParams } from "@/router/router";
-import { type Service } from "@/schemas/service.schema";
+import { ServiceFragment } from "@/pages/services";
+import type { RouteParams } from "@/router/router.param";
 import { cn } from "@/utils";
+import { useFragment } from "@apollo/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Flame, Loader2, SquareTerminal } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -29,15 +30,24 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 export const SettingPage = () => {
-  const { projectId } = useParams<RouteParams>();
-  const { service } = useService();
+  const { projectId, serviceId } = useParams<RouteParams>();
+
+  const { data: service, complete } = useFragment({
+    from: `Service:${serviceId}`,
+    fragment: ServiceFragment,
+  });
+
+  if (!complete) {
+    throw new Error("Service not complete");
+  }
+
   const { deleteServiceMutation } = useDeleteService();
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const { updateServiceSettingsMutation, loading, error } =
+  const { updateServiceSettingsMutation, loading } =
     useUpdateServiceSettings();
   const navigate = useNavigate();
 
-  const form = useForm<Service>({
+  const form = useForm<ServiceFragmentFragment>({
     resolver: zodResolver(
       z.object({
         name: z.string(),
@@ -59,7 +69,7 @@ export const SettingPage = () => {
     if (service) {
       form.reset(service);
     }
-  }, [service?.__typename, service?.name, service?.id]);
+  }, [serviceId, service]);
 
   const onUnload = useCallback(
     (e: BeforeUnloadEvent) => {
@@ -135,7 +145,7 @@ export const SettingPage = () => {
       <div className="flex h-full flex-col pt-16">
         <div className="flex w-full flex-row items-center justify-between pb-16">
           <div>
-            <h2 className="font-heading pb-2 text-3xl">Settings</h2>
+            <h2 className="pb-2 font-heading text-3xl">Settings</h2>
             <p>Manage the service</p>
           </div>
           <div className="">

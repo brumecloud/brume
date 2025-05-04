@@ -1,4 +1,4 @@
-import { DirtyServiceModal } from "@/components/modal/dirty-service/dirty-service.modal";
+import type { RunnerFragmentFragment } from "@/_apollo/graphql";
 import {
   Alert,
   AlertDescription,
@@ -8,15 +8,12 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useProject } from "@/hooks/useProject";
-import { useService } from "@/hooks/useService";
 import { useUpdateRunner } from "@/hooks/useUpdateRunner";
-import type { RouteParams } from "@/router/router";
-import {
-  DockerRunnerSchema,
-  type Runner,
-} from "@/schemas/service.schema";
+import { ServiceFragment } from "@/pages/services";
+import type { RouteParams } from "@/router/router.param";
+import { DockerRunnerSchema } from "@/schemas/service.schema";
 import { cn } from "@/utils";
+import { useFragment } from "@apollo/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Activity,
@@ -32,18 +29,27 @@ import { useBlocker, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 export const RunnerPage = () => {
-  const { service } = useService();
+  const { serviceId } = useParams<RouteParams>();
   const [wasDraft, setWasDraft] = useState(false);
+
+  const { data: service, complete } = useFragment({
+    from: `Service:${serviceId}`,
+    fragment: ServiceFragment,
+  });
+
+  if (!complete) {
+    throw new Error("Service not complete");
+  }
+
   const runner = service?.liveRunner;
   const draftRunner = service?.draftRunner;
 
   const { updateRunnerMutation, loading } = useUpdateRunner();
 
-  const form = useForm<Runner>({
+  const form = useForm<RunnerFragmentFragment>({
     resolver: zodResolver(DockerRunnerSchema),
     mode: "onChange",
     defaultValues: useMemo(() => {
-      console.log("useMemo", draftRunner, runner);
       if (draftRunner) return draftRunner;
       if (runner) return runner;
       return undefined;
@@ -73,7 +79,7 @@ export const RunnerPage = () => {
         form.reset(draftRunner);
       }
     }
-  }, [form, service?.id]);
+  }, [form, serviceId]);
 
   useEffect(() => {
     if (draftRunner) {
@@ -83,7 +89,7 @@ export const RunnerPage = () => {
       form.reset(runner);
       setWasDraft(false);
     }
-  }, [service]);
+  }, [serviceId]);
 
   const onUnload = useCallback(
     (e: BeforeUnloadEvent) => {
