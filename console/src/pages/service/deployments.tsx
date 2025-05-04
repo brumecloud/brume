@@ -1,25 +1,38 @@
-import type { Deployment } from "@/_apollo/graphql";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useService } from "@/hooks/useService";
+import { DEPLOYMENT_FRAGMENT } from "@/gql/deployment.graphql";
+import { ServiceFragment } from "@/pages/services";
+import { RouteParams } from "@/router/router.param";
 import { cn } from "@/utils";
-import { gql, useQuery } from "@apollo/client";
+import { useFragment } from "@apollo/client";
 import { GitBranch, GitCommit } from "lucide-react";
+import { useParams } from "react-router-dom";
 
 const DeploymentCard = ({
-  data,
+  id,
   isLive,
   className,
 }: {
-  data: Deployment;
+  id: string;
   isLive?: boolean;
   className?: string;
 }) => {
-  const { data } = useQuery()
+  const { data, complete } = useFragment({
+    fragment: DEPLOYMENT_FRAGMENT,
+    from: `Deployment:${id}`,
+  });
+
+  if (!data) {
+    return null;
+  }
+
+  if (!complete) {
+    throw new Error("Deployment not complete");
+  }
 
   const status = data.logs.status;
   const readyState =
@@ -97,12 +110,12 @@ const DeploymentCard = ({
           </div>
         )}
         <div className="col-end-11 justify-items-end">
-          {me && (
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={me.avatar} />
-              <AvatarFallback>{me.name.slice(0, 2)}</AvatarFallback>
-            </Avatar>
-          )}
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={data.author.avatar} />
+            <AvatarFallback>
+              {data.author.name.slice(0, 2)}
+            </AvatarFallback>
+          </Avatar>
         </div>
       </div>
     </div>
@@ -112,34 +125,48 @@ const DeploymentCard = ({
 // we are in a subpage of the project route
 // we should be working on fragments
 export const DeploymentsPage = () => {
-  const { service } = useService();
+  const { serviceId } = useParams<RouteParams>();
 
-  if (!service || service.deployments.length === 0) {
+  const { data, complete } = useFragment({
+    from: `Service:${serviceId}`,
+    fragment: ServiceFragment,
+  });
+
+  if (!data) {
     return null;
   }
 
-  const deployments = service.deployments.sort(
-    (a, b) =>
+  if (!complete) {
+    throw new Error("Service not complete");
+  }
+
+  const deploymentsRaw = data.deployments;
+
+  const deployments = deploymentsRaw.sort((a, b) => {
+    return (
       new Date(b.createdAt).getTime() -
       new Date(a.createdAt).getTime()
-  );
+    );
+  });
 
   return (
     <div className="flex h-full flex-col gap-y-4 px-32 pt-8">
       <div className="flex h-10 flex-row items-center">
         <h3 className="text-md font-medium">Live Deployment</h3>
       </div>
-      <div className="rounded-sm border border-gray-200 bg-white">
-        <DeploymentCard data={deployments[0]} isLive />
-      </div>
+      {deployments[0]?.id && (
+        <div className="rounded-sm border border-gray-200 bg-white">
+          <DeploymentCard id={deployments[0].id} isLive />
+        </div>
+      )}
       {deployments.length > 1 && (
         <>
           <h3 className="text-md pt-4 font-medium">History</h3>
           <div className="flex h-full flex-col rounded-md border border-gray-200 bg-white shadow-sm">
-            {service.deployments.slice(1).map((deployment) => (
+            {deployments.slice(1).map((deployment) => (
               <DeploymentCard
                 className="border-b border-gray-200 last:border-b-0"
-                data={deployment}
+                id={deployment.id}
               />
             ))}
           </div>

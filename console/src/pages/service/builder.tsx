@@ -8,12 +8,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useUpdateBuilder } from "@/hooks/useUpdateBuilder";
 import {
   DraftBuilderFragment,
   LiveBuilderFragment,
-} from "@/gql/builder.graphql";
-import { useUpdateBuilder } from "@/hooks/useUpdateBuilder";
-import type { RouteParams } from "@/router/router";
+} from "@/router/layout/project.layout";
+import type { RouteParams } from "@/router/router.param";
 import {
   BuilderSchema,
   type Builder,
@@ -51,14 +51,19 @@ const GenericImageOptions = () => {
 
   const [wasDraft, setWasDraft] = useState(false);
   // TODO : regarder pour passer sur deux useFragment ici au lieu de prendre tout le service
-  const { data: draftBuilder } = useFragment({
+  const { data: draftBuilderData } = useFragment({
     from: `Service:${serviceId}`,
     fragment: DraftBuilderFragment,
   });
-  const { data: builder } = useFragment({
+
+  const draftBuilder = draftBuilderData?.draftBuilder;
+
+  const { data: builderData } = useFragment({
     from: `Service:${serviceId}`,
     fragment: LiveBuilderFragment,
   });
+
+  const builder = builderData?.liveBuilder;
 
   const { updateBuilderMutation, loading } = useUpdateBuilder();
 
@@ -84,14 +89,14 @@ const GenericImageOptions = () => {
   }
 
   useEffect(() => {
-    if (service) {
+    if (serviceId) {
       if (draftBuilder) {
         form.reset(draftBuilder);
       } else if (builder) {
         form.reset(builder);
       }
     }
-  }, [form, service?.id]);
+  }, [form, serviceId]);
 
   useEffect(() => {
     if (draftBuilder) {
@@ -101,7 +106,7 @@ const GenericImageOptions = () => {
       form.reset(builder);
       setWasDraft(false);
     }
-  }, [service]);
+  }, [serviceId]);
 
   const onUnload = useCallback(
     (e: BeforeUnloadEvent) => {
@@ -118,11 +123,11 @@ const GenericImageOptions = () => {
   }, [onUnload]);
 
   const submitChanges = async () => {
-    if (!service?.id) return;
+    if (!serviceId) return;
 
     await updateBuilderMutation({
       variables: {
-        serviceId: service.id,
+        serviceId: serviceId,
         input: form.getValues().data,
       },
     });
@@ -131,7 +136,16 @@ const GenericImageOptions = () => {
     form.reset(form.getValues());
   };
 
-  if (!service) return null;
+  if (
+    !serviceId ||
+    !builder ||
+    !draftBuilder ||
+    !builder.data ||
+    !draftBuilder.data ||
+    builder.data == undefined ||
+    draftBuilder.data == undefined
+  )
+    return null;
 
   return (
     <Form {...form}>
@@ -185,11 +199,8 @@ const GenericImageOptions = () => {
                     <SelectTrigger
                       className={cn(
                         "w-[180px]",
-                        builder &&
-                          draftBuilder &&
-                          draftBuilder.data.registry !==
-                            builder.data.registry &&
-                          "border-blue-500",
+                        draftBuilder.data?.registry !==
+                          builder.data?.registry && "border-blue-500",
                         form.formState.dirtyFields.data?.registry &&
                           "border-green-500"
                       )}>
@@ -207,10 +218,10 @@ const GenericImageOptions = () => {
                   </Select>
                   {builder &&
                     draftBuilder &&
-                    draftBuilder.data.registry !==
-                      builder.data.registry && (
+                    draftBuilder.data?.registry !==
+                      builder.data?.registry && (
                       <p className="text-xs italic text-blue-500">
-                        old value: {builder.data.registry}
+                        old value: {builder.data?.registry}
                       </p>
                     )}
                 </>
@@ -234,8 +245,8 @@ const GenericImageOptions = () => {
                     className={cn(
                       builder &&
                         draftBuilder &&
-                        draftBuilder.data.image !==
-                          builder.data.image &&
+                        draftBuilder.data?.image !==
+                          builder.data?.image &&
                         "border-blue-500",
                       form.formState.dirtyFields.data?.image &&
                         "border-green-500"
@@ -243,10 +254,10 @@ const GenericImageOptions = () => {
                   />
                   {builder &&
                     draftBuilder &&
-                    draftBuilder.data.image !==
-                      builder.data.image && (
+                    draftBuilder.data?.image !==
+                      builder.data?.image && (
                       <p className="text-xs italic text-blue-500">
-                        old value: {builder.data.image}
+                        old value: {builder.data?.image}
                       </p>
                     )}
                 </>
@@ -270,7 +281,8 @@ const GenericImageOptions = () => {
                     className={cn(
                       builder &&
                         draftBuilder &&
-                        draftBuilder.data.tag !== builder.data.tag &&
+                        draftBuilder.data?.tag !==
+                          builder.data?.tag &&
                         "border-blue-500",
                       form.formState.dirtyFields.data?.tag &&
                         "border-green-500"
@@ -278,9 +290,9 @@ const GenericImageOptions = () => {
                   />
                   {builder &&
                     draftBuilder &&
-                    draftBuilder.data.tag !== builder.data.tag && (
+                    draftBuilder.data?.tag !== builder.data?.tag && (
                       <p className="text-xs italic text-blue-500">
-                        old value: {builder.data.tag}
+                        old value: {builder.data?.tag}
                       </p>
                     )}
                 </>

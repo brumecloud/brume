@@ -1,7 +1,7 @@
 import { gql } from "@/_apollo";
 import { Button } from "@/components/ui/button";
 import { PROJECT_FRAGMENT } from "@/gql/project.graphql";
-import type { RouteParams } from "@/router/router";
+import type { RouteParams } from "@/router/router.param";
 import { modalState } from "@/state/modal.state";
 import { useFragment } from "@apollo/client";
 import { useParams } from "react-router-dom";
@@ -14,7 +14,6 @@ export const ServiceFragment = gql(`
       deployments {
         ...DeploymentFragment @unmask
       }
-
       liveBuilder {
         ...BuilderFragment @unmask
       }
