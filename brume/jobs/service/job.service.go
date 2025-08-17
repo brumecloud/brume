@@ -86,15 +86,6 @@ func (s *JobService) SetJobStatus(jobID uuid.UUID, status job_model.JobStatusEnu
 	return err
 }
 
-func (s *JobService) SetJobContainerID(jobID uuid.UUID, containerID string) error {
-	err := s.db.Gorm.Model(&job_model.Job{
-		ID:          jobID,
-		ContainerID: &containerID,
-	}).Update("container_id", containerID).Error
-	jobLogger.Trace().Str("job_id", jobID.String()).Str("container_id", containerID).Msg("Setting job container id")
-	return err
-}
-
 // get the status of the job from the database
 func (s *JobService) GetJobStatus(jobID uuid.UUID) (job_model.JobStatusEnum, error) {
 	var job job_model.Job
@@ -119,16 +110,21 @@ func (s *JobService) WatchJob(job job_model.Job) bool {
 	// problems
 	jobLogger.Error().Str("job_id", job.ID.String()).Msg("Job is not healthy")
 
-	return false
 	// TODO: do something about it
 	// - delete this job
 	// - tell the deployment to create a new job
 	// - avoid placing the same job on the same machine
+	return false
 }
 
+var NOT_RUNNING_JOBS = []job_model.JobStatusEnum{job_model.JobStatusEnumStopped, job_model.JobStatusEnumFailed, job_model.JobStatusEnumBlocked}
+
+// internal function to get all the job which need monitoring
 func (s *JobService) GetJobs() ([]job_model.Job, error) {
 	var jobs []job_model.Job
-	err := s.db.Gorm.Find(&job_model.Job{}).Where("accepted_at IS NOT NULL AND status != ?", job_model.JobStatusEnumStopped).Find(&jobs).Error
+
+	err := s.db.Gorm.Find(&job_model.Job{}).Where("accepted_at IS NOT NULL AND status NOT IN (?)", NOT_RUNNING_JOBS).Find(&jobs).Error
+
 	return jobs, err
 }
 
@@ -158,6 +154,8 @@ func (s *JobService) RunHealthLoop() {
 
 		healthyJobs := []job_model.Job{}
 		unhealthyJobs := []job_model.Job{}
+
+		jobLogger.Info().Int("jobs_count", len(jobs)).Msg("Checking the health of the jobs")
 
 		// run all the jobs in parallel
 		for _, job := range jobs {

@@ -21,8 +21,7 @@ type Deployment struct {
 
 	ProjectID uuid.UUID `gorm:"type:uuid"`
 
-	Source    DeploymentSource `gorm:"type:jsonb"`
-	DeployLog DeploymentLog    `gorm:"type:jsonb"`
+	Source DeploymentSource `gorm:"type:jsonb"`
 
 	RunnerData  runner_model.RunnerData   `gorm:"type:jsonb"`
 	BuilderData builder_model.BuilderData `gorm:"type:jsonb"`

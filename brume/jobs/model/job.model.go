@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
+	builder_model "brume.dev/builder/model"
+	runner_model "brume.dev/runner/model"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -24,23 +27,39 @@ const (
 type Job struct {
 	gorm.Model
 
-	ID      uuid.UUID     `gorm:"type:uuid;primaryKey"`
-	JobType JobType       `gorm:"type:varchar(255);not null"`
-	Status  JobStatusEnum `gorm:"type:varchar(255);not null"`
+	ID      uuid.UUID     `gorm:"type:uuid;primaryKey" json:"id"`
+	JobType JobType       `gorm:"type:varchar(255);not null" json:"job_type"`
+	Status  JobStatusEnum `gorm:"type:varchar(255);not null" json:"status"`
 
-	CreatedAt  time.Time
-	AcceptedAt *time.Time
+	CreatedAt  time.Time  `json:"created_at"`
+	AcceptedAt *time.Time `json:"accepted_at"`
+
+	RunnerData  *runner_model.RunnerData   `gorm:"type:jsonb" json:"runner_data"`
+	BuilderData *builder_model.BuilderData `gorm:"type:jsonb" json:"builder_data"`
+
+	// a runner job can be blocked by a builder job for example
+	// the blocked job will be release when the blocking job is done
+	BlockedBy   *Job       `gorm:"foreignKey:BlockedByID" json:"blocked_by"`
+	BlockedByID *uuid.UUID `gorm:"type:uuid" json:"blocked_by_id"`
 }
 
 type JobStatusEnum string
 
 const (
-	JobStatusEnumCreating  JobStatusEnum = "creating"
-	JobStatusEnumPending   JobStatusEnum = "pending"
-	JobStatusEnumRunning   JobStatusEnum = "running"
-	JobStatusEnumStopped   JobStatusEnum = "stopped"
+	// init state
+	JobStatusEnumCreating JobStatusEnum = "creating"
+	// the job need to be picked by an agent (bidding process)
+	JobStatusEnumPending JobStatusEnum = "pending"
+	// the job is blocked by another job
+	JobStatusEnumBlocked JobStatusEnum = "blocked"
+	// the job is running on an agent & the orchestrator agrees
+	JobStatusEnumRunning JobStatusEnum = "running"
+	// the job is stopped by the orchestrator (mostly human intervention)
+	JobStatusEnumStopped JobStatusEnum = "stopped"
+	// the job is unhealthy (healthcheck failed)
 	JobStatusEnumUnhealthy JobStatusEnum = "unhealthy"
-	JobStatusEnumFailed    JobStatusEnum = "failed"
+	// all the healthchecks threshold are reached
+	JobStatusEnumFailed JobStatusEnum = "failed"
 )
 
 type JobStatus struct {
