@@ -37,7 +37,7 @@ type RunnerDataInput struct {
 	CPU            *RessourceConstraintsInput `json:"cpu"`
 	Port           int                        `json:"port"`
 	PublicDomain   string                     `json:"publicDomain"`
-	PrivateDomain  string                     `json:"privateDomain"`
+	PrivateDomain  *string                    `json:"privateDomain,omitempty"`
 }
 
 type ServiceEvent struct {

@@ -14,6 +14,7 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
+    "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n": typeof types.MyProjectsDocument,
     "\n  fragment BuilderFragment on Builder {\n    type\n    data {\n      tag\n      image\n      registry\n    }\n  }\n": typeof types.BuilderFragmentFragmentDoc,
     "\n  mutation UpdateBuilder(\n    $serviceId: String!\n    $input: BuilderDataInput!\n  ) {\n    updateBuilder(serviceId: $serviceId, data: $input) {\n      ...BuilderFragment\n    }\n  }\n": typeof types.UpdateBuilderDocument,
     "\n  fragment DeploymentFragment on Deployment {\n    id\n    env\n    author {\n      id\n      name\n      avatar\n    }\n    source {\n      type\n      branch\n      commit\n      message\n    }\n    logs {\n      status\n      date\n      duration\n    }\n    createdAt\n  }\n": typeof types.DeploymentFragmentFragmentDoc,
@@ -35,7 +36,6 @@ type Documents = {
     "\n  fragment ServiceFragment on Service {\n      name\n      id\n      deployments {\n        ...DeploymentFragment @unmask\n      }\n      liveBuilder {\n        ...BuilderFragment @unmask\n      }\n      draftBuilder {\n        ...BuilderFragment @unmask\n      }\n      liveRunner {\n        ...RunnerFragment @unmask\n      }\n      draftRunner {\n        ...RunnerFragment @unmask\n      }\n   }\n": typeof types.ServiceFragmentFragmentDoc,
     "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n  }\n": typeof types.UserFragmentFragmentDoc,
     "\n  query me {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n      ...UserFragment\n    }\n  }\n": typeof types.MeDocument,
-    "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n": typeof types.MyProjectsDocument,
     "\n  fragment GenericRunnerFragment on Runner {\n    type\n    data {\n      command\n      healthCheckURL\n      memory {\n        limit\n        request\n      }\n      cpu {\n        limit\n        request\n      }\n      port\n      publicDomain\n      privateDomain\n    }\n  }\n": typeof types.GenericRunnerFragmentFragmentDoc,
     "\n  fragment GenericBuilderFragment on Builder {\n    data {\n      image\n      registry\n      tag\n    }\n  }\n": typeof types.GenericBuilderFragmentFragmentDoc,
     "\n  fragment DraftBuilderFragment on Service {\n    draftBuilder {\n      ...GenericBuilderFragment @unmask\n    }\n  }\n": typeof types.DraftBuilderFragmentFragmentDoc,
@@ -45,6 +45,7 @@ type Documents = {
     "\n  query ProjectQuery($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n      services {\n        ...ServiceFragment\n      }\n    }\n  }\n": typeof types.ProjectQueryDocument,
 };
 const documents: Documents = {
+    "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n": types.MyProjectsDocument,
     "\n  fragment BuilderFragment on Builder {\n    type\n    data {\n      tag\n      image\n      registry\n    }\n  }\n": types.BuilderFragmentFragmentDoc,
     "\n  mutation UpdateBuilder(\n    $serviceId: String!\n    $input: BuilderDataInput!\n  ) {\n    updateBuilder(serviceId: $serviceId, data: $input) {\n      ...BuilderFragment\n    }\n  }\n": types.UpdateBuilderDocument,
     "\n  fragment DeploymentFragment on Deployment {\n    id\n    env\n    author {\n      id\n      name\n      avatar\n    }\n    source {\n      type\n      branch\n      commit\n      message\n    }\n    logs {\n      status\n      date\n      duration\n    }\n    createdAt\n  }\n": types.DeploymentFragmentFragmentDoc,
@@ -66,7 +67,6 @@ const documents: Documents = {
     "\n  fragment ServiceFragment on Service {\n      name\n      id\n      deployments {\n        ...DeploymentFragment @unmask\n      }\n      liveBuilder {\n        ...BuilderFragment @unmask\n      }\n      draftBuilder {\n        ...BuilderFragment @unmask\n      }\n      liveRunner {\n        ...RunnerFragment @unmask\n      }\n      draftRunner {\n        ...RunnerFragment @unmask\n      }\n   }\n": types.ServiceFragmentFragmentDoc,
     "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n  }\n": types.UserFragmentFragmentDoc,
     "\n  query me {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n      ...UserFragment\n    }\n  }\n": types.MeDocument,
-    "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n": types.MyProjectsDocument,
     "\n  fragment GenericRunnerFragment on Runner {\n    type\n    data {\n      command\n      healthCheckURL\n      memory {\n        limit\n        request\n      }\n      cpu {\n        limit\n        request\n      }\n      port\n      publicDomain\n      privateDomain\n    }\n  }\n": types.GenericRunnerFragmentFragmentDoc,
     "\n  fragment GenericBuilderFragment on Builder {\n    data {\n      image\n      registry\n      tag\n    }\n  }\n": types.GenericBuilderFragmentFragmentDoc,
     "\n  fragment DraftBuilderFragment on Service {\n    draftBuilder {\n      ...GenericBuilderFragment @unmask\n    }\n  }\n": types.DraftBuilderFragmentFragmentDoc,
@@ -90,6 +90,10 @@ const documents: Documents = {
  */
 export function gql(source: string): unknown;
 
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n"): (typeof documents)["\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -174,10 +178,6 @@ export function gql(source: "\n  fragment UserFragment on User {\n    id\n    na
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  query me {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n      ...UserFragment\n    }\n  }\n"): (typeof documents)["\n  query me {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n      ...UserFragment\n    }\n  }\n"];
-/**
- * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function gql(source: "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n"): (typeof documents)["\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

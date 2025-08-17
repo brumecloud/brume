@@ -32,6 +32,11 @@ func (r *deploymentResolver) Author(ctx context.Context, obj *deployment_model.D
 	panic(fmt.Errorf("not implemented: Author - author"))
 }
 
+// Logs implements public_graph_generated.DeploymentResolver.
+func (r *deploymentResolver) Logs(ctx context.Context, obj *deployment_model.Deployment) (*deployment_model.DeploymentLog, error) {
+	panic("unimplemented")
+}
+
 // CreatedAt is the resolver for the createdAt field.
 func (r *deploymentResolver) CreatedAt(ctx context.Context, obj *deployment_model.Deployment) (string, error) {
 	return obj.CreatedAt.Format(time.RFC3339), nil
@@ -169,7 +174,7 @@ func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, d
 			Port: data.Port,
 		},
 		PublicDomain:  data.PublicDomain,
-		PrivateDomain: &data.PrivateDomain,
+		PrivateDomain: data.PrivateDomain,
 	}
 
 	return r.ServiceService.UpdateRunner(service_uuid, runnerData)
@@ -335,11 +340,6 @@ func (r *userResolver) Projects(ctx context.Context, obj *user_model.User) ([]*p
 	return projects, err
 }
 
-// Logs implements public_graph_generated.DeploymentResolver.
-func (r *deploymentResolver) Logs(ctx context.Context, obj *deployment_model.Deployment) (*deployment_model.DeploymentLog, error) {
-	panic("unimplemented")
-}
-
 // Deployment returns generated.DeploymentResolver implementation.
 func (r *Resolver) Deployment() generated.DeploymentResolver { return &deploymentResolver{r} }
 
@@ -378,17 +378,15 @@ func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subsc
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
-type (
-	deploymentResolver       struct{ *Resolver }
-	deploymentLogResolver    struct{ *Resolver }
-	deploymentSourceResolver struct{ *Resolver }
-	logResolver              struct{ *Resolver }
-	machineResolver          struct{ *Resolver }
-	mutationResolver         struct{ *Resolver }
-	projectResolver          struct{ *Resolver }
-	queryResolver            struct{ *Resolver }
-	runnerDataResolver       struct{ *Resolver }
-	serviceResolver          struct{ *Resolver }
-	subscriptionResolver     struct{ *Resolver }
-	userResolver             struct{ *Resolver }
-)
+type deploymentResolver struct{ *Resolver }
+type deploymentLogResolver struct{ *Resolver }
+type deploymentSourceResolver struct{ *Resolver }
+type logResolver struct{ *Resolver }
+type machineResolver struct{ *Resolver }
+type mutationResolver struct{ *Resolver }
+type projectResolver struct{ *Resolver }
+type queryResolver struct{ *Resolver }
+type runnerDataResolver struct{ *Resolver }
+type serviceResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }
+type userResolver struct{ *Resolver }
