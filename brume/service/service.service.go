@@ -1,8 +1,11 @@
 package service
 
 import (
+	"time"
+
 	builder_model "brume.dev/builder/model"
 	builder_service "brume.dev/builder/service"
+	deployment_service "brume.dev/deployment"
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
 	"brume.dev/internal/log"
@@ -17,17 +20,61 @@ import (
 var logger = log.GetLogger("service")
 
 type ServiceService struct {
-	db             *db.DB
-	runnerService  *runner.RunnerService
-	builderService *builder_service.BuilderService
+	db                *db.DB
+	runnerService     *runner.RunnerService
+	builderService    *builder_service.BuilderService
+	deploymentService *deployment_service.DeploymentService
 }
 
-func NewServiceService(db *db.DB, runnerService *runner.RunnerService, builderService *builder_service.BuilderService) *ServiceService {
+func NewServiceService(db *db.DB, runnerService *runner.RunnerService, builderService *builder_service.BuilderService, deploymentService *deployment_service.DeploymentService) *ServiceService {
 	return &ServiceService{
-		db:             db,
-		runnerService:  runnerService,
-		builderService: builderService,
+		db:                db,
+		runnerService:     runnerService,
+		builderService:    builderService,
+		deploymentService: deploymentService,
 	}
+}
+
+// deploying a service mean creating a deployment out of the current service configuration
+// and then, creating all the required jobs for this deployment
+// at least the runner job, maybe a builder job if needed
+func (s *ServiceService) DeployService(serviceId uuid.UUID, source deployment_model.DeploymentSource) error {
+	service, err := s.GetService(serviceId)
+	if err != nil {
+		return err
+	}
+
+	deployment := &deployment_model.Deployment{
+		ID:        uuid.New(),
+		ServiceID: serviceId,
+		ProjectID: service.ProjectID,
+		Name:      service.Name + "-" + time.Now().Format("20060102150405"),
+
+		Source:      source,
+		BuilderData: service.LiveBuilder.Data,
+		RunnerData:  service.LiveRunner.Data,
+
+		CreatedAt: time.Now(),
+	}
+
+	// add the deployment to the service
+	err = s.db.Gorm.Model(service).Association("Deployments").Append(deployment)
+	if err != nil {
+		return err
+	}
+
+	logger.Info().Str("deployment_id", deployment.ID.String()).Msg("Deployment created")
+
+	// start the deployment
+	// this will create the right jobs for the deployment
+	err = s.deploymentService.StartDeployment(deployment.ID)
+	if err != nil {
+		return err
+	}
+
+	logger.Info().Str("deployment_id", deployment.ID.String()).Msg("All jobs for the deployment are created")
+
+	return nil
 }
 
 func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data builder_model.BuilderData) (*builder_model.Builder, error) {
@@ -107,26 +154,6 @@ func (s *ServiceService) UpdateRunner(serviceId uuid.UUID, data runner_model.Run
 	return draftRunner, err
 }
 
-func (s *ServiceService) DeployService(serviceId uuid.UUID) error {
-	service, err := s.GetService(serviceId)
-	if err != nil {
-		return err
-	}
-
-	// set the draft live
-	service.LiveRunner = service.DraftRunner
-	service.LiveBuilder = service.DraftBuilder
-	service.DraftRunner = nil
-	service.DraftBuilder = nil
-
-	err = s.db.Gorm.Save(&service).Error
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s *ServiceService) DeleteService(serviceId uuid.UUID) (*service_model.Service, error) {
 	service, err := s.GetService(serviceId)
 	if err != nil {
@@ -173,17 +200,6 @@ func (s *ServiceService) UpdateServiceSettings(serviceId uuid.UUID, name string)
 	service.Name = name
 
 	return service, s.db.Gorm.Save(&service).Error
-}
-
-func (s *ServiceService) CreateDeployment(serviceId uuid.UUID, deployment *deployment_model.Deployment) error {
-	service, err := s.GetService(serviceId)
-	if err != nil {
-		return err
-	}
-
-	err = s.db.Gorm.Model(service).Association("Deployments").Append(deployment)
-
-	return err
 }
 
 func (s *ServiceService) GetServiceDeployments(serviceId uuid.UUID) ([]*deployment_model.Deployment, error) {
