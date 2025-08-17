@@ -106,7 +106,6 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 				}
 			}
 		}()
-
 	})
 
 	// AGENT -> ORCHESTRATOR
@@ -118,13 +117,6 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 
 		if jobIDRaw == "" {
 			http.Error(w, "Job ID is required", http.StatusBadRequest)
-			return
-		}
-
-		var err error
-		jobID, err := uuid.Parse(jobIDRaw)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -140,13 +132,6 @@ func (m *MonitoringHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		go func() {
-			err := m.jobService.SetJobContainerID(jobID, req.ContainerID)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-		}()
 
 		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodPost)

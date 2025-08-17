@@ -68,7 +68,7 @@ services:
   # service land
   postgres:
     <<: *brume-default
-    image: postgres:13
+    image: postgres:latest
     container_name: brume-postgres
     environment:
       POSTGRES_USER: brume

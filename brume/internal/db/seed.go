@@ -2,7 +2,6 @@ package db
 
 import (
 	"errors"
-	"time"
 
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
@@ -13,7 +12,6 @@ import (
 	runner_model "brume.dev/runner/model"
 	service "brume.dev/service/model"
 	"github.com/google/uuid"
-	"golang.org/x/exp/rand"
 	"gorm.io/gorm"
 )
 
@@ -97,14 +95,9 @@ func generateDeployment(serviceId uuid.UUID) *deployment_model.Deployment {
 		Source: deployment_model.DeploymentSource{
 			Type: deployment_model.DeploymentSourceTypeConsole,
 		},
-		DeployLog: deployment_model.DeploymentLog{
-			Status:   deployment_model.DeploymentStatusSuccess,
-			Duration: time.Duration(rand.Intn(100)) * time.Second,
-			Date:     time.Now(),
-		},
 		RunnerData: runner_model.RunnerData{
 			Type: runner_model.RunnerTypeDocker,
-			Docker: runner_model.DockerRunnerData{
+			Docker: &runner_model.DockerRunnerData{
 				Command:        "",
 				HealthCheckURL: "http://localhost:3000/health",
 				Memory: runner_model.RessourceConstraints{
@@ -149,7 +142,7 @@ func SeedProjects(db *DB) []*project.Project {
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
 				Type: runner_model.RunnerTypeDocker,
-				Docker: runner_model.DockerRunnerData{
+				Docker: &runner_model.DockerRunnerData{
 					Command:        "",
 					HealthCheckURL: "http://localhost:3000/health",
 					Memory: runner_model.RessourceConstraints{
@@ -163,7 +156,7 @@ func SeedProjects(db *DB) []*project.Project {
 					Port: 80,
 				},
 				PublicDomain:  "user-api",
-				PrivateDomain: "user-api",
+				PrivateDomain: nil,
 			},
 		},
 	}
@@ -186,7 +179,7 @@ func SeedProjects(db *DB) []*project.Project {
 			Type: "generic-docker",
 			Data: runner_model.RunnerData{
 				Type: runner_model.RunnerTypeDocker,
-				Docker: runner_model.DockerRunnerData{
+				Docker: &runner_model.DockerRunnerData{
 					Command:        "",
 					HealthCheckURL: "http://localhost:3000/health",
 					Memory: runner_model.RessourceConstraints{
@@ -199,8 +192,8 @@ func SeedProjects(db *DB) []*project.Project {
 					},
 					Port: 80,
 				},
-				PublicDomain:  "",
-				PrivateDomain: "",
+				PublicDomain:  "frontend",
+				PrivateDomain: nil,
 			},
 		},
 	}

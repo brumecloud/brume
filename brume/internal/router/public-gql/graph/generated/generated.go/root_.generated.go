@@ -1070,6 +1070,7 @@ type Query {
   me: User!
 
   getProjectById(id: String!): Project!
+
   projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
   serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
 

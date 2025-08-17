@@ -27,9 +27,10 @@ const (
 type Job struct {
 	gorm.Model
 
-	ID      uuid.UUID     `gorm:"type:uuid;primaryKey" json:"id"`
-	JobType JobType       `gorm:"type:varchar(255);not null" json:"job_type"`
-	Status  JobStatusEnum `gorm:"type:varchar(255);not null" json:"status"`
+	ID           uuid.UUID     `gorm:"type:uuid;primaryKey" json:"id"`
+	JobType      JobType       `gorm:"type:varchar(255);not null" json:"job_type"`
+	Status       JobStatusEnum `gorm:"type:varchar(255);not null" json:"status"`
+	DeploymentID uuid.UUID     `gorm:"type:uuid;not null" json:"deployment_id"`
 
 	CreatedAt  time.Time  `json:"created_at"`
 	AcceptedAt *time.Time `json:"accepted_at"`
