@@ -24,7 +24,6 @@ services:
       - 9876:9876
     depends_on:
       - postgres
-      - temporal
       - clickhouse
       - redis
 
@@ -67,7 +66,6 @@ services:
       - orchestrator
 
   # service land
-
   postgres:
     <<: *brume-default
     image: postgres:13
@@ -90,48 +88,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - 9999:8080
-
-  temporal:
-    <<: *brume-default
-    depends_on:
-      - postgres
-    container_name: brume-temporal
-    environment:
-      - DB=postgres12
-      - DB_PORT=5432
-      - POSTGRES_USER=brume
-      - POSTGRES_PWD=brumepass
-      - POSTGRES_SEEDS=postgres
-      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/temporal.yaml
-    image: temporalio/auto-setup:${TEMPORAL_VERSION}
-    ports:
-      - 7233:7233
-    volumes:
-      - ./infra/temporal.yaml:/etc/temporal/config/dynamicconfig/temporal.yaml
-
-  temporal-admin-tools:
-    <<: *brume-default
-    depends_on:
-      - temporal
-    container_name: brume-temporal-admin-tools
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
-    image: temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION}
-    stdin_open: true
-    tty: true
-
-  temporal-ui:
-    <<: *brume-default
-    container_name: brume-temporal-ui
-    depends_on:
-      - temporal
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
-    image: temporalio/ui:${TEMPORAL_UI_VERSION}
-    ports:
-      - 8080:8080
 
   clickhouse:
     <<: *brume-default

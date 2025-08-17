@@ -1,21 +1,16 @@
 package service
 
 import (
-	"context"
-	"time"
-
 	builder_model "brume.dev/builder/model"
 	builder_service "brume.dev/builder/service"
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
 	"brume.dev/internal/log"
-	temporal_constants "brume.dev/internal/temporal/constants"
 	job_model "brume.dev/jobs/model"
 	"brume.dev/runner"
 	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
-	"go.temporal.io/sdk/client"
 	"gorm.io/gorm"
 )
 
@@ -25,15 +20,13 @@ type ServiceService struct {
 	db             *db.DB
 	runnerService  *runner.RunnerService
 	builderService *builder_service.BuilderService
-	temporalClient client.Client
 }
 
-func NewServiceService(db *db.DB, runnerService *runner.RunnerService, builderService *builder_service.BuilderService, temporalClient client.Client) *ServiceService {
+func NewServiceService(db *db.DB, runnerService *runner.RunnerService, builderService *builder_service.BuilderService) *ServiceService {
 	return &ServiceService{
 		db:             db,
 		runnerService:  runnerService,
 		builderService: builderService,
-		temporalClient: temporalClient,
 	}
 }
 
@@ -160,15 +153,7 @@ func (s *ServiceService) DeleteService(serviceId uuid.UUID) (*service_model.Serv
 	}
 
 	// this will stop the job, without any restart
-	contextWithTimeout, _ := context.WithTimeout(context.Background(), 10*time.Second)
-
-	s.temporalClient.UpdateWorkflow(contextWithTimeout, client.UpdateWorkflowOptions{
-		WorkflowID:   job.DeploymentWorkflowID,
-		RunID:        job.DeploymentRunID,
-		UpdateName:   temporal_constants.StopJobSignal,
-		WaitForStage: client.WorkflowUpdateStageAccepted,
-		Args:         []interface{}{},
-	})
+	logger.Error().Str("job_id", job.ID.String()).Msg("Job is unhealthy")
 
 	return service, nil
 }

@@ -14,8 +14,6 @@ redis = "error"
 grpc = "error"
 http = "error"
 graphql_public = "error"
-temporal_client = "error"
-temporal_worker = "error"
 ticker = "error"
 http_middleware = "error"
 machine = "error"
@@ -62,11 +60,6 @@ host = "redis"
 port = 6379
 db = 0
 password = ""
-
-# temporal configuration
-[temporal]
-host = "temporal"
-port = 7233
 
 # clickhouse configuration
 [clickhouse]

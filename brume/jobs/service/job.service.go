@@ -9,12 +9,10 @@ import (
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
 	"brume.dev/internal/log"
-	temporal_constants "brume.dev/internal/temporal/constants"
 	ticker "brume.dev/internal/ticker"
 	job_model "brume.dev/jobs/model"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"go.temporal.io/sdk/client"
 	"go.uber.org/fx"
 )
 
@@ -29,11 +27,10 @@ type JobService struct {
 	redisClient    *redis.Client
 	ticker         *ticker.TickerService
 	db             *db.DB
-	temporalClient client.Client
 }
 
-func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.TickerService, db *db.DB, temporalClient client.Client) *JobService {
-	js := &JobService{redisClient: redisClient, ticker: ticker, db: db, temporalClient: temporalClient}
+func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.TickerService, db *db.DB) *JobService {
+	js := &JobService{redisClient: redisClient, ticker: ticker, db: db}
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -189,16 +186,8 @@ func (s *JobService) RunHealthLoop() {
 
 // this will update the job status and send a signal to the deployment workflow
 func (s *JobService) unhandleUnhealthyJobs(jobs []job_model.Job) {
-	contextWithTimeout, _ := context.WithTimeout(context.Background(), 10*time.Second)
-
 	for _, job := range jobs {
-		// send a message to the deployment workflow
-		s.temporalClient.UpdateWorkflow(contextWithTimeout, client.UpdateWorkflowOptions{
-			WorkflowID:   job.DeploymentWorkflowID,
-			RunID:        job.DeploymentRunID,
-			UpdateName:   temporal_constants.UnhealthyJobSignal,
-			WaitForStage: client.WorkflowUpdateStageAccepted,
-			Args:         []interface{}{},
-		})
+		// TODO: send a message to the deployment workflow
+		jobLogger.Error().Str("job_id", job.ID.String()).Msg("Job is unhealthy")
 	}
 }
