@@ -3753,9 +3753,9 @@ func (ec *executionContext) _RunnerData_privateDomain(ctx context.Context, field
 		}
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(*string)
 	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
+	return ec.marshalNString2ᚖstring(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_RunnerData_privateDomain(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {

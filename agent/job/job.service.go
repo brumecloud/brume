@@ -84,7 +84,6 @@ func (j *JobService) FastTickerRun(ctx context.Context, tick int) error {
 		logger.Info().Interface("runningJobsStatus", runningJobsStatus).Msg("Sending jobs health")
 
 		err := j.intercom.SendJobsHealth(runningJobsStatus)
-
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to send jobs health")
 		}

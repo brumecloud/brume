@@ -28,17 +28,9 @@ type Deployment struct {
 
 	Execution ExecutionData `gorm:"type:jsonb"`
 
-	Jobs []*job_model.Job `gorm:"foreignKey:ServiceID"`
+	Jobs []*job_model.Job `gorm:"foreignKey:DeploymentID"`
 
 	CreatedAt time.Time
-}
-
-func (d *Deployment) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), &d)
-}
-
-func (d *Deployment) Value() (driver.Value, error) {
-	return json.Marshal(d)
 }
 
 type ExecutionData struct {

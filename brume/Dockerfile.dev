@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS base_brume
+FROM golang:1.25-alpine AS base_brume
 
 WORKDIR /brume
 
