@@ -31,3 +31,25 @@ export const UPDATE_SERVICE_SETTINGS_MUTATION = gql(`
     }
   }
 `);
+
+export const ServiceFragment = gql(`
+  fragment ServiceFragment on Service {
+      name
+      id
+      deployments {
+        ...DeploymentFragment @unmask
+      }
+      liveBuilder {
+        ...BuilderFragment @unmask
+      }
+      draftBuilder {
+        ...BuilderFragment @unmask
+      }
+      liveRunner {
+        ...RunnerFragment @unmask
+      }
+      draftRunner {
+        ...RunnerFragment @unmask
+      }
+   }
+`);

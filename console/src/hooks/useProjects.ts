@@ -1,10 +1,7 @@
-import { gql } from "@/_apollo/gql";
-import {
-  ProjectSchema,
-  type Project,
-} from "@/schemas/project.schema";
 import { useQuery } from "@apollo/client";
 import { z } from "zod";
+import { gql } from "@/_apollo/gql";
+import { type Project, ProjectSchema } from "@/schemas/project.schema";
 
 const PROJECTS_QUERY = gql(`
   query myProjects {
@@ -19,30 +16,27 @@ const PROJECTS_QUERY = gql(`
 const ProjectListSchema = z.array(ProjectSchema);
 
 export const useProjects = (): {
-  projects: Project[];
-  loading: boolean;
-  error?: Error | null;
+	projects: Project[];
+	loading: boolean;
+	error?: Error | null;
 } => {
-  const { data, loading } = useQuery(PROJECTS_QUERY, {
-    // data will come from the me query
-    fetchPolicy: "cache-only",
-  });
+	const { data, loading } = useQuery(PROJECTS_QUERY, {});
 
-  if (loading || !data) {
-    return {
-      projects: [],
-      loading: true,
-    };
-  } else {
-    const rawData = ProjectListSchema.safeParse(data?.me?.projects);
+	if (loading || !data) {
+		return {
+			projects: [],
+			loading: true,
+		};
+	} else {
+		const rawData = ProjectListSchema.safeParse(data?.me?.projects);
 
-    if (!rawData.success) {
-      throw new Error(rawData.error.message);
-    } else {
-      return {
-        projects: rawData.data,
-        loading: false,
-      };
-    }
-  }
+		if (!rawData.success) {
+			throw new Error(rawData.error.message);
+		} else {
+			return {
+				projects: rawData.data,
+				loading: false,
+			};
+		}
+	}
 };
