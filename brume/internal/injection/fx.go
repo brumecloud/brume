@@ -13,8 +13,6 @@ import (
 	brume_redis "brume.dev/internal/redis"
 	fx_grpc "brume.dev/internal/router/grpc/fx"
 	fx_http "brume.dev/internal/router/http/fx"
-	fx_temporal "brume.dev/internal/temporal/fx"
-	temporal_worker "brume.dev/internal/temporal/worker"
 	fx_ticker "brume.dev/internal/ticker"
 	fx_job "brume.dev/jobs/fx"
 	fx_log "brume.dev/logs/fx"
@@ -48,7 +46,6 @@ func NewMasterInjector() *GlobalInjector {
 		fx_builder.BuilderModule,
 		fx_log.LogModule,
 		fx_deployment.DeploymentModule,
-		fx_temporal.TemporalOrchestratorModule,
 		fx_machine.Module,
 		fx_job.JobModule,
 		config.ConfigModule,
@@ -59,9 +56,6 @@ func NewMasterInjector() *GlobalInjector {
 
 		fx_http.HttpModule,
 		fx_grpc.GRPCModule,
-		fx_temporal.TemporalModule,
-
-		fx.Invoke(func(w *temporal_worker.MasterWorker) {}),
 	)
 
 	return &GlobalInjector{

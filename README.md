@@ -40,12 +40,11 @@ This will start all necessary services, including:
 - Brume Orchestrator
 - Brume Agent
 - Web Console
-- Supporting services (PostgreSQL, Temporal, Redis, ClickHouse)
+- Supporting services (PostgreSQL, Redis, ClickHouse)
 
 Once everything is running, you can access:
 
 - Web Console: http://localhost:3000
-- Temporal UI: http://localhost:8080
 
 ## Development
 

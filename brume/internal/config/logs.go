@@ -14,7 +14,5 @@ var LogsMap = map[string]string{
 	"grpc":             "grpc",
 	"http":             "http",
 	"graphql_public":   "graphql_public",
-	"temporal_client":  "temporal_client",
-	"temporal_worker":  "temporal_worker",
 	"ticker":           "ticker",
 }

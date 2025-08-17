@@ -39,11 +39,6 @@ type ClickhouseConfig struct {
 	Password string `mapstructure:"password"`
 }
 
-type TemporalConfig struct {
-	Host string `mapstructure:"host" validate:"required,hostname"`
-	Port int    `mapstructure:"port" validate:"required,min=1,max=65535"`
-}
-
 type PostgresConfig struct {
 	Host     string `mapstructure:"host" validate:"required,hostname"`
 	Port     int    `mapstructure:"port" validate:"required,min=1,max=65535"`
@@ -67,7 +62,6 @@ type BrumeConfig struct {
 	TickerConfig       TickerConfig       `mapstructure:"ticker" validate:"required"`
 	ClickhouseConfig   ClickhouseConfig   `mapstructure:"clickhouse" validate:"required"`
 	RedisConfig        RedisConfig        `mapstructure:"redis" validate:"required"`
-	TemporalConfig     TemporalConfig     `mapstructure:"temporal" validate:"required"`
 	PostgresConfig     PostgresConfig     `mapstructure:"postgres" validate:"required"`
 	OrchestratorConfig OrchestratorConfig `mapstructure:"orchestrator" validate:"required"`
 }

@@ -1,7 +1,6 @@
 package project
 
 import (
-	"context"
 	"encoding/json"
 	"time"
 
@@ -10,13 +9,11 @@ import (
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
 	"brume.dev/internal/log"
-	temporal_constants "brume.dev/internal/temporal/constants"
 	project "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	"brume.dev/service"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
-	"go.temporal.io/sdk/client"
 	"golang.org/x/exp/rand"
 	"gorm.io/gorm"
 )
@@ -26,14 +23,12 @@ var logger = log.GetLogger("project")
 type ProjectService struct {
 	db             *db.DB
 	ServiceService *service.ServiceService
-	TemporalClient client.Client
 }
 
-func NewProjectService(db *db.DB, serviceService *service.ServiceService, temporalClient client.Client) *ProjectService {
+func NewProjectService(db *db.DB, serviceService *service.ServiceService) *ProjectService {
 	return &ProjectService{
 		db:             db,
 		ServiceService: serviceService,
-		TemporalClient: temporalClient,
 	}
 }
 
@@ -151,17 +146,7 @@ func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, e
 			return nil, err
 		}
 
-		workflowOpts := client.StartWorkflowOptions{
-			TaskQueue: temporal_constants.MasterTaskQueue,
-		}
-
-		we, err := s.TemporalClient.ExecuteWorkflow(context.Background(), workflowOpts, temporal_constants.DeploymentWorkflow, deployment)
-		if err != nil {
-			logger.Error().Msgf("Error starting workflow for service %s", service.ID)
-			return nil, err
-		}
-
-		logger.Info().Msgf("Started service %s", we.GetID())
+		logger.Info().Msgf("Started service %s", service.ID)
 	}
 
 	return s.GetProjectByID(projectId)

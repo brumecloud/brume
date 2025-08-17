@@ -1,8 +1,6 @@
 package job_service
 
 import (
-	"context"
-	"errors"
 	"time"
 
 	"brume.dev/internal/db"
@@ -10,18 +8,16 @@ import (
 	job_model "brume.dev/jobs/model"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
-	"go.temporal.io/sdk/client"
 )
 
 var bidLogger = brume_log.GetLogger("bid_service")
 
 type BidService struct {
-	db             *db.DB
-	temporalClient client.Client
+	db *db.DB
 }
 
-func NewBidService(db *db.DB, temporalClient client.Client) *BidService {
-	return &BidService{db: db, temporalClient: temporalClient}
+func NewBidService(db *db.DB) *BidService {
+	return &BidService{db: db}
 }
 
 func (s *BidService) UpdateBid(bid *job_model.Job) error {
@@ -65,28 +61,6 @@ func (s *BidService) AcceptBid(bidID string, machineID uuid.UUID) error {
 
 	err = s.db.Gorm.Model(&job_model.Job{}).Where("id = ?", bidID).Updates(bid).Error
 	if err != nil {
-		return err
-	}
-
-	// we need to update the workflow to signal that the machine has been found
-	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	bidWorkflowID := bid.BidWorkflowID
-	bidRunID := bid.BidRunID
-	if bidWorkflowID == nil || bidRunID == nil {
-		return errors.New("bid workflow id or run id is nil")
-	}
-
-	_, err = s.temporalClient.UpdateWorkflow(ctxWithTimeout, client.UpdateWorkflowOptions{
-		WorkflowID:   *bidWorkflowID,
-		RunID:        *bidRunID,
-		UpdateName:   "machine_found",
-		WaitForStage: client.WorkflowUpdateStageAccepted,
-		Args:         []interface{}{},
-	})
-	if err != nil {
-		bidLogger.Error().Err(err).Str("bid_id", bidID).Str("machine_id", machineID.String()).Msg("Failed to update (machine found) workflow")
 		return err
 	}
 
