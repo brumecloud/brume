@@ -4972,7 +4972,7 @@ func (ec *executionContext) unmarshalInputRunnerDataInput(ctx context.Context, o
 			it.PublicDomain = data
 		case "privateDomain":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("privateDomain"))
-			data, err := ec.unmarshalNString2string(ctx, v)
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}

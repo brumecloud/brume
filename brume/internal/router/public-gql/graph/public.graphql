@@ -1,179 +1,179 @@
 # public brume GQL schema
 type User {
-  id: String!
-  name: String!
-  avatar: String!
-  projects: [Project!]!
+	id: String!
+	name: String!
+	avatar: String!
+	projects: [Project!]!
 }
 
 type Project {
-  id: String!
-  name: String!
-  description: String!
-  isDirty: Boolean!
-  services: [Service!]!
+	id: String!
+	name: String!
+	description: String!
+	isDirty: Boolean!
+	services: [Service!]!
 }
 
 type Builder {
-  type: String!
-  data: BuilderData!
+	type: String!
+	data: BuilderData!
 }
 
 type Machine {
-  id: String!
-  name: String!
-  ip: String!
+	id: String!
+	name: String!
+	ip: String!
 }
 
 type BuilderData {
-  image: String!
-  registry: String!
-  tag: String!
+	image: String!
+	registry: String!
+	tag: String!
 }
 
 input BuilderDataInput {
-  image: String!
-  registry: String!
-  tag: String!
+	image: String!
+	registry: String!
+	tag: String!
 }
 
 type Runner {
-  type: String!
-  data: RunnerData!
+	type: String!
+	data: RunnerData!
 }
 
 type RessourceConstraints {
-  request: Float!
-  limit: Float!
+	request: Float!
+	limit: Float!
 }
 
 input RessourceConstraintsInput {
-  request: Float!
-  limit: Float!
+	request: Float!
+	limit: Float!
 }
 
 type RunnerData {
-  command: String!
-  healthCheckURL: String!
-  memory: RessourceConstraints!
-  cpu: RessourceConstraints!
-  port: Int!
-  publicDomain: String!
-  privateDomain: String!
+	command: String!
+	healthCheckURL: String!
+	memory: RessourceConstraints!
+	cpu: RessourceConstraints!
+	port: Int!
+	publicDomain: String!
+	privateDomain: String!
 }
 
 input RunnerDataInput {
-  command: String!
-  healthCheckURL: String!
-  memory: RessourceConstraintsInput!
-  cpu: RessourceConstraintsInput!
-  port: Int!
-  publicDomain: String!
-  privateDomain: String!
+	command: String!
+	healthCheckURL: String!
+	memory: RessourceConstraintsInput!
+	cpu: RessourceConstraintsInput!
+	port: Int!
+	publicDomain: String!
+	privateDomain: String
 }
 
 type DeploymentSource {
-  type: String!
-  branch: String
-  commit: String
-  message: String
+	type: String!
+	branch: String
+	commit: String
+	message: String
 }
 
 type DeploymentLog {
-  status: String!
-  duration: String!
-  date: String!
+	status: String!
+	duration: String!
+	date: String!
 }
 
 type Deployment {
-  id: String!
+	id: String!
 
-  author: User!
+	author: User!
 
-  source: DeploymentSource!
-  logs: DeploymentLog!
-  env: String!
+	source: DeploymentSource!
+	logs: DeploymentLog!
+	env: String!
 
-  createdAt: String!
+	createdAt: String!
 }
 
 type Service {
-  id: String!
-  name: String!
+	id: String!
+	name: String!
 
-  liveBuilder: Builder
-  liveRunner: Runner
+	liveBuilder: Builder
+	liveRunner: Runner
 
-  draftBuilder: Builder
-  draftRunner: Runner
+	draftBuilder: Builder
+	draftRunner: Runner
 
-  deployments: [Deployment!]!
+	deployments: [Deployment!]!
 }
 
 type Log {
-  message: String!
-  level: String!
-  timestamp: String!
-  serviceId: String!
-  deploymentName: String!
-  deploymentId: String!
+	message: String!
+	level: String!
+	timestamp: String!
+	serviceId: String!
+	deploymentName: String!
+	deploymentId: String!
 }
 
 input CreateServiceInput {
-  name: String!
-  image: String!
+	name: String!
+	image: String!
 }
 
 input ServiceSettingsInput {
-  name: String!
+	name: String!
 }
 
 # generic event structure
 type ServiceEvent {
-  id: String!
-  serviceId: String!
-  timestamp: String!
-  type: String!
-  data: String!
+	id: String!
+	serviceId: String!
+	timestamp: String!
+	type: String!
+	data: String!
 }
 
 input GetLogsInput {
-  since: String!
-  limit: Int!
-  filters: [String!]
+	since: String!
+	limit: Int!
+	filters: [String!]
 }
 
 type Query {
-  # get the current user
-  me: User!
+	# get the current user
+	me: User!
 
-  getProjectById(id: String!): Project!
+	getProjectById(id: String!): Project!
 
-  projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
-  serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
+	projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
+	serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
 
-  # all the machine associated to the current user
-  # all the machine are filtred based on the user role in the organization
-  machine: [Machine!]!
+	# all the machine associated to the current user
+	# all the machine are filtred based on the user role in the organization
+	machine: [Machine!]!
 }
 
 type Mutation {
-  createProject(name: String!, description: String): Project!
-  addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
-  deleteService(serviceId: String!): Service!
-  updateServiceSettings(
-    serviceId: String!
-    input: ServiceSettingsInput!
-  ): Service!
-  updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
-  updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
-  deleteDraft(projectId: String!): Project!
+	createProject(name: String!, description: String): Project!
+	addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
+	deleteService(serviceId: String!): Service!
+	updateServiceSettings(
+		serviceId: String!
+		input: ServiceSettingsInput!
+	): Service!
+	updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
+	updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
+	deleteDraft(projectId: String!): Project!
 
-  deployProject(projectId: String!): Project!
+	deployProject(projectId: String!): Project!
 }
 
 type Subscription {
-  serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
-  projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
-  serviceEvents(serviceId: String!): [ServiceEvent]!
+	serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
+	projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
+	serviceEvents(serviceId: String!): [ServiceEvent]!
 }
