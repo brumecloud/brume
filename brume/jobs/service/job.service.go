@@ -24,9 +24,9 @@ const (
 var jobLogger = log.GetLogger("job_service")
 
 type JobService struct {
-	redisClient    *redis.Client
-	ticker         *ticker.TickerService
-	db             *db.DB
+	redisClient *redis.Client
+	ticker      *ticker.TickerService
+	db          *db.DB
 }
 
 func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.TickerService, db *db.DB) *JobService {
@@ -47,16 +47,11 @@ func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.Ti
 	return js
 }
 
-func (s *JobService) CreateJob(deployment *deployment_model.Deployment, workflowID string, runID string) (*job_model.Job, error) {
+func (s *JobService) CreateDeploymentJob(deployment *deployment_model.Deployment) (*job_model.Job, error) {
 	job := &job_model.Job{
-		ID:                   uuid.New(),
-		Price:                9999999999,
-		Status:               job_model.JobStatusEnumCreating,
-		ServiceID:            deployment.ServiceID,
-		Deployment:           deployment,
-		DeploymentID:         &deployment.ID,
-		DeploymentWorkflowID: workflowID,
-		DeploymentRunID:      runID,
+		ID:      uuid.New(),
+		JobType: job_model.JobTypeRunner,
+		Status:  job_model.JobStatusEnumCreating,
 	}
 
 	// set the job status to creating

@@ -12,10 +12,10 @@ import (
 
 type Project struct {
 	gorm.Model
+
 	ID          uuid.UUID
 	Name        string
 	Description string
-	// ProjectVariables datatypes.JSONType[ProjectVariables]
 
 	Services []*service_model.Service `gorm:"foreignKey:ProjectID;references:ID"`
 }

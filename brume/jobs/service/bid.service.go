@@ -56,7 +56,6 @@ func (s *BidService) AcceptBid(bidID string, machineID uuid.UUID) error {
 	now := time.Now()
 
 	bid.AcceptedAt = &now
-	bid.MachineID = &machineID
 	bid.Status = job_model.JobStatusEnumRunning
 
 	err = s.db.Gorm.Model(&job_model.Job{}).Where("id = ?", bidID).Updates(bid).Error
