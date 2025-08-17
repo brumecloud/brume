@@ -6,6 +6,7 @@ import (
 	"time"
 
 	builder_model "brume.dev/builder/model"
+	job_model "brume.dev/jobs/model"
 	runner_model "brume.dev/runner/model"
 
 	"github.com/google/uuid"
@@ -14,18 +15,21 @@ import (
 type Deployment struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ServiceID uuid.UUID `gorm:"type:uuid"`
-	Name      string
+
+	Name string
+	Env  string
 
 	ProjectID uuid.UUID `gorm:"type:uuid"`
 
 	Source    DeploymentSource `gorm:"type:jsonb"`
 	DeployLog DeploymentLog    `gorm:"type:jsonb"`
 
-	Env string
-
 	RunnerData  runner_model.RunnerData   `gorm:"type:jsonb"`
 	BuilderData builder_model.BuilderData `gorm:"type:jsonb"`
-	Execution   ExecutionData             `gorm:"type:jsonb"`
+
+	Execution ExecutionData `gorm:"type:jsonb"`
+
+	Jobs []*job_model.Job `gorm:"foreignKey:ServiceID"`
 
 	CreatedAt time.Time
 }

@@ -34,16 +34,18 @@ type RunnerType string
 
 const (
 	RunnerTypeDocker RunnerType = "docker"
-	RunnerTypeStatic RunnerType = "static"
+	RunnerTypeStatic RunnerType = "spa"
 )
 
 // only for docker
 type RunnerData struct {
-	Type          RunnerType `gorm:"type:text"`
-	PublicDomain  string
-	PrivateDomain string
+	Type RunnerType `gorm:"type:text"`
 
-	Docker DockerRunnerData `gorm:"type:jsonb"`
+	PublicDomain  string
+	PrivateDomain *string
+
+	Docker *DockerRunnerData `gorm:"type:jsonb"`
+	SPA    *SPARunnerData    `gorm:"type:jsonb"`
 }
 
 func (rd *RunnerData) Scan(value interface{}) error {
@@ -52,20 +54,4 @@ func (rd *RunnerData) Scan(value interface{}) error {
 
 func (rd *RunnerData) Value() (driver.Value, error) {
 	return json.Marshal(rd)
-}
-
-type DockerRunnerData struct {
-	Command        string
-	HealthCheckURL string
-	Memory         RessourceConstraints `gorm:"type:jsonb"`
-	CPU            RessourceConstraints `gorm:"type:jsonb"`
-	Port           int
-}
-
-func (rr *DockerRunnerData) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), &rr)
-}
-
-func (rr *DockerRunnerData) Value() (driver.Value, error) {
-	return json.Marshal(rr)
 }
