@@ -3748,14 +3748,11 @@ func (ec *executionContext) _RunnerData_privateDomain(ctx context.Context, field
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
 	res := resTmp.(*string)
 	fc.Result = res
-	return ec.marshalNString2ᚖstring(ctx, field.Selections, res)
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_RunnerData_privateDomain(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6388,9 +6385,6 @@ func (ec *executionContext) _RunnerData(ctx context.Context, sel ast.SelectionSe
 			}
 		case "privateDomain":
 			out.Values[i] = ec._RunnerData_privateDomain(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

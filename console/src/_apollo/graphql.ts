@@ -204,7 +204,7 @@ export type RunnerData = {
   healthCheckURL: Scalars['String']['output'];
   memory: RessourceConstraints;
   port: Scalars['Int']['output'];
-  privateDomain: Scalars['String']['output'];
+  privateDomain?: Maybe<Scalars['String']['output']>;
   publicDomain: Scalars['String']['output'];
 };
 
@@ -214,7 +214,7 @@ export type RunnerDataInput = {
   healthCheckURL: Scalars['String']['input'];
   memory: RessourceConstraintsInput;
   port: Scalars['Int']['input'];
-  privateDomain: Scalars['String']['input'];
+  privateDomain?: InputMaybe<Scalars['String']['input']>;
   publicDomain: Scalars['String']['input'];
 };
 
@@ -277,12 +277,9 @@ export type User = {
 export type MyProjectsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type MyProjectsQuery = { __typename?: 'Query', me: { __typename?: 'User', projects: Array<(
-      { __typename?: 'Project' }
-      & { ' $fragmentRefs'?: { 'ProjectFragmentFragment': ProjectFragmentFragment } }
-    )> } };
+export type MyProjectsQuery = { __typename?: 'Query', me: { __typename?: 'User', projects: Array<{ __typename?: 'Project', id: string, name: string, description: string, isDirty: boolean, services: Array<{ __typename?: 'Service', name: string, id: string, deployments: Array<{ __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } }>, liveBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, draftBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null, draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null }> }> } };
 
-export type BuilderFragmentFragment = { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } & { ' $fragmentName'?: 'BuilderFragmentFragment' };
+export type BuilderFragmentFragment = { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } };
 
 export type UpdateBuilderMutationVariables = Exact<{
   serviceId: Scalars['String']['input'];
@@ -290,14 +287,11 @@ export type UpdateBuilderMutationVariables = Exact<{
 }>;
 
 
-export type UpdateBuilderMutation = { __typename?: 'Mutation', updateBuilder: (
-    { __typename?: 'Builder' }
-    & { ' $fragmentRefs'?: { 'BuilderFragmentFragment': BuilderFragmentFragment } }
-  ) };
+export type UpdateBuilderMutation = { __typename?: 'Mutation', updateBuilder: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } };
 
-export type DeploymentFragmentFragment = { __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } } & { ' $fragmentName'?: 'DeploymentFragmentFragment' };
+export type DeploymentFragmentFragment = { __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } };
 
-export type LogFragmentFragment = { __typename?: 'Log', message: string, level: string, timestamp: string, serviceId: string, deploymentId: string, deploymentName: string } & { ' $fragmentName'?: 'LogFragmentFragment' };
+export type LogFragmentFragment = { __typename?: 'Log', message: string, level: string, timestamp: string, serviceId: string, deploymentId: string, deploymentName: string };
 
 export type GetLogPerProjectIdQueryVariables = Exact<{
   projectId: Scalars['String']['input'];
@@ -315,35 +309,23 @@ export type GetLogPerServiceIdSubSubscriptionVariables = Exact<{
 }>;
 
 
-export type GetLogPerServiceIdSubSubscription = { __typename?: 'Subscription', serviceLogs: Array<(
-    { __typename?: 'Log' }
-    & { ' $fragmentRefs'?: { 'LogFragmentFragment': LogFragmentFragment } }
-  ) | null> };
+export type GetLogPerServiceIdSubSubscription = { __typename?: 'Subscription', serviceLogs: Array<{ __typename?: 'Log', message: string, level: string, timestamp: string, serviceId: string, deploymentId: string, deploymentName: string } | null> };
 
-export type MachineFragmentFragment = { __typename?: 'Machine', id: string, name: string, ip: string } & { ' $fragmentName'?: 'MachineFragmentFragment' };
+export type MachineFragmentFragment = { __typename?: 'Machine', id: string, name: string, ip: string };
 
 export type GetMachinesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMachinesQuery = { __typename?: 'Query', machine: Array<(
-    { __typename?: 'Machine', id: string }
-    & { ' $fragmentRefs'?: { 'MachineFragmentFragment': MachineFragmentFragment } }
-  )> };
+export type GetMachinesQuery = { __typename?: 'Query', machine: Array<{ __typename?: 'Machine', id: string, name: string, ip: string }> };
 
-export type ProjectFragmentFragment = { __typename?: 'Project', id: string, name: string, description: string, isDirty: boolean, services: Array<(
-    { __typename?: 'Service' }
-    & { ' $fragmentRefs'?: { 'ServiceFragmentFragment': ServiceFragmentFragment } }
-  )> } & { ' $fragmentName'?: 'ProjectFragmentFragment' };
+export type ProjectFragmentFragment = { __typename?: 'Project', id: string, name: string, description: string, isDirty: boolean, services: Array<{ __typename?: 'Service', name: string, id: string, deployments: Array<{ __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } }>, liveBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, draftBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null, draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null }> };
 
 export type GetProjectByIdQueryVariables = Exact<{
   projectId: Scalars['String']['input'];
 }>;
 
 
-export type GetProjectByIdQuery = { __typename?: 'Query', getProjectById: (
-    { __typename?: 'Project' }
-    & { ' $fragmentRefs'?: { 'ProjectFragmentFragment': ProjectFragmentFragment } }
-  ) };
+export type GetProjectByIdQuery = { __typename?: 'Query', getProjectById: { __typename?: 'Project', id: string, name: string, description: string, isDirty: boolean, services: Array<{ __typename?: 'Service', name: string, id: string, deployments: Array<{ __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } }>, liveBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, draftBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null, draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null }> } };
 
 export type CreateProjectMutationVariables = Exact<{
   name: Scalars['String']['input'];
@@ -351,20 +333,14 @@ export type CreateProjectMutationVariables = Exact<{
 }>;
 
 
-export type CreateProjectMutation = { __typename?: 'Mutation', createProject: (
-    { __typename?: 'Project' }
-    & { ' $fragmentRefs'?: { 'ProjectFragmentFragment': ProjectFragmentFragment } }
-  ) };
+export type CreateProjectMutation = { __typename?: 'Mutation', createProject: { __typename?: 'Project', id: string, name: string, description: string, isDirty: boolean, services: Array<{ __typename?: 'Service', name: string, id: string, deployments: Array<{ __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } }>, liveBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, draftBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null, draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null }> } };
 
 export type DeployProjectMutationVariables = Exact<{
   projectId: Scalars['String']['input'];
 }>;
 
 
-export type DeployProjectMutation = { __typename?: 'Mutation', deployProject: (
-    { __typename?: 'Project' }
-    & { ' $fragmentRefs'?: { 'ProjectFragmentFragment': ProjectFragmentFragment } }
-  ) };
+export type DeployProjectMutation = { __typename?: 'Mutation', deployProject: { __typename?: 'Project', id: string, name: string, description: string, isDirty: boolean, services: Array<{ __typename?: 'Service', name: string, id: string, deployments: Array<{ __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } }>, liveBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, draftBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null, draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null }> } };
 
 export type DeleteDraftMutationVariables = Exact<{
   projectId: Scalars['String']['input'];
@@ -373,7 +349,7 @@ export type DeleteDraftMutationVariables = Exact<{
 
 export type DeleteDraftMutation = { __typename?: 'Mutation', deleteDraft: { __typename?: 'Project', id: string } };
 
-export type RunnerFragmentFragment = { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain: string, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } & { ' $fragmentName'?: 'RunnerFragmentFragment' };
+export type RunnerFragmentFragment = { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } };
 
 export type UpdateRunnerMutationVariables = Exact<{
   serviceId: Scalars['String']['input'];
@@ -381,10 +357,7 @@ export type UpdateRunnerMutationVariables = Exact<{
 }>;
 
 
-export type UpdateRunnerMutation = { __typename?: 'Mutation', updateRunner: (
-    { __typename?: 'Runner' }
-    & { ' $fragmentRefs'?: { 'RunnerFragmentFragment': RunnerFragmentFragment } }
-  ) };
+export type UpdateRunnerMutation = { __typename?: 'Mutation', updateRunner: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } };
 
 export type AddServiceToProjectMutationVariables = Exact<{
   projectId: Scalars['String']['input'];
@@ -409,45 +382,33 @@ export type UpdateServiceSettingsMutationVariables = Exact<{
 
 export type UpdateServiceSettingsMutation = { __typename?: 'Mutation', updateServiceSettings: { __typename?: 'Service', id: string, name: string } };
 
-export type ServiceFragmentFragment = { __typename?: 'Service', name: string, id: string, deployments: Array<{ __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } }>, liveBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, draftBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain: string, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null, draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain: string, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null } & { ' $fragmentName'?: 'ServiceFragmentFragment' };
+export type ServiceFragmentFragment = { __typename?: 'Service', name: string, id: string, deployments: Array<{ __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } }>, liveBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, draftBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null, draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null };
 
-export type UserFragmentFragment = { __typename?: 'User', id: string, name: string, avatar: string } & { ' $fragmentName'?: 'UserFragmentFragment' };
+export type UserFragmentFragment = { __typename?: 'User', id: string, name: string, avatar: string };
 
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type MeQuery = { __typename?: 'Query', me: (
-    { __typename?: 'User', projects: Array<(
-      { __typename?: 'Project' }
-      & { ' $fragmentRefs'?: { 'ProjectFragmentFragment': ProjectFragmentFragment } }
-    )> }
-    & { ' $fragmentRefs'?: { 'UserFragmentFragment': UserFragmentFragment } }
-  ) };
+export type MeQuery = { __typename?: 'Query', me: { __typename?: 'User', id: string, name: string, avatar: string, projects: Array<{ __typename?: 'Project', id: string, name: string, description: string, isDirty: boolean, services: Array<{ __typename?: 'Service', name: string, id: string, deployments: Array<{ __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } }>, liveBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, draftBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null, draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null }> }> } };
 
-export type GenericRunnerFragmentFragment = { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain: string, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } & { ' $fragmentName'?: 'GenericRunnerFragmentFragment' };
+export type GenericRunnerFragmentFragment = { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } };
 
-export type GenericBuilderFragmentFragment = { __typename?: 'Builder', data: { __typename?: 'BuilderData', image: string, registry: string, tag: string } } & { ' $fragmentName'?: 'GenericBuilderFragmentFragment' };
+export type GenericBuilderFragmentFragment = { __typename?: 'Builder', data: { __typename?: 'BuilderData', image: string, registry: string, tag: string } };
 
-export type DraftBuilderFragmentFragment = { __typename?: 'Service', draftBuilder?: { __typename?: 'Builder', data: { __typename?: 'BuilderData', image: string, registry: string, tag: string } } | null } & { ' $fragmentName'?: 'DraftBuilderFragmentFragment' };
+export type DraftBuilderFragmentFragment = { __typename?: 'Service', draftBuilder?: { __typename?: 'Builder', data: { __typename?: 'BuilderData', image: string, registry: string, tag: string } } | null };
 
-export type LiveBuilderFragmentFragment = { __typename?: 'Service', liveBuilder?: { __typename?: 'Builder', data: { __typename?: 'BuilderData', image: string, registry: string, tag: string } } | null } & { ' $fragmentName'?: 'LiveBuilderFragmentFragment' };
+export type LiveBuilderFragmentFragment = { __typename?: 'Service', liveBuilder?: { __typename?: 'Builder', data: { __typename?: 'BuilderData', image: string, registry: string, tag: string } } | null };
 
-export type LiveRunnerFragmentFragment = { __typename?: 'Service', liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain: string, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null } & { ' $fragmentName'?: 'LiveRunnerFragmentFragment' };
+export type LiveRunnerFragmentFragment = { __typename?: 'Service', liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null };
 
-export type DraftRunnerFragmentFragment = { __typename?: 'Service', draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain: string, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null } & { ' $fragmentName'?: 'DraftRunnerFragmentFragment' };
+export type DraftRunnerFragmentFragment = { __typename?: 'Service', draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null };
 
 export type ProjectQueryQueryVariables = Exact<{
   projectId: Scalars['String']['input'];
 }>;
 
 
-export type ProjectQueryQuery = { __typename?: 'Query', getProjectById: (
-    { __typename?: 'Project', services: Array<(
-      { __typename?: 'Service' }
-      & { ' $fragmentRefs'?: { 'ServiceFragmentFragment': ServiceFragmentFragment } }
-    )> }
-    & { ' $fragmentRefs'?: { 'ProjectFragmentFragment': ProjectFragmentFragment } }
-  ) };
+export type ProjectQueryQuery = { __typename?: 'Query', getProjectById: { __typename?: 'Project', id: string, name: string, description: string, isDirty: boolean, services: Array<{ __typename?: 'Service', name: string, id: string, deployments: Array<{ __typename?: 'Deployment', id: string, env: string, createdAt: string, author: { __typename?: 'User', id: string, name: string, avatar: string }, source: { __typename?: 'DeploymentSource', type: string, branch?: string | null, commit?: string | null, message?: string | null }, logs: { __typename?: 'DeploymentLog', status: string, date: string, duration: string } }>, liveBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, draftBuilder?: { __typename?: 'Builder', type: string, data: { __typename?: 'BuilderData', tag: string, image: string, registry: string } } | null, liveRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null, draftRunner?: { __typename?: 'Runner', type: string, data: { __typename?: 'RunnerData', command: string, healthCheckURL: string, port: number, publicDomain: string, privateDomain?: string | null, memory: { __typename?: 'RessourceConstraints', limit: number, request: number }, cpu: { __typename?: 'RessourceConstraints', limit: number, request: number } } } | null }> } };
 
 export const LogFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LogFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Log"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"level"}},{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"serviceId"}},{"kind":"Field","name":{"kind":"Name","value":"deploymentId"}},{"kind":"Field","name":{"kind":"Name","value":"deploymentName"}}]}}]} as unknown as DocumentNode<LogFragmentFragment, unknown>;
 export const MachineFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"MachineFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Machine"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"ip"}}]}}]} as unknown as DocumentNode<MachineFragmentFragment, unknown>;

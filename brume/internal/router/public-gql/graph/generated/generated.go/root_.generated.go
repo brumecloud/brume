@@ -981,7 +981,7 @@ type RunnerData {
 	cpu: RessourceConstraints!
 	port: Int!
 	publicDomain: String!
-	privateDomain: String!
+	privateDomain: String
 }
 
 input RunnerDataInput {
