@@ -31,6 +31,7 @@ export const RunnerPage = () => {
 	const { data: service, complete } = useFragment({
 		from: `Service:${serviceId}`,
 		fragment: ServiceFragment,
+		fragmentName: "ServiceFragment",
 	});
 
 	if (!complete) {

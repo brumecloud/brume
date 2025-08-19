@@ -17,8 +17,12 @@ import { ErrorBoundary } from "react-error-boundary";
 import App from "./App";
 import "./index.css";
 import { createFragmentRegistry } from "@apollo/client/cache";
+import { BUILDER_FRAGMENT } from "./gql/builder.graphql";
+import { DEPLOYMENT_FRAGMENT } from "./gql/deployment.graphql";
 import { fragmentRegistry } from "./gql/fragment.registry";
 import { PROJECT_FRAGMENT } from "./gql/project.graphql";
+import { RUNNER_FRAGMENT } from "./gql/runner.graphql";
+import { ServiceFragment } from "./gql/service.graphql";
 import { USER_FRAGMENT } from "./gql/user.graphql";
 
 const httpLink = new HttpLink({
@@ -103,7 +107,13 @@ const splitLink = split(
 const graphqlClient = new ApolloClient({
 	link: errorLink.concat(splitLink),
 	cache: new InMemoryCache({
-		fragments: createFragmentRegistry(PROJECT_FRAGMENT, USER_FRAGMENT),
+		fragments: createFragmentRegistry(
+			PROJECT_FRAGMENT,
+			ServiceFragment,
+			DEPLOYMENT_FRAGMENT,
+			BUILDER_FRAGMENT,
+			RUNNER_FRAGMENT,
+		),
 		dataIdFromObject(responseObject) {
 			switch (responseObject.__typename) {
 				case "Project": {

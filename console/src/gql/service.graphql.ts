@@ -1,4 +1,5 @@
 import { gql } from "@/_apollo/gql";
+import { fragmentRegistry } from "./fragment.registry";
 
 export const ADD_SERVICE_MUTATION = gql(`
   mutation AddServiceToProject(
@@ -37,19 +38,19 @@ export const ServiceFragment = gql(`
       name
       id
       deployments {
-        ...DeploymentFragment @unmask
+        ...DeploymentFragment
       }
       liveBuilder {
-        ...BuilderFragment @unmask
+        ...BuilderFragment
       }
       draftBuilder {
-        ...BuilderFragment @unmask
+        ...BuilderFragment
       }
       liveRunner {
-        ...RunnerFragment @unmask
+        ...RunnerFragment
       }
       draftRunner {
-        ...RunnerFragment @unmask
+        ...RunnerFragment
       }
    }
 `);
