@@ -1,7 +1,7 @@
 import { createRoutesFromElements, Route } from "react-router-dom";
 import { ErrorPage } from "@/pages/error";
 import { Login } from "@/pages/login";
-import Machines from "@/pages/machines";
+import Stacks from "@/pages/stack";
 import MonitoringPage from "@/pages/monitoring";
 import { Project } from "@/pages/project";
 import { ProjectVariable } from "@/pages/project/project-variable";
@@ -13,9 +13,10 @@ import { RunnerPage } from "@/pages/service/runner";
 import { SettingPage } from "@/pages/service/settings";
 import { VariablesPage } from "@/pages/service/variables";
 import { ServicePage } from "@/pages/services";
+import { Marketplace } from "@/pages/stack/marketplace";
+import { StackView } from "@/pages/stack/stack-view";
 import { ProjectLayout } from "@/router/layout/project.layout";
 import { RouteParams } from "@/router/router.param";
-
 import { ConsoleLayout } from "./layout/console.layout";
 import { PageLayout } from "./layout/page.layout";
 import { RunnerLayout } from "./layout/runner.layout";
@@ -26,7 +27,12 @@ export const Router = createRoutesFromElements(
 		<Route path="/" element={<ConsoleLayout />}>
 			<Route path="/" element={<PageLayout />}>
 				<Route path="/overview" element={<Projects />} />
-				<Route path="/stack" element={<Machines />} />
+				<Route path="/stack">
+					<Route index element={<Stacks />} />
+					<Route path="marketplace" element={<Marketplace />} />
+					<Route path={`:${RouteParams.StackID}`} element={<StackView />} />
+				</Route>
+
 				<Route path="/monitoring" element={<MonitoringPage />} />
 				{/* <Route path="/network" element={<h1>Network</h1>} />
         <Route path="/monitoring" element={<h1>Monitoring</h1>} /> */}
