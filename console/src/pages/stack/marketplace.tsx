@@ -1,11 +1,15 @@
 import ArchitectureServiceAmazonCloudFront from "aws-react-icons/icons/ArchitectureServiceAmazonCloudFront";
 import ArchitectureServiceAWSPrivateCertificateAuthority from "aws-react-icons/icons/ArchitectureServiceAWSPrivateCertificateAuthority";
 import ResourceAmazonSimpleStorageServiceBucket from "aws-react-icons/icons/ResourceAmazonSimpleStorageServiceBucket";
+import { useState } from "react";
 import { FaAws } from "react-icons/fa";
 import { LuBadgeCheck } from "react-icons/lu";
+import { NavLink } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const StackCard = () => {
+	const [isHovering, setIsHovering] = useState(false);
 	return (
 		<div className="border rounded min-w-[400px]">
 			<div className="flex flex-row justify-between px-3 items-center border-b h-12">
@@ -15,14 +19,27 @@ const StackCard = () => {
 					<LuBadgeCheck className="size-5" />
 				</div>
 			</div>
+			{/** biome-ignore lint/a11y/noStaticElementInteractions: need */}
 			<div
 				className="h-40 bg-gray-50 -z-10 inset-0 w-full 
 bg-[radial-gradient(circle,#73737350_1px,transparent_1px)] 
 bg-[size:10px_10px] flex justify-center items-center gap-x-2"
+				onMouseEnter={() => setIsHovering(true)}
+				onMouseLeave={() => setIsHovering(false)}
 			>
-				<ResourceAmazonSimpleStorageServiceBucket className="size-10 bg-gray-50" />
-				<ArchitectureServiceAmazonCloudFront className="size-10 bg-gray-50 rounded-sm" />
-				<ArchitectureServiceAWSPrivateCertificateAuthority className="size-10 bg-gray-50 rounded-sm" />
+				{isHovering ? (
+					<div>
+						<NavLink to="/stack/deploy?stack=spa-aws-brume">
+							<Button>Deploy this stack</Button>
+						</NavLink>
+					</div>
+				) : (
+					<div className="flex justify-center items-center gap-x-2">
+						<ResourceAmazonSimpleStorageServiceBucket className="size-10 bg-gray-50" />
+						<ArchitectureServiceAmazonCloudFront className="size-10 bg-gray-50 rounded-sm" />
+						<ArchitectureServiceAWSPrivateCertificateAuthority className="size-10 bg-gray-50 rounded-sm" />
+					</div>
+				)}
 			</div>
 		</div>
 	);

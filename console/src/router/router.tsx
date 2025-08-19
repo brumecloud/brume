@@ -1,7 +1,6 @@
 import { createRoutesFromElements, Route } from "react-router-dom";
 import { ErrorPage } from "@/pages/error";
 import { Login } from "@/pages/login";
-import Stacks from "@/pages/stack";
 import MonitoringPage from "@/pages/monitoring";
 import { Project } from "@/pages/project";
 import { ProjectVariable } from "@/pages/project/project-variable";
@@ -13,6 +12,8 @@ import { RunnerPage } from "@/pages/service/runner";
 import { SettingPage } from "@/pages/service/settings";
 import { VariablesPage } from "@/pages/service/variables";
 import { ServicePage } from "@/pages/services";
+import Stacks from "@/pages/stack";
+import { DeployStack } from "@/pages/stack/deploy";
 import { Marketplace } from "@/pages/stack/marketplace";
 import { StackView } from "@/pages/stack/stack-view";
 import { ProjectLayout } from "@/router/layout/project.layout";
@@ -30,6 +31,7 @@ export const Router = createRoutesFromElements(
 				<Route path="/stack">
 					<Route index element={<Stacks />} />
 					<Route path="marketplace" element={<Marketplace />} />
+					<Route path="deploy" element={<DeployStack />} />
 					<Route path={`:${RouteParams.StackID}`} element={<StackView />} />
 				</Route>
 
