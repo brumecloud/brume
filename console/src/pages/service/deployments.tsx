@@ -20,6 +20,7 @@ const DeploymentCard = ({
 	const { data, complete } = useFragment({
 		fragment: DEPLOYMENT_FRAGMENT,
 		from: `Deployment:${id}`,
+		fragmentName: "DeploymentFragment",
 	});
 
 	if (!data) {
@@ -120,6 +121,7 @@ export const DeploymentsPage = () => {
 	const { data, complete } = useFragment({
 		from: `Service:${serviceId}`,
 		fragment: ServiceFragment,
+		fragmentName: "ServiceFragment",
 	});
 
 	if (!data) {

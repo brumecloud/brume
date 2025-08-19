@@ -12,7 +12,12 @@ export const ME_QUERY = gql(`
   query me {
     me {
       projects {
-        ...ProjectFragment
+        id
+        name
+        services {
+          id
+          name
+        }
       }
       ...UserFragment
     }

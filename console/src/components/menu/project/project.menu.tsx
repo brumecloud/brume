@@ -76,7 +76,7 @@ const ProjectView = ({
 						</>
 					)}
 				</NavLink>
-				<NavLink
+				{/* <NavLink
 					to={`/${id}/logs`}
 					className={({ isActive }) =>
 						cn(
@@ -107,7 +107,7 @@ const ProjectView = ({
 							Metrics
 						</>
 					)}
-				</NavLink>
+				</NavLink> */}
 			</div>
 		</CollapsibleWrapper>
 	);

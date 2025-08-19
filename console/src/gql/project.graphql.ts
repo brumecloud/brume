@@ -1,4 +1,5 @@
 import { gql } from "@/_apollo/gql";
+import { fragmentRegistry } from "./fragment.registry";
 
 export const PROJECT_FRAGMENT = gql(`
   fragment ProjectFragment on Project {
@@ -11,6 +12,8 @@ export const PROJECT_FRAGMENT = gql(`
     }
   }
 `);
+
+fragmentRegistry.register(PROJECT_FRAGMENT);
 
 export const PROJECT_BY_ID_QUERY = gql(`
   query GetProjectById($projectId: String!) {

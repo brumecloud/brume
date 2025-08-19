@@ -26,7 +26,7 @@ export const Router = createRoutesFromElements(
 		<Route path="/" element={<ConsoleLayout />}>
 			<Route path="/" element={<PageLayout />}>
 				<Route path="/overview" element={<Projects />} />
-				<Route path="/machines" element={<Machines />} />
+				<Route path="/stack" element={<Machines />} />
 				<Route path="/monitoring" element={<MonitoringPage />} />
 				{/* <Route path="/network" element={<h1>Network</h1>} />
         <Route path="/monitoring" element={<h1>Monitoring</h1>} /> */}
