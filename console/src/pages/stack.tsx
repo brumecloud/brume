@@ -1,8 +1,10 @@
 import { useQuery } from "@apollo/client";
+import { NavLink } from "react-router-dom";
 import { MachineCard } from "@/components/cards/machine";
+import { Button } from "@/components/ui/button";
 import { GET_MACHINES } from "@/gql/machine.graphql";
 
-export default function Stack() {
+export default function Stacks() {
 	const { data, loading, error } = useQuery(GET_MACHINES, {
 		fetchPolicy: "cache-first",
 	});
@@ -25,6 +27,9 @@ export default function Stack() {
 						<h2 className="pb-2 font-heading text-3xl">Stack</h2>
 						<p>Manage and operate your differents stacks</p>
 					</div>
+					<NavLink to="/stack/marketplace">
+						<Button>Add a new stack</Button>
+					</NavLink>
 				</div>
 				<div className="flex flex-row gap-4">
 					{machines?.map((machine) => (
