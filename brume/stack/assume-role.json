@@ -1,0 +1,121 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Resources": {
+		"PorterAccessRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"AWS": [
+									{
+										"Ref": "TrustArnParameter"
+									}
+								]
+							},
+							"Action": ["sts:AssumeRole", "sts:TagSession"]
+						},
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"ec2.amazonaws.com",
+									"eks.amazonaws.com",
+									"pods.eks.amazonaws.com"
+								]
+							},
+							"Action": ["sts:AssumeRole", "sts:TagSession"]
+						}
+					]
+				},
+				"Path": "/",
+				"Policies": [
+					{
+						"PolicyName": "brume-access-policy",
+						"PolicyDocument": {
+							"Version": "2012-10-17",
+							"Statement": [
+								{
+									"Sid": "IAMController",
+									"Effect": "Allow",
+									"Action": [
+										"iam:GetRole",
+										"iam:CreateRole",
+										"iam:DeleteRole",
+										"iam:UpdateRole",
+										"iam:PutRolePermissionsBoundary",
+										"iam:PutUserPermissionsBoundary",
+										"iam:GetUser",
+										"iam:GetPolicy",
+										"iam:CreatePolicy",
+										"iam:DeletePolicy",
+										"iam:GetPolicyVersion",
+										"iam:CreatePolicyVersion",
+										"iam:DeletePolicyVersion",
+										"iam:ListPolicyVersions",
+										"iam:ListPolicyTags",
+										"iam:ListAttachedGroupPolicies",
+										"iam:GetGroupPolicy",
+										"iam:PutGroupPolicy",
+										"iam:AttachGroupPolicy",
+										"iam:DetachGroupPolicy",
+										"iam:DeleteGroupPolicy",
+										"iam:ListAttachedRolePolicies",
+										"iam:ListRolePolicies",
+										"iam:GetRolePolicy",
+										"iam:PutRolePolicy",
+										"iam:AttachRolePolicy",
+										"iam:DetachRolePolicy",
+										"iam:DeleteRolePolicy",
+										"iam:ListAttachedUserPolicies",
+										"iam:ListUserPolicies",
+										"iam:GetUserPolicy",
+										"iam:PutUserPolicy",
+										"iam:AttachUserPolicy",
+										"iam:DetachUserPolicy",
+										"iam:DeleteUserPolicy",
+										"iam:ListRoleTags",
+										"iam:ListUserTags",
+										"iam:TagPolicy",
+										"iam:UntagPolicy",
+										"iam:TagRole",
+										"iam:UntagRole",
+										"iam:TagUser",
+										"iam:UntagUser",
+										"iam:RemoveClientIDFromOpenIDConnectProvider",
+										"iam:ListOpenIDConnectProviderTags",
+										"iam:UpdateOpenIDConnectProviderThumbprint",
+										"iam:UntagOpenIDConnectProvider",
+										"iam:AddClientIDToOpenIDConnectProvider",
+										"iam:DeleteOpenIDConnectProvider",
+										"iam:GetOpenIDConnectProvider",
+										"iam:TagOpenIDConnectProvider",
+										"iam:CreateOpenIDConnectProvider",
+										"iam:UpdateAssumeRolePolicy"
+									],
+									"Resource": "*"
+								}
+							]
+						}
+					}
+				],
+				"RoleName": "brume-access-role",
+				"Tags": [
+					{
+						"Key": "brume.dev/managed",
+						"Value": "true"
+					}
+				]
+			}
+		}
+	},
+	"Parameters": {
+		"TrustArnParameter": {
+			"Type": "String",
+			"Description": "Brume AWS account ID. This is used to allow the BrumeCloud AWS account to assume the role (to create the stacks)."
+		}
+	}
+}
