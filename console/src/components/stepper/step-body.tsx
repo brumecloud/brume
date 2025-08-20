@@ -16,8 +16,12 @@ export const StepContext = React.createContext<{
 
 const StepItemContext = React.createContext<{
 	step: number;
+	active: boolean;
+	toggleActive: () => void;
 }>({
 	step: 0,
+	toggleActive: () => {},
+	active: false,
 });
 
 export const useStepItem = () => {
@@ -46,6 +50,11 @@ export const StepRoot = ({
 	...props
 }: React.HTMLAttributes<HTMLDivElement>) => {
 	const [step, setStep] = React.useState(0);
+	const scrollRef = React.useRef<HTMLDivElement>(null);
+
+	const [activeStep, setActiveStep] = React.useState(
+		Array.from({ length: React.Children.count(children) }, () => false),
+	);
 
 	const advance = () => {
 		setStep(step + 1);
@@ -65,17 +74,45 @@ export const StepRoot = ({
 		}
 	};
 
+	const toggleActive = (index: number) => {
+		setActiveStep((prev) => {
+			const newActiveStep = [...prev];
+			newActiveStep[index] = !newActiveStep[index];
+			return newActiveStep;
+		});
+	};
+
+	React.useEffect(() => {
+		if (step === React.Children.count(children)) {
+			setActiveStep(
+				Array.from({ length: React.Children.count(children) }, () => true),
+			);
+			setTimeout(() => {
+				scrollRef.current?.scrollIntoView({
+					behavior: "smooth",
+				});
+			}, 300);
+		}
+	}, [step]);
+
 	return (
 		<StepContext.Provider value={{ step, advance, rewind, setStep: setStepFn }}>
 			<MotionConfig transition={{ duration: 0.3 }}>
 				<div className={cn("flex flex-col h-full", className)} {...props}>
 					{React.Children.map(children, (child, index) => {
 						return (
-							<StepItemContext.Provider value={{ step: index }}>
+							<StepItemContext.Provider
+								value={{
+									step: index,
+									active: activeStep[index] as boolean,
+									toggleActive: () => toggleActive(index),
+								}}
+							>
 								{child}
 							</StepItemContext.Provider>
 						);
 					})}
+					<div ref={scrollRef} />
 				</div>
 			</MotionConfig>
 		</StepContext.Provider>
