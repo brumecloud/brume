@@ -84,14 +84,16 @@ export const StepRoot = ({
 
 	React.useEffect(() => {
 		if (step === React.Children.count(children)) {
-			setActiveStep(
-				Array.from({ length: React.Children.count(children) }, () => true),
-			);
 			setTimeout(() => {
-				scrollRef.current?.scrollIntoView({
-					behavior: "smooth",
-				});
-			}, 300);
+				for (let i = React.Children.count(children) - 1; i >= 0; i--) {
+					setTimeout(
+						() => {
+							toggleActive(i);
+						},
+						(React.Children.count(children) - i) * 100,
+					);
+				}
+			}, 800);
 		}
 	}, [step]);
 

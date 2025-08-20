@@ -15,12 +15,21 @@ export const StepItem = ({
 	return (
 		<div
 			className={cn(
-				"flex flex-col gap-4 transition-all duration-300 relative border-l pb-8 border-gray-300 pl-4",
-				isValidated && "border-green-500",
+				"flex flex-col gap-4 transition-all duration-300 relative pb-8 pl-4",
 				className,
 			)}
 			{...props}
 		>
+			<div className="absolute left-[-1px] top-0 h-full w-[1px] bg-gray-300" />
+			{isValidated && (
+				<motion.div
+					initial={{ height: 0 }}
+					animate={{ height: "100%" }}
+					exit={{ height: 0 }}
+					transition={{ duration: 0.5 }}
+					className="absolute left-[-1px] top-0 w-[1px] bg-green-500"
+				/>
+			)}
 			{children}
 		</div>
 	);
