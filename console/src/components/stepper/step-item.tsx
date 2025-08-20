@@ -27,14 +27,16 @@ export const StepItem = ({
 };
 
 export const StepHeader = ({ children }: { children: React.ReactNode }) => {
-	const { setStep } = useStep();
-	const { step } = useStepItem();
+	const { step: currentStep } = useStep();
+	const { step, toggleActive } = useStepItem();
+	const canAdvance = step < currentStep;
 
 	return (
 		<button
 			type="button"
-			className="flex flex-row items-center"
-			onClick={() => setStep(step)}
+			className={cn("flex flex-row items-center")}
+			disabled={!canAdvance}
+			onClick={() => toggleActive()}
 		>
 			{children}
 		</button>
@@ -82,22 +84,24 @@ export const StepBody = ({
 	}) => React.ReactNode;
 }) => {
 	const { step: currentStep, advance, rewind, setStep } = useStep();
-	const { step } = useStepItem();
+	const { step, active } = useStepItem();
 
-	const isActive = currentStep >= step;
+	const isActive = currentStep == step || active;
 
 	return (
-		<AnimatePresence>
-			{isActive && (
-				<motion.div
-					initial={{ opacity: 0, height: 0 }}
-					animate={{ opacity: 1, height: "auto" }}
-					exit={{ opacity: 0, height: 0 }}
-					className="flex flex-col gap-4 overflow-hidden"
-				>
-					{children({ step: currentStep, setStep, advance, rewind })}
-				</motion.div>
-			)}
-		</AnimatePresence>
+		<div className="min-h-2">
+			<AnimatePresence>
+				{isActive && (
+					<motion.div
+						initial={{ opacity: 0, height: 0 }}
+						animate={{ opacity: 1, height: "auto" }}
+						exit={{ opacity: 0, height: 0 }}
+						className="flex flex-col gap-4 overflow-hidden"
+					>
+						{children({ step: currentStep, setStep, advance, rewind })}
+					</motion.div>
+				)}
+			</AnimatePresence>
+		</div>
 	);
 };
