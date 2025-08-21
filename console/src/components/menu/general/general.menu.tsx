@@ -41,7 +41,7 @@ export const GenerateMenu = () => {
                     "bg-gradient-to-r from-[#aac8e6] to-[#437ae1] text-white"
                 )}
               />
-              Overview
+              Stacks
             </>
           )}
         </NavLink>
