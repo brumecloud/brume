@@ -28,7 +28,7 @@ export const AwsPage = () => {
         </Page.Description>
       </Page.Header>
       <Page.Body className="h-full pt-16">
-        <Stepper.Root shouldAnimate>
+        <Stepper.Root shouldAnimate leftBorder>
           <Stepper.Item>
             <Stepper.Header>
               <Stepper.Icon>

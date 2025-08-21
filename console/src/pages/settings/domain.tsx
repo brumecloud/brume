@@ -19,7 +19,7 @@ export const DomainPage = () => {
           </div>
         </div>
         <div className="m-auto gap-2 pt-4">
-          <NavLink to="/settings/domain/add">
+          <NavLink to="/settings/domains/add">
             <Button>Add existing domain</Button>
           </NavLink>
         </div>
