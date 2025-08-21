@@ -22,7 +22,7 @@ export const DeployStack = () => {
   return (
     <Page.Container>
       <Page.Header>
-        <Page.Title>New Deploy Stack</Page.Title>
+        <Page.Title>Deploy a new Stack</Page.Title>
         <Page.Description>
           Deploy a new stack on one of your domain
         </Page.Description>
