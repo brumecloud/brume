@@ -37,13 +37,13 @@ export default function Stacks() {
           </NavLink>
         </div>
         <div className="grid grid-cols-6 gap-4">
-          <div className="col-span-2 flex flex-col gap-2">
+          {/*<div className="col-span-2 flex flex-col gap-2">
             <h3>Recent deployments</h3>
             <div className="min-h-32 w-full rounded-md border"></div>
-          </div>
-          <div className="col-span-4 flex flex-col gap-2">
-            <h3>Stacks</h3>
-            <div className="grid grid-cols-2">
+          </div>*/}
+          <div className="col-span-6 flex flex-col gap-2">
+            {/*<h3>Stacks</h3>*/}
+            <div className="grid grid-cols-3">
               {machines?.map((machine) => (
                 <div
                   key={machine.id}

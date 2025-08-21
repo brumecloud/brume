@@ -8,12 +8,14 @@ export const StepContext = React.createContext<{
   rewind: () => void;
   setStep: (step: number) => void;
   shouldAnimate?: boolean;
+  leftBorder?: boolean;
 }>({
   step: 0,
   advance: () => {},
   rewind: () => {},
   setStep: () => {},
   shouldAnimate: false,
+  leftBorder: true,
 });
 
 const StepItemContext = React.createContext<{
@@ -48,6 +50,7 @@ export const useStep = () => {
 
 type StepRootProps = {
   shouldAnimate?: boolean;
+  leftBorder?: boolean;
 };
 
 export const StepRoot = ({
@@ -118,6 +121,7 @@ export const StepRoot = ({
         rewind,
         setStep: setStepFn,
         shouldAnimate: props.shouldAnimate || false,
+        leftBorder: props.leftBorder ?? false,
       }}>
       <MotionConfig transition={{ duration: 0.3 }}>
         <div

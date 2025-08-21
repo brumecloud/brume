@@ -9,7 +9,7 @@ export const StepItem = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => {
-  const { step: currentStep } = useStep();
+  const { step: currentStep, leftBorder } = useStep();
   const { step } = useStepItem();
   const isValidated = currentStep > step;
 
@@ -20,8 +20,10 @@ export const StepItem = ({
         className
       )}
       {...props}>
-      <div className="absolute left-[-1px] top-0 h-full w-[1px] bg-gray-300" />
-      {isValidated && (
+      {leftBorder && (
+        <div className="absolute left-[-1px] top-0 h-full w-[1px] bg-gray-300" />
+      )}
+      {isValidated && leftBorder && (
         <motion.div
           initial={{ height: 0 }}
           animate={{ height: "100%" }}
