@@ -95,7 +95,7 @@ export const StepBody = ({
 	const { step: currentStep, advance, rewind, setStep } = useStep();
 	const { step, active } = useStepItem();
 
-	const isActive = currentStep == step || active;
+	const isActive = currentStep === step || active;
 
 	return (
 		<div className="min-h-2">
