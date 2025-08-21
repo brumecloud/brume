@@ -1,122 +1,143 @@
+import { cn } from "@/utils";
 import { MotionConfig } from "motion/react";
 import * as React from "react";
-import { cn } from "@/utils";
 
 export const StepContext = React.createContext<{
-	step: number;
-	advance: () => void;
-	rewind: () => void;
-	setStep: (step: number) => void;
+  step: number;
+  advance: () => void;
+  rewind: () => void;
+  setStep: (step: number) => void;
+  shouldAnimate?: boolean;
 }>({
-	step: 0,
-	advance: () => {},
-	rewind: () => {},
-	setStep: () => {},
+  step: 0,
+  advance: () => {},
+  rewind: () => {},
+  setStep: () => {},
+  shouldAnimate: false,
 });
 
 const StepItemContext = React.createContext<{
-	step: number;
-	active: boolean;
-	toggleActive: () => void;
+  step: number;
+  active: boolean;
+  toggleActive: () => void;
 }>({
-	step: 0,
-	toggleActive: () => {},
-	active: false,
+  step: 0,
+  toggleActive: () => {},
+  active: false,
 });
 
 export const useStepItem = () => {
-	const context = React.useContext(StepItemContext);
+  const context = React.useContext(StepItemContext);
 
-	if (!context) {
-		throw new Error("useStepItem must be used within a <StepItem />");
-	}
+  if (!context) {
+    throw new Error("useStepItem must be used within a <StepItem />");
+  }
 
-	return context;
+  return context;
 };
 
 export const useStep = () => {
-	const context = React.useContext(StepContext);
+  const context = React.useContext(StepContext);
 
-	if (!context) {
-		throw new Error("useStep must be used within a <StepRoot />");
-	}
+  if (!context) {
+    throw new Error("useStep must be used within a <StepRoot />");
+  }
 
-	return context;
+  return context;
+};
+
+type StepRootProps = {
+  shouldAnimate?: boolean;
 };
 
 export const StepRoot = ({
-	children,
-	className,
-	...props
-}: React.HTMLAttributes<HTMLDivElement>) => {
-	const [step, setStep] = React.useState(0);
-	const scrollRef = React.useRef<HTMLDivElement>(null);
+  children,
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & StepRootProps) => {
+  const [step, setStep] = React.useState(0);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
 
-	const [activeStep, setActiveStep] = React.useState(
-		Array.from({ length: React.Children.count(children) }, () => false),
-	);
+  const [activeStep, setActiveStep] = React.useState(
+    Array.from(
+      { length: React.Children.count(children) },
+      () => false
+    )
+  );
 
-	const advance = () => {
-		setStep(step + 1);
-	};
+  const advance = () => {
+    setStep(step + 1);
+  };
 
-	const rewind = () => {
-		setStep(step - 1);
-	};
+  const rewind = () => {
+    setStep(step - 1);
+  };
 
-	const setStepFn = (step: number) => {
-		if (step < 0) {
-			rewind();
-		} else if (step > React.Children.count(children) - 1) {
-			advance();
-		} else {
-			setStep(step);
-		}
-	};
+  const setStepFn = (step: number) => {
+    if (step < 0) {
+      rewind();
+    } else if (step > React.Children.count(children) - 1) {
+      advance();
+    } else {
+      setStep(step);
+    }
+  };
 
-	const toggleActive = (index: number) => {
-		setActiveStep((prev) => {
-			const newActiveStep = [...prev];
-			newActiveStep[index] = !newActiveStep[index];
-			return newActiveStep;
-		});
-	};
+  const toggleActive = (index: number) => {
+    setActiveStep((prev) => {
+      const newActiveStep = [...prev];
+      newActiveStep[index] = !newActiveStep[index];
+      return newActiveStep;
+    });
+  };
 
-	React.useEffect(() => {
-		if (step === React.Children.count(children)) {
-			setTimeout(() => {
-				for (let i = React.Children.count(children) - 1; i >= 0; i--) {
-					setTimeout(
-						() => {
-							toggleActive(i);
-						},
-						(React.Children.count(children) - i) * 100,
-					);
-				}
-			}, 800);
-		}
-	}, [step]);
+  React.useEffect(() => {
+    if (step === React.Children.count(children)) {
+      setTimeout(() => {
+        for (
+          let i = React.Children.count(children) - 1;
+          i >= 0;
+          i--
+        ) {
+          setTimeout(
+            () => {
+              toggleActive(i);
+            },
+            (React.Children.count(children) - i) * 100
+          );
+        }
+      }, 800);
+    }
+  }, [step]);
 
-	return (
-		<StepContext.Provider value={{ step, advance, rewind, setStep: setStepFn }}>
-			<MotionConfig transition={{ duration: 0.3 }}>
-				<div className={cn("flex flex-col h-full", className)} {...props}>
-					{React.Children.map(children, (child, index) => {
-						return (
-							<StepItemContext.Provider
-								value={{
-									step: index,
-									active: activeStep[index] as boolean,
-									toggleActive: () => toggleActive(index),
-								}}
-							>
-								{child}
-							</StepItemContext.Provider>
-						);
-					})}
-					<div ref={scrollRef} />
-				</div>
-			</MotionConfig>
-		</StepContext.Provider>
-	);
+  return (
+    <StepContext.Provider
+      value={{
+        step,
+        advance,
+        rewind,
+        setStep: setStepFn,
+        shouldAnimate: props.shouldAnimate || false,
+      }}>
+      <MotionConfig transition={{ duration: 0.3 }}>
+        <div
+          className={cn("flex h-full flex-col", className)}
+          {...props}>
+          {React.Children.map(children, (child, index) => {
+            return (
+              <StepItemContext.Provider
+                value={{
+                  step: index,
+                  active: activeStep[index] as boolean,
+                  toggleActive: () => toggleActive(index),
+                }}>
+                {child}
+              </StepItemContext.Provider>
+            );
+          })}
+          <div ref={scrollRef} />
+        </div>
+      </MotionConfig>
+    </StepContext.Provider>
+  );
 };

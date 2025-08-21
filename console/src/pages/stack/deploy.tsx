@@ -28,7 +28,7 @@ export const DeployStack = () => {
         </Page.Description>
       </Page.Header>
       <Page.Body className="h-full pt-16">
-        <Stepper.Root>
+        <Stepper.Root shouldAnimate>
           <Stepper.Item>
             <Stepper.Header>
               <Stepper.Icon>
