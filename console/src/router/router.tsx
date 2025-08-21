@@ -15,6 +15,7 @@ import { AccountPage } from "@/pages/settings/account";
 import { AwsPage } from "@/pages/settings/cloud/aws";
 import { CloudsPage } from "@/pages/settings/clouds";
 import { DomainPage } from "@/pages/settings/domain";
+import { AddDomain } from "@/pages/settings/domain/add";
 import Stacks from "@/pages/stack";
 import { DeployStack } from "@/pages/stack/deploy";
 import { Marketplace } from "@/pages/stack/marketplace";
@@ -51,6 +52,7 @@ export const Router = createRoutesFromElements(
           <Route path="domains" element={<DomainPage />} />
         </Route>
 
+        <Route path="/settings/domains/add" element={<AddDomain />} />
         <Route path="/settings/cloud">
           <Route path="aws" element={<AwsPage />} />
         </Route>
