@@ -1,10 +1,58 @@
-import { MachineCard } from "@/components/cards/machine";
 import { Page } from "@/components/page-comp/header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GET_MACHINES } from "@/gql/machine.graphql";
 import { useQuery } from "@apollo/client";
+import ArchitectureServiceAWSPrivateCertificateAuthority from "aws-react-icons/lib/icons/ArchitectureServiceAWSPrivateCertificateAuthority";
+import ArchitectureServiceAmazonCloudFront from "aws-react-icons/lib/icons/ArchitectureServiceAmazonCloudFront";
+import ResourceAmazonSimpleStorageServiceBucket from "aws-react-icons/lib/icons/ResourceAmazonSimpleStorageServiceBucket";
+import { useState } from "react";
+import { BiPulse } from "react-icons/bi";
+import { FaAws } from "react-icons/fa6";
+import { LuBadgeCheck } from "react-icons/lu";
 import { NavLink } from "react-router-dom";
+
+const StackCard = () => {
+  const [isHovering, setIsHovering] = useState(false);
+  return (
+    <div className="min-w-[400px] overflow-hidden rounded-md border">
+      <div className="flex h-16 flex-row items-center justify-between border-b px-3">
+        <div className="flex flex-col gap-[3px]">
+          <h2>Frontend stack</h2>
+          <div className="flex flex-row gap-2">
+            <Badge>Production account</Badge>
+            <Badge variant={"outline"}>AWS</Badge>
+          </div>
+        </div>
+        <div className="flex flex-row items-center justify-center gap-x-3 pr-2">
+          <div className="rounded-full border border-green-300 bg-green-50 p-1">
+            <BiPulse className="size-4 text-green-500" />
+          </div>
+        </div>
+      </div>
+      {/** biome-ignore lint/a11y/noStaticElementInteractions: need */}
+      <div
+        className="inset-0 -z-10 flex h-40 w-full items-center justify-center gap-x-2 bg-gray-50 bg-[radial-gradient(circle,#73737350_1px,transparent_1px)] bg-[size:10px_10px]"
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}>
+        {isHovering ? (
+          <div>
+            <NavLink to="/overview/stack/id">
+              <Button>View stack</Button>
+            </NavLink>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-x-2">
+            <ResourceAmazonSimpleStorageServiceBucket className="size-10 bg-gray-50" />
+            <ArchitectureServiceAmazonCloudFront className="size-10 rounded-sm bg-gray-50" />
+            <ArchitectureServiceAWSPrivateCertificateAuthority className="size-10 rounded-sm bg-gray-50" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default function Stacks() {
   const { data, loading, error } = useQuery(GET_MACHINES, {
@@ -44,14 +92,7 @@ export default function Stacks() {
           <div className="col-span-6 flex flex-col gap-2">
             {/*<h3>Stacks</h3>*/}
             <div className="grid grid-cols-3">
-              {machines?.map((machine) => (
-                <div
-                  key={machine.id}
-                  className="flex w-full flex-col gap-2 rounded-md border p-2">
-                  <h4>{machine.name}</h4>
-                  <p>{machine.ip}</p>
-                </div>
-              ))}
+              {machines?.map((machine) => <StackCard />)}
             </div>
           </div>
         </div>

@@ -10,17 +10,18 @@ import { RunnerPage } from "@/pages/service/runner";
 import { SettingPage } from "@/pages/service/settings";
 import { VariablesPage } from "@/pages/service/variables";
 import { ServicePage } from "@/pages/services";
-import { SettingsPage } from "@/pages/settings";
 import { AccountPage } from "@/pages/settings/account";
 import { AwsPage } from "@/pages/settings/cloud/aws";
 import { CloudsPage } from "@/pages/settings/clouds";
 import { DomainPage } from "@/pages/settings/domain";
 import { AddDomain } from "@/pages/settings/domain/add";
+import { GitPage } from "@/pages/settings/git";
 import Stacks from "@/pages/stack";
 import { DeployStack } from "@/pages/stack/deploy";
 import { Marketplace } from "@/pages/stack/marketplace";
 import { StackView } from "@/pages/stack/stack-view";
 import { ProjectLayout } from "@/router/layout/project.layout";
+import { SettingsOutlet } from "@/router/layout/settings";
 import { RouteParams } from "@/router/router.param";
 import { createRoutesFromElements, Route } from "react-router-dom";
 
@@ -46,10 +47,11 @@ export const Router = createRoutesFromElements(
         <Route path="/monitoring" element={<MonitoringPage />} />
         {/* <Route path="/network" element={<h1>Network</h1>} />
         <Route path="/monitoring" element={<h1>Monitoring</h1>} /> */}
-        <Route path="/settings" element={<SettingsPage />}>
+        <Route path="/settings" element={<SettingsOutlet />}>
           <Route path="account" element={<AccountPage />} />
           <Route path="clouds" element={<CloudsPage />} />
           <Route path="domains" element={<DomainPage />} />
+          <Route path="git" element={<GitPage />} />
         </Route>
 
         <Route path="/settings/domains/add" element={<AddDomain />} />

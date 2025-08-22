@@ -18,6 +18,7 @@ export const DeployStack = () => {
   const [domain, setDomain] = useState("");
   const [agreement, setAgreement] = useState(false);
   const [planReview, setPlanReview] = useState(false);
+  const [applyStack, setApplyStack] = useState(false);
 
   return (
     <Page.Container>
@@ -28,7 +29,7 @@ export const DeployStack = () => {
         </Page.Description>
       </Page.Header>
       <Page.Body className="h-full pt-16">
-        <Stepper.Root shouldAnimate>
+        <Stepper.Root shouldAnimate leftBorder>
           <Stepper.Item>
             <Stepper.Header>
               <Stepper.Icon>
@@ -49,6 +50,7 @@ export const DeployStack = () => {
                     </p>
                     <div className="pt-4">
                       <Select
+                        value={domain}
                         onValueChange={(value) => {
                           setStep(1);
                           setDomain(value);
@@ -86,13 +88,30 @@ export const DeployStack = () => {
                     All of these ressources will be created on the
                     domain you selected.
                   </p>
-                  <div className="pt-4">
+                  <div className="flex flex-col gap-4 pt-4">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="terms"
+                        checked={agreement}
+                        onCheckedChange={(v) => {
+                          if (v == "indeterminate") {
+                            setAgreement(false);
+                          } else {
+                            setAgreement(v);
+                          }
+                        }}
+                      />
+                      <Label htmlFor="terms">
+                        I have review the stack
+                      </Label>
+                    </div>
                     <Button
+                      className="w-44"
                       onClick={() => {
                         setPlanReview(true);
                         setStep(2);
                       }}>
-                      I reviewed the plan
+                      Next step
                     </Button>
                   </div>
                 </>
@@ -121,12 +140,12 @@ export const DeployStack = () => {
                     <div className="flex items-center gap-3">
                       <Checkbox
                         id="terms"
-                        checked={agreement}
+                        checked={applyStack}
                         onCheckedChange={(v) => {
                           if (v == "indeterminate") {
-                            setAgreement(false);
+                            setApplyStack(false);
                           } else {
-                            setAgreement(v);
+                            setApplyStack(v);
                           }
                         }}
                       />

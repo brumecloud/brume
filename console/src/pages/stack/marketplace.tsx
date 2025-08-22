@@ -12,7 +12,7 @@ import { NavLink } from "react-router-dom";
 const StackCard = () => {
   const [isHovering, setIsHovering] = useState(false);
   return (
-    <div className="min-w-[400px] rounded border">
+    <div className="min-w-[400px] overflow-hidden rounded-md border">
       <div className="flex h-12 flex-row items-center justify-between border-b px-3">
         <h2>Single Page Application</h2>
         <div className="flex flex-row items-center justify-center gap-x-3">

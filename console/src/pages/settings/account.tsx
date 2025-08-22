@@ -1,12 +1,10 @@
-import { Stepper } from "@/components/stepper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FaRegCopy } from "react-icons/fa6";
-import { MdOutlineManageAccounts } from "react-icons/md";
 
 export const AccountPage = () => {
   return (
-    <div className="flex flex-col items-start gap-8 px-32 pt-8">
+    <div className="flex flex-col items-start gap-8 pt-8">
       <div className="flex w-3/4 flex-col gap-2 rounded-xl border">
         <div className="flex flex-col gap-4 p-8 pb-4">
           <h2 className="text-lg font-semibold">Account Name</h2>
