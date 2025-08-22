@@ -39,9 +39,9 @@ export const StepItem = ({
 
 export const StepHeader = ({
   children,
-}: {
-  children: React.ReactNode;
-}) => {
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLButtonElement>) => {
   const { step: currentStep } = useStep();
   const { step, toggleActive } = useStepItem();
   const canAdvance = step < currentStep;
@@ -49,9 +49,10 @@ export const StepHeader = ({
   return (
     <button
       type="button"
-      className={cn("flex flex-row items-center")}
+      className={cn("flex flex-row items-center", className)}
       disabled={!canAdvance}
-      onClick={() => toggleActive()}>
+      onClick={() => toggleActive()}
+      {...props}>
       {children}
     </button>
   );
@@ -59,17 +60,23 @@ export const StepHeader = ({
 
 export const StepHeaderTitle = ({
   children,
-}: {
-  children: React.ReactNode;
-}) => {
-  return <div className="pl-4 text-lg font-medium">{children}</div>;
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => {
+  return (
+    <div
+      className={cn("pl-4 text-lg font-medium", className)}
+      {...props}>
+      {children}
+    </div>
+  );
 };
 
 export const StepIcon = ({
   children,
-}: {
-  children: React.ReactNode;
-}) => {
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => {
   const { step: currentStep } = useStep();
   const { step } = useStepItem();
   const isValidated = currentStep > step;
@@ -78,8 +85,10 @@ export const StepIcon = ({
     <div
       className={cn(
         "absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600 transition-all duration-300",
-        isValidated && "border-green-500 text-green-600"
-      )}>
+        isValidated && "border-green-500 text-green-600",
+        className
+      )}
+      {...props}>
       {children}
     </div>
   );
