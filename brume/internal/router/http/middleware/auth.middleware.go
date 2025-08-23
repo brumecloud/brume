@@ -18,23 +18,27 @@ func AuthMiddleware(workosClient *brume_workos.WorkOSClient, next http.Handler) 
 			return
 		}
 
-		token := ""
+		access_token := ""
+		refresh_token := ""
 
 		for _, cookie := range r.Cookies() {
 			if cookie.Name == "access_token" {
-				token = cookie.Value
-				break
+				access_token = cookie.Value
+				continue
+			}
+			if cookie.Name == "refresh_token" {
+				refresh_token = cookie.Value
+				continue
 			}
 		}
 
-		if token == "" {
+		if access_token == "" {
 			logger.Warn().Msg("No token found in cookies")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
-		logger.Info().Str("token", token)
-		validatedToken, err := workosClient.VerifyToken(token)
+		validatedToken, err := workosClient.VerifyTokenWithRefresh(access_token, refresh_token, w)
 		if err != nil {
 			w.WriteHeader(http.StatusForbidden)
 			logger.Warn().Err(err).Msg("Failed to verify token")
@@ -47,7 +51,9 @@ func AuthMiddleware(workosClient *brume_workos.WorkOSClient, next http.Handler) 
 			logger.Panic().Msg("Failed to get subject from token AFTER verification")
 		}
 
+		// set the provider id in the context
 		ctx := context.WithValue(r.Context(), "user", subject)
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

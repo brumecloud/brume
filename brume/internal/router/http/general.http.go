@@ -9,6 +9,7 @@ import (
 	"brume.dev/internal/common"
 	config "brume.dev/internal/config"
 	brume_log "brume.dev/internal/log"
+	"brume.dev/internal/router/http/cookies"
 	middleware "brume.dev/internal/router/http/middleware"
 	brume_workos "brume.dev/internal/workos"
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -104,7 +105,7 @@ func GeneralHTTPRouter(authService *common.AuthentificationService, public_gql *
 			return
 		}
 
-		generateUserCookie(&user, cfg, w)
+		cookies.GenerateUserCookie(user.AccessToken, user.RefreshToken, cfg, w)
 
 		userJson, err := json.Marshal(user)
 		if err != nil {
@@ -241,25 +242,4 @@ func GeneralHTTPRouter(authService *common.AuthentificationService, public_gql *
 	})).Methods(http.MethodGet)
 
 	return router
-}
-
-func generateUserCookie(user *usermanagement.AuthenticateResponse, cfg *config.BrumeConfig, w http.ResponseWriter) *http.Cookie {
-	http.SetCookie(w, &http.Cookie{
-		Name:     "access_token",
-		Value:    user.AccessToken,
-		Path:     "/",
-		Expires:  time.Now().Add(4 * time.Hour),
-		HttpOnly: true,
-		Secure:   false,
-		SameSite: http.SameSiteLaxMode,
-	})
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    user.RefreshToken,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   false,
-		SameSite: http.SameSiteLaxMode,
-	})
-	return nil
 }

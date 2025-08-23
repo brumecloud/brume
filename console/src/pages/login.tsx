@@ -31,11 +31,7 @@ export const Login = () => {
 				credentials: "include",
 			},
 		).then(() => {
-			// fetch(`${ENV.ORCHESTRATOR_URL}/wos/me`, {
-			// 	credentials: "include",
-			// }).then(() => {
-			// 	navigate("/");
-			// });
+			navigate("/overview");
 		});
 	};
 
