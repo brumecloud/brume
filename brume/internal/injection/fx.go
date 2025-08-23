@@ -14,6 +14,7 @@ import (
 	fx_grpc "brume.dev/internal/router/grpc/fx"
 	fx_http "brume.dev/internal/router/http/fx"
 	fx_ticker "brume.dev/internal/ticker"
+	fx_workos "brume.dev/internal/workos"
 	fx_job "brume.dev/jobs/fx"
 	fx_log "brume.dev/logs/fx"
 	fx_machine "brume.dev/machine/fx"
@@ -53,6 +54,7 @@ func NewMasterInjector() *GlobalInjector {
 		brume_redis.RedisModule,
 		db.DBModule,
 		fx_ticker.TickerModule,
+		fx_workos.WorkOSModule,
 
 		fx_http.HttpModule,
 		fx_grpc.GRPCModule,

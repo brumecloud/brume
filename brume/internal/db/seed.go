@@ -69,15 +69,15 @@ func SeedMachine(db *DB, brume *org.Organization) *machine_model.Machine {
 
 func SeedAdminUser(db *DB, brume *org.Organization) *user.User {
 	admin := &user.User{
-		Email:          "admin@brume.dev",
+		Email:          "paul@brume.dev",
 		Name:           "Brume Admin",
 		Password:       "adminpass",
 		OrganizationID: brume.ID,
 		Avatar:         "https://avatars.githubusercontent.com/u/34143515?v=4",
 	}
 
-	if err := db.Gorm.First(admin, "email = ?", "admin@brume.dev").Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Info().Msg("No user found in database, creating admin@brume.dev")
+	if err := db.Gorm.First(admin, "email = ?", "paul@brume.dev").Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.Info().Msg("No user found in database, creating paul@brume.dev")
 
 		db.Gorm.Create(admin)
 		logger.Info().Msg("Admin user seeded")

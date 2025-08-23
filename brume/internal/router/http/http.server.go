@@ -12,6 +12,7 @@ import (
 	http_middleware "brume.dev/internal/router/http/middleware"
 	public_graph "brume.dev/internal/router/public-gql/graph"
 	public_graph_generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
+	brume_workos "brume.dev/internal/workos"
 	job_service "brume.dev/jobs/service"
 	brume_log "brume.dev/logs"
 	"brume.dev/machine"
@@ -38,6 +39,7 @@ func NewHTTPServer(
 	logService *brume_log.LogService,
 	machineService *machine.MachineService,
 	bidService *job_service.BidService,
+	workosClient *brume_workos.WorkOSClient,
 	schedulerHTTPRouter *SchedulerHTTPRouterV1,
 	monitoringHTTPRouter *MonitoringHTTPRouterV1,
 	cfg *config.BrumeConfig,
@@ -65,7 +67,7 @@ func NewHTTPServer(
 	public_gql.Use(extension.Introspection{})
 
 	// api used to interact with brume interface
-	frontend_api_router := GeneralHTTPRouter(authentificationService, public_gql)
+	frontend_api_router := GeneralHTTPRouter(authentificationService, public_gql, workosClient, cfg)
 
 	// api used to interact with the orchestrator
 	orchestrator_server := mux.NewRouter()

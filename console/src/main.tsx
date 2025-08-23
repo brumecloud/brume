@@ -19,15 +19,20 @@ import "./index.css";
 import { createFragmentRegistry } from "@apollo/client/cache";
 import { BUILDER_FRAGMENT } from "./gql/builder.graphql";
 import { DEPLOYMENT_FRAGMENT } from "./gql/deployment.graphql";
-import { fragmentRegistry } from "./gql/fragment.registry";
 import { PROJECT_FRAGMENT } from "./gql/project.graphql";
 import { RUNNER_FRAGMENT } from "./gql/runner.graphql";
 import { ServiceFragment } from "./gql/service.graphql";
-import { USER_FRAGMENT } from "./gql/user.graphql";
+import { ENV } from "./utils/env";
 
 const httpLink = new HttpLink({
-	uri: "http://localhost:9877/graphql",
-	credentials: "include",
+	uri: `${ENV.ORCHESTRATOR_URL}/graphql`,
+	fetch: (uri, options) => {
+		console.log(uri, options);
+		return fetch(uri, {
+			...options,
+			credentials: "include",
+		});
+	},
 });
 
 loadDevMessages();
@@ -83,7 +88,10 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 
 const wsLink = new GraphQLWsLink(
 	createClient({
-		url: "ws://localhost:9877/graphql",
+		url: ENV.WS_URL,
+		connectionParams: {
+			credentials: "include",
+		},
 	}),
 );
 

@@ -15,4 +15,5 @@ var LogsMap = map[string]string{
 	"http":             "http",
 	"graphql_public":   "graphql_public",
 	"ticker":           "ticker",
+	"workos":           "workos",
 }
