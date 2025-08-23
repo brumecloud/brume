@@ -25,15 +25,14 @@ func (s *OrganizationServer) CreateOrganization(ctx context.Context, req *v1.Cre
 }
 
 func (s *OrganizationServer) GetUserOrganizations(ctx context.Context, _ *v1.Empty) (*v1.ListOrganization, error) {
-	userEmail := ctx.Value("user")
+	userSubject := ctx.Value("user")
 
-	if userEmail == "" {
-		return nil, errors.New("user email not found")
+	if userSubject == "" {
+		return nil, errors.New("user subject not found")
 	}
-	email := string(userEmail.(string))
+	subject := string(userSubject.(string))
 
-	orgs, err := s.organizationService.GetUserOrganization(email)
-
+	orgs, err := s.organizationService.GetUserOrganization(subject)
 	if err != nil {
 		return nil, err
 	}

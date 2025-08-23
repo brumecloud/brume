@@ -9,8 +9,9 @@ import (
 
 type Organization struct {
 	gorm.Model
-	ID   uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Name string    `gorm:"unique"`
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ProviderID string    `gorm:"unique"`
+	Name       string    `gorm:"unique"`
 
 	Users    []user.User        `gorm:"foreignKey:OrganizationID;references:ID"`
 	Projects []*project.Project `gorm:"many2many:organization_projects;"`

@@ -5,4 +5,4 @@ brume/tmp/*
 *.log
 bin
 agent/bin/agent
-*/brume.toml
+brume/brume.toml

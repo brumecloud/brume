@@ -20,21 +20,20 @@ func NewOrganizationService(db *db.DB) *OrganizationService {
 	}
 }
 
-func (s *OrganizationService) GetUserOrganization(email string) ([]*org.Organization, error) {
-	logger.Trace().Str("email", email).Msg("Getting user organization")
+func (s *OrganizationService) GetUserOrganization(pid string) ([]*org.Organization, error) {
+	logger.Trace().Str("provider_id", pid).Msg("Getting user organization")
 
 	var user *user.User
-	err := s.db.Gorm.First(&user, "email = ?", email).Error
-
+	err := s.db.Gorm.First(&user, "provider_id = ?", pid).Error
 	if err != nil {
-		logger.Warn().Err(err).Str("email", email).Msg("Error getting user")
+		logger.Warn().Err(err).Str("provider_id", pid).Msg("Error getting user")
 		return nil, err
 	}
 
 	var orgs []*org.Organization
 	err = s.db.Gorm.Find(&orgs, "id = ?", user.OrganizationID).Error
 	if err != nil {
-		logger.Error().Err(err).Str("email", email).Msg("Error getting user organizations")
+		logger.Error().Err(err).Str("provider_id", pid).Msg("Error getting user organizations")
 		return nil, err
 	}
 
@@ -45,7 +44,6 @@ func (s *OrganizationService) GetOrganizationProjects(org *org.Organization) ([]
 	logger.Trace().Str("org_id", org.ID.String()).Msg("Getting organization projects")
 
 	err := s.db.Gorm.Preload("Projects").Find(&org).Error
-
 	if err != nil {
 		logger.Error().Err(err).Str("org_id", org.ID.String()).Msg("Error getting organization projects")
 		return nil, err
@@ -53,6 +51,7 @@ func (s *OrganizationService) GetOrganizationProjects(org *org.Organization) ([]
 
 	return org.Projects, err
 }
+
 func (s *OrganizationService) AddProjectToOrganization(org *org.Organization, project *project_model.Project) error {
 	logger.Trace().Str("org_id", org.ID.String()).Str("project_id", project.ID.String()).Msg("Adding project to organization")
 

@@ -7,6 +7,7 @@ import (
 	user "brume.dev/account/user/model"
 	builder "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
+	"brume.dev/internal/config"
 	job_model "brume.dev/jobs/model"
 	machine_model "brume.dev/machine/model"
 	project_model "brume.dev/project/model"
@@ -32,12 +33,12 @@ type Model struct {
 	UpdatedAt time.Time
 }
 
-func (db *DB) migrate() {
+func (db *DB) migrate(config *config.BrumeConfig) {
 	logger.Info().Msg("Starting the migration")
 	// to add a model to migrate add it to the AllModels slice
 	db.Gorm.AutoMigrate(AllModels...)
 	logger.Info().Msg("All migrations passed, continuing with seeding")
 
-	SeedAll(db)
+	SeedAll(db, config)
 	logger.Info().Msg("Seeding finished")
 }

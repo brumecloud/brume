@@ -65,8 +65,10 @@ type WorkOSConfig struct {
 }
 
 type BrumeGeneralConfig struct {
-	Frontend string `mapstructure:"frontend" validate:"required,min=1"`
-	IsDev    bool   `mapstructure:"is_dev" validate:"required,boolean"`
+	Frontend       string `mapstructure:"frontend" validate:"required,min=1"`
+	IsDev          bool   `mapstructure:"is_dev" validate:"required,boolean"`
+	SudoProviderID string `mapstructure:"sudo_provider_id" validate:"required,min=1"`
+	StaffOrgID     string `mapstructure:"staff_org_id" validate:"required,min=1"`
 }
 
 type BrumeConfig struct {

@@ -76,7 +76,7 @@ func (r *machineResolver) ID(ctx context.Context, obj *machine_model.Machine) (s
 // CreateProject is the resolver for the createProject field.
 func (r *mutationResolver) CreateProject(ctx context.Context, name string, description *string) (*project_model.Project, error) {
 	currentUser := ctx.Value("user").(string)
-	user, err := r.UserService.GetUserByEmail(currentUser)
+	user, err := r.UserService.GetUserByProviderID(currentUser)
 	if err != nil {
 		return nil, err
 	}
@@ -218,8 +218,8 @@ func (r *projectResolver) Services(ctx context.Context, obj *project_model.Proje
 
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*user_model.User, error) {
-	email := ctx.Value("user").(string)
-	user, err := r.UserService.GetUserByEmail(email)
+	pid := ctx.Value("user").(string)
+	user, err := r.UserService.GetUserByProviderID(pid)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +260,7 @@ func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string, input
 // Machine is the resolver for the machine field.
 func (r *queryResolver) Machine(ctx context.Context) ([]*machine_model.Machine, error) {
 	currentUser := ctx.Value("user").(string)
-	user, err := r.UserService.GetUserByEmail(currentUser)
+	user, err := r.UserService.GetUserByProviderID(currentUser)
 	if err != nil {
 		return nil, err
 	}
@@ -378,15 +378,17 @@ func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subsc
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
-type deploymentResolver struct{ *Resolver }
-type deploymentLogResolver struct{ *Resolver }
-type deploymentSourceResolver struct{ *Resolver }
-type logResolver struct{ *Resolver }
-type machineResolver struct{ *Resolver }
-type mutationResolver struct{ *Resolver }
-type projectResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }
-type runnerDataResolver struct{ *Resolver }
-type serviceResolver struct{ *Resolver }
-type subscriptionResolver struct{ *Resolver }
-type userResolver struct{ *Resolver }
+type (
+	deploymentResolver       struct{ *Resolver }
+	deploymentLogResolver    struct{ *Resolver }
+	deploymentSourceResolver struct{ *Resolver }
+	logResolver              struct{ *Resolver }
+	machineResolver          struct{ *Resolver }
+	mutationResolver         struct{ *Resolver }
+	projectResolver          struct{ *Resolver }
+	queryResolver            struct{ *Resolver }
+	runnerDataResolver       struct{ *Resolver }
+	serviceResolver          struct{ *Resolver }
+	subscriptionResolver     struct{ *Resolver }
+	userResolver             struct{ *Resolver }
+)
