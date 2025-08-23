@@ -30,7 +30,7 @@ func InitDB(config *config.BrumeConfig) *DB {
 
 	logger.Info().Msg("Connected to the database")
 
-	db.migrate()
+	db.migrate(config)
 
 	return db
 }

@@ -18,12 +18,11 @@ func NewToken(user *user.User) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			Issuer:    "brume",
-			Subject:   user.Email,
+			Subject:   user.ProviderID,
 		},
 	})
 
 	tokenString, err := token.SignedString([]byte(SECRET_KEY))
-
 	if err != nil {
 		return "", err
 	}
@@ -35,7 +34,6 @@ func VerifyToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SECRET_KEY), nil
 	})
-
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,7 @@ import (
 	user "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
+	"brume.dev/internal/config"
 	machine_model "brume.dev/machine/model"
 	project "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
@@ -15,10 +16,10 @@ import (
 	"gorm.io/gorm"
 )
 
-func SeedAll(db *DB) error {
+func SeedAll(db *DB, config *config.BrumeConfig) error {
 	projects := SeedProjects(db)
-	brume := SeedOrganization(db, projects)
-	admin := SeedAdminUser(db, brume)
+	brume := SeedOrganization(db, projects, config)
+	admin := SeedAdminUser(db, brume, config)
 	machine := SeedMachine(db, brume)
 
 	_ = admin
@@ -27,10 +28,11 @@ func SeedAll(db *DB) error {
 	return nil
 }
 
-func SeedOrganization(db *DB, projects []*project.Project) *org.Organization {
+func SeedOrganization(db *DB, projects []*project.Project, config *config.BrumeConfig) *org.Organization {
 	brume := &org.Organization{
-		Name:     "brume",
-		Projects: projects,
+		Name:       "brume",
+		ProviderID: config.BrumeGeneralConfig.StaffOrgID,
+		Projects:   projects,
 	}
 
 	if err := db.Gorm.First(brume, "name = ?", "brume").Error; errors.Is(err, gorm.ErrRecordNotFound) {
@@ -67,17 +69,16 @@ func SeedMachine(db *DB, brume *org.Organization) *machine_model.Machine {
 	return machine
 }
 
-func SeedAdminUser(db *DB, brume *org.Organization) *user.User {
+func SeedAdminUser(db *DB, brume *org.Organization, config *config.BrumeConfig) *user.User {
 	admin := &user.User{
-		Email:          "paul@brume.dev",
-		Name:           "Brume Admin",
-		Password:       "adminpass",
+		ProviderID:     config.BrumeGeneralConfig.SudoProviderID,
+		Name:           "Paul Planchon",
 		OrganizationID: brume.ID,
 		Avatar:         "https://avatars.githubusercontent.com/u/34143515?v=4",
 	}
 
-	if err := db.Gorm.First(admin, "email = ?", "paul@brume.dev").Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Info().Msg("No user found in database, creating paul@brume.dev")
+	if err := db.Gorm.First(admin, "provider_id = ?", config.BrumeGeneralConfig.SudoProviderID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.Info().Msg("No user found in database, creating sudo user")
 
 		db.Gorm.Create(admin)
 		logger.Info().Msg("Admin user seeded")

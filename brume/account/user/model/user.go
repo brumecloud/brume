@@ -8,11 +8,11 @@ import (
 
 type User struct {
 	gorm.Model
-	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Email    string    `gorm:"unique"`
-	Name     string
-	Password string
-	Avatar   string
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ProviderID string    `gorm:"unique"`
+	Name       string
+	Password   string
+	Avatar     string
 
 	// user only have one organization
 	OrganizationID uuid.UUID
@@ -20,7 +20,6 @@ type User struct {
 
 func (u *User) HashPassword() error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
-
 	if err != nil {
 		return err
 	}
