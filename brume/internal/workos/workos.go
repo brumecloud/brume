@@ -3,9 +3,11 @@ package brume_workos
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"brume.dev/internal/config"
 	brume_log "brume.dev/internal/log"
+	"brume.dev/internal/router/http/cookies"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 	"github.com/workos/workos-go/v4/pkg/usermanagement"
@@ -16,12 +18,15 @@ var logger = brume_log.GetLogger("workos")
 
 type WorkOSClient struct {
 	jwkSet jwk.Set
+	cfg    *config.BrumeConfig
 }
 
 func NewWorkOSClient(lc fx.Lifecycle, cfg *config.BrumeConfig) *WorkOSClient {
 	usermanagement.SetAPIKey(cfg.WorkOSConfig.ClientSecret)
 
-	client := &WorkOSClient{}
+	client := &WorkOSClient{
+		cfg: cfg,
+	}
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -48,10 +53,8 @@ func NewWorkOSClient(lc fx.Lifecycle, cfg *config.BrumeConfig) *WorkOSClient {
 	return client
 }
 
-func (c *WorkOSClient) VerifyToken(accessToken string) (jwt.Token, error) {
-	logger.Info().Str("accessToken", accessToken).Msg("Verifying token")
-
-	token, err := jwt.Parse([]byte(accessToken), jwt.WithKeySet(c.jwkSet))
+func (c *WorkOSClient) VerifyTokenWithRefresh(accessToken string, refreshToken string, w http.ResponseWriter) (jwt.Token, error) {
+	token, err := jwt.Parse([]byte(accessToken), jwt.WithKeySet(c.jwkSet), jwt.WithValidate(false))
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to parse token")
 		return nil, err
@@ -63,7 +66,22 @@ func (c *WorkOSClient) VerifyToken(accessToken string) (jwt.Token, error) {
 		return nil, errors.New("invalid token")
 	}
 
-	logger.Info().Str("subject", subject).Msg("Token valid")
+	if err = jwt.Validate(token); err != nil {
+		// try refreshing the token
+		resp, err := usermanagement.AuthenticateWithRefreshToken(context.Background(), usermanagement.AuthenticateWithRefreshTokenOpts{
+			RefreshToken: refreshToken,
+			ClientID:     c.cfg.WorkOSConfig.ClientID,
+		})
+		if err != nil {
+			logger.Error().Err(err).Str("subject", subject).Msg("Failed to refresh token")
+			return nil, err
+		}
+
+		logger.Info().Str("subject", subject).Msg("Refreshed token")
+
+		// refresh the token
+		cookies.GenerateUserCookie(resp.AccessToken, resp.RefreshToken, c.cfg, w)
+	}
 
 	return token, nil
 }
