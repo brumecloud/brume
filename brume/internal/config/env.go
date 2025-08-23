@@ -56,6 +56,19 @@ type OrchestratorConfig struct {
 	RescheduleJobs            *bool `mapstructure:"reschedule_jobs" validate:"required,boolean"`
 }
 
+type WorkOSConfig struct {
+	ClientID     string `mapstructure:"client_id" validate:"required,min=1"`
+	ClientSecret string `mapstructure:"client_secret" validate:"required,min=1"`
+	ConnectionID string `mapstructure:"connection_id" validate:"required,min=1"`
+	RedirectURI  string `mapstructure:"redirect_uri" validate:"required,min=1"`
+	CookieSecret string `mapstructure:"cookie_secret" validate:"required,min=1"`
+}
+
+type BrumeGeneralConfig struct {
+	Frontend string `mapstructure:"frontend" validate:"required,min=1"`
+	IsDev    bool   `mapstructure:"is_dev" validate:"required,boolean"`
+}
+
 type BrumeConfig struct {
 	Logs               map[string]string  `mapstructure:"logs" validate:"required"`
 	ServerConfig       ServerConfig       `mapstructure:"server" validate:"required"`
@@ -64,6 +77,8 @@ type BrumeConfig struct {
 	RedisConfig        RedisConfig        `mapstructure:"redis" validate:"required"`
 	PostgresConfig     PostgresConfig     `mapstructure:"postgres" validate:"required"`
 	OrchestratorConfig OrchestratorConfig `mapstructure:"orchestrator" validate:"required"`
+	WorkOSConfig       WorkOSConfig       `mapstructure:"workos" validate:"required"`
+	BrumeGeneralConfig BrumeGeneralConfig `mapstructure:"brume" validate:"required"`
 }
 
 // we want to avoid import cycle

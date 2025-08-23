@@ -1,11 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
-import { AiOutlineCloudServer } from "react-icons/ai";
-import { DiGoogleCloudPlatform } from "react-icons/di";
-import { FaAws, FaGithub, FaGitlab } from "react-icons/fa";
+import { FaGithub, FaGitlab } from "react-icons/fa";
 import { FaGitSquare } from "react-icons/fa";
 import type { IconType } from "react-icons/lib";
-import { VscAzure } from "react-icons/vsc";
 import { Link } from "react-router-dom";
 
 const GitProviderCard = ({

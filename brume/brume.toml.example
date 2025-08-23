@@ -1,0 +1,76 @@
+[logs]
+cmd = "error"
+authentification = "error"
+account_user = "error"
+account_org = "error"
+builder = "error"
+deployment_workflow = "error"
+deployment_service = "error"
+machine_workflow = "error"
+clickhouse = "info"
+db = "error"
+fx = "error"
+redis = "error"
+grpc = "error"
+http = "error"
+graphql_public = "error"
+ticker = "error"
+http_middleware = "error"
+machine = "error"
+grpc_interceptor = "error"
+grpc_server = "error"
+bid_service = "error"
+job_service = "error"
+log_activity = "error"
+service = "error"
+project = "error"
+job_workflow = "error"
+
+
+[orchestrator]
+unhealthy_machine_threshold = 10
+unhealthy_job_threshold = 10
+reschedule_jobs = false
+
+# ticker configuration
+[ticker]
+rapid_ticker = 5
+
+# all servers running on the orchestrator
+[server]
+host = "0.0.0.0"
+orchestrator_port = 9876
+graphql_port = 9877
+grpc_port = 9878
+
+# postgres configuration
+[postgres]
+host = "postgres"
+port = 5432
+db = "brume"
+user = "brume"
+password = "brumepass"
+max_idle = 1
+max_open = 1
+logs = "info"
+
+# redis configuration
+[redis]
+host = "redis"
+port = 6379
+db = 0
+password = ""
+
+# clickhouse configuration
+[clickhouse]
+host = "clickhouse"
+port = 9000
+db = "brume"
+user = "brume"
+password = "brumepass"
+
+[workos]
+client_id = ""
+client_secret = ""
+redirect_uri = "http://localhost:9877/wos/callback"
+api_key = ""
