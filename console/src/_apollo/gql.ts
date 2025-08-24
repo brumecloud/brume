@@ -34,7 +34,7 @@ type Documents = {
     "\n  mutation DeleteService($serviceId: String!) {\n    deleteService(serviceId: $serviceId) {\n      id\n    }\n  }\n": typeof types.DeleteServiceDocument,
     "\n  mutation UpdateServiceSettings(\n    $serviceId: String!\n    $input: ServiceSettingsInput!\n  ) {\n    updateServiceSettings(serviceId: $serviceId, input: $input) {\n      id\n      name\n    }\n  }\n": typeof types.UpdateServiceSettingsDocument,
     "\n  fragment ServiceFragment on Service {\n      name\n      id\n      deployments {\n        ...DeploymentFragment\n      }\n      liveBuilder {\n        ...BuilderFragment\n      }\n      draftBuilder {\n        ...BuilderFragment\n      }\n      liveRunner {\n        ...RunnerFragment\n      }\n      draftRunner {\n        ...RunnerFragment\n      }\n   }\n": typeof types.ServiceFragmentFragmentDoc,
-    "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n  }\n": typeof types.UserFragmentFragmentDoc,
+    "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n    organization {\n      id\n      name\n    }\n  }\n": typeof types.UserFragmentFragmentDoc,
     "\n  query me {\n    me {\n      projects {\n        id\n        name\n        services {\n          id\n          name\n        }\n      }\n      ...UserFragment\n    }\n  }\n": typeof types.MeDocument,
     "\n  fragment GenericRunnerFragment on Runner {\n    type\n    data {\n      command\n      healthCheckURL\n      memory {\n        limit\n        request\n      }\n      cpu {\n        limit\n        request\n      }\n      port\n      publicDomain\n      privateDomain\n    }\n  }\n": typeof types.GenericRunnerFragmentFragmentDoc,
     "\n  fragment GenericBuilderFragment on Builder {\n    data {\n      image\n      registry\n      tag\n    }\n  }\n": typeof types.GenericBuilderFragmentFragmentDoc,
@@ -65,7 +65,7 @@ const documents: Documents = {
     "\n  mutation DeleteService($serviceId: String!) {\n    deleteService(serviceId: $serviceId) {\n      id\n    }\n  }\n": types.DeleteServiceDocument,
     "\n  mutation UpdateServiceSettings(\n    $serviceId: String!\n    $input: ServiceSettingsInput!\n  ) {\n    updateServiceSettings(serviceId: $serviceId, input: $input) {\n      id\n      name\n    }\n  }\n": types.UpdateServiceSettingsDocument,
     "\n  fragment ServiceFragment on Service {\n      name\n      id\n      deployments {\n        ...DeploymentFragment\n      }\n      liveBuilder {\n        ...BuilderFragment\n      }\n      draftBuilder {\n        ...BuilderFragment\n      }\n      liveRunner {\n        ...RunnerFragment\n      }\n      draftRunner {\n        ...RunnerFragment\n      }\n   }\n": types.ServiceFragmentFragmentDoc,
-    "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n  }\n": types.UserFragmentFragmentDoc,
+    "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n    organization {\n      id\n      name\n    }\n  }\n": types.UserFragmentFragmentDoc,
     "\n  query me {\n    me {\n      projects {\n        id\n        name\n        services {\n          id\n          name\n        }\n      }\n      ...UserFragment\n    }\n  }\n": types.MeDocument,
     "\n  fragment GenericRunnerFragment on Runner {\n    type\n    data {\n      command\n      healthCheckURL\n      memory {\n        limit\n        request\n      }\n      cpu {\n        limit\n        request\n      }\n      port\n      publicDomain\n      privateDomain\n    }\n  }\n": types.GenericRunnerFragmentFragmentDoc,
     "\n  fragment GenericBuilderFragment on Builder {\n    data {\n      image\n      registry\n      tag\n    }\n  }\n": types.GenericBuilderFragmentFragmentDoc,
@@ -173,7 +173,7 @@ export function gql(source: "\n  fragment ServiceFragment on Service {\n      na
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n  }\n"): (typeof documents)["\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n  }\n"];
+export function gql(source: "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n    organization {\n      id\n      name\n    }\n  }\n"): (typeof documents)["\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n    organization {\n      id\n      name\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

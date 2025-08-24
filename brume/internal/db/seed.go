@@ -30,7 +30,7 @@ func SeedAll(db *DB, config *config.BrumeConfig) error {
 
 func SeedOrganization(db *DB, projects []*project.Project, config *config.BrumeConfig) *org.Organization {
 	brume := &org.Organization{
-		Name:       "brume",
+		Name:       "BrumeCloud",
 		ProviderID: config.BrumeGeneralConfig.StaffOrgID,
 		Projects:   projects,
 	}

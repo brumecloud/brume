@@ -4,6 +4,13 @@ type User {
 	name: String!
 	avatar: String!
 	projects: [Project!]!
+	organization: Organization!
+}
+
+type Organization {
+	id: String!
+	providerId: String!
+	name: String!
 }
 
 type Project {

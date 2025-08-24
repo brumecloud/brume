@@ -22,6 +22,12 @@ type GetLogsInput struct {
 type Mutation struct {
 }
 
+type Organization struct {
+	ID         string `json:"id"`
+	ProviderID string `json:"providerId"`
+	Name       string `json:"name"`
+}
+
 type Query struct {
 }
 

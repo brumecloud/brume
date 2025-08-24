@@ -340,6 +340,20 @@ func (r *userResolver) Projects(ctx context.Context, obj *user_model.User) ([]*p
 	return projects, err
 }
 
+// Organization is the resolver for the organization field.
+func (r *userResolver) Organization(ctx context.Context, obj *user_model.User) (*public_graph_model.Organization, error) {
+	org, err := r.UserService.GetUserOrganization(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return &public_graph_model.Organization{
+		ID:         org.ID.String(),
+		ProviderID: org.ProviderID,
+		Name:       org.Name,
+	}, nil
+}
+
 // Deployment returns generated.DeploymentResolver implementation.
 func (r *Resolver) Deployment() generated.DeploymentResolver { return &deploymentResolver{r} }
 
