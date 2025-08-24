@@ -11,6 +11,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/ipfans/fxlogger v0.2.0
+	github.com/lestrrat-go/jwx/v3 v3.0.10
 	github.com/manifoldco/promptui v0.9.0
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/rodaine/table v1.2.0
@@ -19,6 +20,7 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.19.0
 	github.com/vektah/gqlparser/v2 v2.5.19
+	github.com/workos/workos-go/v4 v4.45.1
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/metric v1.35.0
 	go.uber.org/fx v1.23.0
@@ -52,7 +54,6 @@ require (
 	github.com/lestrrat-go/blackmagic v1.0.4 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc/v3 v3.0.0 // indirect
-	github.com/lestrrat-go/jwx/v3 v3.0.10 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/lestrrat-go/option/v2 v2.0.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
@@ -69,8 +70,6 @@ require (
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/valyala/fastjson v1.6.4 // indirect
-	github.com/workos/workos-go v1.21.0 // indirect
-	github.com/workos/workos-go/v4 v4.45.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

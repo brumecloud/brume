@@ -110,6 +110,12 @@ type ComplexityRoot struct {
 		UpdateServiceSettings func(childComplexity int, serviceID string, input public_graph_model.ServiceSettingsInput) int
 	}
 
+	Organization struct {
+		ID         func(childComplexity int) int
+		Name       func(childComplexity int) int
+		ProviderID func(childComplexity int) int
+	}
+
 	Project struct {
 		Description func(childComplexity int) int
 		ID          func(childComplexity int) int
@@ -171,10 +177,11 @@ type ComplexityRoot struct {
 	}
 
 	User struct {
-		Avatar   func(childComplexity int) int
-		ID       func(childComplexity int) int
-		Name     func(childComplexity int) int
-		Projects func(childComplexity int) int
+		Avatar       func(childComplexity int) int
+		ID           func(childComplexity int) int
+		Name         func(childComplexity int) int
+		Organization func(childComplexity int) int
+		Projects     func(childComplexity int) int
 	}
 }
 
@@ -482,6 +489,27 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.UpdateServiceSettings(childComplexity, args["serviceId"].(string), args["input"].(public_graph_model.ServiceSettingsInput)), true
 
+	case "Organization.id":
+		if e.complexity.Organization.ID == nil {
+			break
+		}
+
+		return e.complexity.Organization.ID(childComplexity), true
+
+	case "Organization.name":
+		if e.complexity.Organization.Name == nil {
+			break
+		}
+
+		return e.complexity.Organization.Name(childComplexity), true
+
+	case "Organization.providerId":
+		if e.complexity.Organization.ProviderID == nil {
+			break
+		}
+
+		return e.complexity.Organization.ProviderID(childComplexity), true
+
 	case "Project.description":
 		if e.complexity.Project.Description == nil {
 			break
@@ -785,6 +813,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.User.Name(childComplexity), true
 
+	case "User.organization":
+		if e.complexity.User.Organization == nil {
+			break
+		}
+
+		return e.complexity.User.Organization(childComplexity), true
+
 	case "User.projects":
 		if e.complexity.User.Projects == nil {
 			break
@@ -926,6 +961,13 @@ type User {
 	name: String!
 	avatar: String!
 	projects: [Project!]!
+	organization: Organization!
+}
+
+type Organization {
+	id: String!
+	providerId: String!
+	name: String!
 }
 
 type Project {

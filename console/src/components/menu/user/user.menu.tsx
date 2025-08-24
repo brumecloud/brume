@@ -18,7 +18,9 @@ import {
 import { ME_QUERY } from "@/gql/user.graphql";
 
 export const UserMenu = () => {
-	const { data: me, loading } = useQuery(ME_QUERY);
+	const { data: me, loading } = useQuery(ME_QUERY, {
+		fetchPolicy: "cache-first",
+	});
 
 	if (loading) {
 		return (

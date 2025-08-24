@@ -5,6 +5,10 @@ export const USER_FRAGMENT = gql(`
     id
     name
     avatar
+    organization {
+      id
+      name
+    }
   }
 `);
 
