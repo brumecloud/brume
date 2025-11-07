@@ -9,6 +9,7 @@
       "@/*": ["./src/*"],
       "@shadcn/*": ["./src/components/ui/*"],
       "src/*": ["./src/*"]
-    }
+    },
+    "strictNullChecks": true
   }
 }

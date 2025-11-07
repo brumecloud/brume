@@ -72,7 +72,7 @@ export const VariableForm = ({
       <div className="center flex flex-col gap-2 space-y-2">
         {heading && (
           <>
-            <h3 className="text-md font-medium">{heading}</h3>
+            <h3 className="font-medium text-md">{heading}</h3>
             <p className="text-sm">{description}</p>
           </>
         )}
@@ -84,18 +84,18 @@ export const VariableForm = ({
               )} */}
               <Button
                 variant="outline"
-                disabled={
-                  Object.keys(form.formState.errors).length > 0
-                }
+                disabled={Object.keys(form.formState.errors).length > 0}
                 size="sm"
-                className="text-xs">
+                className="text-xs"
+              >
                 Save changes
               </Button>
               <Button
                 onClick={() => form.reset()}
                 variant="destructive"
                 size="sm"
-                className="text-xs">
+                className="text-xs"
+              >
                 Discard
               </Button>
             </div>
@@ -105,7 +105,7 @@ export const VariableForm = ({
       <div className="mt-4 flex flex-col gap-4">
         <Form {...form}>
           <div className="flex flex-col gap-2">
-            {fields.map((item, index) => (
+            {fields.map((_item, index) => (
               <div className="flex flex-row items-center gap-2">
                 <div className="grid w-full grid-cols-10 items-center gap-x-2">
                   <div className="col-span-5">
@@ -143,9 +143,7 @@ export const VariableForm = ({
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <Button
-                    variant="ghost"
-                    onClick={() => remove(index)}>
+                  <Button variant="ghost" onClick={() => remove(index)}>
                     <Trash className="h-4 w-4" />
                   </Button>
                 </div>
@@ -155,7 +153,8 @@ export const VariableForm = ({
           <Button
             variant="outline"
             className="mt-4"
-            onClick={() => append({ key: "", value: "" })}>
+            onClick={() => append({ key: "", value: "" })}
+          >
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Variable
           </Button>

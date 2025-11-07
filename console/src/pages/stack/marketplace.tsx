@@ -22,9 +22,10 @@ const StackCard = () => {
       </div>
       {/** biome-ignore lint/a11y/noStaticElementInteractions: need */}
       <div
-        className="inset-0 -z-10 flex h-40 w-full items-center justify-center gap-x-2 bg-gray-50 bg-[radial-gradient(circle,#73737350_1px,transparent_1px)] bg-[size:10px_10px]"
+        className="-z-10 inset-0 flex h-40 w-full items-center justify-center gap-x-2 bg-[radial-gradient(circle,#73737350_1px,transparent_1px)] bg-[size:10px_10px] bg-gray-50"
         onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}>
+        onMouseLeave={() => setIsHovering(false)}
+      >
         {isHovering ? (
           <div>
             <NavLink to="/overview/deploy?stack=spa-aws-brume">
@@ -43,15 +44,13 @@ const StackCard = () => {
   );
 };
 
-export const Marketplace = () => {
-  return (
+export const Marketplace = () => (
     <Page.Container>
       <Page.Header>
         <Page.Title>Marketplace</Page.Title>
         <Page.Description>
-          Browse all the stack Brume has to offer. Every stack you see
-          in this marketplace has been peer reviewed and is ready to
-          deploy.
+          Browse all the stack Brume has to offer. Every stack you see in this
+          marketplace has been peer reviewed and is ready to deploy.
         </Page.Description>
       </Page.Header>
       <Page.Body className="flex flex-col gap-8">
@@ -64,4 +63,3 @@ export const Marketplace = () => {
       </Page.Body>
     </Page.Container>
   );
-};

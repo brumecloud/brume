@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { gql } from "@/_apollo/gql";
 import { ProjectSchema } from "@/schemas/project.schema";
 
 const _ProjectListSchema = z.array(ProjectSchema);

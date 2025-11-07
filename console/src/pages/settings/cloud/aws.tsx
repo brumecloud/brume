@@ -6,11 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { FaArrowRightLong } from "react-icons/fa6";
-import {
-  MdChecklist,
-  MdOutlineLocalPolice,
-  MdPreview,
-} from "react-icons/md";
+import { MdChecklist, MdOutlineLocalPolice, MdPreview } from "react-icons/md";
 import { TfiPackage } from "react-icons/tfi";
 
 export const AwsPage = () => {
@@ -20,9 +16,7 @@ export const AwsPage = () => {
   return (
     <Page.Container>
       <Page.Header>
-        <Page.Title>
-          Connect your Amazon Web Service account
-        </Page.Title>
+        <Page.Title>Connect your Amazon Web Service account</Page.Title>
         <Page.Description>
           Lets authorize Brume Cloud to operate on your AWS account
         </Page.Description>
@@ -40,12 +34,9 @@ export const AwsPage = () => {
               {({ setStep }) => (
                 <>
                   <div className="flex flex-col space-y-1">
-                    <div className="text-sm font-medium">
-                      AWS account
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      Enter the Account ID of the one you want to
-                      connect
+                    <div className="font-medium text-sm">AWS account</div>
+                    <p className="text-gray-500 text-sm">
+                      Enter the Account ID of the one you want to connect
                     </p>
                   </div>
                   <div className="flex flex-row gap-4">
@@ -58,7 +49,8 @@ export const AwsPage = () => {
                     <Button
                       className="w-32"
                       onClick={() => setStep(1)}
-                      disabled={awsAccount.length !== 12}>
+                      disabled={awsAccount.length !== 12}
+                    >
                       <FaArrowRightLong className="h-4 w-4" />
                       Continue
                     </Button>
@@ -75,17 +67,16 @@ export const AwsPage = () => {
               <Stepper.Title>Agreement</Stepper.Title>
             </Stepper.Header>
             <Stepper.Body>
-              {({ setStep }) => {
-                return (
+              {({ setStep }) => (
                   <>
                     <div className="flex flex-col space-y-1">
-                      <div className="text-sm font-medium">
+                      <div className="font-medium text-sm">
                         Brume will operate on your account
                       </div>
-                      <p className="text-sm text-gray-500">
-                        Brume will operate on your account, only
-                        managing its ressources. You are responsible
-                        for the stack you are deploying.
+                      <p className="text-gray-500 text-sm">
+                        Brume will operate on your account, only managing its
+                        ressources. You are responsible for the stack you are
+                        deploying.
                       </p>
                     </div>
                     <div className="pt-4">
@@ -95,9 +86,7 @@ export const AwsPage = () => {
                           checked={agreement}
                           onCheckedChange={(checked) => {
                             setAgreement(
-                              checked === "indeterminate"
-                                ? false
-                                : checked
+                              checked === "indeterminate" ? false : checked
                             );
                             if (checked) {
                               setStep(2);
@@ -112,8 +101,7 @@ export const AwsPage = () => {
                       </div>
                     </div>
                   </>
-                );
-              }}
+                )}
             </Stepper.Body>
           </Stepper.Item>
           <Stepper.Item>
@@ -124,16 +112,15 @@ export const AwsPage = () => {
               <Stepper.Title>Authorizing Brume Cloud</Stepper.Title>
             </Stepper.Header>
             <Stepper.Body>
-              {({ setStep }) => {
-                return (
+              {({ setStep }) => (
                   <>
                     <div className="flex flex-col space-y-1">
-                      <div className="text-sm font-medium">
+                      <div className="font-medium text-sm">
                         Creating the Assume role
                       </div>
-                      <p className="text-sm text-gray-500">
-                        Brume will use an assumed role on your account
-                        to manage the ressources it deploy.
+                      <p className="text-gray-500 text-sm">
+                        Brume will use an assumed role on your account to manage
+                        the ressources it deploy.
                       </p>
                     </div>
                     <div className="pt-4">
@@ -142,8 +129,7 @@ export const AwsPage = () => {
                       </Button>
                     </div>
                   </>
-                );
-              }}
+                )}
             </Stepper.Body>
           </Stepper.Item>
           <Stepper.Item className="h-full">
@@ -154,16 +140,15 @@ export const AwsPage = () => {
               <Stepper.Title>Verification</Stepper.Title>
             </Stepper.Header>
             <Stepper.Body>
-              {({ setStep }) => {
-                return (
+              {({ setStep }) => (
                   <>
                     <div className="flex flex-col space-y-1">
-                      <div className="text-sm font-medium">
+                      <div className="font-medium text-sm">
                         Deploying the end to end test stack
                       </div>
-                      <p className="text-sm text-gray-500">
-                        Brume will deploy a very simple stack to
-                        verify everything is working
+                      <p className="text-gray-500 text-sm">
+                        Brume will deploy a very simple stack to verify
+                        everything is working
                       </p>
                     </div>
                     <div className="pt-4">
@@ -172,8 +157,7 @@ export const AwsPage = () => {
                       </Button>
                     </div>
                   </>
-                );
-              }}
+                )}
             </Stepper.Body>
           </Stepper.Item>
         </Stepper.Root>

@@ -16,16 +16,11 @@ export default function ProxyNodeFlow({
   return (
     <div
       style={{ ...style, width: props.width, height: props.height }}
-      className="flex flex-row items-center justify-center rounded-sm border bg-white">
-      <p className="text-xs font-normal text-gray-800">
-        {data.label}
-      </p>
+      className="flex flex-row items-center justify-center rounded-sm border bg-white"
+    >
+      <p className="font-normal text-gray-800 text-xs">{data.label}</p>
       <Handle type="source" position={Position.Right} />
-      <Handle
-        type="target"
-        style={{ opacity: 0 }}
-        position={Position.Left}
-      />
+      <Handle type="target" style={{ opacity: 0 }} position={Position.Left} />
     </div>
   );
 }

@@ -24,9 +24,7 @@ export function ProjectCard(props: ProjectCardProps) {
         <div className="flex flex-row justify-between p-8">
           <div>
             <h3 className="font-bold">{props.name}</h3>
-            <p className="text-sm italic text-gray-500">
-              {props.url}
-            </p>
+            <p className="text-gray-500 text-sm italic">{props.url}</p>
           </div>
           <div className="flex flex-col items-end gap-x-2 gap-y-2">
             <p className="mr-1 flex flex-row items-center gap-x-2 text-sm">

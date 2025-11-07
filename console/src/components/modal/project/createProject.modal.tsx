@@ -105,8 +105,8 @@ export const CreateProjectModal = () => {
                       />
                     </FormControl>
                     <FormDescription>
-                      Describe your project for everybody to
-                      understand what it does
+                      Describe your project for everybody to understand what it
+                      does
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -114,10 +114,7 @@ export const CreateProjectModal = () => {
               />
             </div>
             <DialogFooter>
-              <Button
-                disabled={loading}
-                type="submit"
-                variant="default">
+              <Button disabled={loading} type="submit" variant="default">
                 Do it!
               </Button>
             </DialogFooter>

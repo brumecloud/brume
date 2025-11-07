@@ -15,10 +15,7 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { ServiceFragment } from "@/gql/service.graphql";
-import {
-  useDeleteService,
-  useUpdateServiceSettings,
-} from "@/hooks/useService";
+import { useDeleteService, useUpdateServiceSettings } from "@/hooks/useService";
 import type { RouteParams } from "@/router/router.param";
 import { cn } from "@/utils";
 import { useFragment } from "@apollo/client";
@@ -28,7 +25,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   useBlocker,
-  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom";
@@ -49,9 +45,8 @@ export const SettingPage = () => {
   }
 
   const { deleteServiceMutation } = useDeleteService();
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const { updateServiceSettingsMutation, loading } =
-    useUpdateServiceSettings();
+  const [_confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const { updateServiceSettingsMutation, loading } = useUpdateServiceSettings();
   const navigate = useNavigate();
 
   const form = useForm<ServiceFragmentFragment>({
@@ -64,9 +59,7 @@ export const SettingPage = () => {
     defaultValues: service,
   });
 
-  const blocker = useBlocker(() => {
-    return form.formState.isDirty;
-  });
+  const blocker = useBlocker(() => form.formState.isDirty);
 
   if (blocker.state === "blocked") {
     toast.warning("You have unsaved changes");
@@ -87,7 +80,7 @@ export const SettingPage = () => {
     [form.formState.isDirty]
   );
 
-  const onDelete = useCallback(() => {
+  const _onDelete = useCallback(() => {
     const promise = async () => {
       await deleteServiceMutation();
       navigate(`/${projectId}`);
@@ -99,11 +92,11 @@ export const SettingPage = () => {
     });
   }, [deleteServiceMutation, projectId, navigate]);
 
-  const cancel = useCallback(() => {
+  const _cancel = useCallback(() => {
     setConfirmModalOpen(false);
   }, []);
 
-  const submitChanges = async () => {
+  const _submitChanges = async () => {
     const promise = async () => {
       await updateServiceSettingsMutation({
         variables: {
@@ -130,9 +123,7 @@ export const SettingPage = () => {
     <Page.Container>
       <Page.Header>
         <Page.Title>Settings</Page.Title>
-        <Page.Description>
-          General settings about the service
-        </Page.Description>
+        <Page.Description>General settings about the service</Page.Description>
       </Page.Header>
       <Page.Body className="pt-8">
         <Stepper.Root leftBorder>
@@ -146,9 +137,7 @@ export const SettingPage = () => {
             <Stepper.Body>
               {() => (
                 <>
-                  <p className="text-sm">
-                    Define the name of the service
-                  </p>
+                  <p className="text-sm">Define the name of the service</p>
                   <FormField
                     control={form.control}
                     name="name"
@@ -163,14 +152,8 @@ export const SettingPage = () => {
                       />
                     )}
                   />
-                  <p className="text-sm">
-                    The universal ID of the service
-                  </p>
-                  <Input
-                    value={service?.id}
-                    disabled
-                    className="w-[400px]"
-                  />
+                  <p className="text-sm">The universal ID of the service</p>
+                  <Input value={service?.id} disabled className="w-[400px]" />
                 </>
               )}
             </Stepper.Body>
@@ -189,8 +172,8 @@ export const SettingPage = () => {
                 <>
                   <div className="w-1/2 rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
                     <p>
-                      Deleting the service will delete all data
-                      associated to it :{" "}
+                      Deleting the service will delete all data associated to it
+                      :{" "}
                       <span className="font-semibold">
                         all its artifacts, all its logs and metrics.
                       </span>
@@ -198,7 +181,8 @@ export const SettingPage = () => {
                   </div>
                   <Button
                     className="w-[100px] bg-red-700 hover:bg-red-800"
-                    onClick={() => setConfirmModalOpen(true)}>
+                    onClick={() => setConfirmModalOpen(true)}
+                  >
                     Delete
                   </Button>
                 </>
@@ -226,8 +210,7 @@ export const OldSettingPage = () => {
 
   const { deleteServiceMutation } = useDeleteService();
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const { updateServiceSettingsMutation, loading } =
-    useUpdateServiceSettings();
+  const { updateServiceSettingsMutation, loading } = useUpdateServiceSettings();
   const navigate = useNavigate();
 
   const form = useForm<ServiceFragmentFragment>({
@@ -240,9 +223,7 @@ export const OldSettingPage = () => {
     defaultValues: service,
   });
 
-  const blocker = useBlocker(() => {
-    return form.formState.isDirty;
-  });
+  const blocker = useBlocker(() => form.formState.isDirty);
 
   if (blocker.state === "blocked") {
     toast.warning("You have unsaved changes");
@@ -309,17 +290,16 @@ export const OldSettingPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>This is danger.</AlertDialogTitle>
             <AlertDialogDescription>
-              Once you delete the service, you also lose all the data
-              associated to it. This cannot be undone.
+              Once you delete the service, you also lose all the data associated
+              to it. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={cancel}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel onClick={cancel}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-700 hover:bg-red-800"
-              onClick={onDelete}>
+              onClick={onDelete}
+            >
               Continue
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -336,24 +316,22 @@ export const OldSettingPage = () => {
               <div className="">
                 {form.formState.isDirty && (
                   <div className="flex flex-row items-center space-x-2">
-                    {loading && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
+                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                     <Button
                       onClick={submitChanges}
                       variant="outline"
-                      disabled={
-                        Object.keys(form.formState.errors).length > 0
-                      }
+                      disabled={Object.keys(form.formState.errors).length > 0}
                       size="sm"
-                      className="text-xs">
+                      className="text-xs"
+                    >
                       Save changes
                     </Button>
                     <Button
                       onClick={() => form.reset()}
                       variant="destructive"
                       size="sm"
-                      className="text-xs">
+                      className="text-xs"
+                    >
                       Discard
                     </Button>
                   </div>
@@ -362,7 +340,7 @@ export const OldSettingPage = () => {
             </div>
           </div>
         </div>
-        <div className="relative flex max-w-[700px] flex-col space-y-4 border-l border-gray-300 pb-16 pl-4">
+        <div className="relative flex max-w-[700px] flex-col space-y-4 border-gray-300 border-l pb-16 pl-4">
           <div className="flex flex-row items-center">
             <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
               <SquareTerminal className="h-5 w-5" />
@@ -387,7 +365,7 @@ export const OldSettingPage = () => {
           <p className="text-sm">The universal ID of the service</p>
           <Input value={service?.id} disabled className="w-[400px]" />
         </div>
-        <div className="relative flex flex-col border-l border-gray-300 pl-4">
+        <div className="relative flex flex-col border-gray-300 border-l pl-4">
           <div className="flex flex-row items-center">
             <div className="absolute left-[-20px] rounded-full border border-red-300 bg-white p-2 text-red-600">
               <Flame className="h-5 w-5" />
@@ -397,8 +375,7 @@ export const OldSettingPage = () => {
           <div className="flex flex-col space-y-6 pt-4 text-red-900">
             <div>
               <p>
-                Deleting the service will delete all data associated
-                to it :{" "}
+                Deleting the service will delete all data associated to it :{" "}
                 <span className="font-semibold">
                   all its artifacts, all its logs and metrics.
                 </span>
@@ -406,12 +383,13 @@ export const OldSettingPage = () => {
             </div>
             <Button
               className="w-[100px] bg-red-700 hover:bg-red-800"
-              onClick={() => setConfirmModalOpen(true)}>
+              onClick={() => setConfirmModalOpen(true)}
+            >
               Delete
             </Button>
           </div>
         </div>
-        <div className="grow border-l border-gray-300" />
+        <div className="grow border-gray-300 border-l" />
       </div>
     </div>
   );

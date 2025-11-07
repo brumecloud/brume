@@ -6,7 +6,6 @@ import (
 	"brume.dev/internal/config"
 	brume_log "brume.dev/internal/log"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -43,7 +42,7 @@ func openDB(dsn string, config *config.BrumeConfig) (*DB, error) {
 		level = zerolog.InfoLevel
 	}
 
-	dblogger := NewDBLogger(log.Level(level))
+	dblogger := NewDBLogger(logger.Level(level))
 
 	dialector := postgres.Open(dsn)
 	gorm, err := gorm.Open(dialector, &gorm.Config{

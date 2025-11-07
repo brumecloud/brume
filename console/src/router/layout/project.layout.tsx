@@ -1,7 +1,6 @@
 import { gql } from "@/_apollo";
-import { RouteParams } from "@/router/router.param";
+import type { RouteParams } from "@/router/router.param";
 import { useQuery } from "@apollo/client";
-import React from "react";
 import { Outlet, useParams } from "react-router-dom";
 
 export const GenericRunnerFragment = gql(`
@@ -94,8 +93,6 @@ export const ProjectLayout = () => {
   // we do not need to render anything here
   // we only data querying
   return (
-    <React.Fragment>
-      <Outlet />
-    </React.Fragment>
+    <Outlet />
   );
 };

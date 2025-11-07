@@ -1,5 +1,5 @@
 export enum RouteParams {
-	ProjectID = "projectId",
-	ServiceID = "serviceId",
-	StackID = "stackId",
+  ProjectID = "projectId",
+  ServiceID = "serviceId",
+  StackID = "stackId",
 }

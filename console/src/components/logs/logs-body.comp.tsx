@@ -35,37 +35,42 @@ export const LogLine = ({ data }: { data: Log }) => {
             gridTemplateColumns:
               "auto minmax(0px, 120px) minmax(0px, 120px) minmax(0px, 200px) minmax(0px, 1fr)",
             gridAutoRows: "auto",
-          }}>
+          }}
+        >
           <div>
             <div
               className="scrollbar-hide h-full w-full min-w-[0px] cursor-default select-none truncate pr-2 text-xs"
-              title="Info">
-              <a className="block h-full w-2 rounded-[3px] bg-blue-200 hover:bg-blue-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"></a>
+              title="Info"
+            >
+              <a className="block h-full w-2 rounded-[3px] bg-blue-200 hover:bg-blue-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700" />
             </div>
           </div>
           <div>
-            <div className="scrollbar-hide min-w-[0px] cursor-default select-none truncate text-xs text-gray-500">
+            <div className="scrollbar-hide min-w-[0px] cursor-default select-none truncate text-gray-500 text-xs">
               <a
                 title="Jul 28 2024, 11:33 AM (GMT+2)"
-                className="hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700">
+                className="hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"
+              >
                 {formatDate(new Date(data.timestamp))}
               </a>
             </div>
           </div>
           <div>
-            <div className="scrollbar-hide min-w-[0px] cursor-default select-none truncate pr-2 text-xs text-gray-600">
+            <div className="scrollbar-hide min-w-[0px] cursor-default select-none truncate pr-2 text-gray-600 text-xs">
               <a
                 className="cursor:pointer hover:text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"
-                href="#">
+                href="#"
+              >
                 {data.serviceId}
               </a>
             </div>
           </div>
           <div>
-            <div className="scrollbar-hide min-w-[0px] cursor-default select-none truncate pr-2 text-xs text-gray-600">
+            <div className="scrollbar-hide min-w-[0px] cursor-default select-none truncate pr-2 text-gray-600 text-xs">
               <a
                 className="cursor:pointer hover:text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700"
-                href="#">
+                href="#"
+              >
                 {data.deploymentName}
               </a>
             </div>
@@ -79,7 +84,8 @@ export const LogLine = ({ data }: { data: Log }) => {
       </div>
       <div
         aria-hidden="true"
-        className="absolute inset-0 opacity-30 group-hover/logline:bg-gray-100 group-hover/logline:opacity-40"></div>
+        className="absolute inset-0 opacity-30 group-hover/logline:bg-gray-100 group-hover/logline:opacity-40"
+      />
     </div>
   );
 };

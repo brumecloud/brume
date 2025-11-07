@@ -19,14 +19,12 @@ export default function AppGroupFlow({
         height: props.height,
       }}
       {...props}
-      className="flex flex-col rounded-xl border border-slate-200 backdrop-blur-[2px]">
+      className="flex flex-col rounded-xl border border-slate-200 backdrop-blur-[2px]"
+    >
       <div className="flex flex-row items-center justify-between px-5 py-4 pr-3">
         <div className="flex flex-row items-center gap-2">
-          <Boxes
-            strokeWidth={1.5}
-            className="h-5 w-5 text-gray-800"
-          />
-          <div className="text-sm font-normal">{data.label}</div>
+          <Boxes strokeWidth={1.5} className="h-5 w-5 text-gray-800" />
+          <div className="font-normal text-sm">{data.label}</div>
         </div>
         <div>
           <EllipsisVertical

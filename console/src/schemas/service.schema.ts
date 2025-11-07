@@ -50,7 +50,7 @@ export const DockerRunnerSchema = z.object({
         })
         .default(0.2),
     }),
-    port: z.number().min(1).max(65535).default(80),
+    port: z.number().min(1).max(65_535).default(80),
     publicDomain: z
       .string()
       .regex(/^[a-z0-9-]+$/, {
@@ -69,9 +69,7 @@ export const DockerRunnerSchema = z.object({
 /**
  * @deprecated use validation from graphql
  */
-export const RunnerSchema = z.discriminatedUnion("type", [
-  DockerRunnerSchema,
-]);
+export const RunnerSchema = z.discriminatedUnion("type", [DockerRunnerSchema]);
 
 /**
  * @deprecated use type from @/_apollo/graphql

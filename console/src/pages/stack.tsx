@@ -1,17 +1,15 @@
+import { useQuery } from "@apollo/client";
+import ArchitectureServiceAmazonCloudFront from "aws-react-icons/lib/icons/ArchitectureServiceAmazonCloudFront";
+import ArchitectureServiceAWSPrivateCertificateAuthority from "aws-react-icons/lib/icons/ArchitectureServiceAWSPrivateCertificateAuthority";
+import ResourceAmazonSimpleStorageServiceBucket from "aws-react-icons/lib/icons/ResourceAmazonSimpleStorageServiceBucket";
+import { useState } from "react";
+import { BiPulse } from "react-icons/bi";
+import { NavLink } from "react-router-dom";
 import { Page } from "@/components/page-comp/header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GET_MACHINES } from "@/gql/machine.graphql";
-import { useQuery } from "@apollo/client";
-import ArchitectureServiceAWSPrivateCertificateAuthority from "aws-react-icons/lib/icons/ArchitectureServiceAWSPrivateCertificateAuthority";
-import ArchitectureServiceAmazonCloudFront from "aws-react-icons/lib/icons/ArchitectureServiceAmazonCloudFront";
-import ResourceAmazonSimpleStorageServiceBucket from "aws-react-icons/lib/icons/ResourceAmazonSimpleStorageServiceBucket";
-import { useState } from "react";
-import { BiPulse } from "react-icons/bi";
-import { FaAws } from "react-icons/fa6";
-import { LuBadgeCheck } from "react-icons/lu";
-import { NavLink } from "react-router-dom";
 
 const StackCard = () => {
   const [isHovering, setIsHovering] = useState(false);
@@ -33,9 +31,10 @@ const StackCard = () => {
       </div>
       {/** biome-ignore lint/a11y/noStaticElementInteractions: need */}
       <div
-        className="inset-0 -z-10 flex h-40 w-full items-center justify-center gap-x-2 bg-gray-50 bg-[radial-gradient(circle,#73737350_1px,transparent_1px)] bg-[size:10px_10px]"
+        className="-z-10 inset-0 flex h-40 w-full items-center justify-center gap-x-2 bg-[radial-gradient(circle,#73737350_1px,transparent_1px)] bg-[size:10px_10px] bg-gray-50"
         onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}>
+        onMouseLeave={() => setIsHovering(false)}
+      >
         {isHovering ? (
           <div>
             <NavLink to="/overview/stack/id">
@@ -92,7 +91,9 @@ export default function Stacks() {
           <div className="col-span-6 flex flex-col gap-2">
             {/*<h3>Stacks</h3>*/}
             <div className="grid grid-cols-3">
-              {machines?.map((machine) => <StackCard />)}
+              {machines?.map((_machine) => (
+                <StackCard />
+              ))}
             </div>
           </div>
         </div>

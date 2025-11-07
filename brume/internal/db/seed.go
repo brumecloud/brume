@@ -35,7 +35,7 @@ func SeedOrganization(db *DB, projects []*project.Project, config *config.BrumeC
 		Projects:   projects,
 	}
 
-	if err := db.Gorm.First(brume, "name = ?", "brume").Error; errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := db.Gorm.First(brume, "name = ?", "BrumeCloud").Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Info().Msg("No organization found in database, creating brume")
 		db.Gorm.Create(brume)
 		logger.Info().Msg("Organization seeded")

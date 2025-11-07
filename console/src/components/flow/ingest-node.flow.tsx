@@ -15,10 +15,11 @@ export default function IngestNodeFlow({
   return (
     <div
       style={{ ...style, width: props.width, height: props.height }}
-      className="flex h-full w-full items-center gap-x-2 rounded-sm border border-gray-100 bg-[#161616] py-1 pl-1">
+      className="flex h-full w-full items-center gap-x-2 rounded-sm border border-gray-100 bg-[#161616] py-1 pl-1"
+    >
       <img src={logo} className="h-8 w-8" />
       <Handle type="source" position={Position.Right} />
-      <p className="text-sm font-normal text-white">{data.label}</p>
+      <p className="font-normal text-sm text-white">{data.label}</p>
     </div>
   );
 }
