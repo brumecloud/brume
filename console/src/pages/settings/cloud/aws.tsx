@@ -68,40 +68,40 @@ export const AwsPage = () => {
             </Stepper.Header>
             <Stepper.Body>
               {({ setStep }) => (
-                  <>
-                    <div className="flex flex-col space-y-1">
-                      <div className="font-medium text-sm">
-                        Brume will operate on your account
-                      </div>
-                      <p className="text-gray-500 text-sm">
-                        Brume will operate on your account, only managing its
-                        ressources. You are responsible for the stack you are
-                        deploying.
-                      </p>
+                <>
+                  <div className="flex flex-col space-y-1">
+                    <div className="font-medium text-sm">
+                      Brume will operate on your account
                     </div>
-                    <div className="pt-4">
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          id="terms"
-                          checked={agreement}
-                          onCheckedChange={(checked) => {
-                            setAgreement(
-                              checked === "indeterminate" ? false : checked
-                            );
-                            if (checked) {
-                              setStep(2);
-                            } else {
-                              setStep(1);
-                            }
-                          }}
-                        />
-                        <Label htmlFor="terms">
-                          Accept the changes and the risks
-                        </Label>
-                      </div>
+                    <p className="text-gray-500 text-sm">
+                      Brume will operate on your account, only managing its
+                      ressources. You are responsible for the stack you are
+                      deploying.
+                    </p>
+                  </div>
+                  <div className="pt-4">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="terms"
+                        checked={agreement}
+                        onCheckedChange={(checked) => {
+                          setAgreement(
+                            checked === "indeterminate" ? false : checked
+                          );
+                          if (checked) {
+                            setStep(2);
+                          } else {
+                            setStep(1);
+                          }
+                        }}
+                      />
+                      <Label htmlFor="terms">
+                        Accept the changes and the risks
+                      </Label>
                     </div>
-                  </>
-                )}
+                  </div>
+                </>
+              )}
             </Stepper.Body>
           </Stepper.Item>
           <Stepper.Item>
@@ -113,23 +113,21 @@ export const AwsPage = () => {
             </Stepper.Header>
             <Stepper.Body>
               {({ setStep }) => (
-                  <>
-                    <div className="flex flex-col space-y-1">
-                      <div className="font-medium text-sm">
-                        Creating the Assume role
-                      </div>
-                      <p className="text-gray-500 text-sm">
-                        Brume will use an assumed role on your account to manage
-                        the ressources it deploy.
-                      </p>
+                <>
+                  <div className="flex flex-col space-y-1">
+                    <div className="font-medium text-sm">
+                      Creating the Assume role
                     </div>
-                    <div className="pt-4">
-                      <Button onClick={() => setStep(3)}>
-                        Create the role
-                      </Button>
-                    </div>
-                  </>
-                )}
+                    <p className="text-gray-500 text-sm">
+                      Brume will use an assumed role on your account to manage
+                      the ressources it deploy.
+                    </p>
+                  </div>
+                  <div className="pt-4">
+                    <Button onClick={() => setStep(3)}>Create the role</Button>
+                  </div>
+                </>
+              )}
             </Stepper.Body>
           </Stepper.Item>
           <Stepper.Item className="h-full">
@@ -141,23 +139,23 @@ export const AwsPage = () => {
             </Stepper.Header>
             <Stepper.Body>
               {({ setStep }) => (
-                  <>
-                    <div className="flex flex-col space-y-1">
-                      <div className="font-medium text-sm">
-                        Deploying the end to end test stack
-                      </div>
-                      <p className="text-gray-500 text-sm">
-                        Brume will deploy a very simple stack to verify
-                        everything is working
-                      </p>
+                <>
+                  <div className="flex flex-col space-y-1">
+                    <div className="font-medium text-sm">
+                      Deploying the end to end test stack
                     </div>
-                    <div className="pt-4">
-                      <Button onClick={() => setStep(4)}>
-                        Start the end to end test
-                      </Button>
-                    </div>
-                  </>
-                )}
+                    <p className="text-gray-500 text-sm">
+                      Brume will deploy a very simple stack to verify everything
+                      is working
+                    </p>
+                  </div>
+                  <div className="pt-4">
+                    <Button onClick={() => setStep(4)}>
+                      Start the end to end test
+                    </Button>
+                  </div>
+                </>
+              )}
             </Stepper.Body>
           </Stepper.Item>
         </Stepper.Root>

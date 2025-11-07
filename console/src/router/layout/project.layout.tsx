@@ -92,7 +92,5 @@ export const ProjectLayout = () => {
 
   // we do not need to render anything here
   // we only data querying
-  return (
-    <Outlet />
-  );
+  return <Outlet />;
 };

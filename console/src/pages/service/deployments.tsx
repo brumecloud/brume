@@ -134,7 +134,9 @@ export const DeploymentsPage = () => {
 
   const deploymentsRaw = data.deployments;
 
-  const deployments = deploymentsRaw.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const deployments = deploymentsRaw.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   return (
     <div className="flex h-full flex-col gap-y-4 px-32 pt-8">

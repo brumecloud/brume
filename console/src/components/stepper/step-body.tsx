@@ -120,16 +120,16 @@ export const StepRoot = ({
       <MotionConfig transition={{ duration: 0.3 }}>
         <div className={cn("flex h-full flex-col", className)} {...props}>
           {React.Children.map(children, (child, index) => (
-              <StepItemContext.Provider
-                value={{
-                  step: index,
-                  active: activeStep[index] as boolean,
-                  toggleActive: () => toggleActive(index),
-                }}
-              >
-                {child}
-              </StepItemContext.Provider>
-            ))}
+            <StepItemContext.Provider
+              value={{
+                step: index,
+                active: activeStep[index] as boolean,
+                toggleActive: () => toggleActive(index),
+              }}
+            >
+              {child}
+            </StepItemContext.Provider>
+          ))}
           <div ref={scrollRef} />
         </div>
       </MotionConfig>

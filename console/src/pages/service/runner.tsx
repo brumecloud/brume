@@ -1,15 +1,3 @@
-import type { RunnerFragmentFragment } from "@/_apollo/graphql";
-import { Stepper } from "@/components/stepper";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { FormField } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ServiceFragment } from "@/gql/service.graphql";
-import { useUpdateRunner } from "@/hooks/useUpdateRunner";
-import type { RouteParams } from "@/router/router.param";
-import { DockerRunnerSchema } from "@/schemas/service.schema";
-import { cn } from "@/utils";
 import { useFragment } from "@apollo/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -24,6 +12,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Form, useForm } from "react-hook-form";
 import { useBlocker, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import type { RunnerFragmentFragment } from "@/_apollo/graphql";
+import { Stepper } from "@/components/stepper";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ServiceFragment } from "@/gql/service.graphql";
+import { useUpdateRunner } from "@/hooks/useUpdateRunner";
+import type { RouteParams } from "@/router/router.param";
+import { DockerRunnerSchema } from "@/schemas/service.schema";
+import { cn } from "@/utils";
 
 export const RunnerPage = () => {
   const { serviceId } = useParams<RouteParams>();
@@ -48,9 +48,13 @@ export const RunnerPage = () => {
     resolver: zodResolver(DockerRunnerSchema),
     mode: "onChange",
     defaultValues: useMemo(() => {
-      if (draftRunner) { return draftRunner; }
-      if (runner) { return runner; }
-      return ;
+      if (draftRunner) {
+        return draftRunner;
+      }
+      if (runner) {
+        return runner;
+      }
+      return;
     }, [draftRunner, runner]),
   });
 
@@ -102,7 +106,9 @@ export const RunnerPage = () => {
   }, [onUnload]);
 
   const submitChanges = async () => {
-    if (!service?.id) { return; }
+    if (!service?.id) {
+      return;
+    }
 
     await updateRunnerMutation({
       variables: {
@@ -115,7 +121,9 @@ export const RunnerPage = () => {
     form.reset(form.getValues());
   };
 
-  if (!service) { return null; }
+  if (!service) {
+    return null;
+  }
 
   return (
     <Form {...form} className="px-32 pt-16">
@@ -124,19 +132,19 @@ export const RunnerPage = () => {
           <div className="flex flex-row items-center space-x-2">
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             <Button
-              onClick={submitChanges}
-              variant="outline"
-              disabled={Object.keys(form.formState.errors).length > 0}
-              size="sm"
               className="text-xs"
+              disabled={Object.keys(form.formState.errors).length > 0}
+              onClick={submitChanges}
+              size="sm"
+              variant="outline"
             >
               Save changes
             </Button>
             <Button
-              onClick={() => form.reset()}
-              variant="destructive"
-              size="sm"
               className="text-xs"
+              onClick={() => form.reset()}
+              size="sm"
+              variant="destructive"
             >
               Discard
             </Button>
@@ -165,7 +173,6 @@ export const RunnerPage = () => {
                     <div>
                       <Input
                         {...field}
-                        placeholder="npx run start"
                         className={cn(
                           "w-[300px] font-mono",
                           runner &&
@@ -174,6 +181,7 @@ export const RunnerPage = () => {
                             "border-blue-500",
                           fieldState.isDirty && "border-green-500"
                         )}
+                        placeholder="npx run start"
                       />
                       {runner &&
                         draftRunner &&
@@ -200,8 +208,8 @@ export const RunnerPage = () => {
             {() => (
               <>
                 <Alert
-                  variant="default"
                   className="w-1/2 border-green-400 bg-green-50"
+                  variant="default"
                 >
                   <RocketIcon className="h-4 w-4" color="green" />
                   <AlertTitle className="text-green-700">
@@ -223,7 +231,6 @@ export const RunnerPage = () => {
                     <div className="center flex flex-col gap-2">
                       <Input
                         {...field}
-                        placeholder="http://localhost:8080/healthz"
                         className={cn(
                           "w-[300px]",
                           runner &&
@@ -234,6 +241,7 @@ export const RunnerPage = () => {
                           fieldState.isDirty && "border-green-500",
                           fieldState.error && "border-red-500"
                         )}
+                        placeholder="http://localhost:8080/healthz"
                       />
                       {runner &&
                         draftRunner &&
@@ -276,7 +284,7 @@ export const RunnerPage = () => {
                   </p>
                   <div className="flex flex-row gap-3">
                     <div>
-                      <Label htmlFor="request-cpu" className="text-xs">
+                      <Label className="text-xs" htmlFor="request-cpu">
                         CPU
                       </Label>
                       <FormField
@@ -286,13 +294,6 @@ export const RunnerPage = () => {
                           <div className="flex flex-col gap-2">
                             <Input
                               {...field}
-                              onChange={(e) => {
-                                field.onChange(Number(e.target.value));
-                              }}
-                              id="request-cpu"
-                              type="number"
-                              step={0.1}
-                              placeholder="0.1CPU"
                               className={cn(
                                 "w-[200px]",
                                 runner &&
@@ -303,6 +304,13 @@ export const RunnerPage = () => {
                                 fieldState.isDirty && "border-green-500",
                                 fieldState.error && "border-red-500"
                               )}
+                              id="request-cpu"
+                              onChange={(e) => {
+                                field.onChange(Number(e.target.value));
+                              }}
+                              placeholder="0.1CPU"
+                              step={0.1}
+                              type="number"
                             />
                             {fieldState.error && (
                               <p className="text-red-500 text-xs">
@@ -322,7 +330,7 @@ export const RunnerPage = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="request-cpu" className="text-xs">
+                      <Label className="text-xs" htmlFor="request-cpu">
                         Memory
                       </Label>
                       <FormField
@@ -332,13 +340,6 @@ export const RunnerPage = () => {
                           <div className="flex flex-col gap-2">
                             <Input
                               {...field}
-                              onChange={(e) => {
-                                field.onChange(Number(e.target.value));
-                              }}
-                              id="request-cpu"
-                              type="number"
-                              step={100}
-                              placeholder="100Mb"
                               className={cn(
                                 "w-[200px]",
                                 runner &&
@@ -349,6 +350,13 @@ export const RunnerPage = () => {
                                 fieldState.isDirty && "border-green-500",
                                 fieldState.error && "border-red-500"
                               )}
+                              id="request-cpu"
+                              onChange={(e) => {
+                                field.onChange(Number(e.target.value));
+                              }}
+                              placeholder="100Mb"
+                              step={100}
+                              type="number"
                             />
                             {fieldState.error && (
                               <p className="text-red-500 text-xs">
@@ -379,7 +387,7 @@ export const RunnerPage = () => {
                   </p>
                   <div className="flex flex-row gap-3">
                     <div>
-                      <Label htmlFor="request-cpu" className="text-xs">
+                      <Label className="text-xs" htmlFor="request-cpu">
                         CPU
                       </Label>
                       <FormField
@@ -389,13 +397,6 @@ export const RunnerPage = () => {
                           <div className="flex flex-col gap-2">
                             <Input
                               {...field}
-                              onChange={(e) => {
-                                field.onChange(Number(e.target.value));
-                              }}
-                              id="request-cpu"
-                              type="number"
-                              step={0.1}
-                              placeholder="0.2CPU"
                               className={cn(
                                 "w-[200px]",
                                 runner &&
@@ -406,6 +407,13 @@ export const RunnerPage = () => {
                                 fieldState.isDirty && "border-green-500",
                                 fieldState.error && "border-red-500"
                               )}
+                              id="request-cpu"
+                              onChange={(e) => {
+                                field.onChange(Number(e.target.value));
+                              }}
+                              placeholder="0.2CPU"
+                              step={0.1}
+                              type="number"
                             />
                             {fieldState.error && (
                               <p className="text-red-500 text-xs">
@@ -425,7 +433,7 @@ export const RunnerPage = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="request-cpu" className="text-xs">
+                      <Label className="text-xs" htmlFor="request-cpu">
                         Memory
                       </Label>
                       <FormField
@@ -435,13 +443,6 @@ export const RunnerPage = () => {
                           <div className="flex flex-col gap-2">
                             <Input
                               {...field}
-                              onChange={(e) => {
-                                field.onChange(Number(e.target.value));
-                              }}
-                              id="request-cpu"
-                              type="number"
-                              step={100}
-                              placeholder="150Mb"
                               className={cn(
                                 "w-[200px]",
                                 runner &&
@@ -452,6 +453,13 @@ export const RunnerPage = () => {
                                 fieldState.isDirty && "border-green-500",
                                 fieldState.error && "border-red-500"
                               )}
+                              id="request-cpu"
+                              onChange={(e) => {
+                                field.onChange(Number(e.target.value));
+                              }}
+                              placeholder="150Mb"
+                              step={100}
+                              type="number"
                             />
                             {fieldState.error && (
                               <p className="text-red-500 text-xs">
@@ -494,7 +502,7 @@ export const RunnerPage = () => {
                   </p>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="domain" className="text-xs">
+                  <Label className="text-xs" htmlFor="domain">
                     Domain
                   </Label>
                   <FormField
@@ -505,9 +513,6 @@ export const RunnerPage = () => {
                         <div className="relative w-[300px]">
                           <Input
                             {...field}
-                            id="domain"
-                            type="text"
-                            placeholder="my-app.brume.run"
                             className={cn(
                               "w-[300px]",
                               runner &&
@@ -518,6 +523,9 @@ export const RunnerPage = () => {
                               fieldState.isDirty && "border-green-500",
                               fieldState.error && "border-red-500"
                             )}
+                            id="domain"
+                            placeholder="my-app.brume.run"
+                            type="text"
                           />
                           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                             <span className="text-muted-foreground text-sm">
@@ -551,7 +559,7 @@ export const RunnerPage = () => {
                     </p>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <Label htmlFor="domain" className="text-xs">
+                    <Label className="text-xs" htmlFor="domain">
                       Private domain
                     </Label>
                     <FormField
@@ -562,8 +570,6 @@ export const RunnerPage = () => {
                           <div className="relative w-[300px]">
                             <Input
                               {...field}
-                              type="text"
-                              placeholder="chat"
                               className={cn(
                                 "w-[300px]",
                                 runner &&
@@ -574,6 +580,8 @@ export const RunnerPage = () => {
                                 fieldState.isDirty && "border-green-500",
                                 fieldState.error && "border-red-500"
                               )}
+                              placeholder="chat"
+                              type="text"
                             />
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                               <span className="text-muted-foreground text-sm">
@@ -631,9 +639,13 @@ export const OldRunnerPage = () => {
     resolver: zodResolver(DockerRunnerSchema),
     mode: "onChange",
     defaultValues: useMemo(() => {
-      if (draftRunner) { return draftRunner; }
-      if (runner) { return runner; }
-      return ;
+      if (draftRunner) {
+        return draftRunner;
+      }
+      if (runner) {
+        return runner;
+      }
+      return;
     }, [draftRunner, runner]),
   });
 
@@ -685,7 +697,9 @@ export const OldRunnerPage = () => {
   }, [onUnload]);
 
   const submitChanges = async () => {
-    if (!service?.id) { return; }
+    if (!service?.id) {
+      return;
+    }
 
     await updateRunnerMutation({
       variables: {
@@ -698,7 +712,9 @@ export const OldRunnerPage = () => {
     form.reset(form.getValues());
   };
 
-  if (!service) { return null; }
+  if (!service) {
+    return null;
+  }
 
   return (
     <Form {...form}>
@@ -709,19 +725,19 @@ export const OldRunnerPage = () => {
               <div className="flex flex-row items-center space-x-2">
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 <Button
-                  onClick={submitChanges}
-                  variant="outline"
-                  disabled={Object.keys(form.formState.errors).length > 0}
-                  size="sm"
                   className="text-xs"
+                  disabled={Object.keys(form.formState.errors).length > 0}
+                  onClick={submitChanges}
+                  size="sm"
+                  variant="outline"
                 >
                   Save changes
                 </Button>
                 <Button
-                  onClick={() => form.reset()}
-                  variant="destructive"
-                  size="sm"
                   className="text-xs"
+                  onClick={() => form.reset()}
+                  size="sm"
+                  variant="destructive"
                 >
                   Discard
                 </Button>
@@ -748,7 +764,6 @@ export const OldRunnerPage = () => {
                 <div>
                   <Input
                     {...field}
-                    placeholder="npx run start"
                     className={cn(
                       "w-[300px] font-mono",
                       runner &&
@@ -757,6 +772,7 @@ export const OldRunnerPage = () => {
                         "border-blue-500",
                       fieldState.isDirty && "border-green-500"
                     )}
+                    placeholder="npx run start"
                   />
                   {runner &&
                     draftRunner &&
@@ -776,7 +792,7 @@ export const OldRunnerPage = () => {
               </div>
               <div className="pl-4">Status</div>
             </div>
-            <Alert variant="default" className="border-green-400 bg-green-50">
+            <Alert className="border-green-400 bg-green-50" variant="default">
               <RocketIcon className="h-4 w-4" color="green" />
               <AlertTitle className="text-green-700">
                 Service Healthy
@@ -797,7 +813,6 @@ export const OldRunnerPage = () => {
                 <div className="center flex flex-col gap-2">
                   <Input
                     {...field}
-                    placeholder="http://localhost:8080/healthz"
                     className={cn(
                       "w-[300px]",
                       runner &&
@@ -808,6 +823,7 @@ export const OldRunnerPage = () => {
                       fieldState.isDirty && "border-green-500",
                       fieldState.error && "border-red-500"
                     )}
+                    placeholder="http://localhost:8080/healthz"
                   />
                   {runner &&
                     draftRunner &&
@@ -844,7 +860,7 @@ export const OldRunnerPage = () => {
               </p>
               <div className="flex flex-row gap-3">
                 <div>
-                  <Label htmlFor="request-cpu" className="text-xs">
+                  <Label className="text-xs" htmlFor="request-cpu">
                     CPU
                   </Label>
                   <FormField
@@ -854,13 +870,6 @@ export const OldRunnerPage = () => {
                       <div className="flex flex-col gap-2">
                         <Input
                           {...field}
-                          onChange={(e) => {
-                            field.onChange(Number(e.target.value));
-                          }}
-                          id="request-cpu"
-                          type="number"
-                          step={0.1}
-                          placeholder="0.1CPU"
                           className={cn(
                             "w-[200px]",
                             runner &&
@@ -871,6 +880,13 @@ export const OldRunnerPage = () => {
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
+                          id="request-cpu"
+                          onChange={(e) => {
+                            field.onChange(Number(e.target.value));
+                          }}
+                          placeholder="0.1CPU"
+                          step={0.1}
+                          type="number"
                         />
                         {fieldState.error && (
                           <p className="text-red-500 text-xs">
@@ -890,7 +906,7 @@ export const OldRunnerPage = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="request-cpu" className="text-xs">
+                  <Label className="text-xs" htmlFor="request-cpu">
                     Memory
                   </Label>
                   <FormField
@@ -900,13 +916,6 @@ export const OldRunnerPage = () => {
                       <div className="flex flex-col gap-2">
                         <Input
                           {...field}
-                          onChange={(e) => {
-                            field.onChange(Number(e.target.value));
-                          }}
-                          id="request-cpu"
-                          type="number"
-                          step={100}
-                          placeholder="100Mb"
                           className={cn(
                             "w-[200px]",
                             runner &&
@@ -917,6 +926,13 @@ export const OldRunnerPage = () => {
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
+                          id="request-cpu"
+                          onChange={(e) => {
+                            field.onChange(Number(e.target.value));
+                          }}
+                          placeholder="100Mb"
+                          step={100}
+                          type="number"
                         />
                         {fieldState.error && (
                           <p className="text-red-500 text-xs">
@@ -946,7 +962,7 @@ export const OldRunnerPage = () => {
               </p>
               <div className="flex flex-row gap-3">
                 <div>
-                  <Label htmlFor="request-cpu" className="text-xs">
+                  <Label className="text-xs" htmlFor="request-cpu">
                     CPU
                   </Label>
                   <FormField
@@ -956,13 +972,6 @@ export const OldRunnerPage = () => {
                       <div className="flex flex-col gap-2">
                         <Input
                           {...field}
-                          onChange={(e) => {
-                            field.onChange(Number(e.target.value));
-                          }}
-                          id="request-cpu"
-                          type="number"
-                          step={0.1}
-                          placeholder="0.2CPU"
                           className={cn(
                             "w-[200px]",
                             runner &&
@@ -973,6 +982,13 @@ export const OldRunnerPage = () => {
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
+                          id="request-cpu"
+                          onChange={(e) => {
+                            field.onChange(Number(e.target.value));
+                          }}
+                          placeholder="0.2CPU"
+                          step={0.1}
+                          type="number"
                         />
                         {fieldState.error && (
                           <p className="text-red-500 text-xs">
@@ -992,7 +1008,7 @@ export const OldRunnerPage = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="request-cpu" className="text-xs">
+                  <Label className="text-xs" htmlFor="request-cpu">
                     Memory
                   </Label>
                   <FormField
@@ -1002,13 +1018,6 @@ export const OldRunnerPage = () => {
                       <div className="flex flex-col gap-2">
                         <Input
                           {...field}
-                          onChange={(e) => {
-                            field.onChange(Number(e.target.value));
-                          }}
-                          id="request-cpu"
-                          type="number"
-                          step={100}
-                          placeholder="150Mb"
                           className={cn(
                             "w-[200px]",
                             runner &&
@@ -1019,6 +1028,13 @@ export const OldRunnerPage = () => {
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
+                          id="request-cpu"
+                          onChange={(e) => {
+                            field.onChange(Number(e.target.value));
+                          }}
+                          placeholder="150Mb"
+                          step={100}
+                          type="number"
                         />
                         {fieldState.error && (
                           <p className="text-red-500 text-xs">
@@ -1055,7 +1071,7 @@ export const OldRunnerPage = () => {
                 </p>
               </div>
               <div className="flex flex-col gap-1">
-                <Label htmlFor="domain" className="text-xs">
+                <Label className="text-xs" htmlFor="domain">
                   Domain
                 </Label>
                 <FormField
@@ -1066,9 +1082,6 @@ export const OldRunnerPage = () => {
                       <div className="relative w-[300px]">
                         <Input
                           {...field}
-                          id="domain"
-                          type="text"
-                          placeholder="my-app.brume.run"
                           className={cn(
                             "w-[300px]",
                             runner &&
@@ -1079,6 +1092,9 @@ export const OldRunnerPage = () => {
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
+                          id="domain"
+                          placeholder="my-app.brume.run"
+                          type="text"
                         />
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                           <span className="text-muted-foreground text-sm">
@@ -1112,7 +1128,7 @@ export const OldRunnerPage = () => {
                 </p>
               </div>
               <div className="flex flex-col gap-1">
-                <Label htmlFor="domain" className="text-xs">
+                <Label className="text-xs" htmlFor="domain">
                   Private domain
                 </Label>
                 <FormField
@@ -1123,8 +1139,6 @@ export const OldRunnerPage = () => {
                       <div className="relative w-[300px]">
                         <Input
                           {...field}
-                          type="text"
-                          placeholder="chat"
                           className={cn(
                             "w-[300px]",
                             runner &&
@@ -1135,6 +1149,8 @@ export const OldRunnerPage = () => {
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
+                          placeholder="chat"
+                          type="text"
                         />
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                           <span className="text-muted-foreground text-sm">

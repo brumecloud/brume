@@ -1,10 +1,5 @@
 import { gql, useQuery } from "@apollo/client";
-import {
-  BookKey,
-  Cpu,
-  Plus,
-  SquareTerminal,
-} from "lucide-react";
+import { BookKey, Cpu, Plus, SquareTerminal } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useSnapshot } from "valtio";
 import { CollapsibleWrapper } from "@/components/collapsable";
@@ -25,31 +20,31 @@ const ProjectView = ({
 }: ProjectViewProps) => {
   const itemClassname = cn("flex flex-col gap-1 rounded py-1");
   return (
-    <CollapsibleWrapper title={name} initialIsOpen={isOpen}>
+    <CollapsibleWrapper initialIsOpen={isOpen} title={name}>
       <div className="flex flex-col gap-1">
         <div className={itemClassname}>
           <NavLink
-            to={`/${id}`}
-            end
             className={({ isActive }) =>
               cn(
                 "flex w-full select-none items-center gap-1 py-1 transition-all hover:cursor-pointer",
                 isActive && "font-semibold"
               )
             }
+            end
+            to={`/${id}`}
           >
             {({ isActive }) => (
               <>
                 <SquareTerminal
-                  strokeWidth={isActive ? 1.9 : 1.5}
                   height={20}
+                  strokeWidth={isActive ? 1.9 : 1.5}
                 />
                 Overview
               </>
             )}
           </NavLink>
           <div className="flex select-none flex-row items-center gap-1">
-            <Cpu strokeWidth={1.5} height={20} />
+            <Cpu height={20} strokeWidth={1.5} />
             Services
           </div>
           <div className="ml-3 flex flex-col gap-y-1 border-gray-200 border-l pt-1 pl-3">
@@ -59,17 +54,17 @@ const ProjectView = ({
           </div>
         </div>
         <NavLink
-          to={`/${id}/variables`}
           className={({ isActive }) =>
             cn(
               "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
               isActive && "font-semibold"
             )
           }
+          to={`/${id}/variables`}
         >
           {({ isActive }) => (
             <>
-              <BookKey strokeWidth={isActive ? 2 : 1.5} height={20} />
+              <BookKey height={20} strokeWidth={isActive ? 2 : 1.5} />
               Variables
             </>
           )}
@@ -126,20 +121,20 @@ export const ProjectMenu = () => {
   const { data, loading } = useQuery(PROJECTS_QUERY, {});
 
   const renderLoadingProject = () => (
-      <>
-        <Skeleton className="h-[20px] w-full" />
-        <Skeleton className="h-[20px] w-full" />
-        <Skeleton className="h-[20px] w-full" />
-      </>
-    );
+    <>
+      <Skeleton className="h-[20px] w-full" />
+      <Skeleton className="h-[20px] w-full" />
+      <Skeleton className="h-[20px] w-full" />
+    </>
+  );
 
   const renderProjects = () => (
-      <>
-        {data?.me.projects.map((project, i) => (
-          <ProjectView key={project.id} project={project} isOpen={i === 0} />
-        ))}
-      </>
-    );
+    <>
+      {data?.me.projects.map((project, i) => (
+        <ProjectView isOpen={i === 0} key={project.id} project={project} />
+      ))}
+    </>
+  );
 
   return (
     <div className="flex flex-col gap-y-3">
