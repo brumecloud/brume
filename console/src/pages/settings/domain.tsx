@@ -12,8 +12,8 @@ export const DomainPage = () => {
             <div className="flex size-12 flex-col items-center justify-center rounded border">
               <TbWorldSearch className="size-8" />
             </div>
-            <h2 className="text-lg font-medium">Add a domain</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="font-medium text-lg">Add a domain</h2>
+            <p className="text-gray-500 text-sm">
               Add a domain that you can connect to your projects.
             </p>
           </div>

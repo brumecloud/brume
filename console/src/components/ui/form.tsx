@@ -1,4 +1,4 @@
-import * as LabelPrimitive from "@radix-ui/react-label";
+import type * as LabelPrimitive from "@radix-ui/react-label";
 import { Slot } from "@radix-ui/react-slot";
 import * as React from "react";
 import {
@@ -30,13 +30,11 @@ const FormField = <
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 >({
   ...props
-}: ControllerProps<TFieldValues, TName>) => {
-  return (
+}: ControllerProps<TFieldValues, TName>) => (
     <FormFieldContext.Provider value={{ name: props.name }}>
       <Controller {...props} />
     </FormFieldContext.Provider>
   );
-};
 
 const useFormField = () => {
   const fieldContext = React.useContext(FormFieldContext);
@@ -77,11 +75,7 @@ const FormItem = React.forwardRef<
 
   return (
     <FormItemContext.Provider value={{ id }}>
-      <div
-        ref={ref}
-        className={cn("space-y-2", className)}
-        {...props}
-      />
+      <div ref={ref} className={cn("space-y-2", className)} {...props} />
     </FormItemContext.Provider>
   );
 });
@@ -116,9 +110,8 @@ const FormControl = React.forwardRef<
       ref={ref}
       id={formItemId}
       aria-describedby={
-        !error
-          ? `${formDescriptionId}`
-          : `${formDescriptionId} ${formMessageId}`
+        error
+          ? `${formDescriptionId} ${formMessageId}` : `${formDescriptionId}`
       }
       aria-invalid={!!error}
       {...props}
@@ -159,11 +152,9 @@ const FormMessage = React.forwardRef<
     <p
       ref={ref}
       id={formMessageId}
-      className={cn(
-        "text-[0.8rem] font-medium text-destructive",
-        className
-      )}
-      {...props}>
+      className={cn("font-medium text-[0.8rem] text-destructive", className)}
+      {...props}
+    >
       {body}
     </p>
   );

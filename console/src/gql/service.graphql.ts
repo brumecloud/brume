@@ -1,5 +1,4 @@
 import { gql } from "@/_apollo/gql";
-import { fragmentRegistry } from "./fragment.registry";
 
 export const ADD_SERVICE_MUTATION = gql(`
   mutation AddServiceToProject(

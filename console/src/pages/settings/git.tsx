@@ -20,26 +20,27 @@ const GitProviderCard = ({
       className={cn(
         "flex w-full flex-row items-center justify-between rounded border px-3 py-2",
         disabled && "cursor-not-allowed border-gray-200"
-      )}>
+      )}
+    >
       <div className="flex flex-row items-center justify-center gap-4">
         <div className="rounded-full border bg-gray-200 p-2">
-          <Icon
-            className={cn("size-5", disabled && "text-gray-400")}
-          />
+          <Icon className={cn("size-5", disabled && "text-gray-400")} />
         </div>
         <div className="flex flex-col">
           <h2
             className={cn(
-              "mb-0 text-sm font-semibold",
+              "mb-0 font-semibold text-sm",
               disabled && "text-gray-400"
-            )}>
+            )}
+          >
             {name}
           </h2>
           <p
             className={cn(
-              "mt-0 pt-0 text-xs text-gray-500",
+              "mt-0 pt-0 text-gray-500 text-xs",
               disabled && "text-gray-400"
-            )}>
+            )}
+          >
             Connect any of your {name} account {disabled && "soon"}
           </p>
         </div>
@@ -63,16 +64,14 @@ export const GitPage = () => {
             <div className="flex size-12 flex-col items-center justify-center rounded border">
               <FaGitSquare className="size-8" />
             </div>
-            <h2 className="text-lg font-medium">
-              Connect your git provider
-            </h2>
-            <p className="text-sm text-gray-500">
-              Connect the place where you push your code to. (you can
-              also trigger builds from cli if needed)
+            <h2 className="font-medium text-lg">Connect your git provider</h2>
+            <p className="text-gray-500 text-sm">
+              Connect the place where you push your code to. (you can also
+              trigger builds from cli if needed)
             </p>
           </div>
         </div>
-        <div className="max-w-1/2 m-auto flex w-8/12 flex-col gap-2">
+        <div className="m-auto flex w-8/12 max-w-1/2 flex-col gap-2">
           <GitProviderCard name="Github" icon={FaGithub} />
           <GitProviderCard name="Gitlab" icon={FaGitlab} />
         </div>

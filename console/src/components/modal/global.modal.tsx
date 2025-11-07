@@ -2,12 +2,10 @@ import { DirtyServiceModal } from "@/components/modal/dirty-service/dirty-servic
 import { CreateProjectModal } from "./project/createProject.modal";
 import { CreateServiceModal } from "./service/createService.modal";
 
-export const GlobalModalRender = () => {
-	return (
-		<>
-			<CreateProjectModal />
-			<CreateServiceModal />
-			<DirtyServiceModal />
-		</>
-	);
-};
+export const GlobalModalRender = () => (
+    <>
+      <CreateProjectModal />
+      <CreateServiceModal />
+      <DirtyServiceModal />
+    </>
+  );

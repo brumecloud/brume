@@ -10,11 +10,12 @@ import { AreaClosed, Line, Bar } from "@visx/shape";
 import { withTooltip } from "@visx/tooltip";
 import type { WithTooltipProvidedProps } from "@visx/tooltip/lib/enhancers/withTooltip";
 import { max, extent, bisector } from "@visx/vendor/d3-array";
-import React, { useMemo, useCallback } from "react";
+import type React from "react";
+import { useMemo, useCallback } from "react";
 
 type TooltipData = DateValue;
 
-const stock = browserUsage(50, Math.random(), new Date().getTime());
+const stock = browserUsage(50, Math.random(), Date.now());
 export const background = "#ffffff";
 export const background2 = "#ffffff";
 export const accentColor = "#569cda";
@@ -23,9 +24,7 @@ export const accentColorDark = "#4999de";
 // accessors
 const getDate = (d: DateValue) => new Date(d.date);
 const getStockValue = (d: DateValue) => d.value;
-const bisectDate = bisector<DateValue, Date>(
-  (d) => new Date(d.date)
-).left;
+const bisectDate = bisector<DateValue, Date>((d) => new Date(d.date)).left;
 
 export type AreaProps = {
   width: number;
@@ -49,7 +48,7 @@ export const AreaChart = withTooltip<AreaProps, TooltipData>(
     tooltipTop = 0,
     tooltipLeft = 0,
   }: AreaProps & WithTooltipProvidedProps<TooltipData>) => {
-    if (width < 10) return null;
+    if (width < 10) { return null; }
 
     // bounds
     const innerWidth = width - margin.left - margin.right;
@@ -68,10 +67,7 @@ export const AreaChart = withTooltip<AreaProps, TooltipData>(
       () =>
         scaleLinear({
           range: [innerHeight + margin.top, margin.top + 20],
-          domain: [
-            0,
-            (max(stock, getStockValue) || 0) + innerHeight / 4,
-          ],
+          domain: [0, (max(stock, getStockValue) || 0) + innerHeight / 4],
           nice: true,
         }),
       [margin.top, innerHeight]

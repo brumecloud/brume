@@ -5,22 +5,17 @@ import {
   type Edge,
   type EdgeProps,
 } from "@xyflow/react";
-import { type FC } from "react";
+import type { FC } from "react";
 
 // this is a little helper component to render the actual edge label
-function EdgeLabel({
-  transform,
-  label,
-}: {
-  transform: string;
-  label: string;
-}) {
+function EdgeLabel({ transform, label }: { transform: string; label: string }) {
   return (
     <div
       style={{
         transform,
       }}
-      className="nodrag font-mono nopan absolute rounded-md border border-gray-200 bg-gray-100 p-1 text-xs">
+      className="nodrag nopan absolute rounded-md border border-gray-200 bg-gray-100 p-1 font-mono text-xs"
+    >
       {label}
     </div>
   );

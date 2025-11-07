@@ -1,11 +1,6 @@
 import { Page } from "@/components/page-comp/header";
 import { useEffect } from "react";
-import {
-  Link,
-  Outlet,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 export const SettingsOutlet = () => {
   const location = useLocation();
@@ -23,8 +18,7 @@ export const SettingsOutlet = () => {
       <Page.Header>
         <Page.Title>Settings</Page.Title>
         <Page.Description>
-          Manage your account, all the clouds providers, your domains,
-          etc.
+          Manage your account, all the clouds providers, your domains, etc.
         </Page.Description>
       </Page.Header>
       <Page.Body>
@@ -33,25 +27,29 @@ export const SettingsOutlet = () => {
             <Link
               to="account"
               data-state={path === "account" ? "active" : ""}
-              className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800">
+              className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
+            >
               Account
             </Link>
             <Link
               to="clouds"
               data-state={path === "clouds" ? "active" : ""}
-              className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800">
+              className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
+            >
               Clouds
             </Link>
             <Link
               to="domains"
               data-state={path === "domains" ? "active" : ""}
-              className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800">
+              className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
+            >
               Domains
             </Link>
             <Link
               to="git"
               data-state={path === "git" ? "active" : ""}
-              className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800">
+              className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
+            >
               Git
             </Link>
           </div>
@@ -80,8 +78,7 @@ export const OldSettingsPage = () => {
           <div className="flex flex-col pb-8">
             <h2 className="pb-2 font-heading text-3xl">Settings</h2>
             <p>
-              Manage your account, all the clouds providers, your
-              domains, etc.
+              Manage your account, all the clouds providers, your domains, etc.
             </p>
           </div>
         </div>
@@ -89,19 +86,22 @@ export const OldSettingsPage = () => {
           <Link
             to="account"
             data-state={path === "account" ? "active" : ""}
-            className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800">
+            className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
+          >
             Account
           </Link>
           <Link
             to="clouds"
             data-state={path === "clouds" ? "active" : ""}
-            className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800">
+            className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
+          >
             Clouds
           </Link>
           <Link
             to="domains"
             data-state={path === "domains" ? "active" : ""}
-            className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800">
+            className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
+          >
             Domains
           </Link>
         </div>

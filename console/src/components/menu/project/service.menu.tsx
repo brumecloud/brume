@@ -1,8 +1,8 @@
 import { CollapsibleWrapper } from "@/components/collapsable";
 import type { Service } from "@/schemas/service.schema";
 import { cn } from "@/utils";
-import { Hammer, ServerCog, Cog, NotepadText } from "lucide-react";
-import { Link, NavLink } from "react-router-dom";
+import { Hammer, ServerCog, Cog, } from "lucide-react";
+import { NavLink } from "react-router-dom";
 
 type ServiceViewProps = {
   projectId: string;
@@ -13,7 +13,7 @@ export const ServiceMenu = ({
   projectId,
   service: { name, id },
 }: ServiceViewProps) => {
-  const itemClassname = cn("flex flex-col gap-1 py-1 rounded");
+  const itemClassname = cn("flex flex-col gap-1 rounded py-1");
 
   return (
     <CollapsibleWrapper title={name} indent={0}>
@@ -26,13 +26,11 @@ export const ServiceMenu = ({
               "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
               isActive && "font-semibold"
             )
-          }>
+          }
+        >
           {({ isActive }) => (
             <>
-              <Hammer
-                strokeWidth={isActive ? 1.9 : 1.5}
-                height={20}
-              />
+              <Hammer strokeWidth={isActive ? 1.9 : 1.5} height={20} />
               Builder
             </>
           )}
@@ -47,13 +45,11 @@ export const ServiceMenu = ({
               "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
               isActive && "font-semibold"
             )
-          }>
+          }
+        >
           {({ isActive }) => (
             <>
-              <ServerCog
-                strokeWidth={isActive ? 2 : 1.5}
-                height={20}
-              />
+              <ServerCog strokeWidth={isActive ? 2 : 1.5} height={20} />
               Runner
             </>
           )}
@@ -84,7 +80,8 @@ export const ServiceMenu = ({
               "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
               isActive && "font-semibold"
             )
-          }>
+          }
+        >
           {({ isActive }) => (
             <>
               <Cog strokeWidth={isActive ? 1.9 : 1.5} height={20} />

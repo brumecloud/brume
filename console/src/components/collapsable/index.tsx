@@ -21,34 +21,27 @@ export const CollapsibleWrapper = ({
   className,
   textClassName,
 }: Props) => {
-  const [isOpen, setIsOpen] = useState<boolean>(
-    initialIsOpen ?? false
-  );
+  const [isOpen, setIsOpen] = useState<boolean>(initialIsOpen ?? false);
 
   const onSectionTitleClick = () => {
     setIsOpen((prev) => !prev);
   };
 
   return (
-    <section
-      className={cn("box-border w-full text-[13px]", className)}>
+    <section className={cn("box-border w-full text-[13px]", className)}>
       <div className="flex w-[calc(100%-0.75rem)] items-center justify-between gap-2 pb-1 font-medium">
         {prefix}
         <div
           className="flex cursor-pointer select-none items-center gap-2 rounded hover:bg-gray-100"
-          onClick={onSectionTitleClick}>
-          <span className={cn("text-gray-800", textClassName)}>
-            {title}
-          </span>
+          onClick={onSectionTitleClick}
+        >
+          <span className={cn("text-gray-800", textClassName)}>{title}</span>
           <Play
             fill="current"
             size={8}
-            className={cn(
-              `fill-gray-800 text-gray-800 transition-transform`,
-              {
-                "rotate-90": isOpen,
-              }
-            )}
+            className={cn("fill-gray-800 text-gray-800 transition-transform", {
+              "rotate-90": isOpen,
+            })}
           />
         </div>
       </div>
@@ -57,7 +50,8 @@ export const CollapsibleWrapper = ({
         className={cn(
           "box-border w-[calc(100%-1.5rem)]",
           indent && `pl-${indent}`
-        )}>
+        )}
+      >
         {children}
       </Collapsable>
     </section>

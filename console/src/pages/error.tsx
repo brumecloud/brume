@@ -6,16 +6,14 @@ export function ErrorPage() {
     <div className="flex h-screen w-full flex-col items-center justify-center">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold">
-            An error has occurred
-          </h1>
-          <p className="text-sm text-gray-500">
-            An error occurred while loading this page. Brume
-            engineering has been informed.
+          <h1 className="font-bold text-2xl">An error has occurred</h1>
+          <p className="text-gray-500 text-sm">
+            An error occurred while loading this page. Brume engineering has
+            been informed.
           </p>
         </div>
         <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium">Error Logs</h2>
+          <h2 className="font-medium text-sm">Error Logs</h2>
           <div className="flex flex-col rounded-md bg-gray-800 p-4">
             <pre className="max-h-[300px] overflow-y-auto text-sm text-white">
               {error instanceof Error

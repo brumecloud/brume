@@ -19,9 +19,10 @@ export const StepItem = ({
         "relative flex flex-col gap-4 pb-8 pl-4 transition-all duration-300",
         className
       )}
-      {...props}>
+      {...props}
+    >
       {leftBorder && (
-        <div className="absolute left-[-1px] top-0 h-full w-[1px] bg-gray-300" />
+        <div className="absolute top-0 left-[-1px] h-full w-[1px] bg-gray-300" />
       )}
       {isValidated && leftBorder && (
         <motion.div
@@ -29,7 +30,7 @@ export const StepItem = ({
           animate={{ height: "100%" }}
           exit={{ height: 0 }}
           transition={{ duration: 0.5 }}
-          className="absolute left-[-1px] top-0 w-[1px] bg-green-500"
+          className="absolute top-0 left-[-1px] w-[1px] bg-green-500"
         />
       )}
       {children}
@@ -52,7 +53,8 @@ export const StepHeader = ({
       className={cn("flex flex-row items-center", className)}
       disabled={!canAdvance}
       onClick={() => toggleActive()}
-      {...props}>
+      {...props}
+    >
       {children}
     </button>
   );
@@ -62,15 +64,11 @@ export const StepHeaderTitle = ({
   children,
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) => {
-  return (
-    <div
-      className={cn("pl-4 text-lg font-medium", className)}
-      {...props}>
+}: React.HTMLAttributes<HTMLDivElement>) => (
+    <div className={cn("pl-4 font-medium text-lg", className)} {...props}>
       {children}
     </div>
   );
-};
 
 export const StepIcon = ({
   children,
@@ -88,7 +86,8 @@ export const StepIcon = ({
         isValidated && "border-green-500 text-green-600",
         className
       )}
-      {...props}>
+      {...props}
+    >
       {children}
     </div>
   );
@@ -131,7 +130,8 @@ export const StepBody = ({
             transition={{
               duration: shouldAnimate ? 0.3 : 0.5,
             }}
-            className="flex flex-col gap-4 overflow-hidden">
+            className="flex flex-col gap-4 overflow-hidden"
+          >
             {children({
               step: currentStep,
               setStep,

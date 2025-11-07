@@ -8,9 +8,9 @@ export function ProjectVariable() {
           <div className="flex flex-col pb-8">
             <h2 className="pb-2 font-heading text-3xl">Variables</h2>
             <p>
-              Define variables which will be used by all services in
-              the project. This variables will be injected in the
-              build and run phase of your services.
+              Define variables which will be used by all services in the
+              project. This variables will be injected in the build and run
+              phase of your services.
             </p>
           </div>
         </div>

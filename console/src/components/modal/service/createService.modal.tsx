@@ -36,9 +36,7 @@ const serviceSchema = z.object({
 export const CreateServiceModal = () => {
   const snap = useSnapshot(modalState);
   const { project } = useProject();
-  const { addServiceMutation, loading } = useAddService(
-    project?.id || ""
-  );
+  const { addServiceMutation, loading } = useAddService(project?.id || "");
 
   const form = useForm<z.infer<typeof serviceSchema>>({
     resolver: zodResolver(serviceSchema),
@@ -69,16 +67,13 @@ export const CreateServiceModal = () => {
 
   return (
     <Form {...form}>
-      <Dialog
-        open={snap.createServiceModalOpen}
-        onOpenChange={formClose}>
+      <Dialog open={snap.createServiceModalOpen} onOpenChange={formClose}>
         <DialogContent className="bg-white shadow-sm">
           <form onSubmit={form.handleSubmit(createService)}>
             <DialogHeader>
               <DialogTitle>Add a new service</DialogTitle>
               <DialogDescription>
-                Your project would look very empty without some
-                services
+                Your project would look very empty without some services
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4 py-4">
@@ -106,13 +101,12 @@ export const CreateServiceModal = () => {
               <hr />
               <div className="flex items-center gap-x-2">
                 <Container className="w-5 text-slate-800" />
-                <p className="text-sm font-semibold text-slate-800">
+                <p className="font-semibold text-slate-800 text-sm">
                   Docker Executor
                 </p>
               </div>
-              <p className="text-sm font-normal text-slate-500">
-                Run any docker image (from docker.io) registry at the
-                moment
+              <p className="font-normal text-slate-500 text-sm">
+                Run any docker image (from docker.io) registry at the moment
               </p>
               <FormField
                 control={form.control}
@@ -129,8 +123,7 @@ export const CreateServiceModal = () => {
                       />
                     </FormControl>
                     <FormDescription>
-                      This is the name of the docker.io image we will
-                      run
+                      This is the name of the docker.io image we will run
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -138,10 +131,7 @@ export const CreateServiceModal = () => {
               />
             </div>
             <DialogFooter>
-              <Button
-                disabled={loading}
-                type="submit"
-                variant="default">
+              <Button disabled={loading} type="submit" variant="default">
                 Add it!
               </Button>
             </DialogFooter>

@@ -1,7 +1,6 @@
 import { VariableForm } from "@/components/form/variable.form";
 
-export const VariablesPage = () => {
-  return (
+export const VariablesPage = () => (
     <div className="px-32 pt-8">
       <VariableForm
         heading="Change the service variables"
@@ -9,4 +8,3 @@ export const VariablesPage = () => {
       />
     </div>
   );
-};

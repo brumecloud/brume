@@ -13,10 +13,7 @@ export const useAddService = (projectId: string) => {
               if (!data) {
                 return existing;
               }
-              return [
-                toReference(data.addServiceToProject),
-                ...existing,
-              ];
+              return [toReference(data.addServiceToProject), ...existing];
             },
           },
         });

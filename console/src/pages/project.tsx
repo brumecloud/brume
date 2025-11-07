@@ -13,8 +13,8 @@ export function Project() {
         <div className="flex flex-col pb-8">
           <h2 className="pb-2 font-heading text-3xl">Project Home</h2>
           <p className="">
-            This is the home page of this project. You can see an
-            overview of the project and the services.
+            This is the home page of this project. You can see an overview of
+            the project and the services.
           </p>
         </div>
         <Button onClick={() => snap.setCreateServiceModalOpen(true)}>

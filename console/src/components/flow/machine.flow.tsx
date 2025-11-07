@@ -12,13 +12,12 @@ export default function MachineNodeFlow({
     <div
       style={{ ...style, width: props.width, height: props.height }}
       className="rounded-sm border border-gray-200 bg-gray-100"
-      {...props}>
+      {...props}
+    >
       <div className="flex w-full items-center justify-between p-2">
         <div className="flex flex-col">
-          <p className="text-xs font-normal text-gray-500">
-            Machine:
-          </p>
-          <p className="text-xs font-normal text-gray-800">
+          <p className="font-normal text-gray-500 text-xs">Machine:</p>
+          <p className="font-normal text-gray-800 text-xs">
             docker-local-machine
           </p>
         </div>

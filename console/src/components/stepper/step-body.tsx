@@ -62,10 +62,7 @@ export const StepRoot = ({
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   const [activeStep, setActiveStep] = React.useState(
-    Array.from(
-      { length: React.Children.count(children) },
-      () => false
-    )
+    Array.from({ length: React.Children.count(children) }, () => false)
   );
 
   const advance = () => {
@@ -97,11 +94,7 @@ export const StepRoot = ({
   React.useEffect(() => {
     if (step === React.Children.count(children)) {
       setTimeout(() => {
-        for (
-          let i = React.Children.count(children) - 1;
-          i >= 0;
-          i--
-        ) {
+        for (let i = React.Children.count(children) - 1; i >= 0; i--) {
           setTimeout(
             () => {
               toggleActive(i);
@@ -111,7 +104,7 @@ export const StepRoot = ({
         }
       }, 800);
     }
-  }, [step]);
+  }, [step, children, toggleActive]);
 
   return (
     <StepContext.Provider
@@ -120,25 +113,23 @@ export const StepRoot = ({
         advance,
         rewind,
         setStep: setStepFn,
-        shouldAnimate: props.shouldAnimate || false,
+        shouldAnimate: props.shouldAnimate,
         leftBorder: props.leftBorder ?? false,
-      }}>
+      }}
+    >
       <MotionConfig transition={{ duration: 0.3 }}>
-        <div
-          className={cn("flex h-full flex-col", className)}
-          {...props}>
-          {React.Children.map(children, (child, index) => {
-            return (
+        <div className={cn("flex h-full flex-col", className)} {...props}>
+          {React.Children.map(children, (child, index) => (
               <StepItemContext.Provider
                 value={{
                   step: index,
                   active: activeStep[index] as boolean,
                   toggleActive: () => toggleActive(index),
-                }}>
+                }}
+              >
                 {child}
               </StepItemContext.Provider>
-            );
-          })}
+            ))}
           <div ref={scrollRef} />
         </div>
       </MotionConfig>

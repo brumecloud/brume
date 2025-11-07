@@ -1,11 +1,6 @@
 import type { RunnerFragmentFragment } from "@/_apollo/graphql";
-import { Page } from "@/components/page-comp/header";
 import { Stepper } from "@/components/stepper";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -53,15 +48,13 @@ export const RunnerPage = () => {
     resolver: zodResolver(DockerRunnerSchema),
     mode: "onChange",
     defaultValues: useMemo(() => {
-      if (draftRunner) return draftRunner;
-      if (runner) return runner;
-      return undefined;
+      if (draftRunner) { return draftRunner; }
+      if (runner) { return runner; }
+      return ;
     }, [draftRunner, runner]),
   });
 
-  const blocker = useBlocker(() => {
-    return form.formState.isDirty;
-  });
+  const blocker = useBlocker(() => form.formState.isDirty);
 
   if (blocker.state === "blocked") {
     toast.warning("You have unsaved changes");
@@ -70,7 +63,7 @@ export const RunnerPage = () => {
   useEffect(() => {
     if (service) {
       console.log(service);
-      if (!draftRunner && !runner) {
+      if (!(draftRunner || runner)) {
         throw new Error("Runner invalid (no draft or live)");
       }
       if (!draftRunner && runner) {
@@ -109,7 +102,7 @@ export const RunnerPage = () => {
   }, [onUnload]);
 
   const submitChanges = async () => {
-    if (!service?.id) return;
+    if (!service?.id) { return; }
 
     await updateRunnerMutation({
       variables: {
@@ -122,11 +115,11 @@ export const RunnerPage = () => {
     form.reset(form.getValues());
   };
 
-  if (!service) return null;
+  if (!service) { return null; }
 
   return (
     <Form {...form} className="px-32 pt-16">
-      <div className="absolute right-0 top-[-150px]">
+      <div className="absolute top-[-150px] right-0">
         {form.formState.isDirty && (
           <div className="flex flex-row items-center space-x-2">
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -135,14 +128,16 @@ export const RunnerPage = () => {
               variant="outline"
               disabled={Object.keys(form.formState.errors).length > 0}
               size="sm"
-              className="text-xs">
+              className="text-xs"
+            >
               Save changes
             </Button>
             <Button
               onClick={() => form.reset()}
               variant="destructive"
               size="sm"
-              className="text-xs">
+              className="text-xs"
+            >
               Discard
             </Button>
           </div>
@@ -159,9 +154,7 @@ export const RunnerPage = () => {
           <Stepper.Body>
             {() => (
               <>
-                <p className="text-sm font-medium">
-                  Custom start command
-                </p>
+                <p className="font-medium text-sm">Custom start command</p>
                 <p className="text-sm">
                   Define the command used to start up the service.
                 </p>
@@ -177,17 +170,15 @@ export const RunnerPage = () => {
                           "w-[300px] font-mono",
                           runner &&
                             draftRunner &&
-                            draftRunner.data.command !==
-                              runner.data.command &&
+                            draftRunner.data.command !== runner.data.command &&
                             "border-blue-500",
                           fieldState.isDirty && "border-green-500"
                         )}
                       />
                       {runner &&
                         draftRunner &&
-                        draftRunner.data.command !==
-                          runner.data.command && (
-                          <p className="text-xs italic text-blue-500">
+                        draftRunner.data.command !== runner.data.command && (
+                          <p className="text-blue-500 text-xs italic">
                             old value: {runner.data.command}
                           </p>
                         )}
@@ -210,20 +201,20 @@ export const RunnerPage = () => {
               <>
                 <Alert
                   variant="default"
-                  className="w-1/2 border-green-400 bg-green-50">
+                  className="w-1/2 border-green-400 bg-green-50"
+                >
                   <RocketIcon className="h-4 w-4" color="green" />
                   <AlertTitle className="text-green-700">
                     Service Healthy
                   </AlertTitle>
                   <AlertDescription className="text-green-800">
-                    Last health check showed that the service is
-                    healthy
+                    Last health check showed that the service is healthy
                   </AlertDescription>
                 </Alert>
-                <p className="text-sm font-medium">Healthcheck</p>
+                <p className="font-medium text-sm">Healthcheck</p>
                 <p className="text-sm">
-                  To be counted as a success the endpoint must return
-                  a <span className="font-mono">OK 200</span> status
+                  To be counted as a success the endpoint must return a{" "}
+                  <span className="font-mono">OK 200</span> status
                 </p>
                 <FormField
                   control={form.control}
@@ -248,12 +239,12 @@ export const RunnerPage = () => {
                         draftRunner &&
                         draftRunner.data.healthCheckURL !==
                           runner.data.healthCheckURL && (
-                          <p className="text-xs italic text-blue-500">
+                          <p className="text-blue-500 text-xs italic">
                             old value: {runner.data.healthCheckURL}
                           </p>
                         )}
                       {fieldState.error && (
-                        <p className="text-xs text-red-500">
+                        <p className="text-red-500 text-xs">
                           {fieldState.error.message}
                         </p>
                       )}
@@ -278,16 +269,14 @@ export const RunnerPage = () => {
                   Define limits & request for the service
                 </div>
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium">Request</p>
+                  <p className="font-medium text-sm">Request</p>
                   <p className="text-sm italic">
-                    This number represents what Brume needs to
-                    allocated in minimum for the service
+                    This number represents what Brume needs to allocated in
+                    minimum for the service
                   </p>
                   <div className="flex flex-row gap-3">
                     <div>
-                      <Label
-                        htmlFor="request-cpu"
-                        className="text-xs">
+                      <Label htmlFor="request-cpu" className="text-xs">
                         CPU
                       </Label>
                       <FormField
@@ -298,9 +287,7 @@ export const RunnerPage = () => {
                             <Input
                               {...field}
                               onChange={(e) => {
-                                field.onChange(
-                                  Number(e.target.value)
-                                );
+                                field.onChange(Number(e.target.value));
                               }}
                               id="request-cpu"
                               type="number"
@@ -313,13 +300,12 @@ export const RunnerPage = () => {
                                   draftRunner.data.cpu.request !==
                                     runner.data.cpu.request &&
                                   "border-blue-500",
-                                fieldState.isDirty &&
-                                  "border-green-500",
+                                fieldState.isDirty && "border-green-500",
                                 fieldState.error && "border-red-500"
                               )}
                             />
                             {fieldState.error && (
-                              <p className="text-xs text-red-500">
+                              <p className="text-red-500 text-xs">
                                 {fieldState.error.message}
                               </p>
                             )}
@@ -327,7 +313,7 @@ export const RunnerPage = () => {
                               draftRunner &&
                               draftRunner.data.cpu.request !==
                                 runner.data.cpu.request && (
-                                <p className="text-xs italic text-blue-500">
+                                <p className="text-blue-500 text-xs italic">
                                   old value: {runner.data.cpu.request}
                                 </p>
                               )}
@@ -336,9 +322,7 @@ export const RunnerPage = () => {
                       />
                     </div>
                     <div>
-                      <Label
-                        htmlFor="request-cpu"
-                        className="text-xs">
+                      <Label htmlFor="request-cpu" className="text-xs">
                         Memory
                       </Label>
                       <FormField
@@ -349,9 +333,7 @@ export const RunnerPage = () => {
                             <Input
                               {...field}
                               onChange={(e) => {
-                                field.onChange(
-                                  Number(e.target.value)
-                                );
+                                field.onChange(Number(e.target.value));
                               }}
                               id="request-cpu"
                               type="number"
@@ -364,13 +346,12 @@ export const RunnerPage = () => {
                                   draftRunner.data.memory.request !==
                                     runner.data.memory.request &&
                                   "border-blue-500",
-                                fieldState.isDirty &&
-                                  "border-green-500",
+                                fieldState.isDirty && "border-green-500",
                                 fieldState.error && "border-red-500"
                               )}
                             />
                             {fieldState.error && (
-                              <p className="text-xs text-red-500">
+                              <p className="text-red-500 text-xs">
                                 {fieldState.error.message}
                               </p>
                             )}
@@ -378,9 +359,8 @@ export const RunnerPage = () => {
                               draftRunner &&
                               draftRunner.data.memory.request !==
                                 runner.data.memory.request && (
-                                <p className="text-xs italic text-blue-500">
-                                  old value:{" "}
-                                  {runner.data.memory.request}
+                                <p className="text-blue-500 text-xs italic">
+                                  old value: {runner.data.memory.request}
                                 </p>
                               )}
                           </div>
@@ -390,19 +370,16 @@ export const RunnerPage = () => {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium">Limits</p>
+                  <p className="font-medium text-sm">Limits</p>
                   <p className="text-sm italic">
-                    This number represents what Brume needs to
-                    allocated in{" "}
-                    <span className="font-medium">maximum</span> for
-                    this service. If the value is exceded, the service
-                    will be stopped
+                    This number represents what Brume needs to allocated in{" "}
+                    <span className="font-medium">maximum</span> for this
+                    service. If the value is exceded, the service will be
+                    stopped
                   </p>
                   <div className="flex flex-row gap-3">
                     <div>
-                      <Label
-                        htmlFor="request-cpu"
-                        className="text-xs">
+                      <Label htmlFor="request-cpu" className="text-xs">
                         CPU
                       </Label>
                       <FormField
@@ -413,9 +390,7 @@ export const RunnerPage = () => {
                             <Input
                               {...field}
                               onChange={(e) => {
-                                field.onChange(
-                                  Number(e.target.value)
-                                );
+                                field.onChange(Number(e.target.value));
                               }}
                               id="request-cpu"
                               type="number"
@@ -428,13 +403,12 @@ export const RunnerPage = () => {
                                   draftRunner.data.cpu.limit !==
                                     runner.data.cpu.limit &&
                                   "border-blue-500",
-                                fieldState.isDirty &&
-                                  "border-green-500",
+                                fieldState.isDirty && "border-green-500",
                                 fieldState.error && "border-red-500"
                               )}
                             />
                             {fieldState.error && (
-                              <p className="text-xs text-red-500">
+                              <p className="text-red-500 text-xs">
                                 {fieldState.error.message}
                               </p>
                             )}
@@ -442,7 +416,7 @@ export const RunnerPage = () => {
                               draftRunner &&
                               draftRunner.data.cpu.limit !==
                                 runner.data.cpu.limit && (
-                                <p className="text-xs italic text-blue-500">
+                                <p className="text-blue-500 text-xs italic">
                                   old value: {runner.data.cpu.limit}
                                 </p>
                               )}
@@ -451,9 +425,7 @@ export const RunnerPage = () => {
                       />
                     </div>
                     <div>
-                      <Label
-                        htmlFor="request-cpu"
-                        className="text-xs">
+                      <Label htmlFor="request-cpu" className="text-xs">
                         Memory
                       </Label>
                       <FormField
@@ -464,9 +436,7 @@ export const RunnerPage = () => {
                             <Input
                               {...field}
                               onChange={(e) => {
-                                field.onChange(
-                                  Number(e.target.value)
-                                );
+                                field.onChange(Number(e.target.value));
                               }}
                               id="request-cpu"
                               type="number"
@@ -479,13 +449,12 @@ export const RunnerPage = () => {
                                   draftRunner.data.memory.limit !==
                                     runner.data.memory.limit &&
                                   "border-blue-500",
-                                fieldState.isDirty &&
-                                  "border-green-500",
+                                fieldState.isDirty && "border-green-500",
                                 fieldState.error && "border-red-500"
                               )}
                             />
                             {fieldState.error && (
-                              <p className="text-xs text-red-500">
+                              <p className="text-red-500 text-xs">
                                 {fieldState.error.message}
                               </p>
                             )}
@@ -493,9 +462,8 @@ export const RunnerPage = () => {
                               draftRunner &&
                               draftRunner.data.memory.limit !==
                                 runner.data.memory.limit && (
-                                <p className="text-xs italic text-blue-500">
-                                  old value:{" "}
-                                  {runner.data.memory.limit}
+                                <p className="text-blue-500 text-xs italic">
+                                  old value: {runner.data.memory.limit}
                                 </p>
                               )}
                           </div>
@@ -519,12 +487,10 @@ export const RunnerPage = () => {
             {() => (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium">
-                    Public networking
-                  </p>
+                  <p className="font-medium text-sm">Public networking</p>
                   <p className="text-sm">
-                    Access your application over HTTPS with the
-                    following domains.
+                    Access your application over HTTPS with the following
+                    domains.
                   </p>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -549,19 +515,18 @@ export const RunnerPage = () => {
                                 draftRunner.data.publicDomain !==
                                   runner.data.publicDomain &&
                                 "border-blue-500",
-                              fieldState.isDirty &&
-                                "border-green-500",
+                              fieldState.isDirty && "border-green-500",
                               fieldState.error && "border-red-500"
                             )}
                           />
                           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-muted-foreground text-sm">
                               .brume.run
                             </span>
                           </div>
                         </div>
                         {fieldState.error && (
-                          <p className="text-xs text-red-500">
+                          <p className="text-red-500 text-xs">
                             {fieldState.error.message}
                           </p>
                         )}
@@ -569,7 +534,7 @@ export const RunnerPage = () => {
                           draftRunner &&
                           draftRunner.data.publicDomain !==
                             runner.data.publicDomain && (
-                            <p className="text-xs italic text-blue-500">
+                            <p className="text-blue-500 text-xs italic">
                               old value: {runner.data.publicDomain}
                             </p>
                           )}
@@ -579,12 +544,10 @@ export const RunnerPage = () => {
                 </div>
                 <div className="flex flex-col gap-1 pt-4">
                   <div className="flex flex-col gap-1">
-                    <p className="text-sm font-medium">
-                      Private networking
-                    </p>
+                    <p className="font-medium text-sm">Private networking</p>
                     <p className="text-sm">
-                      Communicate with other services inside Brume
-                      private network.
+                      Communicate with other services inside Brume private
+                      network.
                     </p>
                   </div>
                   <div className="flex flex-col gap-1">
@@ -608,19 +571,18 @@ export const RunnerPage = () => {
                                   draftRunner.data.privateDomain !==
                                     runner.data.privateDomain &&
                                   "border-blue-500",
-                                fieldState.isDirty &&
-                                  "border-green-500",
+                                fieldState.isDirty && "border-green-500",
                                 fieldState.error && "border-red-500"
                               )}
                             />
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-muted-foreground text-sm">
                                 .brume.internal
                               </span>
                             </div>
                           </div>
                           {fieldState.error && (
-                            <p className="text-xs text-red-500">
+                            <p className="text-red-500 text-xs">
                               {fieldState.error.message}
                             </p>
                           )}
@@ -628,7 +590,7 @@ export const RunnerPage = () => {
                             draftRunner &&
                             draftRunner.data.privateDomain !==
                               runner.data.privateDomain && (
-                              <p className="text-xs italic text-blue-500">
+                              <p className="text-blue-500 text-xs italic">
                                 old value: {runner.data.privateDomain}
                               </p>
                             )}
@@ -669,15 +631,13 @@ export const OldRunnerPage = () => {
     resolver: zodResolver(DockerRunnerSchema),
     mode: "onChange",
     defaultValues: useMemo(() => {
-      if (draftRunner) return draftRunner;
-      if (runner) return runner;
-      return undefined;
+      if (draftRunner) { return draftRunner; }
+      if (runner) { return runner; }
+      return ;
     }, [draftRunner, runner]),
   });
 
-  const blocker = useBlocker(() => {
-    return form.formState.isDirty;
-  });
+  const blocker = useBlocker(() => form.formState.isDirty);
 
   if (blocker.state === "blocked") {
     toast.warning("You have unsaved changes");
@@ -686,7 +646,7 @@ export const OldRunnerPage = () => {
   useEffect(() => {
     if (service) {
       console.log(service);
-      if (!draftRunner && !runner) {
+      if (!(draftRunner || runner)) {
         throw new Error("Runner invalid (no draft or live)");
       }
       if (!draftRunner && runner) {
@@ -725,7 +685,7 @@ export const OldRunnerPage = () => {
   }, [onUnload]);
 
   const submitChanges = async () => {
-    if (!service?.id) return;
+    if (!service?.id) { return; }
 
     await updateRunnerMutation({
       variables: {
@@ -738,33 +698,31 @@ export const OldRunnerPage = () => {
     form.reset(form.getValues());
   };
 
-  if (!service) return null;
+  if (!service) { return null; }
 
   return (
     <Form {...form}>
       <div className="flex h-full flex-col px-32 pt-8">
         <div className="relative flex flex-row items-center justify-between">
-          <div className="absolute right-0 top-[-150px]">
+          <div className="absolute top-[-150px] right-0">
             {form.formState.isDirty && (
               <div className="flex flex-row items-center space-x-2">
-                {loading && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 <Button
                   onClick={submitChanges}
                   variant="outline"
-                  disabled={
-                    Object.keys(form.formState.errors).length > 0
-                  }
+                  disabled={Object.keys(form.formState.errors).length > 0}
                   size="sm"
-                  className="text-xs">
+                  className="text-xs"
+                >
                   Save changes
                 </Button>
                 <Button
                   onClick={() => form.reset()}
                   variant="destructive"
                   size="sm"
-                  className="text-xs">
+                  className="text-xs"
+                >
                   Discard
                 </Button>
               </div>
@@ -772,16 +730,14 @@ export const OldRunnerPage = () => {
           </div>
         </div>
         <div className="flex h-full flex-col pt-3">
-          <div className="relative flex max-w-[700px] flex-col space-y-4 border-l border-gray-300 pb-16 pl-4">
+          <div className="relative flex max-w-[700px] flex-col space-y-4 border-gray-300 border-l pb-16 pl-4">
             <div className="flex flex-row items-center">
               <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
                 <SquareTerminal className="h-5 w-5" />
               </div>
               <div className="pl-4">Command</div>
             </div>
-            <p className="text-sm font-medium">
-              Custom start command
-            </p>
+            <p className="font-medium text-sm">Custom start command</p>
             <p className="text-sm">
               Define the command used to start up the service.
             </p>
@@ -797,17 +753,15 @@ export const OldRunnerPage = () => {
                       "w-[300px] font-mono",
                       runner &&
                         draftRunner &&
-                        draftRunner.data.command !==
-                          runner.data.command &&
+                        draftRunner.data.command !== runner.data.command &&
                         "border-blue-500",
                       fieldState.isDirty && "border-green-500"
                     )}
                   />
                   {runner &&
                     draftRunner &&
-                    draftRunner.data.command !==
-                      runner.data.command && (
-                      <p className="text-xs italic text-blue-500">
+                    draftRunner.data.command !== runner.data.command && (
+                      <p className="text-blue-500 text-xs italic">
                         old value: {runner.data.command}
                       </p>
                     )}
@@ -815,16 +769,14 @@ export const OldRunnerPage = () => {
               )}
             />
           </div>
-          <div className="relative flex max-w-[700px] flex-col space-y-4 border-l border-gray-300 pb-16 pl-4">
+          <div className="relative flex max-w-[700px] flex-col space-y-4 border-gray-300 border-l pb-16 pl-4">
             <div className="flex flex-row items-center">
               <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
                 <Activity className="h-5 w-5" />
               </div>
               <div className="pl-4">Status</div>
             </div>
-            <Alert
-              variant="default"
-              className="border-green-400 bg-green-50">
+            <Alert variant="default" className="border-green-400 bg-green-50">
               <RocketIcon className="h-4 w-4" color="green" />
               <AlertTitle className="text-green-700">
                 Service Healthy
@@ -833,7 +785,7 @@ export const OldRunnerPage = () => {
                 Last health check showed that the service is healthy
               </AlertDescription>
             </Alert>
-            <p className="text-sm font-medium">Healthcheck</p>
+            <p className="font-medium text-sm">Healthcheck</p>
             <p className="text-sm">
               To be counted as a success the endpoint must return a{" "}
               <span className="font-mono">OK 200</span> status
@@ -861,12 +813,12 @@ export const OldRunnerPage = () => {
                     draftRunner &&
                     draftRunner.data.healthCheckURL !==
                       runner.data.healthCheckURL && (
-                      <p className="text-xs italic text-blue-500">
+                      <p className="text-blue-500 text-xs italic">
                         old value: {runner.data.healthCheckURL}
                       </p>
                     )}
                   {fieldState.error && (
-                    <p className="text-xs text-red-500">
+                    <p className="text-red-500 text-xs">
                       {fieldState.error.message}
                     </p>
                   )}
@@ -874,7 +826,7 @@ export const OldRunnerPage = () => {
               )}
             />
           </div>
-          <div className="relative flex flex-col space-y-4 border-l border-gray-300 pb-16 pl-4">
+          <div className="relative flex flex-col space-y-4 border-gray-300 border-l pb-16 pl-4">
             <div className="flex flex-row items-center">
               <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
                 <HardDrive className="h-5 w-5" />
@@ -885,10 +837,10 @@ export const OldRunnerPage = () => {
               Define limits & request for the service
             </div>
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium">Request</p>
+              <p className="font-medium text-sm">Request</p>
               <p className="text-sm italic">
-                This number represents what Brume needs to allocated
-                in minimum for the service
+                This number represents what Brume needs to allocated in minimum
+                for the service
               </p>
               <div className="flex flex-row gap-3">
                 <div>
@@ -921,7 +873,7 @@ export const OldRunnerPage = () => {
                           )}
                         />
                         {fieldState.error && (
-                          <p className="text-xs text-red-500">
+                          <p className="text-red-500 text-xs">
                             {fieldState.error.message}
                           </p>
                         )}
@@ -929,7 +881,7 @@ export const OldRunnerPage = () => {
                           draftRunner &&
                           draftRunner.data.cpu.request !==
                             runner.data.cpu.request && (
-                            <p className="text-xs italic text-blue-500">
+                            <p className="text-blue-500 text-xs italic">
                               old value: {runner.data.cpu.request}
                             </p>
                           )}
@@ -967,7 +919,7 @@ export const OldRunnerPage = () => {
                           )}
                         />
                         {fieldState.error && (
-                          <p className="text-xs text-red-500">
+                          <p className="text-red-500 text-xs">
                             {fieldState.error.message}
                           </p>
                         )}
@@ -975,7 +927,7 @@ export const OldRunnerPage = () => {
                           draftRunner &&
                           draftRunner.data.memory.request !==
                             runner.data.memory.request && (
-                            <p className="text-xs italic text-blue-500">
+                            <p className="text-blue-500 text-xs italic">
                               old value: {runner.data.memory.request}
                             </p>
                           )}
@@ -986,12 +938,11 @@ export const OldRunnerPage = () => {
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium">Limits</p>
+              <p className="font-medium text-sm">Limits</p>
               <p className="text-sm italic">
-                This number represents what Brume needs to allocated
-                in <span className="font-medium">maximum</span> for
-                this service. If the value is exceded, the service
-                will be stopped
+                This number represents what Brume needs to allocated in{" "}
+                <span className="font-medium">maximum</span> for this service.
+                If the value is exceded, the service will be stopped
               </p>
               <div className="flex flex-row gap-3">
                 <div>
@@ -1024,7 +975,7 @@ export const OldRunnerPage = () => {
                           )}
                         />
                         {fieldState.error && (
-                          <p className="text-xs text-red-500">
+                          <p className="text-red-500 text-xs">
                             {fieldState.error.message}
                           </p>
                         )}
@@ -1032,7 +983,7 @@ export const OldRunnerPage = () => {
                           draftRunner &&
                           draftRunner.data.cpu.limit !==
                             runner.data.cpu.limit && (
-                            <p className="text-xs italic text-blue-500">
+                            <p className="text-blue-500 text-xs italic">
                               old value: {runner.data.cpu.limit}
                             </p>
                           )}
@@ -1070,7 +1021,7 @@ export const OldRunnerPage = () => {
                           )}
                         />
                         {fieldState.error && (
-                          <p className="text-xs text-red-500">
+                          <p className="text-red-500 text-xs">
                             {fieldState.error.message}
                           </p>
                         )}
@@ -1078,7 +1029,7 @@ export const OldRunnerPage = () => {
                           draftRunner &&
                           draftRunner.data.memory.limit !==
                             runner.data.memory.limit && (
-                            <p className="text-xs italic text-blue-500">
+                            <p className="text-blue-500 text-xs italic">
                               old value: {runner.data.memory.limit}
                             </p>
                           )}
@@ -1089,7 +1040,7 @@ export const OldRunnerPage = () => {
               </div>
             </div>
           </div>
-          <div className="relative flex flex-col space-y-4 border-l border-gray-300 pb-16 pl-4">
+          <div className="relative flex flex-col space-y-4 border-gray-300 border-l pb-16 pl-4">
             <div className="flex flex-row items-center">
               <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
                 <Network className="h-5 w-5" />
@@ -1098,12 +1049,9 @@ export const OldRunnerPage = () => {
             </div>
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium">
-                  Public networking
-                </p>
+                <p className="font-medium text-sm">Public networking</p>
                 <p className="text-sm">
-                  Access your application over HTTPS with the
-                  following domains.
+                  Access your application over HTTPS with the following domains.
                 </p>
               </div>
               <div className="flex flex-col gap-1">
@@ -1133,13 +1081,13 @@ export const OldRunnerPage = () => {
                           )}
                         />
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-muted-foreground text-sm">
                             .brume.run
                           </span>
                         </div>
                       </div>
                       {fieldState.error && (
-                        <p className="text-xs text-red-500">
+                        <p className="text-red-500 text-xs">
                           {fieldState.error.message}
                         </p>
                       )}
@@ -1147,7 +1095,7 @@ export const OldRunnerPage = () => {
                         draftRunner &&
                         draftRunner.data.publicDomain !==
                           runner.data.publicDomain && (
-                          <p className="text-xs italic text-blue-500">
+                          <p className="text-blue-500 text-xs italic">
                             old value: {runner.data.publicDomain}
                           </p>
                         )}
@@ -1158,12 +1106,9 @@ export const OldRunnerPage = () => {
             </div>
             <div className="flex flex-col gap-1">
               <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium">
-                  Private networking
-                </p>
+                <p className="font-medium text-sm">Private networking</p>
                 <p className="text-sm">
-                  Communicate with other services inside Brume private
-                  network.
+                  Communicate with other services inside Brume private network.
                 </p>
               </div>
               <div className="flex flex-col gap-1">
@@ -1192,13 +1137,13 @@ export const OldRunnerPage = () => {
                           )}
                         />
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-muted-foreground text-sm">
                             .brume.internal
                           </span>
                         </div>
                       </div>
                       {fieldState.error && (
-                        <p className="text-xs text-red-500">
+                        <p className="text-red-500 text-xs">
                           {fieldState.error.message}
                         </p>
                       )}
@@ -1206,7 +1151,7 @@ export const OldRunnerPage = () => {
                         draftRunner &&
                         draftRunner.data.privateDomain !==
                           runner.data.privateDomain && (
-                          <p className="text-xs italic text-blue-500">
+                          <p className="text-blue-500 text-xs italic">
                             old value: {runner.data.privateDomain}
                           </p>
                         )}
@@ -1216,7 +1161,7 @@ export const OldRunnerPage = () => {
               </div>
             </div>
           </div>
-          <div className="grow border-l border-gray-300" />
+          <div className="grow border-gray-300 border-l" />
         </div>
       </div>
     </Form>

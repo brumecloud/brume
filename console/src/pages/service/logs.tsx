@@ -4,28 +4,25 @@ import { LOG_BY_PROJECT_ID } from "@/gql/log.graphql";
 import { liveLogs } from "@/state/live-log.state";
 import { cn } from "@/utils";
 import { useQuery } from "@apollo/client";
-import {
-  LightningBoltIcon,
-  MagnifyingGlassIcon,
-} from "@radix-ui/react-icons";
+import { LightningBoltIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { ClockIcon, RefreshCcw } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useSnapshot } from "valtio";
 
-const LogsHeader = () => {
-  return (
+const LogsHeader = () => (
     <div
-      className="border-b py-1 pl-2 text-sm font-normal text-gray-400"
+      className="border-b py-1 pl-2 font-normal text-gray-400 text-sm"
       style={{
         display: "grid",
         gridTemplateColumns:
           "auto minmax(0px, 120px) minmax(0px, 120px) minmax(0px, 200px) minmax(0px, 1fr)",
         gridAutoRows: "auto",
-      }}>
+      }}
+    >
       <div>
         <div className="scrollbar-hide h-full w-full min-w-[0px] cursor-default select-none truncate pr-2 text-xs">
-          <a className="block h-full w-2 rounded-[3px]"></a>
+          <a className="block h-full w-2 rounded-[3px]" />
         </div>
       </div>
       <p>Date</p>
@@ -34,7 +31,6 @@ const LogsHeader = () => {
       <p>Message</p>
     </div>
   );
-};
 
 export const LogsPage = () => {
   const { projectId } = useParams();
@@ -45,7 +41,7 @@ export const LogsPage = () => {
 
   const { data, subscribeToMore } = useQuery(LOG_BY_PROJECT_ID, {
     variables: {
-      projectId: projectId,
+      projectId,
       // todo: change that
       since: "2021-01-01",
       limit: 100,
@@ -58,7 +54,7 @@ export const LogsPage = () => {
   const searchQueryRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    document.addEventListener("keydown", function (event) {
+    document.addEventListener("keydown", (event) => {
       if (event.ctrlKey && event.key.toLowerCase() === "f") {
         event.preventDefault();
         searchQueryRef.current?.focus();
@@ -68,11 +64,11 @@ export const LogsPage = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-row items-center gap-x-2 px-2 py-2 text-sm text-gray-700">
+      <div className="flex flex-row items-center gap-x-2 px-2 py-2 text-gray-700 text-sm">
         <MagnifyingGlassIcon className="ml-1 h-4 w-4" />
         <input
           ref={searchQueryRef}
-          className="outline-non bg-transparent placeholder:text-gray-500 focus:outline-none"
+          className="bg-transparent outline-non placeholder:text-gray-500 focus:outline-none"
           placeholder="Search logs..."
           onChange={(e) => updateSearchQuery(e.target.value)}
           value={searchQuery}
@@ -84,7 +80,8 @@ export const LogsPage = () => {
         </div>
         <div
           title="Clear logs"
-          className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center gap-x-1 rounded-md border border-gray-300 bg-white p-1 shadow-sm">
+          className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center gap-x-1 rounded-md border border-gray-300 bg-white p-1 shadow-sm"
+        >
           <RefreshCcw size={13} />
         </div>
         <div
@@ -95,7 +92,8 @@ export const LogsPage = () => {
               : "border-gray-300 bg-white",
             "flex h-[28px] w-[28px] cursor-pointer items-center justify-center gap-x-1 rounded-md border p-1 shadow-sm transition-all"
           )}
-          onClick={() => toggleLive()}>
+          onClick={() => toggleLive()}
+        >
           <LightningBoltIcon />
         </div>
       </div>
@@ -103,16 +101,15 @@ export const LogsPage = () => {
       <LogsHeader />
       <LogsRender
         logs={data?.projectLogs ?? []}
-        logsSubscription={() => {
-          return subscribeToMore({
+        logsSubscription={() => subscribeToMore({
             document: LOG_BY_PROJECT_ID,
             variables: {
-              projectId: projectId,
+              projectId,
               since: "2021-01-01",
               limit: 100,
             },
             updateQuery: (prev, { subscriptionData }) => {
-              if (!subscriptionData.data) return prev;
+              if (!subscriptionData.data) { return prev; }
               const newLogs = subscriptionData.data.projectLogs;
               const data = prev.projectLogs;
 
@@ -120,8 +117,7 @@ export const LogsPage = () => {
                 projectLogs: [...data, ...newLogs],
               };
             },
-          });
-        }}
+          })}
       />
     </div>
   );

@@ -1,9 +1,5 @@
-import { GET_MACHINES } from "@/gql/machine.graphql";
-import {
-  MachineSchema,
-  type Machine,
-} from "@/schemas/machine.schema";
-import { useQuery } from "@apollo/client";
+
+import { MachineSchema, type Machine } from "@/schemas/machine.schema";
 import { z } from "zod";
 
 export const useMachine = (): {
@@ -15,7 +11,7 @@ export const useMachine = (): {
     return {
       loading: true,
     };
-  } else {
+  }
     if (error) {
       console.error(error);
       throw new Error(error.message);
@@ -23,13 +19,11 @@ export const useMachine = (): {
 
     const rawData = z.array(MachineSchema).safeParse(data?.machine);
 
-    if (!rawData.success) {
-      throw new Error(rawData.error.message);
-    } else {
+    if (rawData.success) {
       return {
         machines: rawData.data,
         loading: false,
       };
-    }
-  }
+    } 
+      throw new Error(rawData.error.message);
 };

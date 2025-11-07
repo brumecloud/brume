@@ -19,9 +19,7 @@ export const useService = () => {
     };
   }
 
-  const el = project.services.find(
-    (service) => service.id === serviceId
-  );
+  const el = project.services.find((service) => service.id === serviceId);
 
   return {
     service: el,
@@ -55,17 +53,14 @@ export const useDeleteService = () => {
         });
 
         if (!rawProject) {
-          console.error(
-            `Project with id ${projectId} not found in cache`
-          );
+          console.error(`Project with id ${projectId} not found in cache`);
           return;
         }
 
         // remove the deleted service from the project
-        const filteredServices =
-          rawProject.getProjectById.services.filter(
-            (service) => service.id !== serviceId
-          );
+        const filteredServices = rawProject.getProjectById.services.filter(
+          (service) => service.id !== serviceId
+        );
 
         cache.modify({
           id: `Project:${projectId}`,
@@ -87,8 +82,9 @@ export const useDeleteService = () => {
 export const useUpdateServiceSettings = () => {
   const { serviceId } = useParams<RouteParams>();
 
-  const [updateServiceSettingsMutation, { loading, error }] =
-    useMutation(UPDATE_SERVICE_SETTINGS_MUTATION, {
+  const [updateServiceSettingsMutation, { loading, error }] = useMutation(
+    UPDATE_SERVICE_SETTINGS_MUTATION,
+    {
       update(cache, { data }) {
         if (!data) {
           console.error(
@@ -104,7 +100,8 @@ export const useUpdateServiceSettings = () => {
           },
         });
       },
-    });
+    }
+  );
 
   return {
     updateServiceSettingsMutation,

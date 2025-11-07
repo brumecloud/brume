@@ -10,7 +10,7 @@ export const useLoginError = () => {
 
       if (error.message && error.title) {
         setTimeout(() => {
-          if (errorAlreadyFired) return;
+          if (errorAlreadyFired) { return; }
           console.error(error);
           toast.error(error.title, {
             id: Math.random().toString(),
@@ -25,7 +25,7 @@ export const useLoginError = () => {
 
       if (info.message && info.title) {
         setTimeout(() => {
-          if (infoAlreadyFired) return;
+          if (infoAlreadyFired) { return; }
           console.error(info);
           toast.info(info.title, {
             id: Math.random().toString(),
@@ -35,7 +35,7 @@ export const useLoginError = () => {
           localStorage.removeItem("info");
         }, 50);
       }
-    } catch (e) {
+    } catch (_e) {
       console.error("Error not found while error=true set");
     }
   }, []);

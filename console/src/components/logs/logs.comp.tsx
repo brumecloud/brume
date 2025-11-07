@@ -12,10 +12,7 @@ type LogsRenderProps = {
   logsSubscription: () => void;
 };
 
-export const LogsRender = ({
-  logsSubscription,
-  logs,
-}: LogsRenderProps) => {
+export const LogsRender = ({ logsSubscription, logs }: LogsRenderProps) => {
   const virtuosoScrollerRef = useRef<VirtuosoHandle>(null);
   const { isLive, stopLive } = useSnapshot(liveLogs);
 
@@ -29,7 +26,7 @@ export const LogsRender = ({
     // saying crap, if we add logSubcription we get an infinite loop
     // well play react linter
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLive]);
+  }, [isLive, logsSubscription]);
 
   useEffect(() => {
     if (isLive) {
@@ -38,7 +35,7 @@ export const LogsRender = ({
         index: "LAST",
       });
     }
-  }, [logs.length, isLive]);
+  }, [isLive]);
 
   return (
     <div
@@ -48,7 +45,8 @@ export const LogsRender = ({
           stopLive();
         }
       }}
-      onMouseDown={() => stopLive()}>
+      onMouseDown={() => stopLive()}
+    >
       <div className="h-full w-full">
         <Virtuoso
           ref={virtuosoScrollerRef}

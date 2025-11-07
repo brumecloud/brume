@@ -14,14 +14,13 @@ import { IoFolderOpenOutline } from "react-icons/io5";
 import { MdDriveFileRenameOutline } from "react-icons/md";
 import { MdDns } from "react-icons/md";
 
-export const AddDomain = () => {
-  return (
+export const AddDomain = () => (
     <Page.Container>
       <Page.Header>
         <Page.Title>Add an existing domain</Page.Title>
         <Page.Description>
-          Link a domain that you already own to your account using DNS
-          NS records.
+          Link a domain that you already own to your account using DNS NS
+          records.
         </Page.Description>
       </Page.Header>
       <Page.Body className="pt-8">
@@ -36,17 +35,14 @@ export const AddDomain = () => {
             <Stepper.Body>
               {({ setStep }) => (
                 <>
-                  <div className="text-sm font-medium">
+                  <div className="font-medium text-sm">
                     Enter the domain name
                   </div>
-                  <p className="text-sm text-gray-500">
-                    Choose a domain name you own and you want access
-                    to the DNS records
+                  <p className="text-gray-500 text-sm">
+                    Choose a domain name you own and you want access to the DNS
+                    records
                   </p>
-                  <Input
-                    placeholder="brume.dev"
-                    className="max-w-96"
-                  />
+                  <Input placeholder="brume.dev" className="max-w-96" />
                   <Button className="w-32" onClick={() => setStep(1)}>
                     Validate
                   </Button>
@@ -64,13 +60,12 @@ export const AddDomain = () => {
             <Stepper.Body>
               {({ setStep }) => (
                 <>
-                  <div className="text-sm font-medium">
+                  <div className="font-medium text-sm">
                     Redirect your domain to our DNS servers
                   </div>
-                  <p className="text-sm text-gray-500">
-                    The DNS records at your provider must match the
-                    following records to verify and connect your
-                    domain to Brume
+                  <p className="text-gray-500 text-sm">
+                    The DNS records at your provider must match the following
+                    records to verify and connect your domain to Brume
                   </p>
                   <div className="w-64 rounded-md border bg-gray-100 p-4 font-mono text-sm">
                     <p>NS ns1.brume.dev</p>
@@ -93,19 +88,20 @@ export const AddDomain = () => {
             <Stepper.Body>
               {({ setStep }) => (
                 <>
-                  <div className="text-sm font-medium">
+                  <div className="font-medium text-sm">
                     We are checking everything
                   </div>
-                  <p className="text-sm text-gray-500">
-                    DNS records can take time to propagate. This can
-                    take a few minutes
+                  <p className="text-gray-500 text-sm">
+                    DNS records can take time to propagate. This can take a few
+                    minutes
                   </p>
                   <div className="flex flex-row gap-2">
                     <Button variant={"outline"}>Refresh</Button>
                     <Button
                       onClick={() => {
                         setStep(3);
-                      }}>
+                      }}
+                    >
                       Validate
                     </Button>
                   </div>
@@ -123,12 +119,11 @@ export const AddDomain = () => {
             <Stepper.Body>
               {({ setStep }) => (
                 <>
-                  <div className="text-sm font-medium">
+                  <div className="font-medium text-sm">
                     Everything looks good!
                   </div>
-                  <p className="text-sm text-gray-500">
-                    You can now link your new domain to one of your
-                    projects.
+                  <p className="text-gray-500 text-sm">
+                    You can now link your new domain to one of your projects.
                   </p>
                   <div>
                     <Select>
@@ -136,9 +131,7 @@ export const AddDomain = () => {
                         <SelectValue placeholder="Select a project" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="porfolio">
-                          Porfolio
-                        </SelectItem>
+                        <SelectItem value="porfolio">Porfolio</SelectItem>
                         <SelectItem value="chat-app">
                           vibe-coded-chat
                         </SelectItem>
@@ -150,7 +143,8 @@ export const AddDomain = () => {
                     <Button
                       onClick={() => {
                         setStep(4);
-                      }}>
+                      }}
+                    >
                       Link to project
                     </Button>
                   </div>
@@ -162,4 +156,3 @@ export const AddDomain = () => {
       </Page.Body>
     </Page.Container>
   );
-};

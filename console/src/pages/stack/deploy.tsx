@@ -17,7 +17,7 @@ import { TfiPackage } from "react-icons/tfi";
 export const DeployStack = () => {
   const [domain, setDomain] = useState("");
   const [agreement, setAgreement] = useState(false);
-  const [planReview, setPlanReview] = useState(false);
+  const [_planReview, setPlanReview] = useState(false);
   const [applyStack, setApplyStack] = useState(false);
 
   return (
@@ -41,12 +41,12 @@ export const DeployStack = () => {
               {({ setStep }) => (
                 <>
                   <div className="flex flex-col space-y-1">
-                    <div className="text-sm font-medium">
+                    <div className="font-medium text-sm">
                       All of your domains
                     </div>
-                    <p className="text-sm text-gray-500">
-                      Choose on which domain / account you want the
-                      stack to be deployed on.
+                    <p className="text-gray-500 text-sm">
+                      Choose on which domain / account you want the stack to be
+                      deployed on.
                     </p>
                     <div className="pt-4">
                       <Select
@@ -54,15 +54,14 @@ export const DeployStack = () => {
                         onValueChange={(value) => {
                           setStep(1);
                           setDomain(value);
-                        }}>
+                        }}
+                      >
                         <SelectTrigger className="w-[300px]">
                           <SelectValue placeholder="Select a domain" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="dev">Dev AWS</SelectItem>
-                          <SelectItem value="prod">
-                            Production AWS
-                          </SelectItem>
+                          <SelectItem value="prod">Production AWS</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -81,12 +80,10 @@ export const DeployStack = () => {
             <Stepper.Body>
               {({ setStep }) => (
                 <>
-                  <div className="text-sm font-medium">
-                    Plan of action
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    All of these ressources will be created on the
-                    domain you selected.
+                  <div className="font-medium text-sm">Plan of action</div>
+                  <p className="text-gray-500 text-sm">
+                    All of these ressources will be created on the domain you
+                    selected.
                   </p>
                   <div className="flex flex-col gap-4 pt-4">
                     <div className="flex items-center gap-3">
@@ -94,23 +91,22 @@ export const DeployStack = () => {
                         id="terms"
                         checked={agreement}
                         onCheckedChange={(v) => {
-                          if (v == "indeterminate") {
+                          if (v === "indeterminate") {
                             setAgreement(false);
                           } else {
                             setAgreement(v);
                           }
                         }}
                       />
-                      <Label htmlFor="terms">
-                        I have review the stack
-                      </Label>
+                      <Label htmlFor="terms">I have review the stack</Label>
                     </div>
                     <Button
                       className="w-44"
                       onClick={() => {
                         setPlanReview(true);
                         setStep(2);
-                      }}>
+                      }}
+                    >
                       Next step
                     </Button>
                   </div>
@@ -128,13 +124,12 @@ export const DeployStack = () => {
             <Stepper.Body>
               {({ setStep }) => (
                 <>
-                  <div className="text-sm font-medium">
+                  <div className="font-medium text-sm">
                     Change will be applied
                   </div>
-                  <p className="text-sm text-gray-500">
-                    You agree to the term and conditions of the
-                    service. You take responsibility for the
-                    ressources you are deploying.
+                  <p className="text-gray-500 text-sm">
+                    You agree to the term and conditions of the service. You
+                    take responsibility for the ressources you are deploying.
                   </p>
                   <div className="pt-4">
                     <div className="flex items-center gap-3">
@@ -142,7 +137,7 @@ export const DeployStack = () => {
                         id="terms"
                         checked={applyStack}
                         onCheckedChange={(v) => {
-                          if (v == "indeterminate") {
+                          if (v === "indeterminate") {
                             setApplyStack(false);
                           } else {
                             setApplyStack(v);
@@ -150,8 +145,7 @@ export const DeployStack = () => {
                         }}
                       />
                       <Label htmlFor="terms">
-                        Accept the changes and the risks of deploying
-                        the stack
+                        Accept the changes and the risks of deploying the stack
                       </Label>
                     </div>
                     <div className="pt-8">
@@ -159,7 +153,8 @@ export const DeployStack = () => {
                         onClick={() => {
                           setStep(3);
                         }}
-                        disabled={!agreement}>
+                        disabled={!agreement}
+                      >
                         Deploy the SPA stack
                       </Button>
                     </div>
