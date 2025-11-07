@@ -45,21 +45,21 @@ const StackCard = () => {
 };
 
 export const Marketplace = () => (
-    <Page.Container>
-      <Page.Header>
-        <Page.Title>Marketplace</Page.Title>
-        <Page.Description>
-          Browse all the stack Brume has to offer. Every stack you see in this
-          marketplace has been peer reviewed and is ready to deploy.
-        </Page.Description>
-      </Page.Header>
-      <Page.Body className="flex flex-col gap-8">
-        <div className="w-full">
-          <Input placeholder="Search for a stack" />
-        </div>
-        <div className="flex flex-row">
-          <StackCard />
-        </div>
-      </Page.Body>
-    </Page.Container>
-  );
+  <Page.Container>
+    <Page.Header>
+      <Page.Title>Marketplace</Page.Title>
+      <Page.Description>
+        Browse all the stack Brume has to offer. Every stack you see in this
+        marketplace has been peer reviewed and is ready to deploy.
+      </Page.Description>
+    </Page.Header>
+    <Page.Body className="flex flex-col gap-8">
+      <div className="w-full">
+        <Input placeholder="Search for a stack" />
+      </div>
+      <div className="flex flex-row">
+        <StackCard />
+      </div>
+    </Page.Body>
+  </Page.Container>
+);

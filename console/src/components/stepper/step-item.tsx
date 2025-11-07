@@ -65,10 +65,10 @@ export const StepHeaderTitle = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
-    <div className={cn("pl-4 font-medium text-lg", className)} {...props}>
-      {children}
-    </div>
-  );
+  <div className={cn("pl-4 font-medium text-lg", className)} {...props}>
+    {children}
+  </div>
+);
 
 export const StepIcon = ({
   children,

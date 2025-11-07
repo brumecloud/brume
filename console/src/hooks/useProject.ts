@@ -23,8 +23,8 @@ export const useProject = () => {
       loading: true,
     };
   }
-    return {
-      project: data.getProjectById,
-      loading: false,
-    };
+  return {
+    project: data.getProjectById,
+    loading: false,
+  };
 };

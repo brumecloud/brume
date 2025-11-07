@@ -1,3 +1,11 @@
+import { useFragment } from "@apollo/client";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Flame, Loader2, SquareTerminal } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { useBlocker, useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { z } from "zod";
 import type { ServiceFragmentFragment } from "@/_apollo/graphql";
 import { Page } from "@/components/page-comp/header";
 import { Stepper } from "@/components/stepper";
@@ -18,16 +26,8 @@ import { ServiceFragment } from "@/gql/service.graphql";
 import { useDeleteService, useUpdateServiceSettings } from "@/hooks/useService";
 import type { RouteParams } from "@/router/router.param";
 import { cn } from "@/utils";
-import { useFragment } from "@apollo/client";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Flame, Loader2, SquareTerminal } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { useBlocker, useNavigate, useParams } from "react-router-dom";
-import { toast } from "sonner";
-import { z } from "zod";
 
-export const SettingPage = () => {
+export const SourcePage = () => {
   const { projectId, serviceId } = useParams<RouteParams>();
 
   const { data: service, complete } = useFragment({
@@ -118,17 +118,19 @@ export const SettingPage = () => {
   return (
     <Page.Container>
       <Page.Header>
-        <Page.Title>Settings</Page.Title>
-        <Page.Description>General settings about the service</Page.Description>
+        <Page.Title>Source</Page.Title>
+        <Page.Description>
+          Configure the source of code of the service
+        </Page.Description>
       </Page.Header>
       <Page.Body className="pt-8">
         <Stepper.Root leftBorder>
-          <Stepper.Item>
+          <Stepper.Item className="h-full">
             <Stepper.Header>
               <Stepper.Icon>
                 <SquareTerminal className="h-5 w-5" />
               </Stepper.Icon>
-              <Stepper.Title>General</Stepper.Title>
+              <Stepper.Title>Git repository</Stepper.Title>
             </Stepper.Header>
             <Stepper.Body>
               {() => (
@@ -140,47 +142,14 @@ export const SettingPage = () => {
                     render={({ field, fieldState }) => (
                       <Input
                         {...field}
-                        placeholder="My Service"
                         className={cn(
                           "w-[400px]",
                           fieldState.isDirty && "border-green-500"
                         )}
+                        placeholder="My Service"
                       />
                     )}
                   />
-                  <p className="text-sm">The universal ID of the service</p>
-                  <Input value={service?.id} disabled className="w-[400px]" />
-                </>
-              )}
-            </Stepper.Body>
-          </Stepper.Item>
-          <Stepper.Item className="h-full">
-            <Stepper.Header>
-              <Stepper.Icon className="border-red-300 bg-red-50">
-                <Flame className="h-5 w-5 text-red-900" />
-              </Stepper.Icon>
-              <Stepper.Title className="text-red-800">
-                Danger zone
-              </Stepper.Title>
-            </Stepper.Header>
-            <Stepper.Body>
-              {() => (
-                <>
-                  <div className="w-1/2 rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
-                    <p>
-                      Deleting the service will delete all data associated to it
-                      :{" "}
-                      <span className="font-semibold">
-                        all its artifacts, all its logs and metrics.
-                      </span>
-                    </p>
-                  </div>
-                  <Button
-                    className="w-[100px] bg-red-700 hover:bg-red-800"
-                    onClick={() => setConfirmModalOpen(true)}
-                  >
-                    Delete
-                  </Button>
                 </>
               )}
             </Stepper.Body>
@@ -314,19 +283,19 @@ export const OldSettingPage = () => {
                   <div className="flex flex-row items-center space-x-2">
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                     <Button
-                      onClick={submitChanges}
-                      variant="outline"
-                      disabled={Object.keys(form.formState.errors).length > 0}
-                      size="sm"
                       className="text-xs"
+                      disabled={Object.keys(form.formState.errors).length > 0}
+                      onClick={submitChanges}
+                      size="sm"
+                      variant="outline"
                     >
                       Save changes
                     </Button>
                     <Button
-                      onClick={() => form.reset()}
-                      variant="destructive"
-                      size="sm"
                       className="text-xs"
+                      onClick={() => form.reset()}
+                      size="sm"
+                      variant="destructive"
                     >
                       Discard
                     </Button>
@@ -350,16 +319,16 @@ export const OldSettingPage = () => {
             render={({ field, fieldState }) => (
               <Input
                 {...field}
-                placeholder="My Service"
                 className={cn(
                   "w-[400px]",
                   fieldState.isDirty && "border-green-500"
                 )}
+                placeholder="My Service"
               />
             )}
           />
           <p className="text-sm">The universal ID of the service</p>
-          <Input value={service?.id} disabled className="w-[400px]" />
+          <Input className="w-[400px]" disabled value={service?.id} />
         </div>
         <div className="relative flex flex-col border-gray-300 border-l pl-4">
           <div className="flex flex-row items-center">

@@ -98,7 +98,9 @@ export function isFragmentReady<TQuery, TFrag>(
     }
   ).__meta__?.deferredFields;
 
-  if (!deferredFields) { return true; }
+  if (!deferredFields) {
+    return true;
+  }
 
   const fragDef = fragmentNode.definitions[0] as
     | FragmentDefinitionNode

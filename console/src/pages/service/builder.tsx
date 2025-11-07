@@ -1,3 +1,12 @@
+import { useFragment } from "@apollo/client";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowUpFromLine, Code, Loader2, Pickaxe } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Form, useForm } from "react-hook-form";
+import { useBlocker, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { Label } from "src/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "src/components/ui/radio-group";
 import { Page } from "@/components/page-comp/header";
 import { Stepper } from "@/components/stepper";
 import { Button } from "@/components/ui/button";
@@ -18,15 +27,6 @@ import {
 import type { RouteParams } from "@/router/router.param";
 import { type Builder, BuilderSchema } from "@/schemas/service.schema";
 import { cn } from "@/utils";
-import { useFragment } from "@apollo/client";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUpFromLine, Code, Loader2, Pickaxe } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Form, useForm } from "react-hook-form";
-import { useBlocker, useParams } from "react-router-dom";
-import { toast } from "sonner";
-import { Label } from "src/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "src/components/ui/radio-group";
 
 export const BuildTypeValues = {
   GenericImage: "generic-image",
@@ -74,10 +74,11 @@ const _GenericImageOptions = () => {
     defaultValues: useMemo(() => {
       if (draftBuilder) {
         return draftBuilder;
-      }if (builder) {
+      }
+      if (builder) {
         return builder;
       }
-      return ;
+      return;
     }, [draftBuilder, builder]),
   });
 
@@ -122,7 +123,9 @@ const _GenericImageOptions = () => {
   }, [onUnload]);
 
   const submitChanges = async () => {
-    if (!serviceId) { return; }
+    if (!serviceId) {
+      return;
+    }
 
     await updateBuilderMutation({
       variables: {
@@ -152,18 +155,18 @@ const _GenericImageOptions = () => {
               <div className="flex flex-row items-center space-x-2">
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 <Button
-                  onClick={submitChanges}
-                  variant="outline"
-                  size="sm"
                   className="text-xs"
+                  onClick={submitChanges}
+                  size="sm"
+                  variant="outline"
                 >
                   Save changes
                 </Button>
                 <Button
-                  onClick={() => form.reset()}
-                  variant="destructive"
-                  size="sm"
                   className="text-xs"
+                  onClick={() => form.reset()}
+                  size="sm"
+                  variant="destructive"
                 >
                   Discard
                 </Button>
@@ -184,7 +187,7 @@ const _GenericImageOptions = () => {
               name="data.registry"
               render={({ field }) => (
                 <>
-                  <Label htmlFor="registry" className="text-xs">
+                  <Label className="text-xs" htmlFor="registry">
                     Registry
                   </Label>
                   <Select {...field}>
@@ -224,14 +227,11 @@ const _GenericImageOptions = () => {
               name="data.image"
               render={({ field }) => (
                 <>
-                  <Label htmlFor="image" className="text-xs">
+                  <Label className="text-xs" htmlFor="image">
                     Image
                   </Label>
                   <Input
                     {...field}
-                    id="image"
-                    type="text"
-                    placeholder="hello-world"
                     className={cn(
                       builder &&
                         draftBuilder &&
@@ -240,6 +240,9 @@ const _GenericImageOptions = () => {
                       form.formState.dirtyFields.data?.image &&
                         "border-green-500"
                     )}
+                    id="image"
+                    placeholder="hello-world"
+                    type="text"
                   />
                   {builder &&
                     draftBuilder &&
@@ -258,14 +261,11 @@ const _GenericImageOptions = () => {
               name="data.tag"
               render={({ field }) => (
                 <>
-                  <Label htmlFor="tag" className="text-xs">
+                  <Label className="text-xs" htmlFor="tag">
                     Tag
                   </Label>
                   <Input
                     {...field}
-                    id="tag"
-                    type="text"
-                    placeholder="latest"
                     className={cn(
                       builder &&
                         draftBuilder &&
@@ -273,6 +273,9 @@ const _GenericImageOptions = () => {
                         "border-blue-500",
                       form.formState.dirtyFields.data?.tag && "border-green-500"
                     )}
+                    id="tag"
+                    placeholder="latest"
+                    type="text"
                   />
                   {builder &&
                     draftBuilder &&
@@ -292,50 +295,51 @@ const _GenericImageOptions = () => {
 };
 
 const _DockerfileOptions = () => (
-    <div className="flex h-full flex-col">
-      <div className="relative flex flex-col border-gray-300 border-l pb-16 pl-4">
-        <div className="flex flex-row items-center">
-          <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
-            <Code className="h-5 w-5" />
-          </div>
-          <div className="pl-4">Source code</div>
-        </div>
-        <div className="pt-4">test</div>
-      </div>
-      <div className="relative flex flex-col border-gray-300 border-l pb-16 pl-4">
-        <div className="flex flex-row items-center">
-          <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
-            <Pickaxe className="h-5 w-5" />
-          </div>
-          <div className="pl-4">Build artifact</div>
-        </div>
-        <div className="pt-4">test</div>
-      </div>
-      <div className="relative flex flex-col border-gray-300 border-l pb-4 pl-4">
-        <div className="flex flex-row items-center">
-          <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
-            <ArrowUpFromLine className="h-5 w-5" />
-          </div>
-          <div className="pl-4">Push Artifact</div>
-        </div>
-        <div className="pt-4">test</div>
-      </div>
-    </div>
-  );
-
-const _StaticWebsiteOptions = () => (
+  <div className="flex h-full flex-col">
     <div className="relative flex flex-col border-gray-300 border-l pb-16 pl-4">
       <div className="flex flex-row items-center">
         <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
           <Code className="h-5 w-5" />
         </div>
-        <div className="pl-4">Static website</div>
+        <div className="pl-4">Source code</div>
       </div>
+      <div className="pt-4">test</div>
     </div>
-  );
+    <div className="relative flex flex-col border-gray-300 border-l pb-16 pl-4">
+      <div className="flex flex-row items-center">
+        <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
+          <Pickaxe className="h-5 w-5" />
+        </div>
+        <div className="pl-4">Build artifact</div>
+      </div>
+      <div className="pt-4">test</div>
+    </div>
+    <div className="relative flex flex-col border-gray-300 border-l pb-4 pl-4">
+      <div className="flex flex-row items-center">
+        <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
+          <ArrowUpFromLine className="h-5 w-5" />
+        </div>
+        <div className="pl-4">Push Artifact</div>
+      </div>
+      <div className="pt-4">test</div>
+    </div>
+  </div>
+);
+
+const _StaticWebsiteOptions = () => (
+  <div className="relative flex flex-col border-gray-300 border-l pb-16 pl-4">
+    <div className="flex flex-row items-center">
+      <div className="absolute left-[-20px] rounded-full border border-gray-300 bg-white p-2 text-gray-600">
+        <Code className="h-5 w-5" />
+      </div>
+      <div className="pl-4">Static website</div>
+    </div>
+  </div>
+);
 
 export const BuilderPage = () => {
-  const [_buildType, setBuildType] = useState<BuildType>("generic-image");
+  const [_buildType, setBuildType] = useState<BuildType>("static-website");
+  const form = useForm({});
 
   return (
     <Page.Container>
@@ -344,13 +348,13 @@ export const BuilderPage = () => {
         <Page.Description>Configure how your service is built</Page.Description>
       </Page.Header>
       <Page.Body className="pt-8">
-        <Stepper.Root leftBorder shouldAnimate>
-          <Stepper.Item className="h-full">
+        <Stepper.Root leftBorder>
+          <Stepper.Item>
             <Stepper.Header>
               <Stepper.Icon>
                 <Pickaxe className="h-5 w-5" />
               </Stepper.Icon>
-              <Stepper.Title>Builder configuration</Stepper.Title>
+              <Stepper.Title>Builder type</Stepper.Title>
             </Stepper.Header>
             <Stepper.Body>
               {() => (
@@ -362,18 +366,19 @@ export const BuilderPage = () => {
                     </p>
                   </div>
                   <RadioGroup
-                    defaultValue="generic-image"
-                    onValueChange={(value) => setBuildType(value as BuildType)}
                     className="flex flex-col space-y-1"
+                    defaultValue="static-website"
+                    onValueChange={(value) => setBuildType(value as BuildType)}
                   >
                     <div className="flex space-x-2">
                       <RadioGroupItem
-                        value="generic-image"
+                        disabled
                         id="generic-image"
+                        value="generic-image"
                       />
                       <Label
-                        htmlFor="generic-image"
                         className="flex flex-col space-y-1"
+                        htmlFor="generic-image"
                       >
                         <span className="font-medium">Generic Image</span>
                         <p className="text-gray-500 text-sm">
@@ -384,13 +389,13 @@ export const BuilderPage = () => {
                     </div>
                     <div className="flex space-x-2">
                       <RadioGroupItem
-                        value="dockerfile"
-                        id="dockerfile"
                         disabled
+                        id="dockerfile"
+                        value="dockerfile"
                       />
                       <Label
-                        htmlFor="dockerfile"
                         className="flex flex-col space-y-1"
+                        htmlFor="dockerfile"
                       >
                         <span className="font-medium">Dockerfile</span>
                         <p className="text-gray-500 text-sm">
@@ -403,13 +408,12 @@ export const BuilderPage = () => {
                     </div>
                     <div className="flex space-x-2">
                       <RadioGroupItem
-                        value="static-website"
                         id="static-website"
-                        disabled
+                        value="static-website"
                       />
                       <Label
-                        htmlFor="static-website"
                         className="flex flex-col space-y-1"
+                        htmlFor="static-website"
                       >
                         <span className="font-medium">Static Website</span>
                         <p className="text-gray-500 text-sm">
@@ -419,6 +423,71 @@ export const BuilderPage = () => {
                       </Label>
                     </div>
                   </RadioGroup>
+                </>
+              )}
+            </Stepper.Body>
+          </Stepper.Item>
+          <Stepper.Item className="h-full">
+            <Stepper.Header>
+              <Stepper.Icon>
+                <Pickaxe className="h-5 w-5" />
+              </Stepper.Icon>
+              <Stepper.Title>Builder details</Stepper.Title>
+            </Stepper.Header>
+            <Stepper.Body>
+              {() => (
+                <>
+                  <div className="flex flex-col space-y-1">
+                    <div className="font-medium text-sm">
+                      Configure the builder options
+                    </div>
+                    <p className="text-gray-500 text-sm">
+                      Each builder type has its own options to configure.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs" htmlFor="build-command">
+                      Framework
+                    </Label>
+                    <FormField
+                      control={form.control}
+                      name="data.healthCheckURL"
+                      render={({ field }) => (
+                        <>
+                          <Select {...field}>
+                            <SelectTrigger className={cn("w-[300px]")}>
+                              <SelectValue placeholder="React" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="react">React</SelectItem>
+                              <SelectItem value="vue">Vue</SelectItem>
+                              <SelectItem value="angular">Angular</SelectItem>
+                              <SelectItem value="solid">Solid</SelectItem>
+                              <SelectItem value="svelte">Svelte</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </>
+                      )}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs" htmlFor="build-command">
+                      Root directory
+                    </Label>
+                    <FormField
+                      control={form.control}
+                      name="data.healthCheckURL"
+                      render={({ field }) => (
+                        <>
+                          <Input
+                            {...field}
+                            className={cn("w-[300px]")}
+                            placeholder="./src"
+                          />
+                        </>
+                      )}
+                    />
+                  </div>
                 </>
               )}
             </Stepper.Body>

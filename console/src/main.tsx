@@ -17,6 +17,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import App from "./App";
 import "./index.css";
 import { createFragmentRegistry } from "@apollo/client/cache";
+
 import { BUILDER_FRAGMENT } from "./gql/builder.graphql";
 import { DEPLOYMENT_FRAGMENT } from "./gql/deployment.graphql";
 import { PROJECT_FRAGMENT } from "./gql/project.graphql";
@@ -81,7 +82,7 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
     if (graphQLErrors.length === 0) {
       return;
     }
-      throw new Error(graphQLErrors[0]?.message);
+    throw new Error(graphQLErrors[0]?.message);
   }
 });
 

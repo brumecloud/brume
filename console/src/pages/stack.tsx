@@ -17,7 +17,7 @@ const StackCard = () => {
     <div className="min-w-[400px] overflow-hidden rounded-md border">
       <div className="flex h-16 flex-row items-center justify-between border-b px-3">
         <div className="flex flex-col gap-[3px]">
-          <h2>Frontend stack</h2>
+          <h2>Single Page Application</h2>
           <div className="flex flex-row gap-2">
             <Badge>Production account</Badge>
             <Badge variant={"outline"}>AWS</Badge>
@@ -29,7 +29,6 @@ const StackCard = () => {
           </div>
         </div>
       </div>
-      {/** biome-ignore lint/a11y/noStaticElementInteractions: need */}
       <div
         className="-z-10 inset-0 flex h-40 w-full items-center justify-center gap-x-2 bg-[radial-gradient(circle,#73737350_1px,transparent_1px)] bg-[size:10px_10px] bg-gray-50"
         onMouseEnter={() => setIsHovering(true)}
@@ -79,7 +78,7 @@ export default function Stacks() {
       <Page.Body className="flex flex-col gap-8">
         <div className="flex flex-row gap-4">
           <Input placeholder="Search all your stacks" />
-          <NavLink to="/overview/marketplace">
+          <NavLink to="/marketplace">
             <Button>Add new...</Button>
           </NavLink>
         </div>

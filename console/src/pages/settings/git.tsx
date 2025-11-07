@@ -1,25 +1,27 @@
-import { Button } from "@/components/ui/button";
-import { cn } from "@/utils";
-import { FaGithub, FaGitlab } from "react-icons/fa";
-import { FaGitSquare } from "react-icons/fa";
+import { FaGithub, FaGitlab, FaGitSquare } from "react-icons/fa";
 import type { IconType } from "react-icons/lib";
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/utils";
 
 const GitProviderCard = ({
   name,
   icon,
   disabled,
+  className,
 }: {
   name: string;
   icon: IconType;
   disabled?: boolean;
+  className?: string;
 }) => {
   const Icon = icon;
   return (
     <div
       className={cn(
         "flex w-full flex-row items-center justify-between rounded border px-3 py-2",
-        disabled && "cursor-not-allowed border-gray-200"
+        disabled && "cursor-not-allowed border-gray-200",
+        className
       )}
     >
       <div className="flex flex-row items-center justify-center gap-4">
@@ -46,7 +48,7 @@ const GitProviderCard = ({
         </div>
       </div>
       <Link to={`/settings/cloud/${name.toLowerCase()}`}>
-        <Button size="sm" variant="outline" disabled={disabled}>
+        <Button disabled={disabled} size="sm" variant="outline">
           Connect
         </Button>
       </Link>
@@ -72,8 +74,8 @@ export const GitPage = () => {
           </div>
         </div>
         <div className="m-auto flex w-8/12 max-w-1/2 flex-col gap-2">
-          <GitProviderCard name="Github" icon={FaGithub} />
-          <GitProviderCard name="Gitlab" icon={FaGitlab} />
+          <GitProviderCard icon={FaGithub} name="Github" />
+          <GitProviderCard disabled icon={FaGitlab} name="Gitlab" />
         </div>
       </div>
     </div>

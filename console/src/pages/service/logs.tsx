@@ -11,26 +11,26 @@ import { useParams } from "react-router-dom";
 import { useSnapshot } from "valtio";
 
 const LogsHeader = () => (
-    <div
-      className="border-b py-1 pl-2 font-normal text-gray-400 text-sm"
-      style={{
-        display: "grid",
-        gridTemplateColumns:
-          "auto minmax(0px, 120px) minmax(0px, 120px) minmax(0px, 200px) minmax(0px, 1fr)",
-        gridAutoRows: "auto",
-      }}
-    >
-      <div>
-        <div className="scrollbar-hide h-full w-full min-w-[0px] cursor-default select-none truncate pr-2 text-xs">
-          <a className="block h-full w-2 rounded-[3px]" />
-        </div>
+  <div
+    className="border-b py-1 pl-2 font-normal text-gray-400 text-sm"
+    style={{
+      display: "grid",
+      gridTemplateColumns:
+        "auto minmax(0px, 120px) minmax(0px, 120px) minmax(0px, 200px) minmax(0px, 1fr)",
+      gridAutoRows: "auto",
+    }}
+  >
+    <div>
+      <div className="scrollbar-hide h-full w-full min-w-[0px] cursor-default select-none truncate pr-2 text-xs">
+        <a className="block h-full w-2 rounded-[3px]" />
       </div>
-      <p>Date</p>
-      <p>Service ID</p>
-      <p>Deployment Name</p>
-      <p>Message</p>
     </div>
-  );
+    <p>Date</p>
+    <p>Service ID</p>
+    <p>Deployment Name</p>
+    <p>Message</p>
+  </div>
+);
 
 export const LogsPage = () => {
   const { projectId } = useParams();
@@ -101,7 +101,8 @@ export const LogsPage = () => {
       <LogsHeader />
       <LogsRender
         logs={data?.projectLogs ?? []}
-        logsSubscription={() => subscribeToMore({
+        logsSubscription={() =>
+          subscribeToMore({
             document: LOG_BY_PROJECT_ID,
             variables: {
               projectId,
@@ -109,7 +110,9 @@ export const LogsPage = () => {
               limit: 100,
             },
             updateQuery: (prev, { subscriptionData }) => {
-              if (!subscriptionData.data) { return prev; }
+              if (!subscriptionData.data) {
+                return prev;
+              }
               const newLogs = subscriptionData.data.projectLogs;
               const data = prev.projectLogs;
 
@@ -117,7 +120,8 @@ export const LogsPage = () => {
                 projectLogs: [...data, ...newLogs],
               };
             },
-          })}
+          })
+        }
       />
     </div>
   );

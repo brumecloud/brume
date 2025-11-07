@@ -4,7 +4,7 @@ import { FaRegCreditCard } from "react-icons/fa";
 import { IoNotifications } from "react-icons/io5";
 import { LuCircleUserRound } from "react-icons/lu";
 import { TbLogout } from "react-icons/tb";
-import { NavLink, } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,

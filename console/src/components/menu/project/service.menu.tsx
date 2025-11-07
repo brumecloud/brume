@@ -1,8 +1,8 @@
+import { Cog, FolderGit2, Hammer, ServerCog } from "lucide-react";
+import { NavLink } from "react-router-dom";
 import { CollapsibleWrapper } from "@/components/collapsable";
 import type { Service } from "@/schemas/service.schema";
 import { cn } from "@/utils";
-import { Hammer, ServerCog, Cog, } from "lucide-react";
-import { NavLink } from "react-router-dom";
 
 type ServiceViewProps = {
   projectId: string;
@@ -16,21 +16,40 @@ export const ServiceMenu = ({
   const itemClassname = cn("flex flex-col gap-1 rounded py-1");
 
   return (
-    <CollapsibleWrapper title={name} indent={0}>
+    <CollapsibleWrapper indent={0} title={name}>
       <div className={itemClassname}>
         <NavLink
-          to={`/${projectId}/services/${id}/builder`}
-          end
           className={({ isActive }) =>
             cn(
               "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
               isActive && "font-semibold"
             )
           }
+          end
+          to={`/${projectId}/services/${id}/source`}
         >
           {({ isActive }) => (
             <>
-              <Hammer strokeWidth={isActive ? 1.9 : 1.5} height={20} />
+              <FolderGit2 height={20} strokeWidth={isActive ? 1.9 : 1.5} />
+              Source
+            </>
+          )}
+        </NavLink>
+      </div>
+      <div className={itemClassname}>
+        <NavLink
+          className={({ isActive }) =>
+            cn(
+              "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
+              isActive && "font-semibold"
+            )
+          }
+          end
+          to={`/${projectId}/services/${id}/builder`}
+        >
+          {({ isActive }) => (
+            <>
+              <Hammer height={20} strokeWidth={isActive ? 1.9 : 1.5} />
               Builder
             </>
           )}
@@ -38,18 +57,18 @@ export const ServiceMenu = ({
       </div>
       <div className={itemClassname}>
         <NavLink
-          to={`/${projectId}/services/${id}/runner`}
-          end
           className={({ isActive }) =>
             cn(
               "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
               isActive && "font-semibold"
             )
           }
+          end
+          to={`/${projectId}/services/${id}/runner`}
         >
           {({ isActive }) => (
             <>
-              <ServerCog strokeWidth={isActive ? 2 : 1.5} height={20} />
+              <ServerCog height={20} strokeWidth={isActive ? 2 : 1.5} />
               Runner
             </>
           )}
@@ -73,18 +92,18 @@ export const ServiceMenu = ({
       </div> */}
       <div className={itemClassname}>
         <NavLink
-          to={`/${projectId}/services/${id}/settings`}
-          end
           className={({ isActive }) =>
             cn(
               "flex select-none flex-row items-center gap-1 hover:cursor-pointer",
               isActive && "font-semibold"
             )
           }
+          end
+          to={`/${projectId}/services/${id}/settings`}
         >
           {({ isActive }) => (
             <>
-              <Cog strokeWidth={isActive ? 1.9 : 1.5} height={20} />
+              <Cog height={20} strokeWidth={isActive ? 1.9 : 1.5} />
               Settings
             </>
           )}
