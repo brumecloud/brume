@@ -1,0 +1,15 @@
+meta {
+  name: Get build
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base}}/v1/build
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

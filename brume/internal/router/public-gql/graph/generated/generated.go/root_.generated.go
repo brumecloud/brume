@@ -33,6 +33,7 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	Builder() BuilderResolver
 	Deployment() DeploymentResolver
 	DeploymentLog() DeploymentLogResolver
 	DeploymentSource() DeploymentSourceResolver

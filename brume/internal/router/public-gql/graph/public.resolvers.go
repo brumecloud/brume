@@ -22,6 +22,11 @@ import (
 	"github.com/google/uuid"
 )
 
+// Data is the resolver for the data field.
+func (r *builderResolver) Data(ctx context.Context, obj *builder_model.Builder) (*public_graph_model.BuilderData, error) {
+	panic(fmt.Errorf("not implemented: Data - data"))
+}
+
 // ID is the resolver for the id field.
 func (r *deploymentResolver) ID(ctx context.Context, obj *deployment_model.Deployment) (string, error) {
 	return obj.ID.String(), nil
@@ -137,18 +142,13 @@ func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID 
 
 // UpdateBuilder is the resolver for the updateBuilder field.
 func (r *mutationResolver) UpdateBuilder(ctx context.Context, serviceID string, data public_graph_model.BuilderDataInput) (*builder_model.Builder, error) {
-	service_uuid, err := uuid.Parse(serviceID)
-	if err != nil {
-		return nil, err
-	}
+	// service_uuid, err := uuid.Parse(serviceID)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	builderData := builder_model.BuilderData{
-		Image:    data.Image,
-		Registry: data.Registry,
-		Tag:      data.Tag,
-	}
-
-	return r.ServiceService.UpdateBuilder(service_uuid, builderData)
+	// return r.ServiceService.UpdateBuilder(service_uuid, builderData)
+	return nil, nil
 }
 
 // UpdateRunner is the resolver for the updateRunner field.
@@ -354,6 +354,9 @@ func (r *userResolver) Organization(ctx context.Context, obj *user_model.User) (
 	}, nil
 }
 
+// Builder returns generated.BuilderResolver implementation.
+func (r *Resolver) Builder() generated.BuilderResolver { return &builderResolver{r} }
+
 // Deployment returns generated.DeploymentResolver implementation.
 func (r *Resolver) Deployment() generated.DeploymentResolver { return &deploymentResolver{r} }
 
@@ -392,17 +395,16 @@ func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subsc
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
-type (
-	deploymentResolver       struct{ *Resolver }
-	deploymentLogResolver    struct{ *Resolver }
-	deploymentSourceResolver struct{ *Resolver }
-	logResolver              struct{ *Resolver }
-	machineResolver          struct{ *Resolver }
-	mutationResolver         struct{ *Resolver }
-	projectResolver          struct{ *Resolver }
-	queryResolver            struct{ *Resolver }
-	runnerDataResolver       struct{ *Resolver }
-	serviceResolver          struct{ *Resolver }
-	subscriptionResolver     struct{ *Resolver }
-	userResolver             struct{ *Resolver }
-)
+type builderResolver struct{ *Resolver }
+type deploymentResolver struct{ *Resolver }
+type deploymentLogResolver struct{ *Resolver }
+type deploymentSourceResolver struct{ *Resolver }
+type logResolver struct{ *Resolver }
+type machineResolver struct{ *Resolver }
+type mutationResolver struct{ *Resolver }
+type projectResolver struct{ *Resolver }
+type queryResolver struct{ *Resolver }
+type runnerDataResolver struct{ *Resolver }
+type serviceResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }
+type userResolver struct{ *Resolver }

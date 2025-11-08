@@ -1,105 +1,109 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Brume",
-  "description": "Brume simplifies your infrastructure by providing an open source and batteries included solution to deploy, monitor and scale your applications.",
-  "colors": {
-    "primary": "#4abaf2",
-    "light": "#5cb3df",
-    "dark": "#4abaf2"
-  },
-  "logo": {
-    "light": "/logo/logo.png",
-    "dark": "/logo/logo.png"
-  },
-  "icons": {
-    "library": "fontawesome"
-  },
-  "background": {
-    "decoration": "grid"
-  },
-  "favicon": "/favicon.ico",
-  "navigation": {
-    "tabs": [
-      {
-        "tab": "Guides",
-        "groups": [
-          {
-            "group": "Get Started",
-            "pages": ["introduction", "quickstart", "runner"]
-          },
-          {
-            "group": "Core Concepts",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/settings",
-              "essentials/navigation",
-              "essentials/reusable-snippets"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Architecture",
-        "groups": [
-          {
-            "group": "Overview",
-            "pages": ["architecture/overview", "architecture/code"]
-          },
-          {
-            "group": "Orchestration",
-            "pages": ["architecture/orchestrator", "architecture/bid"]
-          },
-          {
-            "group": "Execution",
-            "pages": ["architecture/runner", "architecture/network"]
-          },
-          {
-            "group": "Observability",
-            "pages": ["architecture/observability"]
-          }
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Community",
-          "href": "https://www.reddit.com/r/brumecloud/",
-          "icon": "reddit"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://blog.brume.dev",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:paul@brume.dev"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Console",
-      "href": "https://brume.dev/console"
-    }
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/brumecloud",
-      "github": "https://github.com/brumecloud"
-    }
-  }
+	"$schema": "https://mintlify.com/docs.json",
+	"theme": "mint",
+	"name": "Brume",
+	"description": "Brume simplifies your infrastructure by providing an open source and batteries included solution to deploy, monitor and scale your applications.",
+	"colors": {
+		"primary": "#4abaf2",
+		"light": "#5cb3df",
+		"dark": "#4abaf2"
+	},
+	"logo": {
+		"light": "/logo/logo.png",
+		"dark": "/logo/logo.png"
+	},
+	"icons": {
+		"library": "fontawesome"
+	},
+	"background": {
+		"decoration": "grid"
+	},
+	"favicon": "/favicon.ico",
+	"navigation": {
+		"tabs": [
+			{
+				"tab": "Guides",
+				"groups": [
+					{
+						"group": "Get Started",
+						"pages": ["introduction", "quickstart", "runner"]
+					},
+					{
+						"group": "Core Concepts",
+						"pages": [
+							"essentials/markdown",
+							"essentials/code",
+							"essentials/images",
+							"essentials/settings",
+							"essentials/navigation",
+							"essentials/reusable-snippets"
+						]
+					}
+				]
+			},
+			{
+				"tab": "Architecture",
+				"groups": [
+					{
+						"group": "Overview",
+						"pages": ["architecture/overview", "architecture/code"]
+					},
+					{
+						"group": "Orchestration",
+						"pages": ["architecture/orchestrator", "architecture/bid"]
+					},
+					{
+						"group": "Execution",
+						"pages": ["architecture/runner", "architecture/network"]
+					},
+					{
+						"group": "Observability",
+						"pages": ["architecture/observability"]
+					}
+				]
+			},
+			{
+				"tab": "API Reference",
+				"openapi": "api-reference/agent/agent-openapi.yml"
+			}
+		],
+		"global": {
+			"anchors": [
+				{
+					"anchor": "Documentation",
+					"href": "https://mintlify.com/docs",
+					"icon": "book-open-cover"
+				},
+				{
+					"anchor": "Community",
+					"href": "https://www.reddit.com/r/brumecloud/",
+					"icon": "reddit"
+				},
+				{
+					"anchor": "Blog",
+					"href": "https://blog.brume.dev",
+					"icon": "newspaper"
+				}
+			]
+		}
+	},
+	"navbar": {
+		"links": [
+			{
+				"label": "Support",
+				"href": "mailto:paul@brume.dev"
+			}
+		],
+		"primary": {
+			"type": "button",
+			"label": "Console",
+			"href": "https://brume.dev/console"
+		}
+	},
+	"footer": {
+		"socials": {
+			"x": "https://x.com/brumecloud",
+			"github": "https://github.com/brumecloud"
+		}
+	}
 }

@@ -1,8 +1,10 @@
 package db
 
 import (
+	"encoding/json"
 	"errors"
 
+	agent_model "brume.dev/account/agent/model"
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
@@ -21,6 +23,7 @@ func SeedAll(db *DB, config *config.BrumeConfig) error {
 	brume := SeedOrganization(db, projects, config)
 	admin := SeedAdminUser(db, brume, config)
 	machine := SeedMachine(db, brume)
+	_, _ = SeedAgent(db, brume, config)
 
 	_ = admin
 	_ = machine
@@ -89,6 +92,39 @@ func SeedAdminUser(db *DB, brume *org.Organization, config *config.BrumeConfig) 
 	return admin
 }
 
+func SeedAgent(db *DB, brume *org.Organization, config *config.BrumeConfig) (*agent_model.Agent, *agent_model.Agent) {
+	runnerAgent := &agent_model.Agent{
+		ID: uuid.MustParse("b36d84e9-bec2-4ba1-8b51-536884f06bc7"),
+		APIKey:     "runner-api-key",
+		AgentType:  agent_model.AgentTypeRunner,
+		OrganizationID: brume.ID,
+	}
+	builderAgent := &agent_model.Agent{
+		ID: uuid.MustParse("b36d84e9-bec2-4ba1-8b51-536884f06bc8"),
+		APIKey:     "builder-api-key",
+		AgentType:  agent_model.AgentTypeBuilder,
+		OrganizationID: brume.ID,
+	}
+
+	if err := db.Gorm.First(runnerAgent, "id = ?", runnerAgent.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.Info().Msg("No runner agent found in database, creating it")
+		db.Gorm.Create(runnerAgent)
+		logger.Info().Msg("Runner agent seeded")
+	} else {
+		logger.Info().Msg("Runner agent found, skipping seeding")
+	}
+	
+	if err := db.Gorm.First(builderAgent, "id = ?", builderAgent.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.Info().Msg("No builder agent found in database, creating it")
+		db.Gorm.Create(builderAgent)
+		logger.Info().Msg("Builder agent seeded")
+	} else {
+		logger.Info().Msg("Builder agent found, skipping seeding")
+	}
+
+	return runnerAgent, builderAgent
+}
+
 func generateDeployment(serviceId uuid.UUID) *deployment_model.Deployment {
 	return &deployment_model.Deployment{
 		ID:        uuid.New(),
@@ -112,11 +148,6 @@ func generateDeployment(serviceId uuid.UUID) *deployment_model.Deployment {
 				Port: 80,
 			},
 		},
-		BuilderData: builder_model.BuilderData{
-			Image:    "nginx",
-			Registry: "docker.io",
-			Tag:      "latest",
-		},
 		Env: "dev",
 	}
 }
@@ -132,11 +163,7 @@ func SeedProjects(db *DB) []*project.Project {
 		DraftBuilder: &builder_model.Builder{
 			ID:   uuid.MustParse("f26a89ef-ff17-404a-96c5-3b03938c8149"),
 			Type: "generic-docker",
-			Data: builder_model.BuilderData{
-				Image:    "nginx",
-				Registry: "docker.io",
-				Tag:      "latest",
-			},
+			Data: json.RawMessage{},
 		},
 		DraftRunner: &runner_model.Runner{
 			ID:   uuid.MustParse("de56c895-c814-45fb-a859-ff943f293c3d"),
@@ -169,11 +196,7 @@ func SeedProjects(db *DB) []*project.Project {
 		DraftBuilder: &builder_model.Builder{
 			ID:   uuid.MustParse("21e0d32e-a6a4-471b-b7e3-2201770dfeb8"),
 			Type: "generic-docker",
-			Data: builder_model.BuilderData{
-				Image:    "nginx",
-				Registry: "docker.io",
-				Tag:      "latest",
-			},
+			Data: json.RawMessage{},
 		},
 		DraftRunner: &runner_model.Runner{
 			ID:   uuid.MustParse("c73eb9cf-9143-401a-9c56-b035f1561470"),

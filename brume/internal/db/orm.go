@@ -3,6 +3,7 @@ package db
 import (
 	"time"
 
+	agent_model "brume.dev/account/agent/model"
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	builder "brume.dev/builder/model"
@@ -25,6 +26,7 @@ var AllModels = []interface{}{
 	&builder.Builder{},
 	&machine_model.Machine{},
 	&job_model.Job{},
+	&agent_model.Agent{},
 }
 
 type Model struct {

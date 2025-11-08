@@ -32,8 +32,6 @@ func (s *DeploymentService) StartDeployment(id uuid.UUID) error {
 		JobType:   job_model.JobTypeBuilder,
 		Status:    job_model.JobStatusEnumCreating,
 		CreatedAt: time.Now(),
-
-		BuilderData: &deployment.BuilderData,
 	}
 
 	err = s.db.Gorm.Save(builderJob).Error
