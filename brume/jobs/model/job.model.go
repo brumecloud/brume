@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"time"
 
-	builder_model "brume.dev/builder/model"
 	runner_model "brume.dev/runner/model"
 
 	"github.com/google/uuid"
@@ -36,7 +35,6 @@ type Job struct {
 	AcceptedAt *time.Time `json:"accepted_at"`
 
 	RunnerData  *runner_model.RunnerData   `gorm:"type:jsonb" json:"runner_data"`
-	BuilderData *builder_model.BuilderData `gorm:"type:jsonb" json:"builder_data"`
 
 	// a runner job can be blocked by a builder job for example
 	// the blocked job will be release when the blocking job is done

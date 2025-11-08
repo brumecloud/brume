@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"time"
 
-	builder_model "brume.dev/builder/model"
 	job_model "brume.dev/jobs/model"
 	runner_model "brume.dev/runner/model"
 
@@ -24,7 +23,6 @@ type Deployment struct {
 	Source DeploymentSource `gorm:"type:jsonb"`
 
 	RunnerData  runner_model.RunnerData   `gorm:"type:jsonb"`
-	BuilderData builder_model.BuilderData `gorm:"type:jsonb"`
 
 	Execution ExecutionData `gorm:"type:jsonb"`
 

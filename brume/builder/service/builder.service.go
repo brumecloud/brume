@@ -57,29 +57,3 @@ func (e *BuilderService) DuplicateBuilder(builderId uuid.UUID) (*builder_model.B
 
 	return duplicateBuilder, nil
 }
-
-func (e *BuilderService) CreateDockerBuilder(serviceId uuid.UUID) (*builder_model.Builder, error) {
-	logger.Trace().Str("service_id", serviceId.String()).Msg("Creating docker builder")
-
-	id, _ := uuid.NewRandom()
-
-	builder := &builder_model.Builder{
-		ID:        id,
-		ServiceId: serviceId,
-		Type:      "generic-docker",
-		Data: builder_model.BuilderData{
-			Image:    "nginx",
-			Registry: "docker.io",
-			Tag:      "latest",
-		},
-	}
-
-	err := e.db.Gorm.Create(&builder).Error
-
-	if err != nil {
-		logger.Error().Err(err).Str("service_id", serviceId.String()).Msg("Error creating docker builder")
-		return nil, err
-	}
-
-	return builder, nil
-}

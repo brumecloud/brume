@@ -1,7 +1,6 @@
 package builder_model
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 	"time"
 
@@ -9,29 +8,26 @@ import (
 	"gorm.io/gorm"
 )
 
+// builder for a service
 type Builder struct {
 	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
 
-	// reference to the service
+	// service using this builder
 	ServiceId uuid.UUID `gorm:"type:uuid"`
+
+	// reference to the builder repository
+	// this link must follow the builder convention
+	Link string `gorm:"type:text"`
+	// builder follow semver
+	Version string `gorm:"type:text"`
+
+	// what kind of artifact the builder produces
 	Type      string
-	Data      BuilderData `gorm:"type:jsonb"`
+
+	// this data is respecting the schema imposed by the builder
+	Data      json.RawMessage `gorm:"type:jsonb"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
-}
-
-type BuilderData struct {
-	Image    string
-	Registry string `default:"docker.io"`
-	Tag      string `default:"latest"`
-}
-
-func (b *BuilderData) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), &b)
-}
-
-func (b *BuilderData) Value() (driver.Value, error) {
-	return json.Marshal(b)
 }

@@ -2,6 +2,12 @@
 
 package public_graph_model
 
+type BuilderData struct {
+	Image    string `json:"image"`
+	Registry string `json:"registry"`
+	Tag      string `json:"tag"`
+}
+
 type BuilderDataInput struct {
 	Image    string `json:"image"`
 	Registry string `json:"registry"`

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"time"
 
 	builder_model "brume.dev/builder/model"
@@ -51,7 +52,7 @@ func (s *ServiceService) DeployService(serviceId uuid.UUID, source deployment_mo
 		Name:      service.Name + "-" + time.Now().Format("20060102150405"),
 
 		Source:      source,
-		BuilderData: service.LiveBuilder.Data,
+		// BuilderData: service.LiveBuilder.Data,
 		RunnerData:  service.LiveRunner.Data,
 
 		CreatedAt: time.Now(),
@@ -77,7 +78,7 @@ func (s *ServiceService) DeployService(serviceId uuid.UUID, source deployment_mo
 	return nil
 }
 
-func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data builder_model.BuilderData) (*builder_model.Builder, error) {
+func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data json.RawMessage) (*builder_model.Builder, error) {
 	var err error
 
 	service, err := s.GetService(serviceId)
@@ -228,15 +229,15 @@ func (s *ServiceService) CreateService(name string, projectId uuid.UUID, image s
 		return nil, err
 	}
 
-	runner, execErr := s.runnerService.CreateDockerExecutor(service.ID)
-	builder, builderErr := s.builderService.CreateDockerBuilder(service.ID)
+	// runner, execErr := s.runnerService.CreateDockerExecutor(service.ID)
+	// builder, builderErr := s.builderService.CreateDockerBuilder(service.ID)
 
-	if execErr != nil || builderErr != nil {
-		return nil, execErr
-	}
+	// if execErr != nil || builderErr != nil {
+	// 	return nil, execErr
+	// }
 
-	service.DraftRunner = runner
-	service.DraftBuilder = builder
+	// service.DraftRunner = runner
+	// service.DraftBuilder = builder
 
 	s.db.Gorm.Save(service)
 

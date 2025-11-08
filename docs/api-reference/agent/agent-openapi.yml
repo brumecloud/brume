@@ -1,0 +1,100 @@
+openapi: '3.0.3'
+info:
+  title: Brume Agent API 
+  description: The API a Brume agent expect and will calls when interacting with Brume Orchestrator.
+  version: '1.0'
+servers:
+  - url: https://api.brume.dev/v1
+security:
+  - ApiKeyAuth: []
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: The software is authentificated with this API key. When creating the API key, the software is registering his scope.
+  schemas:
+    BuildJob: 
+      type: object
+      properties:
+        jobId:
+          type: string
+    RunJob: 
+      type: object
+      properties:
+        artifactType:
+          type: string
+        runId:
+          type: string
+paths:
+  /v1/build:
+    get:
+      description: Get the build job request 
+      x-mint:
+        metadata:
+          title: Get Builds
+          description: Get the build job request 
+          og:title: Get Builds
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: The list of pending build job requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BuildJob'
+  /v1/build/{jobId}:
+    post:
+      description: Update the build job request
+      x-mint:
+        metadata:
+          title: Update Build
+          description: Update the build job request 
+          og:title: Update Build
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The build job request updated
+  /v1/run:
+    get:
+      description: Get all the run jobs 
+      x-mint:
+        metadata:
+          title: Get Runs
+          description: Get all the run job requests
+          og:title: Get Runs
+      responses:
+        '200':
+          description: The list of pending run job requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RunJob'
+  /v1/run/{runId}:
+    post:
+      description: Update the run job request
+      x-mint:
+        metadata:
+          title: Update Run
+          description: Update the run job request
+          og:title: Update Run
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The run job request updated

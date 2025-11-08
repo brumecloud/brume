@@ -27,6 +27,9 @@ import (
 
 // region    ************************** generated!.gotpl **************************
 
+type BuilderResolver interface {
+	Data(ctx context.Context, obj *builder_model.Builder) (*public_graph_model.BuilderData, error)
+}
 type DeploymentResolver interface {
 	ID(ctx context.Context, obj *deployment_model.Deployment) (string, error)
 	Author(ctx context.Context, obj *deployment_model.Deployment) (*user_model.User, error)
@@ -891,7 +894,7 @@ func (ec *executionContext) _Builder_data(ctx context.Context, field graphql.Col
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Data, nil
+		return ec.resolvers.Builder().Data(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -903,17 +906,17 @@ func (ec *executionContext) _Builder_data(ctx context.Context, field graphql.Col
 		}
 		return graphql.Null
 	}
-	res := resTmp.(builder_model.BuilderData)
+	res := resTmp.(*public_graph_model.BuilderData)
 	fc.Result = res
-	return ec.marshalNBuilderData2brumeᚗdevᚋbuilderᚋmodelᚐBuilderData(ctx, field.Selections, res)
+	return ec.marshalNBuilderData2ᚖbrumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐBuilderData(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Builder_data(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Builder",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "image":
@@ -929,7 +932,7 @@ func (ec *executionContext) fieldContext_Builder_data(_ context.Context, field g
 	return fc, nil
 }
 
-func (ec *executionContext) _BuilderData_image(ctx context.Context, field graphql.CollectedField, obj *builder_model.BuilderData) (ret graphql.Marshaler) {
+func (ec *executionContext) _BuilderData_image(ctx context.Context, field graphql.CollectedField, obj *public_graph_model.BuilderData) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_BuilderData_image(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -973,7 +976,7 @@ func (ec *executionContext) fieldContext_BuilderData_image(_ context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _BuilderData_registry(ctx context.Context, field graphql.CollectedField, obj *builder_model.BuilderData) (ret graphql.Marshaler) {
+func (ec *executionContext) _BuilderData_registry(ctx context.Context, field graphql.CollectedField, obj *public_graph_model.BuilderData) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_BuilderData_registry(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1017,7 +1020,7 @@ func (ec *executionContext) fieldContext_BuilderData_registry(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _BuilderData_tag(ctx context.Context, field graphql.CollectedField, obj *builder_model.BuilderData) (ret graphql.Marshaler) {
+func (ec *executionContext) _BuilderData_tag(ctx context.Context, field graphql.CollectedField, obj *public_graph_model.BuilderData) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_BuilderData_tag(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -5218,13 +5221,44 @@ func (ec *executionContext) _Builder(ctx context.Context, sel ast.SelectionSet, 
 		case "type":
 			out.Values[i] = ec._Builder_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "data":
-			out.Values[i] = ec._Builder_data(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Builder_data(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5250,7 +5284,7 @@ func (ec *executionContext) _Builder(ctx context.Context, sel ast.SelectionSet, 
 
 var builderDataImplementors = []string{"BuilderData"}
 
-func (ec *executionContext) _BuilderData(ctx context.Context, sel ast.SelectionSet, obj *builder_model.BuilderData) graphql.Marshaler {
+func (ec *executionContext) _BuilderData(ctx context.Context, sel ast.SelectionSet, obj *public_graph_model.BuilderData) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, builderDataImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -7080,8 +7114,18 @@ func (ec *executionContext) marshalNBuilder2ᚖbrumeᚗdevᚋbuilderᚋmodelᚐB
 	return ec._Builder(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNBuilderData2brumeᚗdevᚋbuilderᚋmodelᚐBuilderData(ctx context.Context, sel ast.SelectionSet, v builder_model.BuilderData) graphql.Marshaler {
+func (ec *executionContext) marshalNBuilderData2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐBuilderData(ctx context.Context, sel ast.SelectionSet, v public_graph_model.BuilderData) graphql.Marshaler {
 	return ec._BuilderData(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNBuilderData2ᚖbrumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐBuilderData(ctx context.Context, sel ast.SelectionSet, v *public_graph_model.BuilderData) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BuilderData(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNBuilderDataInput2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐBuilderDataInput(ctx context.Context, v interface{}) (public_graph_model.BuilderDataInput, error) {
