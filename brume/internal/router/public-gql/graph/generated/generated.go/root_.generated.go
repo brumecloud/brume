@@ -33,18 +33,13 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	BaseService() BaseServiceResolver
 	Builder() BuilderResolver
-	Deployment() DeploymentResolver
-	DeploymentLog() DeploymentLogResolver
-	DeploymentSource() DeploymentSourceResolver
-	Log() LogResolver
-	Machine() MachineResolver
 	Mutation() MutationResolver
 	Project() ProjectResolver
 	Query() QueryResolver
-	RunnerData() RunnerDataResolver
+	Runner() RunnerResolver
 	Service() ServiceResolver
-	Subscription() SubscriptionResolver
 	User() UserResolver
 }
 
@@ -52,52 +47,17 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	BaseService struct {
+		Builder func(childComplexity int) int
+		Runner  func(childComplexity int) int
+		Source  func(childComplexity int) int
+	}
+
 	Builder struct {
-		Data func(childComplexity int) int
-		Type func(childComplexity int) int
-	}
-
-	BuilderData struct {
-		Image    func(childComplexity int) int
-		Registry func(childComplexity int) int
-		Tag      func(childComplexity int) int
-	}
-
-	Deployment struct {
-		Author    func(childComplexity int) int
-		CreatedAt func(childComplexity int) int
-		Env       func(childComplexity int) int
-		ID        func(childComplexity int) int
-		Logs      func(childComplexity int) int
-		Source    func(childComplexity int) int
-	}
-
-	DeploymentLog struct {
-		Date     func(childComplexity int) int
-		Duration func(childComplexity int) int
-		Status   func(childComplexity int) int
-	}
-
-	DeploymentSource struct {
-		Branch  func(childComplexity int) int
-		Commit  func(childComplexity int) int
-		Message func(childComplexity int) int
+		Data    func(childComplexity int) int
+		Link    func(childComplexity int) int
 		Type    func(childComplexity int) int
-	}
-
-	Log struct {
-		DeploymentID   func(childComplexity int) int
-		DeploymentName func(childComplexity int) int
-		Level          func(childComplexity int) int
-		Message        func(childComplexity int) int
-		ServiceID      func(childComplexity int) int
-		Timestamp      func(childComplexity int) int
-	}
-
-	Machine struct {
-		ID   func(childComplexity int) int
-		IP   func(childComplexity int) int
-		Name func(childComplexity int) int
+		Version func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -106,8 +66,6 @@ type ComplexityRoot struct {
 		DeleteDraft           func(childComplexity int, projectID string) int
 		DeleteService         func(childComplexity int, serviceID string) int
 		DeployProject         func(childComplexity int, projectID string) int
-		UpdateBuilder         func(childComplexity int, serviceID string, data public_graph_model.BuilderDataInput) int
-		UpdateRunner          func(childComplexity int, serviceID string, data public_graph_model.RunnerDataInput) int
 		UpdateServiceSettings func(childComplexity int, serviceID string, input public_graph_model.ServiceSettingsInput) int
 	}
 
@@ -127,54 +85,26 @@ type ComplexityRoot struct {
 
 	Query struct {
 		GetProjectByID func(childComplexity int, id string) int
-		Machine        func(childComplexity int) int
 		Me             func(childComplexity int) int
-		ProjectLogs    func(childComplexity int, projectID string, input public_graph_model.GetLogsInput) int
-		ServiceLogs    func(childComplexity int, serviceID string, input public_graph_model.GetLogsInput) int
-	}
-
-	RessourceConstraints struct {
-		Limit   func(childComplexity int) int
-		Request func(childComplexity int) int
 	}
 
 	Runner struct {
-		Data func(childComplexity int) int
-		Type func(childComplexity int) int
-	}
-
-	RunnerData struct {
-		CPU            func(childComplexity int) int
-		Command        func(childComplexity int) int
-		HealthCheckURL func(childComplexity int) int
-		Memory         func(childComplexity int) int
-		Port           func(childComplexity int) int
-		PrivateDomain  func(childComplexity int) int
-		PublicDomain   func(childComplexity int) int
+		Data    func(childComplexity int) int
+		Link    func(childComplexity int) int
+		Type    func(childComplexity int) int
+		Version func(childComplexity int) int
 	}
 
 	Service struct {
-		Deployments  func(childComplexity int) int
-		DraftBuilder func(childComplexity int) int
-		DraftRunner  func(childComplexity int) int
+		DraftService func(childComplexity int) int
 		ID           func(childComplexity int) int
-		LiveBuilder  func(childComplexity int) int
-		LiveRunner   func(childComplexity int) int
+		LiveService  func(childComplexity int) int
 		Name         func(childComplexity int) int
 	}
 
-	ServiceEvent struct {
-		Data      func(childComplexity int) int
-		ID        func(childComplexity int) int
-		ServiceID func(childComplexity int) int
-		Timestamp func(childComplexity int) int
-		Type      func(childComplexity int) int
-	}
-
-	Subscription struct {
-		ProjectLogs   func(childComplexity int, projectID string, input public_graph_model.GetLogsInput) int
-		ServiceEvents func(childComplexity int, serviceID string) int
-		ServiceLogs   func(childComplexity int, serviceID string, input public_graph_model.GetLogsInput) int
+	Source struct {
+		Data func(childComplexity int) int
+		Type func(childComplexity int) int
 	}
 
 	User struct {
@@ -205,12 +135,40 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	_ = ec
 	switch typeName + "." + field {
 
+	case "BaseService.builder":
+		if e.complexity.BaseService.Builder == nil {
+			break
+		}
+
+		return e.complexity.BaseService.Builder(childComplexity), true
+
+	case "BaseService.runner":
+		if e.complexity.BaseService.Runner == nil {
+			break
+		}
+
+		return e.complexity.BaseService.Runner(childComplexity), true
+
+	case "BaseService.source":
+		if e.complexity.BaseService.Source == nil {
+			break
+		}
+
+		return e.complexity.BaseService.Source(childComplexity), true
+
 	case "Builder.data":
 		if e.complexity.Builder.Data == nil {
 			break
 		}
 
 		return e.complexity.Builder.Data(childComplexity), true
+
+	case "Builder.link":
+		if e.complexity.Builder.Link == nil {
+			break
+		}
+
+		return e.complexity.Builder.Link(childComplexity), true
 
 	case "Builder.type":
 		if e.complexity.Builder.Type == nil {
@@ -219,180 +177,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Builder.Type(childComplexity), true
 
-	case "BuilderData.image":
-		if e.complexity.BuilderData.Image == nil {
+	case "Builder.version":
+		if e.complexity.Builder.Version == nil {
 			break
 		}
 
-		return e.complexity.BuilderData.Image(childComplexity), true
-
-	case "BuilderData.registry":
-		if e.complexity.BuilderData.Registry == nil {
-			break
-		}
-
-		return e.complexity.BuilderData.Registry(childComplexity), true
-
-	case "BuilderData.tag":
-		if e.complexity.BuilderData.Tag == nil {
-			break
-		}
-
-		return e.complexity.BuilderData.Tag(childComplexity), true
-
-	case "Deployment.author":
-		if e.complexity.Deployment.Author == nil {
-			break
-		}
-
-		return e.complexity.Deployment.Author(childComplexity), true
-
-	case "Deployment.createdAt":
-		if e.complexity.Deployment.CreatedAt == nil {
-			break
-		}
-
-		return e.complexity.Deployment.CreatedAt(childComplexity), true
-
-	case "Deployment.env":
-		if e.complexity.Deployment.Env == nil {
-			break
-		}
-
-		return e.complexity.Deployment.Env(childComplexity), true
-
-	case "Deployment.id":
-		if e.complexity.Deployment.ID == nil {
-			break
-		}
-
-		return e.complexity.Deployment.ID(childComplexity), true
-
-	case "Deployment.logs":
-		if e.complexity.Deployment.Logs == nil {
-			break
-		}
-
-		return e.complexity.Deployment.Logs(childComplexity), true
-
-	case "Deployment.source":
-		if e.complexity.Deployment.Source == nil {
-			break
-		}
-
-		return e.complexity.Deployment.Source(childComplexity), true
-
-	case "DeploymentLog.date":
-		if e.complexity.DeploymentLog.Date == nil {
-			break
-		}
-
-		return e.complexity.DeploymentLog.Date(childComplexity), true
-
-	case "DeploymentLog.duration":
-		if e.complexity.DeploymentLog.Duration == nil {
-			break
-		}
-
-		return e.complexity.DeploymentLog.Duration(childComplexity), true
-
-	case "DeploymentLog.status":
-		if e.complexity.DeploymentLog.Status == nil {
-			break
-		}
-
-		return e.complexity.DeploymentLog.Status(childComplexity), true
-
-	case "DeploymentSource.branch":
-		if e.complexity.DeploymentSource.Branch == nil {
-			break
-		}
-
-		return e.complexity.DeploymentSource.Branch(childComplexity), true
-
-	case "DeploymentSource.commit":
-		if e.complexity.DeploymentSource.Commit == nil {
-			break
-		}
-
-		return e.complexity.DeploymentSource.Commit(childComplexity), true
-
-	case "DeploymentSource.message":
-		if e.complexity.DeploymentSource.Message == nil {
-			break
-		}
-
-		return e.complexity.DeploymentSource.Message(childComplexity), true
-
-	case "DeploymentSource.type":
-		if e.complexity.DeploymentSource.Type == nil {
-			break
-		}
-
-		return e.complexity.DeploymentSource.Type(childComplexity), true
-
-	case "Log.deploymentId":
-		if e.complexity.Log.DeploymentID == nil {
-			break
-		}
-
-		return e.complexity.Log.DeploymentID(childComplexity), true
-
-	case "Log.deploymentName":
-		if e.complexity.Log.DeploymentName == nil {
-			break
-		}
-
-		return e.complexity.Log.DeploymentName(childComplexity), true
-
-	case "Log.level":
-		if e.complexity.Log.Level == nil {
-			break
-		}
-
-		return e.complexity.Log.Level(childComplexity), true
-
-	case "Log.message":
-		if e.complexity.Log.Message == nil {
-			break
-		}
-
-		return e.complexity.Log.Message(childComplexity), true
-
-	case "Log.serviceId":
-		if e.complexity.Log.ServiceID == nil {
-			break
-		}
-
-		return e.complexity.Log.ServiceID(childComplexity), true
-
-	case "Log.timestamp":
-		if e.complexity.Log.Timestamp == nil {
-			break
-		}
-
-		return e.complexity.Log.Timestamp(childComplexity), true
-
-	case "Machine.id":
-		if e.complexity.Machine.ID == nil {
-			break
-		}
-
-		return e.complexity.Machine.ID(childComplexity), true
-
-	case "Machine.ip":
-		if e.complexity.Machine.IP == nil {
-			break
-		}
-
-		return e.complexity.Machine.IP(childComplexity), true
-
-	case "Machine.name":
-		if e.complexity.Machine.Name == nil {
-			break
-		}
-
-		return e.complexity.Machine.Name(childComplexity), true
+		return e.complexity.Builder.Version(childComplexity), true
 
 	case "Mutation.addServiceToProject":
 		if e.complexity.Mutation.AddServiceToProject == nil {
@@ -453,30 +243,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.DeployProject(childComplexity, args["projectId"].(string)), true
-
-	case "Mutation.updateBuilder":
-		if e.complexity.Mutation.UpdateBuilder == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updateBuilder_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.UpdateBuilder(childComplexity, args["serviceId"].(string), args["data"].(public_graph_model.BuilderDataInput)), true
-
-	case "Mutation.updateRunner":
-		if e.complexity.Mutation.UpdateRunner == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updateRunner_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.UpdateRunner(childComplexity, args["serviceId"].(string), args["data"].(public_graph_model.RunnerDataInput)), true
 
 	case "Mutation.updateServiceSettings":
 		if e.complexity.Mutation.UpdateServiceSettings == nil {
@@ -558,57 +324,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.GetProjectByID(childComplexity, args["id"].(string)), true
 
-	case "Query.machine":
-		if e.complexity.Query.Machine == nil {
-			break
-		}
-
-		return e.complexity.Query.Machine(childComplexity), true
-
 	case "Query.me":
 		if e.complexity.Query.Me == nil {
 			break
 		}
 
 		return e.complexity.Query.Me(childComplexity), true
-
-	case "Query.projectLogs":
-		if e.complexity.Query.ProjectLogs == nil {
-			break
-		}
-
-		args, err := ec.field_Query_projectLogs_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.ProjectLogs(childComplexity, args["projectId"].(string), args["input"].(public_graph_model.GetLogsInput)), true
-
-	case "Query.serviceLogs":
-		if e.complexity.Query.ServiceLogs == nil {
-			break
-		}
-
-		args, err := ec.field_Query_serviceLogs_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.ServiceLogs(childComplexity, args["serviceId"].(string), args["input"].(public_graph_model.GetLogsInput)), true
-
-	case "RessourceConstraints.limit":
-		if e.complexity.RessourceConstraints.Limit == nil {
-			break
-		}
-
-		return e.complexity.RessourceConstraints.Limit(childComplexity), true
-
-	case "RessourceConstraints.request":
-		if e.complexity.RessourceConstraints.Request == nil {
-			break
-		}
-
-		return e.complexity.RessourceConstraints.Request(childComplexity), true
 
 	case "Runner.data":
 		if e.complexity.Runner.Data == nil {
@@ -617,6 +338,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Runner.Data(childComplexity), true
 
+	case "Runner.link":
+		if e.complexity.Runner.Link == nil {
+			break
+		}
+
+		return e.complexity.Runner.Link(childComplexity), true
+
 	case "Runner.type":
 		if e.complexity.Runner.Type == nil {
 			break
@@ -624,75 +352,19 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Runner.Type(childComplexity), true
 
-	case "RunnerData.cpu":
-		if e.complexity.RunnerData.CPU == nil {
+	case "Runner.version":
+		if e.complexity.Runner.Version == nil {
 			break
 		}
 
-		return e.complexity.RunnerData.CPU(childComplexity), true
+		return e.complexity.Runner.Version(childComplexity), true
 
-	case "RunnerData.command":
-		if e.complexity.RunnerData.Command == nil {
+	case "Service.draftService":
+		if e.complexity.Service.DraftService == nil {
 			break
 		}
 
-		return e.complexity.RunnerData.Command(childComplexity), true
-
-	case "RunnerData.healthCheckURL":
-		if e.complexity.RunnerData.HealthCheckURL == nil {
-			break
-		}
-
-		return e.complexity.RunnerData.HealthCheckURL(childComplexity), true
-
-	case "RunnerData.memory":
-		if e.complexity.RunnerData.Memory == nil {
-			break
-		}
-
-		return e.complexity.RunnerData.Memory(childComplexity), true
-
-	case "RunnerData.port":
-		if e.complexity.RunnerData.Port == nil {
-			break
-		}
-
-		return e.complexity.RunnerData.Port(childComplexity), true
-
-	case "RunnerData.privateDomain":
-		if e.complexity.RunnerData.PrivateDomain == nil {
-			break
-		}
-
-		return e.complexity.RunnerData.PrivateDomain(childComplexity), true
-
-	case "RunnerData.publicDomain":
-		if e.complexity.RunnerData.PublicDomain == nil {
-			break
-		}
-
-		return e.complexity.RunnerData.PublicDomain(childComplexity), true
-
-	case "Service.deployments":
-		if e.complexity.Service.Deployments == nil {
-			break
-		}
-
-		return e.complexity.Service.Deployments(childComplexity), true
-
-	case "Service.draftBuilder":
-		if e.complexity.Service.DraftBuilder == nil {
-			break
-		}
-
-		return e.complexity.Service.DraftBuilder(childComplexity), true
-
-	case "Service.draftRunner":
-		if e.complexity.Service.DraftRunner == nil {
-			break
-		}
-
-		return e.complexity.Service.DraftRunner(childComplexity), true
+		return e.complexity.Service.DraftService(childComplexity), true
 
 	case "Service.id":
 		if e.complexity.Service.ID == nil {
@@ -701,19 +373,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Service.ID(childComplexity), true
 
-	case "Service.liveBuilder":
-		if e.complexity.Service.LiveBuilder == nil {
+	case "Service.liveService":
+		if e.complexity.Service.LiveService == nil {
 			break
 		}
 
-		return e.complexity.Service.LiveBuilder(childComplexity), true
-
-	case "Service.liveRunner":
-		if e.complexity.Service.LiveRunner == nil {
-			break
-		}
-
-		return e.complexity.Service.LiveRunner(childComplexity), true
+		return e.complexity.Service.LiveService(childComplexity), true
 
 	case "Service.name":
 		if e.complexity.Service.Name == nil {
@@ -722,76 +387,19 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Service.Name(childComplexity), true
 
-	case "ServiceEvent.data":
-		if e.complexity.ServiceEvent.Data == nil {
+	case "Source.data":
+		if e.complexity.Source.Data == nil {
 			break
 		}
 
-		return e.complexity.ServiceEvent.Data(childComplexity), true
+		return e.complexity.Source.Data(childComplexity), true
 
-	case "ServiceEvent.id":
-		if e.complexity.ServiceEvent.ID == nil {
+	case "Source.type":
+		if e.complexity.Source.Type == nil {
 			break
 		}
 
-		return e.complexity.ServiceEvent.ID(childComplexity), true
-
-	case "ServiceEvent.serviceId":
-		if e.complexity.ServiceEvent.ServiceID == nil {
-			break
-		}
-
-		return e.complexity.ServiceEvent.ServiceID(childComplexity), true
-
-	case "ServiceEvent.timestamp":
-		if e.complexity.ServiceEvent.Timestamp == nil {
-			break
-		}
-
-		return e.complexity.ServiceEvent.Timestamp(childComplexity), true
-
-	case "ServiceEvent.type":
-		if e.complexity.ServiceEvent.Type == nil {
-			break
-		}
-
-		return e.complexity.ServiceEvent.Type(childComplexity), true
-
-	case "Subscription.projectLogs":
-		if e.complexity.Subscription.ProjectLogs == nil {
-			break
-		}
-
-		args, err := ec.field_Subscription_projectLogs_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Subscription.ProjectLogs(childComplexity, args["projectId"].(string), args["input"].(public_graph_model.GetLogsInput)), true
-
-	case "Subscription.serviceEvents":
-		if e.complexity.Subscription.ServiceEvents == nil {
-			break
-		}
-
-		args, err := ec.field_Subscription_serviceEvents_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Subscription.ServiceEvents(childComplexity, args["serviceId"].(string)), true
-
-	case "Subscription.serviceLogs":
-		if e.complexity.Subscription.ServiceLogs == nil {
-			break
-		}
-
-		args, err := ec.field_Subscription_serviceLogs_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Subscription.ServiceLogs(childComplexity, args["serviceId"].(string), args["input"].(public_graph_model.GetLogsInput)), true
+		return e.complexity.Source.Type(childComplexity), true
 
 	case "User.avatar":
 		if e.complexity.User.Avatar == nil {
@@ -836,11 +444,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
-		ec.unmarshalInputBuilderDataInput,
 		ec.unmarshalInputCreateServiceInput,
-		ec.unmarshalInputGetLogsInput,
-		ec.unmarshalInputRessourceConstraintsInput,
-		ec.unmarshalInputRunnerDataInput,
 		ec.unmarshalInputServiceSettingsInput,
 	)
 	first := true
@@ -885,23 +489,6 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
 			data := ec._Mutation(ctx, opCtx.Operation.SelectionSet)
 			var buf bytes.Buffer
-			data.MarshalGQL(&buf)
-
-			return &graphql.Response{
-				Data: buf.Bytes(),
-			}
-		}
-	case ast.Subscription:
-		next := ec._Subscription(ctx, opCtx.Operation.SelectionSet)
-
-		var buf bytes.Buffer
-		return func(ctx context.Context) *graphql.Response {
-			buf.Reset()
-			data := next(ctx)
-
-			if data == nil {
-				return nil
-			}
 			data.MarshalGQL(&buf)
 
 			return &graphql.Response{
@@ -957,6 +544,8 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 
 var sources = []*ast.Source{
 	{Name: "../../public.graphql", Input: `# public brume GQL schema
+scalar Any
+
 type User {
 	id: String!
 	name: String!
@@ -979,109 +568,41 @@ type Project {
 	services: [Service!]!
 }
 
-type Builder {
+type Source {
 	type: String!
-	data: BuilderData!
-}
-
-type Machine {
-	id: String!
-	name: String!
-	ip: String!
-}
-
-type BuilderData {
-	image: String!
-	registry: String!
-	tag: String!
-}
-
-input BuilderDataInput {
-	image: String!
-	registry: String!
-	tag: String!
+	data: Any!
 }
 
 type Runner {
 	type: String!
-	data: RunnerData!
+	link: String!
+	version: String!
+
+	data: Any!
 }
 
-type RessourceConstraints {
-	request: Float!
-	limit: Float!
-}
-
-input RessourceConstraintsInput {
-	request: Float!
-	limit: Float!
-}
-
-type RunnerData {
-	command: String!
-	healthCheckURL: String!
-	memory: RessourceConstraints!
-	cpu: RessourceConstraints!
-	port: Int!
-	publicDomain: String!
-	privateDomain: String
-}
-
-input RunnerDataInput {
-	command: String!
-	healthCheckURL: String!
-	memory: RessourceConstraintsInput!
-	cpu: RessourceConstraintsInput!
-	port: Int!
-	publicDomain: String!
-	privateDomain: String
-}
-
-type DeploymentSource {
+type Builder {
 	type: String!
-	branch: String
-	commit: String
-	message: String
+	link: String!
+	version: String!
+
+	data: Any!
 }
 
-type DeploymentLog {
-	status: String!
-	duration: String!
-	date: String!
-}
-
-type Deployment {
-	id: String!
-
-	author: User!
-
-	source: DeploymentSource!
-	logs: DeploymentLog!
-	env: String!
-
-	createdAt: String!
+type BaseService {
+	source: Source!
+	runner: Runner!
+	builder: Builder!
 }
 
 type Service {
 	id: String!
 	name: String!
 
-	liveBuilder: Builder
-	liveRunner: Runner
+	liveService: BaseService!
+	draftService: BaseService
 
-	draftBuilder: Builder
-	draftRunner: Runner
-
-	deployments: [Deployment!]!
-}
-
-type Log {
-	message: String!
-	level: String!
-	timestamp: String!
-	serviceId: String!
-	deploymentName: String!
-	deploymentId: String!
+	# deployments: [Deployment!]!
 }
 
 input CreateServiceInput {
@@ -1093,33 +614,11 @@ input ServiceSettingsInput {
 	name: String!
 }
 
-# generic event structure
-type ServiceEvent {
-	id: String!
-	serviceId: String!
-	timestamp: String!
-	type: String!
-	data: String!
-}
-
-input GetLogsInput {
-	since: String!
-	limit: Int!
-	filters: [String!]
-}
-
 type Query {
 	# get the current user
 	me: User!
 
 	getProjectById(id: String!): Project!
-
-	projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
-	serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
-
-	# all the machine associated to the current user
-	# all the machine are filtred based on the user role in the organization
-	machine: [Machine!]!
 }
 
 type Mutation {
@@ -1130,17 +629,9 @@ type Mutation {
 		serviceId: String!
 		input: ServiceSettingsInput!
 	): Service!
-	updateBuilder(serviceId: String!, data: BuilderDataInput!): Builder!
-	updateRunner(serviceId: String!, data: RunnerDataInput!): Runner!
 	deleteDraft(projectId: String!): Project!
 
 	deployProject(projectId: String!): Project!
-}
-
-type Subscription {
-	serviceLogs(serviceId: String!, input: GetLogsInput!): [Log]!
-	projectLogs(projectId: String!, input: GetLogsInput!): [Log]!
-	serviceEvents(serviceId: String!): [ServiceEvent]!
 }
 `, BuiltIn: false},
 }

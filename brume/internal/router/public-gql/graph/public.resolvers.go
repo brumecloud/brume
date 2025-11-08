@@ -7,75 +7,25 @@ package public_graph
 import (
 	"context"
 	"fmt"
-	"time"
 
 	user_model "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
-	deployment_model "brume.dev/deployment/model"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
-	log_model "brume.dev/logs/model"
-	machine_model "brume.dev/machine/model"
 	project_model "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 )
 
+// Source is the resolver for the source field.
+func (r *baseServiceResolver) Source(ctx context.Context, obj *service_model.BaseService) (*public_graph_model.Source, error) {
+	panic(fmt.Errorf("not implemented: Source - source"))
+}
+
 // Data is the resolver for the data field.
-func (r *builderResolver) Data(ctx context.Context, obj *builder_model.Builder) (*public_graph_model.BuilderData, error) {
-	panic(fmt.Errorf("not implemented: Data - data"))
-}
-
-// ID is the resolver for the id field.
-func (r *deploymentResolver) ID(ctx context.Context, obj *deployment_model.Deployment) (string, error) {
-	return obj.ID.String(), nil
-}
-
-// Author is the resolver for the author field.
-func (r *deploymentResolver) Author(ctx context.Context, obj *deployment_model.Deployment) (*user_model.User, error) {
-	panic(fmt.Errorf("not implemented: Author - author"))
-}
-
-// Logs implements public_graph_generated.DeploymentResolver.
-func (r *deploymentResolver) Logs(ctx context.Context, obj *deployment_model.Deployment) (*deployment_model.DeploymentLog, error) {
-	panic("unimplemented")
-}
-
-// CreatedAt is the resolver for the createdAt field.
-func (r *deploymentResolver) CreatedAt(ctx context.Context, obj *deployment_model.Deployment) (string, error) {
-	return obj.CreatedAt.Format(time.RFC3339), nil
-}
-
-// Status is the resolver for the status field.
-func (r *deploymentLogResolver) Status(ctx context.Context, obj *deployment_model.DeploymentLog) (string, error) {
-	return string(obj.Status), nil
-}
-
-// Duration is the resolver for the duration field.
-func (r *deploymentLogResolver) Duration(ctx context.Context, obj *deployment_model.DeploymentLog) (string, error) {
-	duration := obj.Duration.Seconds()
-	return fmt.Sprintf("%d", int(duration)), nil
-}
-
-// Date is the resolver for the date field.
-func (r *deploymentLogResolver) Date(ctx context.Context, obj *deployment_model.DeploymentLog) (string, error) {
-	return obj.Date.Format(time.RFC3339), nil
-}
-
-// Type is the resolver for the type field.
-func (r *deploymentSourceResolver) Type(ctx context.Context, obj *deployment_model.DeploymentSource) (string, error) {
-	return string(obj.Type), nil
-}
-
-// Timestamp is the resolver for the timestamp field.
-func (r *logResolver) Timestamp(ctx context.Context, obj *log_model.Log) (string, error) {
-	return obj.Timestamp.Format(time.RFC3339), nil
-}
-
-// ID is the resolver for the id field.
-func (r *machineResolver) ID(ctx context.Context, obj *machine_model.Machine) (string, error) {
-	return obj.ID.String(), nil
+func (r *builderResolver) Data(ctx context.Context, obj *builder_model.Builder) (any, error) {
+	return obj.Data, nil
 }
 
 // CreateProject is the resolver for the createProject field.
@@ -140,46 +90,6 @@ func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID 
 	return r.ServiceService.UpdateServiceSettings(service_uuid, input.Name)
 }
 
-// UpdateBuilder is the resolver for the updateBuilder field.
-func (r *mutationResolver) UpdateBuilder(ctx context.Context, serviceID string, data public_graph_model.BuilderDataInput) (*builder_model.Builder, error) {
-	// service_uuid, err := uuid.Parse(serviceID)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// return r.ServiceService.UpdateBuilder(service_uuid, builderData)
-	return nil, nil
-}
-
-// UpdateRunner is the resolver for the updateRunner field.
-func (r *mutationResolver) UpdateRunner(ctx context.Context, serviceID string, data public_graph_model.RunnerDataInput) (*runner_model.Runner, error) {
-	service_uuid, err := uuid.Parse(serviceID)
-	if err != nil {
-		return nil, err
-	}
-
-	runnerData := runner_model.RunnerData{
-		Type: runner_model.RunnerTypeDocker,
-		Docker: &runner_model.DockerRunnerData{
-			Command:        data.Command,
-			HealthCheckURL: data.HealthCheckURL,
-			Memory: runner_model.RessourceConstraints{
-				Request: data.Memory.Request,
-				Limit:   data.Memory.Limit,
-			},
-			CPU: runner_model.RessourceConstraints{
-				Request: data.CPU.Request,
-				Limit:   data.CPU.Limit,
-			},
-			Port: data.Port,
-		},
-		PublicDomain:  data.PublicDomain,
-		PrivateDomain: data.PrivateDomain,
-	}
-
-	return r.ServiceService.UpdateRunner(service_uuid, runnerData)
-}
-
 // DeleteDraft is the resolver for the deleteDraft field.
 func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error) {
 	project_uuid, err := uuid.Parse(projectID)
@@ -237,95 +147,24 @@ func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project
 	return r.ProjectService.GetProjectByID(project_uuid)
 }
 
-// ProjectLogs is the resolver for the projectLogs field.
-func (r *queryResolver) ProjectLogs(ctx context.Context, projectID string, input public_graph_model.GetLogsInput) ([]*log_model.Log, error) {
-	since, err := time.Parse(time.RFC3339, input.Since)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.LogService.GetLogs(ctx, uuid.MustParse(projectID), since, input.Limit)
+// Link is the resolver for the link field.
+func (r *runnerResolver) Link(ctx context.Context, obj *runner_model.Runner) (string, error) {
+	panic(fmt.Errorf("not implemented: Link - link"))
 }
 
-// ServiceLogs is the resolver for the serviceLogs field.
-func (r *queryResolver) ServiceLogs(ctx context.Context, serviceID string, input public_graph_model.GetLogsInput) ([]*log_model.Log, error) {
-	since, err := time.Parse(time.RFC3339, input.Since)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.LogService.GetLogs(ctx, uuid.MustParse(serviceID), since, input.Limit)
+// Version is the resolver for the version field.
+func (r *runnerResolver) Version(ctx context.Context, obj *runner_model.Runner) (string, error) {
+	panic(fmt.Errorf("not implemented: Version - version"))
 }
 
-// Machine is the resolver for the machine field.
-func (r *queryResolver) Machine(ctx context.Context) ([]*machine_model.Machine, error) {
-	currentUser := ctx.Value("user").(string)
-	user, err := r.UserService.GetUserByProviderID(currentUser)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.MachineService.GetMachine(user.OrganizationID)
-}
-
-// Command is the resolver for the command field.
-func (r *runnerDataResolver) Command(ctx context.Context, obj *runner_model.RunnerData) (string, error) {
-	return obj.Docker.Command, nil
-}
-
-// HealthCheckURL is the resolver for the healthCheckURL field.
-func (r *runnerDataResolver) HealthCheckURL(ctx context.Context, obj *runner_model.RunnerData) (string, error) {
-	return obj.Docker.HealthCheckURL, nil
-}
-
-// Memory is the resolver for the memory field.
-func (r *runnerDataResolver) Memory(ctx context.Context, obj *runner_model.RunnerData) (*runner_model.RessourceConstraints, error) {
-	return &obj.Docker.Memory, nil
-}
-
-// CPU is the resolver for the cpu field.
-func (r *runnerDataResolver) CPU(ctx context.Context, obj *runner_model.RunnerData) (*runner_model.RessourceConstraints, error) {
-	return &obj.Docker.CPU, nil
-}
-
-// Port is the resolver for the port field.
-func (r *runnerDataResolver) Port(ctx context.Context, obj *runner_model.RunnerData) (int, error) {
-	return obj.Docker.Port, nil
+// Data is the resolver for the data field.
+func (r *runnerResolver) Data(ctx context.Context, obj *runner_model.Runner) (any, error) {
+	panic(fmt.Errorf("not implemented: Data - data"))
 }
 
 // ID is the resolver for the id field.
 func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (string, error) {
 	return obj.ID.String(), nil
-}
-
-// DraftBuilder is the resolver for the draftBuilder field.
-func (r *serviceResolver) DraftBuilder(ctx context.Context, obj *service_model.Service) (*builder_model.Builder, error) {
-	return obj.DraftBuilder, nil
-}
-
-// DraftRunner is the resolver for the draftRunner field.
-func (r *serviceResolver) DraftRunner(ctx context.Context, obj *service_model.Service) (*runner_model.Runner, error) {
-	return obj.DraftRunner, nil
-}
-
-// Deployments is the resolver for the deployments field.
-func (r *serviceResolver) Deployments(ctx context.Context, obj *service_model.Service) ([]*deployment_model.Deployment, error) {
-	return r.ServiceService.GetServiceDeployments(obj.ID)
-}
-
-// ServiceLogs is the resolver for the serviceLogs field.
-func (r *subscriptionResolver) ServiceLogs(ctx context.Context, serviceID string, input public_graph_model.GetLogsInput) (<-chan []*log_model.Log, error) {
-	return nil, nil
-}
-
-// ProjectLogs is the resolver for the projectLogs field.
-func (r *subscriptionResolver) ProjectLogs(ctx context.Context, projectID string, input public_graph_model.GetLogsInput) (<-chan []*log_model.Log, error) {
-	panic(fmt.Errorf("not implemented: ProjectLogs - projectLogs"))
-}
-
-// ServiceEvents is the resolver for the serviceEvents field.
-func (r *subscriptionResolver) ServiceEvents(ctx context.Context, serviceID string) (<-chan []*public_graph_model.ServiceEvent, error) {
-	panic(fmt.Errorf("not implemented: ServiceEvents - serviceEvents"))
 }
 
 // ID is the resolver for the id field.
@@ -354,25 +193,11 @@ func (r *userResolver) Organization(ctx context.Context, obj *user_model.User) (
 	}, nil
 }
 
+// BaseService returns generated.BaseServiceResolver implementation.
+func (r *Resolver) BaseService() generated.BaseServiceResolver { return &baseServiceResolver{r} }
+
 // Builder returns generated.BuilderResolver implementation.
 func (r *Resolver) Builder() generated.BuilderResolver { return &builderResolver{r} }
-
-// Deployment returns generated.DeploymentResolver implementation.
-func (r *Resolver) Deployment() generated.DeploymentResolver { return &deploymentResolver{r} }
-
-// DeploymentLog returns generated.DeploymentLogResolver implementation.
-func (r *Resolver) DeploymentLog() generated.DeploymentLogResolver { return &deploymentLogResolver{r} }
-
-// DeploymentSource returns generated.DeploymentSourceResolver implementation.
-func (r *Resolver) DeploymentSource() generated.DeploymentSourceResolver {
-	return &deploymentSourceResolver{r}
-}
-
-// Log returns generated.LogResolver implementation.
-func (r *Resolver) Log() generated.LogResolver { return &logResolver{r} }
-
-// Machine returns generated.MachineResolver implementation.
-func (r *Resolver) Machine() generated.MachineResolver { return &machineResolver{r} }
 
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
@@ -383,28 +208,20 @@ func (r *Resolver) Project() generated.ProjectResolver { return &projectResolver
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
-// RunnerData returns generated.RunnerDataResolver implementation.
-func (r *Resolver) RunnerData() generated.RunnerDataResolver { return &runnerDataResolver{r} }
+// Runner returns generated.RunnerResolver implementation.
+func (r *Resolver) Runner() generated.RunnerResolver { return &runnerResolver{r} }
 
 // Service returns generated.ServiceResolver implementation.
 func (r *Resolver) Service() generated.ServiceResolver { return &serviceResolver{r} }
 
-// Subscription returns generated.SubscriptionResolver implementation.
-func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subscriptionResolver{r} }
-
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
+type baseServiceResolver struct{ *Resolver }
 type builderResolver struct{ *Resolver }
-type deploymentResolver struct{ *Resolver }
-type deploymentLogResolver struct{ *Resolver }
-type deploymentSourceResolver struct{ *Resolver }
-type logResolver struct{ *Resolver }
-type machineResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-type runnerDataResolver struct{ *Resolver }
+type runnerResolver struct{ *Resolver }
 type serviceResolver struct{ *Resolver }
-type subscriptionResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }

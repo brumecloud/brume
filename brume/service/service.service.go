@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/json"
-	"time"
 
 	builder_model "brume.dev/builder/model"
 	builder_service "brume.dev/builder/service"
@@ -40,119 +39,123 @@ func NewServiceService(db *db.DB, runnerService *runner.RunnerService, builderSe
 // and then, creating all the required jobs for this deployment
 // at least the runner job, maybe a builder job if needed
 func (s *ServiceService) DeployService(serviceId uuid.UUID, source deployment_model.DeploymentSource) error {
-	service, err := s.GetService(serviceId)
-	if err != nil {
-		return err
-	}
+	// service, err := s.GetService(serviceId)
+	// if err != nil {
+	// 	return err
+	// }
 
-	deployment := &deployment_model.Deployment{
-		ID:        uuid.New(),
-		ServiceID: serviceId,
-		ProjectID: service.ProjectID,
-		Name:      service.Name + "-" + time.Now().Format("20060102150405"),
+	// deployment := &deployment_model.Deployment{
+	// 	ID:        uuid.New(),
+	// 	ServiceID: serviceId,
+	// 	ProjectID: service.ProjectID,
+	// 	Name:      service.Name + "-" + time.Now().Format("20060102150405"),
 
-		Source:      source,
-		// BuilderData: service.LiveBuilder.Data,
-		RunnerData:  service.LiveRunner.Data,
+	// 	Source:      source,
+	// 	// BuilderData: service.LiveBuilder.Data,
+	// 	RunnerData:  service.LiveRunner.Data,
 
-		CreatedAt: time.Now(),
-	}
+	// 	CreatedAt: time.Now(),
+	// }
 
 	// add the deployment to the service
-	err = s.db.Gorm.Model(service).Association("Deployments").Append(deployment)
-	if err != nil {
-		return err
-	}
+	// err = s.db.Gorm.Model(service).Association("Deployments").Append(deployment)
+	// if err != nil {
+	// 	return err
+	// }
 
-	logger.Info().Str("deployment_id", deployment.ID.String()).Msg("Deployment created")
+	// logger.Info().Str("deployment_id", deployment.ID.String()).Msg("Deployment created")
 
-	// start the deployment
-	// this will create the right jobs for the deployment
-	err = s.deploymentService.StartDeployment(deployment.ID)
-	if err != nil {
-		return err
-	}
+	// // start the deployment
+	// // this will create the right jobs for the deployment
+	// err = s.deploymentService.StartDeployment(deployment.ID)
+	// if err != nil {
+	// 	return err
+	// }
 
-	logger.Info().Str("deployment_id", deployment.ID.String()).Msg("All jobs for the deployment are created")
+	// logger.Info().Str("deployment_id", deployment.ID.String()).Msg("All jobs for the deployment are created")
 
 	return nil
 }
 
 func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data json.RawMessage) (*builder_model.Builder, error) {
-	var err error
+	// var err error
 
-	service, err := s.GetService(serviceId)
-	if err != nil {
-		return nil, err
-	}
+	// service, err := s.GetService(serviceId)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	if service.DraftBuilder == nil {
-		draftBuilder, err := s.builderService.DuplicateBuilder(service.LiveBuilder.ID)
-		if err != nil {
-			return nil, err
-		}
+	// if service.DraftBuilder == nil {
+	// 	draftBuilder, err := s.builderService.DuplicateBuilder(service.LiveBuilder.ID)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
 
-		service.DraftBuilder = draftBuilder
-	}
+	// 	service.DraftBuilder = draftBuilder
+	// }
 
-	draftBuilder := &builder_model.Builder{
-		ID:        service.DraftBuilder.ID,
-		ServiceId: serviceId,
-		Type:      "generic-docker",
-		Data:      data,
-	}
+	// draftBuilder := &builder_model.Builder{
+	// 	ID:        service.DraftBuilder.ID,
+	// 	ServiceId: serviceId,
+	// 	Type:      "generic-docker",
+	// 	Data:      data,
+	// }
 
-	err = s.db.Gorm.Save(draftBuilder).Error
-	if err != nil {
-		return nil, err
-	}
+	// err = s.db.Gorm.Save(draftBuilder).Error
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	service.DraftBuilderID = &draftBuilder.ID
+	// service.DraftBuilderID = &draftBuilder.ID
 
-	err = s.db.Gorm.Save(service).Error
+	// err = s.db.Gorm.Save(service).Error
 
-	return draftBuilder, err
+	// return draftBuilder, err
+
+	return nil, nil
 }
 
 func (s *ServiceService) UpdateRunner(serviceId uuid.UUID, data runner_model.RunnerData) (*runner_model.Runner, error) {
-	var err error
+	// var err error
 
-	service, err := s.GetService(serviceId)
-	if err != nil {
-		return nil, err
-	}
+	// service, err := s.GetService(serviceId)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	// we need to create a new draft of the runner
-	if service.DraftRunner == nil {
-		draftRunner, err := s.runnerService.DuplicateRunner(service.LiveRunner.ID)
-		if err != nil {
-			return nil, err
-		}
+	// // we need to create a new draft of the runner
+	// if service.DraftRunner == nil {
+	// 	draftRunner, err := s.runnerService.DuplicateRunner(service.LiveRunner.ID)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
 
-		service.DraftRunner = draftRunner
-	}
+	// 	service.DraftRunner = draftRunner
+	// }
 
-	// update the draft runner
-	draftRunner := &runner_model.Runner{
-		ID:        service.DraftRunner.ID,
-		ServiceId: serviceId,
-		Type:      "generic-docker",
-		Data:      data,
-	}
+	// // update the draft runner
+	// draftRunner := &runner_model.Runner{
+	// 	ID:        service.DraftRunner.ID,
+	// 	ServiceId: serviceId,
+	// 	Type:      "generic-docker",
+	// 	Data:      data,
+	// }
 
-	err = s.db.Gorm.Save(draftRunner).Error
-	if err != nil {
-		return nil, err
-	}
+	// err = s.db.Gorm.Save(draftRunner).Error
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	service.DraftRunnerID = &draftRunner.ID
+	// service.DraftRunnerID = &draftRunner.ID
 
-	err = s.db.Gorm.Save(service).Error
-	if err != nil {
-		return nil, err
-	}
+	// err = s.db.Gorm.Save(service).Error
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return draftRunner, err
+	// return draftRunner, err
+
+	return nil, nil
 }
 
 func (s *ServiceService) DeleteService(serviceId uuid.UUID) (*service_model.Service, error) {
