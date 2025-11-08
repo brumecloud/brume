@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	source_model "brume.dev/source/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -30,4 +31,11 @@ type Builder struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
+}
+
+// Model used when a build request is need.
+// This is the model returned to the builder agent 
+type BuildJobRequest struct {
+	Builder *Builder `json:"builder"`
+	SourceEvent *source_model.SourceEvent`json:"source_event"`
 }

@@ -4,10 +4,17 @@ import (
 	builder_model "brume.dev/builder/model"
 	deployment_model "brume.dev/deployment/model"
 	runner_model "brume.dev/runner/model"
+	source_model "brume.dev/source/model"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+type BaseService struct {
+	Source *source_model.Source `json:"source"`
+	Runner *runner_model.Runner `json:"runner"`
+	Builder *builder_model.Builder `json:"builder"`
+}
 
 /**
 Service data structure
@@ -19,19 +26,19 @@ This are the last deployed version. They only change when the user clicks on dep
 type Service struct {
 	gorm.Model
 	ID   uuid.UUID `gorm:"type:uuid;primaryKey"`
+
+	// general settings
 	Name string
 
-	LiveRunner    *runner_model.Runner   `gorm:"foreignKey:LiveRunnerID"`
-	LiveBuilder   *builder_model.Builder `gorm:"foreignKey:LiveBuilderID"`
-	LiveRunnerID  *uuid.UUID
-	LiveBuilderID *uuid.UUID
+	// two versions of the service
+	// the live service is the one that is currently running
+	// the draft service is the one that is being edited
+	LiveService *BaseService `gorm:"jsonb" json:"live_service"`
+	DraftService *BaseService `gorm:"jsonb" json:"draft_service"`
 
-	DraftRunner    *runner_model.Runner   `gorm:"foreignKey:DraftRunnerID"`
-	DraftBuilder   *builder_model.Builder `gorm:"foreignKey:DraftBuilderID"`
-	DraftRunnerID  *uuid.UUID
-	DraftBuilderID *uuid.UUID
-
+	// deployments of the service
 	Deployments []*deployment_model.Deployment `gorm:"foreignKey:ServiceID"`
 
+	// project of the service
 	ProjectID uuid.UUID
 }

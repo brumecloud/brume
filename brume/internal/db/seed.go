@@ -160,31 +160,18 @@ func SeedProjects(db *DB) []*project.Project {
 		Name:        "User-API",
 		ID:          user_api_id,
 		Deployments: []*deployment_model.Deployment{},
-		DraftBuilder: &builder_model.Builder{
-			ID:   uuid.MustParse("f26a89ef-ff17-404a-96c5-3b03938c8149"),
-			Type: "generic-docker",
-			Data: json.RawMessage{},
-		},
-		DraftRunner: &runner_model.Runner{
-			ID:   uuid.MustParse("de56c895-c814-45fb-a859-ff943f293c3d"),
-			Type: "generic-docker",
-			Data: runner_model.RunnerData{
-				Type: runner_model.RunnerTypeDocker,
-				Docker: &runner_model.DockerRunnerData{
-					Command:        "",
-					HealthCheckURL: "http://localhost:3000/health",
-					Memory: runner_model.RessourceConstraints{
-						Request: 100,
-						Limit:   100,
-					},
-					CPU: runner_model.RessourceConstraints{
-						Request: 1,
-						Limit:   1,
-					},
-					Port: 80,
+		LiveService: &service.BaseService{
+			Runner: &runner_model.Runner{
+				ID:   uuid.MustParse("de56c895-c814-45fb-a859-ff943f293c3d"),
+				Type: "generic-docker",
+				Data: runner_model.RunnerData{
+					Type: runner_model.RunnerTypeDocker,
 				},
-				PublicDomain:  "user-api",
-				PrivateDomain: nil,
+			},
+			Builder: &builder_model.Builder{
+				ID:   uuid.MustParse("f26a89ef-ff17-404a-96c5-3b03938c8149"),
+				Type: "generic-docker",
+				Data: json.RawMessage{},
 			},
 		},
 	}
@@ -193,55 +180,37 @@ func SeedProjects(db *DB) []*project.Project {
 		Name:        "Frontend",
 		ID:          uuid.MustParse("536b85d4-53ff-4a8f-b3f3-ec134257adb9"),
 		Deployments: []*deployment_model.Deployment{},
-		DraftBuilder: &builder_model.Builder{
-			ID:   uuid.MustParse("21e0d32e-a6a4-471b-b7e3-2201770dfeb8"),
-			Type: "generic-docker",
-			Data: json.RawMessage{},
-		},
-		DraftRunner: &runner_model.Runner{
-			ID:   uuid.MustParse("c73eb9cf-9143-401a-9c56-b035f1561470"),
-			Type: "generic-docker",
-			Data: runner_model.RunnerData{
-				Type: runner_model.RunnerTypeDocker,
-				Docker: &runner_model.DockerRunnerData{
-					Command:        "",
-					HealthCheckURL: "http://localhost:3000/health",
-					Memory: runner_model.RessourceConstraints{
-						Request: 100,
-						Limit:   100,
-					},
-					CPU: runner_model.RessourceConstraints{
-						Request: 1,
-						Limit:   1,
-					},
-					Port: 80,
+		LiveService: &service.BaseService{
+			Runner: &runner_model.Runner{
+				ID:   uuid.MustParse("de56c895-c814-45fb-a859-ff943f293c3d"),
+				Type: "generic-docker",
+				Data: runner_model.RunnerData{
+					Type: runner_model.RunnerTypeDocker,
 				},
-				PublicDomain:  "frontend",
-				PrivateDomain: nil,
 			},
+			Builder: &builder_model.Builder{
+				ID:   uuid.MustParse("f26a89ef-ff17-404a-96c5-3b03938c8149"),
+				Type: "generic-docker",
+				Data: json.RawMessage{},
+			},	
 		},
 	}
 
-	stringID := "aaaaaaaa-91d1-4b9a-be84-b340e40614d3"
-	id, _ := uuid.Parse(stringID)
-	firstProject := &project.Project{
+	project := &project.Project{
 		Name:        "Porfolio",
 		Description: "This is a test project",
-		ID:          id,
+		ID:          uuid.New(),
 		Services:    []*service.Service{user_api, frontend},
 	}
 
-	if err := db.Gorm.First(firstProject, "id = ?", stringID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := db.Gorm.First(project, "id = ?", project.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Info().Msg("Porfolio project not found, creating it")
 
-		firstProjectError := db.Gorm.Create(firstProject).Error
-		if firstProjectError != nil {
-			logger.Error().Msg(firstProjectError.Error())
-		}
+		db.Gorm.Create(project)
 		logger.Info().Msg("Porfolio project created")
+	} else {
+		logger.Info().Msg("Porfolio project found, skipping seeding")
 	}
-
-	projects[0] = firstProject
 
 	// open_ai_id := uuid.MustParse("a94cfd9e-5e61-4e5f-9fda-bb17d638a9ee")
 	// open_ai := &service.Service{

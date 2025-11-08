@@ -1,0 +1,55 @@
+package source_model
+
+import (
+	"database/sql/driver"
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
+
+type SourceType string
+
+const (
+	SourceTypeGit SourceType = "git"
+)
+
+// this represent what 
+type Source struct {
+	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
+
+	// service using this source
+	ServiceID uuid.UUID `gorm:"type:uuid"`
+
+	Type SourceType `gorm:"type:text"`
+
+	GitData *GitSource `gorm:"type:jsonb"`
+
+	Link string `gorm:"type:text"`
+}
+
+type GitSource struct {
+	Provider string `gorm:"type:text"`
+	Repository string `gorm:"type:text"`
+	Branch string `gorm:"type:text"`
+}
+
+func (gs *GitSource) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &gs)
+}
+
+func (gs *GitSource) Value() (driver.Value, error) {
+	return json.Marshal(gs)
+}
+
+// Event being created when a source triggers a build (new commit for example)
+type SourceEvent struct {
+	Source *Source `json:"source"`
+	Git *GitSourceEvent `json:"git"`
+}
+
+type GitSourceEvent struct {
+	Commit string `json:"commit"`
+	Message string `json:"message"`
+	Author string `json:"author"`
+	Timestamp string `json:"timestamp"`
+}
