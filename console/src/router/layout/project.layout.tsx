@@ -1,70 +1,7 @@
-import { gql } from "@/_apollo";
-import type { RouteParams } from "@/router/router.param";
 import { useQuery } from "@apollo/client";
 import { Outlet, useParams } from "react-router-dom";
-
-export const GenericRunnerFragment = gql(`
-  fragment GenericRunnerFragment on Runner {
-    type
-    data {
-      command
-      healthCheckURL
-      memory {
-        limit
-        request
-      }
-      cpu {
-        limit
-        request
-      }
-      port
-      publicDomain
-      privateDomain
-    }
-  }
-`);
-
-export const GenericBuilderFragment = gql(`
-  fragment GenericBuilderFragment on Builder {
-    data {
-      image
-      registry
-      tag
-    }
-  }
-`);
-
-export const DraftBuilderFragment = gql(`
-  fragment DraftBuilderFragment on Service {
-    draftBuilder {
-      ...GenericBuilderFragment @unmask
-    }
-  }
-`);
-
-export const LiveBuilderFragment = gql(`
-  fragment LiveBuilderFragment on Service {
-    liveBuilder {
-      ...GenericBuilderFragment @unmask
-    }
-  }
-`);
-
-export const LiveRunnerFragment = gql(`
-  fragment LiveRunnerFragment on Service {
-    liveRunner {
-      ...GenericRunnerFragment @unmask
-    }
-  }
-`);
-
-export const DraftRunnerFragment = gql(`
-  fragment DraftRunnerFragment on Service {
-    draftRunner {
-      ...GenericRunnerFragment @unmask
-    }
-  }
-`);
+import { gql } from "@/_apollo/gql";
+import type { RouteParams } from "@/router/router.param";
 
 export const ProjectQuery = gql(`
   query ProjectQuery($projectId: String!) {
@@ -78,19 +15,19 @@ export const ProjectQuery = gql(`
 `);
 
 export const ProjectLayout = () => {
-  const { projectId } = useParams<RouteParams>() as {
-    projectId: string;
-  };
+	const { projectId } = useParams<RouteParams>() as {
+		projectId: string;
+	};
 
-  const { loading } = useQuery(ProjectQuery, {
-    variables: { projectId },
-  });
+	const { loading } = useQuery(ProjectQuery, {
+		variables: { projectId },
+	});
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+	if (loading) {
+		return <div>Loading...</div>;
+	}
 
-  // we do not need to render anything here
-  // we only data querying
-  return <Outlet />;
+	// we do not need to render anything here
+	// we only data querying
+	return <Outlet />;
 };

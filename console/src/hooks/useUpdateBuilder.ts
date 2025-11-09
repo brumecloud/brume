@@ -1,41 +1,41 @@
-import { UPDATE_BUILDER_MUTATION } from "@/gql/builder.graphql";
-import type { RouteParams } from "@/router/router";
-import { useMutation } from "@apollo/client";
-import { useParams } from "react-router-dom";
+// import { UPDATE_BUILDER_MUTATION } from "@/gql/builder.graphql";
+// import type { RouteParams } from "@/router/router";
+// import { useMutation } from "@apollo/client";
+// import { useParams } from "react-router-dom";
 
-export const useUpdateBuilder = () => {
-  const { serviceId, projectId } = useParams<RouteParams>();
+// export const useUpdateBuilder = () => {
+//   const { serviceId, projectId } = useParams<RouteParams>();
 
-  const [updateBuilderMutation, { loading, error }] = useMutation(
-    UPDATE_BUILDER_MUTATION,
-    {
-      update(cache, { data }) {
-        if (!data) {
-          console.error(
-            `No data returned from updateBuilderMutation for service ${serviceId}`
-          );
-          return;
-        }
+//   const [updateBuilderMutation, { loading, error }] = useMutation(
+//     UPDATE_BUILDER_MUTATION,
+//     {
+//       update(cache, { data }) {
+//         if (!data) {
+//           console.error(
+//             `No data returned from updateBuilderMutation for service ${serviceId}`
+//           );
+//           return;
+//         }
 
-        cache.modify({
-          id: `Service:${serviceId}`,
-          fields: {
-            draftBuilder: () => data.updateBuilder,
-          },
-        });
-        cache.modify({
-          id: `Project:${projectId}`,
-          fields: {
-            isDirty: () => true,
-          },
-        });
-      },
-    }
-  );
+//         cache.modify({
+//           id: `Service:${serviceId}`,
+//           fields: {
+//             draftBuilder: () => data.updateBuilder,
+//           },
+//         });
+//         cache.modify({
+//           id: `Project:${projectId}`,
+//           fields: {
+//             isDirty: () => true,
+//           },
+//         });
+//       },
+//     }
+//   );
 
-  return {
-    updateBuilderMutation,
-    loading,
-    error,
-  };
-};
+//   return {
+//     updateBuilderMutation,
+//     loading,
+//     error,
+//   };
+// };

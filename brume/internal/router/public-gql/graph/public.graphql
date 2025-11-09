@@ -33,6 +33,7 @@ type Runner {
 	link: String!
 	version: String!
 
+	schema: Any!
 	data: Any!
 }
 
@@ -41,6 +42,7 @@ type Builder {
 	link: String!
 	version: String!
 
+	schema: Any!
 	data: Any!
 }
 
@@ -54,8 +56,8 @@ type Service {
 	id: String!
 	name: String!
 
-	liveService: BaseService!
-	draftService: BaseService
+	live: BaseService!
+	draft: BaseService
 
 	# deployments: [Deployment!]!
 }

@@ -6,8 +6,6 @@ import MonitoringPage from "@/pages/monitoring";
 import { Project } from "@/pages/project";
 import { ProjectVariable } from "@/pages/project/project-variable";
 import { BuilderPage } from "@/pages/service/builder";
-import { DeploymentsPage } from "@/pages/service/deployments";
-import { LogsPage } from "@/pages/service/logs";
 import { RunnerPage } from "@/pages/service/runner";
 import { SettingPage } from "@/pages/service/settings";
 import { SourcePage } from "@/pages/service/source";
@@ -31,56 +29,54 @@ import { PageLayout } from "./layout/page.layout";
 import { RunnerLayout } from "./layout/runner.layout";
 
 export const Router = createRoutesFromElements(
-  <Route errorElement={<ErrorPage />} path="/">
-    <Route element={<Login />} path="/login" />
-    <Route element={<Logout />} path="/logout" />
-    <Route element={<ConsoleLayout />} path="/">
-      <Route element={<PageLayout />} path="/">
-        <Route path="/overview">
-          <Route element={<Stacks />} index />
-          <Route element={<DeployStack />} path="deploy" />
-          <Route element={<StackView />} path={`:${RouteParams.StackID}`} />
-        </Route>
-        <Route element={<Marketplace />} path="/marketplace" />
+	<Route errorElement={<ErrorPage />} path="/">
+		<Route element={<Login />} path="/login" />
+		<Route element={<Logout />} path="/logout" />
+		<Route element={<ConsoleLayout />} path="/">
+			<Route element={<PageLayout />} path="/">
+				<Route path="/overview">
+					<Route element={<Stacks />} index />
+					<Route element={<DeployStack />} path="deploy" />
+					<Route element={<StackView />} path={`:${RouteParams.StackID}`} />
+				</Route>
+				<Route element={<Marketplace />} path="/marketplace" />
 
-        <Route element={<MonitoringPage />} path="/monitoring" />
-        {/* <Route path="/network" element={<h1>Network</h1>} />
+				<Route element={<MonitoringPage />} path="/monitoring" />
+				{/* <Route path="/network" element={<h1>Network</h1>} />
         <Route path="/monitoring" element={<h1>Monitoring</h1>} /> */}
-        <Route element={<SettingsOutlet />} path="/settings">
-          <Route element={<AccountPage />} path="account" />
-          <Route element={<CloudsPage />} path="clouds" />
-          <Route element={<DomainPage />} path="domains" />
-          <Route element={<GitPage />} path="git" />
-        </Route>
+				<Route element={<SettingsOutlet />} path="/settings">
+					<Route element={<AccountPage />} path="account" />
+					<Route element={<CloudsPage />} path="clouds" />
+					<Route element={<DomainPage />} path="domains" />
+					<Route element={<GitPage />} path="git" />
+				</Route>
 
-        <Route element={<AddDomain />} path="/settings/domains/add" />
-        <Route path="/settings/cloud">
-          <Route element={<AwsPage />} path="aws" />
-        </Route>
+				<Route element={<AddDomain />} path="/settings/domains/add" />
+				<Route path="/settings/cloud">
+					<Route element={<AwsPage />} path="aws" />
+				</Route>
 
-        <Route element={<ProjectLayout />} path={`/:${RouteParams.ProjectID}/`}>
-          <Route element={<ProjectVariable />} path="variables" />
-          <Route element={<LogsPage />} path="logs" />
-          <Route element={<h1>Project Metrics</h1>} path="metrics" />
-          <Route element={<ServicePage />} path="services" />
+				<Route element={<ProjectLayout />} path={`/:${RouteParams.ProjectID}/`}>
+					<Route element={<ProjectVariable />} path="variables" />
+					<Route element={<h1>Project Metrics</h1>} path="metrics" />
+					<Route element={<ServicePage />} path="services" />
 
-          <Route path={`services/:${RouteParams.ServiceID}`}>
-            <Route element={<BuilderPage />} path="builder" />
-            <Route element={<SourcePage />} path="source" />
-            <Route element={<RunnerLayout />} path="runner">
-              <Route element={<VariablesPage />} path="variables" />
-              <Route element={<DeploymentsPage />} path="deployments" />
-              <Route element={<RunnerPage />} index />
-            </Route>
-            <Route element={<h1>Service Network</h1>} path="network" />
-            <Route element={<SettingPage />} path="settings" />
-          </Route>
+					<Route path={`services/:${RouteParams.ServiceID}`}>
+						<Route element={<BuilderPage />} path="builder" />
+						<Route element={<SourcePage />} path="source" />
+						<Route element={<RunnerLayout />} path="runner">
+							<Route element={<VariablesPage />} path="variables" />
+							<Route element={<RunnerPage />} index />
+						</Route>
+						<Route element={<h1>Service Network</h1>} path="network" />
+						<Route element={<SettingPage />} path="settings" />
+					</Route>
 
-          <Route element={<Project />} index />
-        </Route>
+					<Route element={<Project />} index />
+				</Route>
 
-        <Route element={<h1>Home</h1>} index />
-      </Route>
-    </Route>
-  </Route>
+				<Route element={<h1>Home</h1>} index />
+			</Route>
+		</Route>
+	</Route>,
 );

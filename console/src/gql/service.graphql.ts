@@ -32,24 +32,38 @@ export const UPDATE_SERVICE_SETTINGS_MUTATION = gql(`
   }
 `);
 
+export const BaseServiceFragment = gql(`
+  fragment BaseServiceFragment on BaseService {
+    source {
+      type
+      data
+    }
+    runner {
+      type
+      link
+      version
+      schema
+      data
+    }
+    builder {
+      type
+      link
+      version
+      schema
+      data
+    }
+  }
+`);
+
 export const ServiceFragment = gql(`
   fragment ServiceFragment on Service {
       name
       id
-      deployments {
-        ...DeploymentFragment
+      live {
+        ...BaseServiceFragment
       }
-      liveBuilder {
-        ...BuilderFragment
-      }
-      draftBuilder {
-        ...BuilderFragment
-      }
-      liveRunner {
-        ...RunnerFragment
-      }
-      draftRunner {
-        ...RunnerFragment
+      draft {
+        ...BaseServiceFragment
       }
    }
 `);
