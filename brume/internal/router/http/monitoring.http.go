@@ -6,7 +6,6 @@ import (
 
 	job_model "brume.dev/jobs/model"
 	job_service "brume.dev/jobs/service"
-	log "brume.dev/logs"
 	log_model "brume.dev/logs/model"
 	"brume.dev/machine"
 	"github.com/go-playground/validator/v10"
@@ -17,7 +16,6 @@ import (
 type MonitoringHTTPRouterV1 struct {
 	machineService *machine.MachineService
 	jobService     *job_service.JobService
-	logService     *log.LogService
 }
 
 type StatusRequest struct {
@@ -38,11 +36,10 @@ type LogsRequest struct {
 
 var Validator = validator.New()
 
-func NewMonitoringHTTPRouterV1(machineService *machine.MachineService, jobService *job_service.JobService, logService *log.LogService) *MonitoringHTTPRouterV1 {
+func NewMonitoringHTTPRouterV1(machineService *machine.MachineService, jobService *job_service.JobService) *MonitoringHTTPRouterV1 {
 	return &MonitoringHTTPRouterV1{
 		machineService: machineService,
 		jobService:     jobService,
-		logService:     logService,
 	}
 }
 

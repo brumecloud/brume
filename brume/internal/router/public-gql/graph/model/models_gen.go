@@ -2,14 +2,6 @@
 
 package public_graph_model
 
-type CreateServiceInput struct {
-	Name  string `json:"name"`
-	Image string `json:"image"`
-}
-
-type Mutation struct {
-}
-
 type Organization struct {
 	ID         string `json:"id"`
 	ProviderID string `json:"providerId"`
@@ -17,10 +9,6 @@ type Organization struct {
 }
 
 type Query struct {
-}
-
-type ServiceSettingsInput struct {
-	Name string `json:"name"`
 }
 
 type Source struct {

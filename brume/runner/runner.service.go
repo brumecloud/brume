@@ -43,27 +43,28 @@ func (e *RunnerService) CreateDockerExecutor(serviceId uuid.UUID) (*runner.Runne
 
 	runner := &runner.Runner{
 		ID:        id,
-		Name:      "Docker runner",
 		Type:      "generic-docker",
 		ServiceId: serviceId,
-		Data: runner.RunnerData{
-			Type: runner.RunnerTypeDocker,
-			Docker: &runner.DockerRunnerData{
-				Command:        "",
-				HealthCheckURL: "http://localhost:8080/health",
-				Memory: runner.RessourceConstraints{
-					Request: 100,
-					Limit:   100,
-				},
-				CPU: runner.RessourceConstraints{
-					Request: 0.5,
-					Limit:   0.5,
-				},
-				Port: 8080,
-			},
-			PublicDomain:  "",
-			PrivateDomain: nil,
-		},
+		Schema: nil,
+		Data: nil,
+		// Data: runner.RunnerData{
+		// 	Type: runner.RunnerTypeDocker,
+		// 	Docker: &runner.DockerRunnerData{
+		// 		Command:        "",
+		// 		HealthCheckURL: "http://localhost:8080/health",
+		// 		Memory: runner.RessourceConstraints{
+		// 			Request: 100,
+		// 			Limit:   100,
+		// 		},
+		// 		CPU: runner.RessourceConstraints{
+		// 			Request: 0.5,
+		// 			Limit:   0.5,
+		// 		},
+		// 		Port: 8080,
+		// 	},
+		// 	PublicDomain:  "",
+		// 	PrivateDomain: nil,
+		// },
 	}
 
 	err := e.db.Gorm.Create(&runner).Error

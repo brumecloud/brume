@@ -8,7 +8,6 @@ import (
 	"errors"
 	"sync/atomic"
 
-	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -35,7 +34,6 @@ type Config struct {
 type ResolverRoot interface {
 	BaseService() BaseServiceResolver
 	Builder() BuilderResolver
-	Mutation() MutationResolver
 	Project() ProjectResolver
 	Query() QueryResolver
 	Runner() RunnerResolver
@@ -56,17 +54,9 @@ type ComplexityRoot struct {
 	Builder struct {
 		Data    func(childComplexity int) int
 		Link    func(childComplexity int) int
+		Schema  func(childComplexity int) int
 		Type    func(childComplexity int) int
 		Version func(childComplexity int) int
-	}
-
-	Mutation struct {
-		AddServiceToProject   func(childComplexity int, projectID string, input public_graph_model.CreateServiceInput) int
-		CreateProject         func(childComplexity int, name string, description *string) int
-		DeleteDraft           func(childComplexity int, projectID string) int
-		DeleteService         func(childComplexity int, serviceID string) int
-		DeployProject         func(childComplexity int, projectID string) int
-		UpdateServiceSettings func(childComplexity int, serviceID string, input public_graph_model.ServiceSettingsInput) int
 	}
 
 	Organization struct {
@@ -91,15 +81,16 @@ type ComplexityRoot struct {
 	Runner struct {
 		Data    func(childComplexity int) int
 		Link    func(childComplexity int) int
+		Schema  func(childComplexity int) int
 		Type    func(childComplexity int) int
 		Version func(childComplexity int) int
 	}
 
 	Service struct {
-		DraftService func(childComplexity int) int
-		ID           func(childComplexity int) int
-		LiveService  func(childComplexity int) int
-		Name         func(childComplexity int) int
+		Draft func(childComplexity int) int
+		ID    func(childComplexity int) int
+		Live  func(childComplexity int) int
+		Name  func(childComplexity int) int
 	}
 
 	Source struct {
@@ -170,6 +161,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Builder.Link(childComplexity), true
 
+	case "Builder.schema":
+		if e.complexity.Builder.Schema == nil {
+			break
+		}
+
+		return e.complexity.Builder.Schema(childComplexity), true
+
 	case "Builder.type":
 		if e.complexity.Builder.Type == nil {
 			break
@@ -183,78 +181,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Builder.Version(childComplexity), true
-
-	case "Mutation.addServiceToProject":
-		if e.complexity.Mutation.AddServiceToProject == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_addServiceToProject_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.AddServiceToProject(childComplexity, args["projectId"].(string), args["input"].(public_graph_model.CreateServiceInput)), true
-
-	case "Mutation.createProject":
-		if e.complexity.Mutation.CreateProject == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_createProject_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.CreateProject(childComplexity, args["name"].(string), args["description"].(*string)), true
-
-	case "Mutation.deleteDraft":
-		if e.complexity.Mutation.DeleteDraft == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_deleteDraft_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.DeleteDraft(childComplexity, args["projectId"].(string)), true
-
-	case "Mutation.deleteService":
-		if e.complexity.Mutation.DeleteService == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_deleteService_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.DeleteService(childComplexity, args["serviceId"].(string)), true
-
-	case "Mutation.deployProject":
-		if e.complexity.Mutation.DeployProject == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_deployProject_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.DeployProject(childComplexity, args["projectId"].(string)), true
-
-	case "Mutation.updateServiceSettings":
-		if e.complexity.Mutation.UpdateServiceSettings == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updateServiceSettings_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.UpdateServiceSettings(childComplexity, args["serviceId"].(string), args["input"].(public_graph_model.ServiceSettingsInput)), true
 
 	case "Organization.id":
 		if e.complexity.Organization.ID == nil {
@@ -345,6 +271,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Runner.Link(childComplexity), true
 
+	case "Runner.schema":
+		if e.complexity.Runner.Schema == nil {
+			break
+		}
+
+		return e.complexity.Runner.Schema(childComplexity), true
+
 	case "Runner.type":
 		if e.complexity.Runner.Type == nil {
 			break
@@ -359,12 +292,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Runner.Version(childComplexity), true
 
-	case "Service.draftService":
-		if e.complexity.Service.DraftService == nil {
+	case "Service.draft":
+		if e.complexity.Service.Draft == nil {
 			break
 		}
 
-		return e.complexity.Service.DraftService(childComplexity), true
+		return e.complexity.Service.Draft(childComplexity), true
 
 	case "Service.id":
 		if e.complexity.Service.ID == nil {
@@ -373,12 +306,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Service.ID(childComplexity), true
 
-	case "Service.liveService":
-		if e.complexity.Service.LiveService == nil {
+	case "Service.live":
+		if e.complexity.Service.Live == nil {
 			break
 		}
 
-		return e.complexity.Service.LiveService(childComplexity), true
+		return e.complexity.Service.Live(childComplexity), true
 
 	case "Service.name":
 		if e.complexity.Service.Name == nil {
@@ -443,10 +376,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
-	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
-		ec.unmarshalInputCreateServiceInput,
-		ec.unmarshalInputServiceSettingsInput,
-	)
+	inputUnmarshalMap := graphql.BuildUnmarshalerMap()
 	first := true
 
 	switch opCtx.Operation.Operation {
@@ -479,21 +409,6 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			}
 
 			return &response
-		}
-	case ast.Mutation:
-		return func(ctx context.Context) *graphql.Response {
-			if !first {
-				return nil
-			}
-			first = false
-			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
-			data := ec._Mutation(ctx, opCtx.Operation.SelectionSet)
-			var buf bytes.Buffer
-			data.MarshalGQL(&buf)
-
-			return &graphql.Response{
-				Data: buf.Bytes(),
-			}
 		}
 
 	default:
@@ -578,6 +493,7 @@ type Runner {
 	link: String!
 	version: String!
 
+	schema: Any!
 	data: Any!
 }
 
@@ -586,6 +502,7 @@ type Builder {
 	link: String!
 	version: String!
 
+	schema: Any!
 	data: Any!
 }
 
@@ -599,19 +516,8 @@ type Service {
 	id: String!
 	name: String!
 
-	liveService: BaseService!
-	draftService: BaseService
-
-	# deployments: [Deployment!]!
-}
-
-input CreateServiceInput {
-	name: String!
-	image: String!
-}
-
-input ServiceSettingsInput {
-	name: String!
+	live: BaseService!
+	draft: BaseService
 }
 
 type Query {
@@ -619,19 +525,6 @@ type Query {
 	me: User!
 
 	getProjectById(id: String!): Project!
-}
-
-type Mutation {
-	createProject(name: String!, description: String): Project!
-	addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
-	deleteService(serviceId: String!): Service!
-	updateServiceSettings(
-		serviceId: String!
-		input: ServiceSettingsInput!
-	): Service!
-	deleteDraft(projectId: String!): Project!
-
-	deployProject(projectId: String!): Project!
 }
 `, BuiltIn: false},
 }

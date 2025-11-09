@@ -11,7 +11,6 @@ import (
 	"brume.dev/internal/log"
 	job_model "brume.dev/jobs/model"
 	"brume.dev/runner"
-	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -115,49 +114,6 @@ func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data json.RawMessage
 	return nil, nil
 }
 
-func (s *ServiceService) UpdateRunner(serviceId uuid.UUID, data runner_model.RunnerData) (*runner_model.Runner, error) {
-	// var err error
-
-	// service, err := s.GetService(serviceId)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// // we need to create a new draft of the runner
-	// if service.DraftRunner == nil {
-	// 	draftRunner, err := s.runnerService.DuplicateRunner(service.LiveRunner.ID)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	service.DraftRunner = draftRunner
-	// }
-
-	// // update the draft runner
-	// draftRunner := &runner_model.Runner{
-	// 	ID:        service.DraftRunner.ID,
-	// 	ServiceId: serviceId,
-	// 	Type:      "generic-docker",
-	// 	Data:      data,
-	// }
-
-	// err = s.db.Gorm.Save(draftRunner).Error
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// service.DraftRunnerID = &draftRunner.ID
-
-	// err = s.db.Gorm.Save(service).Error
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// return draftRunner, err
-
-	return nil, nil
-}
-
 func (s *ServiceService) DeleteService(serviceId uuid.UUID) (*service_model.Service, error) {
 	service, err := s.GetService(serviceId)
 	if err != nil {
@@ -206,17 +162,17 @@ func (s *ServiceService) UpdateServiceSettings(serviceId uuid.UUID, name string)
 	return service, s.db.Gorm.Save(&service).Error
 }
 
-func (s *ServiceService) GetServiceDeployments(serviceId uuid.UUID) ([]*deployment_model.Deployment, error) {
-	service, err := s.GetService(serviceId)
-	if err != nil {
-		return nil, err
-	}
+// func (s *ServiceService) GetServiceDeployments(serviceId uuid.UUID) ([]*deployment_model.Deployment, error) {
+// 	service, err := s.GetService(serviceId)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	// we dont want to load the deployments in the service object
-	err = s.db.Gorm.Preload("Deployments").First(service, serviceId).Error
+// 	// we dont want to load the deployments in the service object
+// 	err = s.db.Gorm.Preload("Deployments").First(service, serviceId).Error
 
-	return service.Deployments, err
-}
+// 	return service.Deployments, err
+// }
 
 func (s *ServiceService) CreateService(name string, projectId uuid.UUID, image string) (*service_model.Service, error) {
 	id, _ := uuid.NewRandom()

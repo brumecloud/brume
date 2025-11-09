@@ -23,91 +23,14 @@ func (r *baseServiceResolver) Source(ctx context.Context, obj *service_model.Bas
 	panic(fmt.Errorf("not implemented: Source - source"))
 }
 
+// Schema is the resolver for the schema field.
+func (r *builderResolver) Schema(ctx context.Context, obj *builder_model.Builder) (any, error) {
+	panic(fmt.Errorf("not implemented: Schema - schema"))
+}
+
 // Data is the resolver for the data field.
 func (r *builderResolver) Data(ctx context.Context, obj *builder_model.Builder) (any, error) {
 	return obj.Data, nil
-}
-
-// CreateProject is the resolver for the createProject field.
-func (r *mutationResolver) CreateProject(ctx context.Context, name string, description *string) (*project_model.Project, error) {
-	currentUser := ctx.Value("user").(string)
-	user, err := r.UserService.GetUserByProviderID(currentUser)
-	if err != nil {
-		return nil, err
-	}
-
-	org, err := r.UserService.GetUserOrganization(user)
-	if err != nil {
-		return nil, err
-	}
-
-	project, err := r.ProjectService.CreateProject(name, *description)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ProjectService.AssignProjectToOrganization(project, org)
-}
-
-// AddServiceToProject is the resolver for the addServiceToProject field.
-func (r *mutationResolver) AddServiceToProject(ctx context.Context, projectID string, input public_graph_model.CreateServiceInput) (*service_model.Service, error) {
-	service, err := r.ServiceService.CreateService(input.Name, uuid.MustParse(projectID), input.Image)
-	if err != nil {
-		return nil, err
-	}
-
-	project, perr := r.ProjectService.GetProjectByID(uuid.MustParse(projectID))
-
-	if perr != nil {
-		return nil, perr
-	}
-
-	_, err = r.ProjectService.AddServiceToProject(project, service)
-	if err != nil {
-		return nil, err
-	}
-
-	return service, nil
-}
-
-// DeleteService is the resolver for the deleteService field.
-func (r *mutationResolver) DeleteService(ctx context.Context, serviceID string) (*service_model.Service, error) {
-	service_uuid, err := uuid.Parse(serviceID)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ServiceService.DeleteService(service_uuid)
-}
-
-// UpdateServiceSettings is the resolver for the updateServiceSettings field.
-func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID string, input public_graph_model.ServiceSettingsInput) (*service_model.Service, error) {
-	service_uuid, err := uuid.Parse(serviceID)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ServiceService.UpdateServiceSettings(service_uuid, input.Name)
-}
-
-// DeleteDraft is the resolver for the deleteDraft field.
-func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error) {
-	project_uuid, err := uuid.Parse(projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ProjectService.DeleteDraft(project_uuid)
-}
-
-// DeployProject is the resolver for the deployProject field.
-func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) (*project_model.Project, error) {
-	project_uuid, err := uuid.Parse(projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ProjectService.DeployProject(project_uuid)
 }
 
 // ID is the resolver for the id field.
@@ -157,6 +80,11 @@ func (r *runnerResolver) Version(ctx context.Context, obj *runner_model.Runner) 
 	panic(fmt.Errorf("not implemented: Version - version"))
 }
 
+// Schema is the resolver for the schema field.
+func (r *runnerResolver) Schema(ctx context.Context, obj *runner_model.Runner) (any, error) {
+	panic(fmt.Errorf("not implemented: Schema - schema"))
+}
+
 // Data is the resolver for the data field.
 func (r *runnerResolver) Data(ctx context.Context, obj *runner_model.Runner) (any, error) {
 	panic(fmt.Errorf("not implemented: Data - data"))
@@ -165,6 +93,16 @@ func (r *runnerResolver) Data(ctx context.Context, obj *runner_model.Runner) (an
 // ID is the resolver for the id field.
 func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (string, error) {
 	return obj.ID.String(), nil
+}
+
+// Live is the resolver for the live field.
+func (r *serviceResolver) Live(ctx context.Context, obj *service_model.Service) (*service_model.BaseService, error) {
+	panic(fmt.Errorf("not implemented: Live - live"))
+}
+
+// Draft is the resolver for the draft field.
+func (r *serviceResolver) Draft(ctx context.Context, obj *service_model.Service) (*service_model.BaseService, error) {
+	panic(fmt.Errorf("not implemented: Draft - draft"))
 }
 
 // ID is the resolver for the id field.
@@ -199,9 +137,6 @@ func (r *Resolver) BaseService() generated.BaseServiceResolver { return &baseSer
 // Builder returns generated.BuilderResolver implementation.
 func (r *Resolver) Builder() generated.BuilderResolver { return &builderResolver{r} }
 
-// Mutation returns generated.MutationResolver implementation.
-func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
-
 // Project returns generated.ProjectResolver implementation.
 func (r *Resolver) Project() generated.ProjectResolver { return &projectResolver{r} }
 
@@ -219,9 +154,89 @@ func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
 type baseServiceResolver struct{ *Resolver }
 type builderResolver struct{ *Resolver }
-type mutationResolver struct{ *Resolver }
 type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type runnerResolver struct{ *Resolver }
 type serviceResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *mutationResolver) CreateProject(ctx context.Context, name string, description *string) (*project_model.Project, error) {
+	currentUser := ctx.Value("user").(string)
+	user, err := r.UserService.GetUserByProviderID(currentUser)
+	if err != nil {
+		return nil, err
+	}
+
+	org, err := r.UserService.GetUserOrganization(user)
+	if err != nil {
+		return nil, err
+	}
+
+	project, err := r.ProjectService.CreateProject(name, *description)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ProjectService.AssignProjectToOrganization(project, org)
+}
+func (r *mutationResolver) AddServiceToProject(ctx context.Context, projectID string, input public_graph_model.CreateServiceInput) (*service_model.Service, error) {
+	service, err := r.ServiceService.CreateService(input.Name, uuid.MustParse(projectID), input.Image)
+	if err != nil {
+		return nil, err
+	}
+
+	project, perr := r.ProjectService.GetProjectByID(uuid.MustParse(projectID))
+
+	if perr != nil {
+		return nil, perr
+	}
+
+	_, err = r.ProjectService.AddServiceToProject(project, service)
+	if err != nil {
+		return nil, err
+	}
+
+	return service, nil
+}
+func (r *mutationResolver) DeleteService(ctx context.Context, serviceID string) (*service_model.Service, error) {
+	service_uuid, err := uuid.Parse(serviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ServiceService.DeleteService(service_uuid)
+}
+func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID string, input public_graph_model.ServiceSettingsInput) (*service_model.Service, error) {
+	service_uuid, err := uuid.Parse(serviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ServiceService.UpdateServiceSettings(service_uuid, input.Name)
+}
+func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error) {
+	project_uuid, err := uuid.Parse(projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ProjectService.DeleteDraft(project_uuid)
+}
+func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) (*project_model.Project, error) {
+	project_uuid, err := uuid.Parse(projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.ProjectService.DeployProject(project_uuid)
+}
+func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
+type mutationResolver struct{ *Resolver }
+*/

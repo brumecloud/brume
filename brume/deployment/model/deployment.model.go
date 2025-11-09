@@ -6,7 +6,6 @@ import (
 	"time"
 
 	job_model "brume.dev/jobs/model"
-	runner_model "brume.dev/runner/model"
 
 	"github.com/google/uuid"
 )
@@ -21,8 +20,6 @@ type Deployment struct {
 	ProjectID uuid.UUID `gorm:"type:uuid"`
 
 	Source DeploymentSource `gorm:"type:jsonb"`
-
-	RunnerData  runner_model.RunnerData   `gorm:"type:jsonb"`
 
 	Execution ExecutionData `gorm:"type:jsonb"`
 

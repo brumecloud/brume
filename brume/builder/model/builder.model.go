@@ -1,7 +1,6 @@
 package builder_model
 
 import (
-	"encoding/json"
 	"time"
 
 	source_model "brume.dev/source/model"
@@ -25,8 +24,11 @@ type Builder struct {
 	// what kind of artifact the builder produces
 	Type      string
 
+	// we download the json schema from the builder repository
+	Schema    interface{} `gorm:"type:jsonb"`
+
 	// this data is respecting the schema imposed by the builder
-	Data      json.RawMessage `gorm:"type:jsonb"`
+	Data      interface{} `gorm:"type:jsonb"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

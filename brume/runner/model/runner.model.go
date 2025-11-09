@@ -15,43 +15,29 @@ type Runner struct {
 	// reference to the service
 	ServiceId uuid.UUID `gorm:"type:uuid"`
 
-	Name string
+	// reference to the builder repository
+	// this link must follow the builder convention
+	Link string `gorm:"type:text"`
+	// builder follow semver
+	Version string `gorm:"type:text"`
+
 	Type string
 
-	Data RunnerData `gorm:"type:jsonb"`
+	// we download the json schema from the runner repository
+	Schema interface{} `gorm:"type:jsonb"`
+
+	// this data is respecting the schema imposed by the runner
+	Data interface{} `gorm:"type:jsonb"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-type RessourceConstraints struct {
-	Request float64 `json:"request"`
-	Limit   float64 `json:"limit"`
+func (r *Runner) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &r)
 }
 
-type RunnerType string
-
-const (
-	RunnerTypeDocker RunnerType = "docker"
-	RunnerTypeStatic RunnerType = "spa"
-)
-
-// only for docker
-type RunnerData struct {
-	Type RunnerType `gorm:"type:text"`
-
-	PublicDomain  string
-	PrivateDomain *string
-
-	Docker *DockerRunnerData `gorm:"type:jsonb"`
-	SPA    *SPARunnerData    `gorm:"type:jsonb"`
-}
-
-func (rd *RunnerData) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), &rd)
-}
-
-func (rd *RunnerData) Value() (driver.Value, error) {
-	return json.Marshal(rd)
+func (r *Runner) Value() (driver.Value, error) {
+	return json.Marshal(r)
 }

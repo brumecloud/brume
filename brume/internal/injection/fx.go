@@ -5,7 +5,6 @@ import (
 	fx_user "brume.dev/account/user/fx"
 	fx_builder "brume.dev/builder/fx"
 	fx_deployment "brume.dev/deployment/fx"
-	brume_clickhouse "brume.dev/internal/clickhouse"
 	fx_common "brume.dev/internal/common/fx"
 	config "brume.dev/internal/config"
 	db "brume.dev/internal/db"
@@ -16,7 +15,6 @@ import (
 	fx_ticker "brume.dev/internal/ticker"
 	fx_workos "brume.dev/internal/workos"
 	fx_job "brume.dev/jobs/fx"
-	fx_log "brume.dev/logs/fx"
 	fx_machine "brume.dev/machine/fx"
 	fx_project "brume.dev/project/fx"
 	fx_runner "brume.dev/runner/fx"
@@ -45,12 +43,12 @@ func NewMasterInjector() *GlobalInjector {
 		fx_service.ServiceModule,
 		fx_runner.RunnerModule,
 		fx_builder.BuilderModule,
-		fx_log.LogModule,
+		// fx_log.LogModule,
 		fx_deployment.DeploymentModule,
 		fx_machine.Module,
 		fx_job.JobModule,
 		config.ConfigModule,
-		brume_clickhouse.ClickhouseModule,
+		// brume_clickhouse.ClickhouseModule,
 		brume_redis.RedisModule,
 		db.DBModule,
 		fx_ticker.TickerModule,

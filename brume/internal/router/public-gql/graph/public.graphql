@@ -58,17 +58,6 @@ type Service {
 
 	live: BaseService!
 	draft: BaseService
-
-	# deployments: [Deployment!]!
-}
-
-input CreateServiceInput {
-	name: String!
-	image: String!
-}
-
-input ServiceSettingsInput {
-	name: String!
 }
 
 type Query {
@@ -76,17 +65,4 @@ type Query {
 	me: User!
 
 	getProjectById(id: String!): Project!
-}
-
-type Mutation {
-	createProject(name: String!, description: String): Project!
-	addServiceToProject(projectId: String!, input: CreateServiceInput!): Service!
-	deleteService(serviceId: String!): Service!
-	updateServiceSettings(
-		serviceId: String!
-		input: ServiceSettingsInput!
-	): Service!
-	deleteDraft(projectId: String!): Project!
-
-	deployProject(projectId: String!): Project!
 }
