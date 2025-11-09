@@ -1,7 +1,8 @@
+import { useFragment } from "@apollo/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SquareTerminal } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { useBlocker } from "react-router-dom";
+import { useBlocker, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Page } from "@/components/page-comp/header";
@@ -9,9 +10,39 @@ import { Stepper } from "@/components/stepper";
 import { FormField } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SourceFragment } from "@/gql/source.graphql";
+import type { RouteParams } from "@/router/router.param";
 import { cn } from "@/utils";
 
+const GitSourceSchema = z.object({
+  repository: z.string(),
+  branch: z.string(),
+  provider: z.enum(["github", "gitlab"]),
+});
+
 export const SourcePage = () => {
+  const { serviceId } = useParams<RouteParams>();
+
+  const { data: source, complete } = useFragment({
+    from: `Source:${serviceId}`,
+    fragment: SourceFragment,
+    fragmentName: "SourceFragment",
+  });
+
+  if (!complete) {
+    throw new Error("Source not complete");
+  }
+
+  if (source?.type !== "git") {
+    throw new Error("Source is not a git repository");
+  }
+
+  const sourceData = GitSourceSchema.safeParse(source?.data);
+
+  if (!sourceData.success) {
+    throw new Error("Source data is invalid");
+  }
+
   const form = useForm<{ name: string; branch: string }>({
     resolver: zodResolver(
       z.object({
@@ -21,8 +52,8 @@ export const SourcePage = () => {
     ),
     mode: "onChange",
     defaultValues: {
-      name: "",
-      branch: "",
+      name: sourceData.data.repository,
+      branch: sourceData.data.branch,
     },
   });
 

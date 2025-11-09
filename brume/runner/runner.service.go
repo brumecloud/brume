@@ -45,8 +45,8 @@ func (e *RunnerService) CreateDockerExecutor(serviceId uuid.UUID) (*runner.Runne
 		ID:        id,
 		Type:      "generic-docker",
 		ServiceId: serviceId,
-		Schema: nil,
-		Data: nil,
+		Schema:    nil,
+		Data:      nil,
 		// Data: runner.RunnerData{
 		// 	Type: runner.RunnerTypeDocker,
 		// 	Docker: &runner.DockerRunnerData{

@@ -10,8 +10,3 @@ type Organization struct {
 
 type Query struct {
 }
-
-type Source struct {
-	Type string `json:"type"`
-	Data any    `json:"data"`
-}

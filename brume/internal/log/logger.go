@@ -27,7 +27,7 @@ func GetLogger(module string) zerolog.Logger {
 
 	// mute certain modules from logging
 	if level, ok := cfg.Logs[module]; ok {
-		logger.Info().Str("module", module).Str("log_level", level).Msg("Module logger level")
+		logger.Debug().Str("module", module).Str("log_level", level).Msg("Module logger level")
 		if level == "silent" {
 			return zerolog.Nop()
 		}

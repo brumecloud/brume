@@ -67,15 +67,15 @@ func SeedAdminUser(db *DB, brume *org.Organization, config *config.BrumeConfig) 
 
 func SeedAgent(db *DB, brume *org.Organization, config *config.BrumeConfig) (*agent_model.Agent, *agent_model.Agent) {
 	runnerAgent := &agent_model.Agent{
-		ID: uuid.MustParse("b36d84e9-bec2-4ba1-8b51-536884f06bc7"),
-		APIKey:     "runner-api-key",
-		AgentType:  agent_model.AgentTypeRunner,
+		ID:             uuid.MustParse("b36d84e9-bec2-4ba1-8b51-536884f06bc7"),
+		APIKey:         "runner-api-key",
+		AgentType:      agent_model.AgentTypeRunner,
 		OrganizationID: brume.ID,
 	}
 	builderAgent := &agent_model.Agent{
-		ID: uuid.MustParse("b36d84e9-bec2-4ba1-8b51-536884f06bc8"),
-		APIKey:     "builder-api-key",
-		AgentType:  agent_model.AgentTypeBuilder,
+		ID:             uuid.MustParse("b36d84e9-bec2-4ba1-8b51-536884f06bc8"),
+		APIKey:         "builder-api-key",
+		AgentType:      agent_model.AgentTypeBuilder,
 		OrganizationID: brume.ID,
 	}
 
@@ -86,7 +86,7 @@ func SeedAgent(db *DB, brume *org.Organization, config *config.BrumeConfig) (*ag
 	} else {
 		logger.Info().Msg("Runner agent found, skipping seeding")
 	}
-	
+
 	if err := db.Gorm.First(builderAgent, "id = ?", builderAgent.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Info().Msg("No builder agent found in database, creating it")
 		db.Gorm.Create(builderAgent)
@@ -101,21 +101,24 @@ func SeedAgent(db *DB, brume *org.Organization, config *config.BrumeConfig) (*ag
 func SeedProjects(db *DB) []*project.Project {
 	projects := make([]*project.Project, 1)
 
+	frontendId := uuid.MustParse("536b85d4-53ff-4a8f-b3f3-ec134257adb9")
+
 	frontend := &service.Service{
-		Name:        "Frontend",
-		ID:          uuid.MustParse("536b85d4-53ff-4a8f-b3f3-ec134257adb9"),
-		Source: &source_model.Source{
-			Type: source_model.SourceTypeGit,
-			GitData: &source_model.GitSource{
-				Provider: "github",
-				Repository: "brume-dev/brume-portfolio",
-				Branch: "main",
-			},
-		},
+		Name:  "Frontend",
+		ID:    frontendId,
 		Draft: nil,
 		Live: &service.BaseService{
+			Source: &source_model.Source{
+				ID:   frontendId,
+				Type: source_model.SourceTypeGit,
+				GitData: &source_model.GitSource{
+					Provider:   "github",
+					Repository: "brume-dev/brume-portfolio",
+					Branch:     "main",
+				},
+			},
 			Runner: &runner_model.Runner{
-				ID:   uuid.MustParse("de56c895-c814-45fb-a859-ff943f293c3d"),
+				ID:   frontendId,
 				Type: "spa-cloudfront",
 				Schema: `{
 					"type": "object",
@@ -150,7 +153,7 @@ func SeedProjects(db *DB) []*project.Project {
 				}`,
 			},
 			Builder: &builder_model.Builder{
-				ID:   uuid.MustParse("f26a89ef-ff17-404a-96c5-3b03938c8149"),
+				ID:   frontendId,
 				Type: "spa",
 				Schema: `{
 					"type": "object",
@@ -202,7 +205,7 @@ func SeedProjects(db *DB) []*project.Project {
 						"output_path": "dist",
 					},
 				}`,
-			},	
+			},
 		},
 	}
 

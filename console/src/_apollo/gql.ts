@@ -15,34 +15,26 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
  */
 type Documents = {
     "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n": typeof types.MyProjectsDocument,
+    "\n  fragment BuilderFragment on Builder {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n": typeof types.BuilderFragmentFragmentDoc,
     "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      ...ServiceFragment\n    }\n  }\n": typeof types.ProjectFragmentFragmentDoc,
     "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": typeof types.GetProjectByIdDocument,
-    "\n  mutation CreateProject($name: String!, $description: String) {\n    createProject(name: $name, description: $description) {\n      ...ProjectFragment\n    }\n  }\n": typeof types.CreateProjectDocument,
-    "\n  mutation DeployProject($projectId: String!) {\n    deployProject(projectId: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": typeof types.DeployProjectDocument,
-    "\n  mutation DeleteDraft($projectId: String!) {\n    deleteDraft(projectId: $projectId) {\n      id\n    }\n  }\n": typeof types.DeleteDraftDocument,
-    "\n  fragment RunnerFragment on Runner {\n    type\n    data\n    link\n    version\n    schema\n  }\n": typeof types.RunnerFragmentFragmentDoc,
-    "\n  mutation AddServiceToProject(\n    $projectId: String!\n    $input: CreateServiceInput!\n  ) {\n    addServiceToProject(projectId: $projectId, input: $input) {\n      id\n      name\n    }\n  }\n": typeof types.AddServiceToProjectDocument,
-    "\n  mutation DeleteService($serviceId: String!) {\n    deleteService(serviceId: $serviceId) {\n      id\n    }\n  }\n": typeof types.DeleteServiceDocument,
-    "\n  mutation UpdateServiceSettings(\n    $serviceId: String!\n    $input: ServiceSettingsInput!\n  ) {\n    updateServiceSettings(serviceId: $serviceId, input: $input) {\n      id\n      name\n    }\n  }\n": typeof types.UpdateServiceSettingsDocument,
-    "\n  fragment BaseServiceFragment on BaseService {\n    source {\n      type\n      data\n    }\n    runner {\n      type\n      link\n      version\n      schema\n      data\n    }\n    builder {\n      type\n      link\n      version\n      schema\n      data\n    }\n  }\n": typeof types.BaseServiceFragmentFragmentDoc,
+    "\n  fragment RunnerFragment on Runner {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n": typeof types.RunnerFragmentFragmentDoc,
+    "\n  fragment BaseServiceFragment on BaseService {\n    source {\n      ...SourceFragment\n    }\n    runner {\n      ...RunnerFragment\n    }\n    builder {\n      ...BuilderFragment\n    }\n  }\n": typeof types.BaseServiceFragmentFragmentDoc,
     "\n  fragment ServiceFragment on Service {\n      name\n      id\n      live {\n        ...BaseServiceFragment\n      }\n      draft {\n        ...BaseServiceFragment\n      }\n   }\n": typeof types.ServiceFragmentFragmentDoc,
+    "\n  fragment SourceFragment on Source {\n    id\n    type\n    data\n  }\n": typeof types.SourceFragmentFragmentDoc,
     "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n    organization {\n      id\n      name\n    }\n  }\n": typeof types.UserFragmentFragmentDoc,
     "\n  query me {\n    me {\n      projects {\n        id\n        name\n        services {\n          id\n          name\n        }\n      }\n      ...UserFragment\n    }\n  }\n": typeof types.MeDocument,
     "\n  query ProjectQuery($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n      services {\n        ...ServiceFragment\n      }\n    }\n  }\n": typeof types.ProjectQueryDocument,
 };
 const documents: Documents = {
     "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n": types.MyProjectsDocument,
+    "\n  fragment BuilderFragment on Builder {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n": types.BuilderFragmentFragmentDoc,
     "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      ...ServiceFragment\n    }\n  }\n": types.ProjectFragmentFragmentDoc,
     "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": types.GetProjectByIdDocument,
-    "\n  mutation CreateProject($name: String!, $description: String) {\n    createProject(name: $name, description: $description) {\n      ...ProjectFragment\n    }\n  }\n": types.CreateProjectDocument,
-    "\n  mutation DeployProject($projectId: String!) {\n    deployProject(projectId: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": types.DeployProjectDocument,
-    "\n  mutation DeleteDraft($projectId: String!) {\n    deleteDraft(projectId: $projectId) {\n      id\n    }\n  }\n": types.DeleteDraftDocument,
-    "\n  fragment RunnerFragment on Runner {\n    type\n    data\n    link\n    version\n    schema\n  }\n": types.RunnerFragmentFragmentDoc,
-    "\n  mutation AddServiceToProject(\n    $projectId: String!\n    $input: CreateServiceInput!\n  ) {\n    addServiceToProject(projectId: $projectId, input: $input) {\n      id\n      name\n    }\n  }\n": types.AddServiceToProjectDocument,
-    "\n  mutation DeleteService($serviceId: String!) {\n    deleteService(serviceId: $serviceId) {\n      id\n    }\n  }\n": types.DeleteServiceDocument,
-    "\n  mutation UpdateServiceSettings(\n    $serviceId: String!\n    $input: ServiceSettingsInput!\n  ) {\n    updateServiceSettings(serviceId: $serviceId, input: $input) {\n      id\n      name\n    }\n  }\n": types.UpdateServiceSettingsDocument,
-    "\n  fragment BaseServiceFragment on BaseService {\n    source {\n      type\n      data\n    }\n    runner {\n      type\n      link\n      version\n      schema\n      data\n    }\n    builder {\n      type\n      link\n      version\n      schema\n      data\n    }\n  }\n": types.BaseServiceFragmentFragmentDoc,
+    "\n  fragment RunnerFragment on Runner {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n": types.RunnerFragmentFragmentDoc,
+    "\n  fragment BaseServiceFragment on BaseService {\n    source {\n      ...SourceFragment\n    }\n    runner {\n      ...RunnerFragment\n    }\n    builder {\n      ...BuilderFragment\n    }\n  }\n": types.BaseServiceFragmentFragmentDoc,
     "\n  fragment ServiceFragment on Service {\n      name\n      id\n      live {\n        ...BaseServiceFragment\n      }\n      draft {\n        ...BaseServiceFragment\n      }\n   }\n": types.ServiceFragmentFragmentDoc,
+    "\n  fragment SourceFragment on Source {\n    id\n    type\n    data\n  }\n": types.SourceFragmentFragmentDoc,
     "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n    organization {\n      id\n      name\n    }\n  }\n": types.UserFragmentFragmentDoc,
     "\n  query me {\n    me {\n      projects {\n        id\n        name\n        services {\n          id\n          name\n        }\n      }\n      ...UserFragment\n    }\n  }\n": types.MeDocument,
     "\n  query ProjectQuery($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n      services {\n        ...ServiceFragment\n      }\n    }\n  }\n": types.ProjectQueryDocument,
@@ -69,6 +61,10 @@ export function gql(source: "\n  query myProjects {\n    me {\n      projects {\
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function gql(source: "\n  fragment BuilderFragment on Builder {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n"): (typeof documents)["\n  fragment BuilderFragment on Builder {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function gql(source: "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      ...ServiceFragment\n    }\n  }\n"): (typeof documents)["\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      ...ServiceFragment\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -77,39 +73,19 @@ export function gql(source: "\n  query GetProjectById($projectId: String!) {\n  
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  mutation CreateProject($name: String!, $description: String) {\n    createProject(name: $name, description: $description) {\n      ...ProjectFragment\n    }\n  }\n"): (typeof documents)["\n  mutation CreateProject($name: String!, $description: String) {\n    createProject(name: $name, description: $description) {\n      ...ProjectFragment\n    }\n  }\n"];
+export function gql(source: "\n  fragment RunnerFragment on Runner {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n"): (typeof documents)["\n  fragment RunnerFragment on Runner {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  mutation DeployProject($projectId: String!) {\n    deployProject(projectId: $projectId) {\n      ...ProjectFragment\n    }\n  }\n"): (typeof documents)["\n  mutation DeployProject($projectId: String!) {\n    deployProject(projectId: $projectId) {\n      ...ProjectFragment\n    }\n  }\n"];
-/**
- * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function gql(source: "\n  mutation DeleteDraft($projectId: String!) {\n    deleteDraft(projectId: $projectId) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation DeleteDraft($projectId: String!) {\n    deleteDraft(projectId: $projectId) {\n      id\n    }\n  }\n"];
-/**
- * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function gql(source: "\n  fragment RunnerFragment on Runner {\n    type\n    data\n    link\n    version\n    schema\n  }\n"): (typeof documents)["\n  fragment RunnerFragment on Runner {\n    type\n    data\n    link\n    version\n    schema\n  }\n"];
-/**
- * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function gql(source: "\n  mutation AddServiceToProject(\n    $projectId: String!\n    $input: CreateServiceInput!\n  ) {\n    addServiceToProject(projectId: $projectId, input: $input) {\n      id\n      name\n    }\n  }\n"): (typeof documents)["\n  mutation AddServiceToProject(\n    $projectId: String!\n    $input: CreateServiceInput!\n  ) {\n    addServiceToProject(projectId: $projectId, input: $input) {\n      id\n      name\n    }\n  }\n"];
-/**
- * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function gql(source: "\n  mutation DeleteService($serviceId: String!) {\n    deleteService(serviceId: $serviceId) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation DeleteService($serviceId: String!) {\n    deleteService(serviceId: $serviceId) {\n      id\n    }\n  }\n"];
-/**
- * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function gql(source: "\n  mutation UpdateServiceSettings(\n    $serviceId: String!\n    $input: ServiceSettingsInput!\n  ) {\n    updateServiceSettings(serviceId: $serviceId, input: $input) {\n      id\n      name\n    }\n  }\n"): (typeof documents)["\n  mutation UpdateServiceSettings(\n    $serviceId: String!\n    $input: ServiceSettingsInput!\n  ) {\n    updateServiceSettings(serviceId: $serviceId, input: $input) {\n      id\n      name\n    }\n  }\n"];
-/**
- * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function gql(source: "\n  fragment BaseServiceFragment on BaseService {\n    source {\n      type\n      data\n    }\n    runner {\n      type\n      link\n      version\n      schema\n      data\n    }\n    builder {\n      type\n      link\n      version\n      schema\n      data\n    }\n  }\n"): (typeof documents)["\n  fragment BaseServiceFragment on BaseService {\n    source {\n      type\n      data\n    }\n    runner {\n      type\n      link\n      version\n      schema\n      data\n    }\n    builder {\n      type\n      link\n      version\n      schema\n      data\n    }\n  }\n"];
+export function gql(source: "\n  fragment BaseServiceFragment on BaseService {\n    source {\n      ...SourceFragment\n    }\n    runner {\n      ...RunnerFragment\n    }\n    builder {\n      ...BuilderFragment\n    }\n  }\n"): (typeof documents)["\n  fragment BaseServiceFragment on BaseService {\n    source {\n      ...SourceFragment\n    }\n    runner {\n      ...RunnerFragment\n    }\n    builder {\n      ...BuilderFragment\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  fragment ServiceFragment on Service {\n      name\n      id\n      live {\n        ...BaseServiceFragment\n      }\n      draft {\n        ...BaseServiceFragment\n      }\n   }\n"): (typeof documents)["\n  fragment ServiceFragment on Service {\n      name\n      id\n      live {\n        ...BaseServiceFragment\n      }\n      draft {\n        ...BaseServiceFragment\n      }\n   }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  fragment SourceFragment on Source {\n    id\n    type\n    data\n  }\n"): (typeof documents)["\n  fragment SourceFragment on Source {\n    id\n    type\n    data\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

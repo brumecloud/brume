@@ -13,18 +13,15 @@ const (
 	SourceTypeGit SourceType = "git"
 )
 
-// this represent what 
+// this represent what
 type Source struct {
-	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ID uuid.UUID `json:"id"`
 
-	// service using this source
-	ServiceID uuid.UUID `gorm:"type:uuid"`
+	Type SourceType `gorm:"type:text" json:"type"`
 
-	Type SourceType `gorm:"type:text"`
+	GitData *GitSource `gorm:"type:jsonb" json:"git_data"`
 
-	GitData *GitSource `gorm:"type:jsonb"`
-
-	Link string `gorm:"type:text"`
+	Link string `gorm:"type:text" json:"link"`
 }
 
 func (s *Source) Scan(value interface{}) error {
@@ -36,9 +33,9 @@ func (s *Source) Value() (driver.Value, error) {
 }
 
 type GitSource struct {
-	Provider string `gorm:"type:text"`
-	Repository string `gorm:"type:text"`
-	Branch string `gorm:"type:text"`
+	Provider   string `gorm:"type:text" json:"provider"`
+	Repository string `gorm:"type:text" json:"repository"`
+	Branch     string `gorm:"type:text" json:"branch"`
 }
 
 func (gs *GitSource) Scan(value interface{}) error {
@@ -51,13 +48,13 @@ func (gs *GitSource) Value() (driver.Value, error) {
 
 // Event being created when a source triggers a build (new commit for example)
 type SourceEvent struct {
-	Source *Source `json:"source"`
-	Git *GitSourceEvent `json:"git"`
+	Source *Source         `json:"source"`
+	Git    *GitSourceEvent `json:"git"`
 }
 
 type GitSourceEvent struct {
-	Commit string `json:"commit"`
-	Message string `json:"message"`
-	Author string `json:"author"`
+	Commit    string `json:"commit"`
+	Message   string `json:"message"`
+	Author    string `json:"author"`
 	Timestamp string `json:"timestamp"`
 }

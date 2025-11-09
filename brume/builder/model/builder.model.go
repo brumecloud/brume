@@ -22,13 +22,13 @@ type Builder struct {
 	Version string `gorm:"type:text"`
 
 	// what kind of artifact the builder produces
-	Type      string
+	Type string
 
 	// we download the json schema from the builder repository
-	Schema    interface{} `gorm:"type:jsonb"`
+	Schema interface{} `gorm:"type:jsonb"`
 
 	// this data is respecting the schema imposed by the builder
-	Data      interface{} `gorm:"type:jsonb"`
+	Data interface{} `gorm:"type:jsonb"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -36,8 +36,8 @@ type Builder struct {
 }
 
 // Model used when a build request is need.
-// This is the model returned to the builder agent 
+// This is the model returned to the builder agent
 type BuildJobRequest struct {
-	Builder *Builder `json:"builder"`
-	SourceEvent *source_model.SourceEvent`json:"source_event"`
+	Builder     *Builder                  `json:"builder"`
+	SourceEvent *source_model.SourceEvent `json:"source_event"`
 }
