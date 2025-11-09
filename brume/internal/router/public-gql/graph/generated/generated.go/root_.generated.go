@@ -33,10 +33,8 @@ type Config struct {
 
 type ResolverRoot interface {
 	BaseService() BaseServiceResolver
-	Builder() BuilderResolver
 	Project() ProjectResolver
 	Query() QueryResolver
-	Runner() RunnerResolver
 	Service() ServiceResolver
 	User() UserResolver
 }

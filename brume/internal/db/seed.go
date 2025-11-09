@@ -209,7 +209,7 @@ func SeedProjects(db *DB) []*project.Project {
 	project := &project.Project{
 		Name:        "Brume Test Project",
 		Description: "This is a test project",
-		ID:          uuid.New(),
+		ID:          uuid.MustParse("619a33d4-00c3-4753-a2cc-3f29ea37c238"),
 		Services:    []*service.Service{frontend},
 	}
 
