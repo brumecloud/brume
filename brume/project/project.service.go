@@ -8,7 +8,6 @@ import (
 	"brume.dev/service"
 	service_model "brume.dev/service/model"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 var logger = log.GetLogger("project")
@@ -105,9 +104,7 @@ func (s *ProjectService) AssignProjectToOrganization(project *project.Project, o
 }
 
 func (s *ProjectService) GetProject(project *project.Project) (*project.Project, error) {
-	err := s.db.Gorm.Preload("Services", func(db *gorm.DB) *gorm.DB {
-		return db.Preload("LiveBuilder").Preload("LiveRunner").Preload("DraftBuilder").Preload("DraftRunner").Order("created_at DESC")
-	}).First(&project, "id = ?", project.ID).Error
+	err := s.db.Gorm.Preload("Services").First(&project, "id = ?", project.ID).Error
 
 	return project, err
 }

@@ -6,31 +6,27 @@ package public_graph
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	user_model "brume.dev/account/user/model"
-	builder_model "brume.dev/builder/model"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	project_model "brume.dev/project/model"
-	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
+	source_model "brume.dev/source/model"
 	"github.com/google/uuid"
 )
 
 // Source is the resolver for the source field.
 func (r *baseServiceResolver) Source(ctx context.Context, obj *service_model.BaseService) (*public_graph_model.Source, error) {
-	panic(fmt.Errorf("not implemented: Source - source"))
-}
+	if obj.Source.Type == source_model.SourceTypeGit {
+		return &public_graph_model.Source{
+			Type: "git",
+			Data: obj.Source.GitData,
+		}, nil
+	}
 
-// Schema is the resolver for the schema field.
-func (r *builderResolver) Schema(ctx context.Context, obj *builder_model.Builder) (any, error) {
-	panic(fmt.Errorf("not implemented: Schema - schema"))
-}
-
-// Data is the resolver for the data field.
-func (r *builderResolver) Data(ctx context.Context, obj *builder_model.Builder) (any, error) {
-	return obj.Data, nil
+	return nil, errors.New("source type not supported")
 }
 
 // ID is the resolver for the id field.
@@ -70,39 +66,9 @@ func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project
 	return r.ProjectService.GetProjectByID(project_uuid)
 }
 
-// Link is the resolver for the link field.
-func (r *runnerResolver) Link(ctx context.Context, obj *runner_model.Runner) (string, error) {
-	panic(fmt.Errorf("not implemented: Link - link"))
-}
-
-// Version is the resolver for the version field.
-func (r *runnerResolver) Version(ctx context.Context, obj *runner_model.Runner) (string, error) {
-	panic(fmt.Errorf("not implemented: Version - version"))
-}
-
-// Schema is the resolver for the schema field.
-func (r *runnerResolver) Schema(ctx context.Context, obj *runner_model.Runner) (any, error) {
-	panic(fmt.Errorf("not implemented: Schema - schema"))
-}
-
-// Data is the resolver for the data field.
-func (r *runnerResolver) Data(ctx context.Context, obj *runner_model.Runner) (any, error) {
-	panic(fmt.Errorf("not implemented: Data - data"))
-}
-
 // ID is the resolver for the id field.
 func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (string, error) {
 	return obj.ID.String(), nil
-}
-
-// Live is the resolver for the live field.
-func (r *serviceResolver) Live(ctx context.Context, obj *service_model.Service) (*service_model.BaseService, error) {
-	panic(fmt.Errorf("not implemented: Live - live"))
-}
-
-// Draft is the resolver for the draft field.
-func (r *serviceResolver) Draft(ctx context.Context, obj *service_model.Service) (*service_model.BaseService, error) {
-	panic(fmt.Errorf("not implemented: Draft - draft"))
 }
 
 // ID is the resolver for the id field.
@@ -134,17 +100,11 @@ func (r *userResolver) Organization(ctx context.Context, obj *user_model.User) (
 // BaseService returns generated.BaseServiceResolver implementation.
 func (r *Resolver) BaseService() generated.BaseServiceResolver { return &baseServiceResolver{r} }
 
-// Builder returns generated.BuilderResolver implementation.
-func (r *Resolver) Builder() generated.BuilderResolver { return &builderResolver{r} }
-
 // Project returns generated.ProjectResolver implementation.
 func (r *Resolver) Project() generated.ProjectResolver { return &projectResolver{r} }
 
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
-
-// Runner returns generated.RunnerResolver implementation.
-func (r *Resolver) Runner() generated.RunnerResolver { return &runnerResolver{r} }
 
 // Service returns generated.ServiceResolver implementation.
 func (r *Resolver) Service() generated.ServiceResolver { return &serviceResolver{r} }
@@ -153,10 +113,8 @@ func (r *Resolver) Service() generated.ServiceResolver { return &serviceResolver
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
 type baseServiceResolver struct{ *Resolver }
-type builderResolver struct{ *Resolver }
 type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-type runnerResolver struct{ *Resolver }
 type serviceResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
 
@@ -167,76 +125,32 @@ type userResolver struct{ *Resolver }
 //    it when you're done.
 //  - You have helper methods in this file. Move them out to keep these resolver files clean.
 /*
-	func (r *mutationResolver) CreateProject(ctx context.Context, name string, description *string) (*project_model.Project, error) {
-	currentUser := ctx.Value("user").(string)
-	user, err := r.UserService.GetUserByProviderID(currentUser)
-	if err != nil {
-		return nil, err
-	}
-
-	org, err := r.UserService.GetUserOrganization(user)
-	if err != nil {
-		return nil, err
-	}
-
-	project, err := r.ProjectService.CreateProject(name, *description)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ProjectService.AssignProjectToOrganization(project, org)
+	func (r *builderResolver) Schema(ctx context.Context, obj *builder_model.Builder) (any, error) {
+	return obj.Schema, nil
 }
-func (r *mutationResolver) AddServiceToProject(ctx context.Context, projectID string, input public_graph_model.CreateServiceInput) (*service_model.Service, error) {
-	service, err := r.ServiceService.CreateService(input.Name, uuid.MustParse(projectID), input.Image)
-	if err != nil {
-		return nil, err
-	}
-
-	project, perr := r.ProjectService.GetProjectByID(uuid.MustParse(projectID))
-
-	if perr != nil {
-		return nil, perr
-	}
-
-	_, err = r.ProjectService.AddServiceToProject(project, service)
-	if err != nil {
-		return nil, err
-	}
-
-	return service, nil
+func (r *builderResolver) Data(ctx context.Context, obj *builder_model.Builder) (any, error) {
+	return obj.Data, nil
 }
-func (r *mutationResolver) DeleteService(ctx context.Context, serviceID string) (*service_model.Service, error) {
-	service_uuid, err := uuid.Parse(serviceID)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ServiceService.DeleteService(service_uuid)
+func (r *runnerResolver) Link(ctx context.Context, obj *runner_model.Runner) (string, error) {
+	return obj.Link, nil
 }
-func (r *mutationResolver) UpdateServiceSettings(ctx context.Context, serviceID string, input public_graph_model.ServiceSettingsInput) (*service_model.Service, error) {
-	service_uuid, err := uuid.Parse(serviceID)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ServiceService.UpdateServiceSettings(service_uuid, input.Name)
+func (r *runnerResolver) Version(ctx context.Context, obj *runner_model.Runner) (string, error) {
+	return obj.Version, nil
 }
-func (r *mutationResolver) DeleteDraft(ctx context.Context, projectID string) (*project_model.Project, error) {
-	project_uuid, err := uuid.Parse(projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ProjectService.DeleteDraft(project_uuid)
+func (r *runnerResolver) Schema(ctx context.Context, obj *runner_model.Runner) (any, error) {
+	return obj.Schema, nil
 }
-func (r *mutationResolver) DeployProject(ctx context.Context, projectID string) (*project_model.Project, error) {
-	project_uuid, err := uuid.Parse(projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ProjectService.DeployProject(project_uuid)
+func (r *runnerResolver) Data(ctx context.Context, obj *runner_model.Runner) (any, error) {
+	return obj.Data, nil
 }
-func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
-type mutationResolver struct{ *Resolver }
+func (r *serviceResolver) Live(ctx context.Context, obj *service_model.Service) (*service_model.BaseService, error) {
+	return obj.Live, nil
+}
+func (r *serviceResolver) Draft(ctx context.Context, obj *service_model.Service) (*service_model.BaseService, error) {
+	return obj.Draft, nil
+}
+func (r *Resolver) Builder() generated.BuilderResolver { return &builderResolver{r} }
+func (r *Resolver) Runner() generated.RunnerResolver { return &runnerResolver{r} }
+type builderResolver struct{ *Resolver }
+type runnerResolver struct{ *Resolver }
 */
