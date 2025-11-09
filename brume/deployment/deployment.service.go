@@ -45,8 +45,6 @@ func (s *DeploymentService) StartDeployment(id uuid.UUID) error {
 		Status:    job_model.JobStatusEnumBlocked,
 		CreatedAt: time.Now(),
 
-		RunnerData: &deployment.RunnerData,
-
 		// until the artifact are not built
 		BlockedBy:   builderJob,
 		BlockedByID: &builderJob.ID,

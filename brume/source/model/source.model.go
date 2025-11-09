@@ -27,6 +27,14 @@ type Source struct {
 	Link string `gorm:"type:text"`
 }
 
+func (s *Source) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &s)
+}
+
+func (s *Source) Value() (driver.Value, error) {
+	return json.Marshal(s)
+}
+
 type GitSource struct {
 	Provider string `gorm:"type:text"`
 	Repository string `gorm:"type:text"`

@@ -14,7 +14,6 @@ import (
 	public_graph_generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	brume_workos "brume.dev/internal/workos"
 	job_service "brume.dev/jobs/service"
-	brume_log "brume.dev/logs"
 	"brume.dev/machine"
 	"brume.dev/project"
 	"brume.dev/service"
@@ -36,7 +35,6 @@ func NewHTTPServer(
 	userService *user.UserService,
 	projectService *project.ProjectService,
 	serviceService *service.ServiceService,
-	logService *brume_log.LogService,
 	machineService *machine.MachineService,
 	bidService *job_service.BidService,
 	workosClient *brume_workos.WorkOSClient,
@@ -50,7 +48,6 @@ func NewHTTPServer(
 		UserService:    userService,
 		ProjectService: projectService,
 		ServiceService: serviceService,
-		LogService:     logService,
 		MachineService: machineService,
 	}
 
