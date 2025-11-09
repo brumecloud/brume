@@ -1,8 +1,6 @@
 package runner_model
 
 import (
-	"database/sql/driver"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,12 +30,4 @@ type Runner struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
-}
-
-func (r *Runner) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), &r)
-}
-
-func (r *Runner) Value() (driver.Value, error) {
-	return json.Marshal(r)
 }

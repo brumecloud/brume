@@ -23,26 +23,26 @@ export const PROJECT_BY_ID_QUERY = gql(`
   }
 `);
 
-export const CREATE_PROJECT_MUTATION = gql(`
-  mutation CreateProject($name: String!, $description: String) {
-    createProject(name: $name, description: $description) {
-      ...ProjectFragment
-    }
-  }
-`);
+// export const CREATE_PROJECT_MUTATION = gql(`
+//   mutation CreateProject($name: String!, $description: String) {
+//     createProject(name: $name, description: $description) {
+//       ...ProjectFragment
+//     }
+//   }
+// `);
 
-export const DEPLOY_PROJECT_MUTATION = gql(`
-  mutation DeployProject($projectId: String!) {
-    deployProject(projectId: $projectId) {
-      ...ProjectFragment
-    }
-  }
-`);
+// export const DEPLOY_PROJECT_MUTATION = gql(`
+//   mutation DeployProject($projectId: String!) {
+//     deployProject(projectId: $projectId) {
+//       ...ProjectFragment
+//     }
+//   }
+// `);
 
-export const DELETE_DRAFT_MUTATION = gql(`
-  mutation DeleteDraft($projectId: String!) {
-    deleteDraft(projectId: $projectId) {
-      id
-    }
-  }
-`);
+// export const DELETE_DRAFT_MUTATION = gql(`
+//   mutation DeleteDraft($projectId: String!) {
+//     deleteDraft(projectId: $projectId) {
+//       id
+//     }
+//   }
+// `);

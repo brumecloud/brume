@@ -1,17 +1,12 @@
-// export const BUILDER_FRAGMENT = gql(`
-//   fragment BuilderFragment on Builder {
-//     type
-//     data
-//   }
-// `);
+import { gql } from "@/_apollo/gql";
 
-// export const UPDATE_BUILDER_MUTATION = gql(`
-//   mutation UpdateBuilder(
-//     $serviceId: String!
-//     $input: BuilderDataInput!
-//   ) {
-//     updateBuilder(serviceId: $serviceId, data: $input) {
-//       ...BuilderFragment
-//     }
-//   }
-// `);
+export const BUILDER_FRAGMENT = gql(`
+  fragment BuilderFragment on Builder {
+    id
+    type
+    data
+    link
+    version
+    schema
+  }
+`);

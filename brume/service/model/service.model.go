@@ -33,8 +33,6 @@ type Service struct {
 	// general settings
 	Name string
 
-	Source *source_model.Source `gorm:"jsonb" json:"source"`
-
 	// two versions of the service
 	// the live service is the one that is currently running
 	// the draft service is the one that is being edited

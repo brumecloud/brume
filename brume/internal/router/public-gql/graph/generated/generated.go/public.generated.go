@@ -16,6 +16,7 @@ import (
 	project_model "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
+	source_model "brume.dev/source/model"
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -23,8 +24,8 @@ import (
 
 // region    ************************** generated!.gotpl **************************
 
-type BaseServiceResolver interface {
-	Source(ctx context.Context, obj *service_model.BaseService) (*public_graph_model.Source, error)
+type BuilderResolver interface {
+	ID(ctx context.Context, obj *builder_model.Builder) (string, error)
 }
 type ProjectResolver interface {
 	ID(ctx context.Context, obj *project_model.Project) (string, error)
@@ -36,8 +37,16 @@ type QueryResolver interface {
 	Me(ctx context.Context) (*user_model.User, error)
 	GetProjectByID(ctx context.Context, id string) (*project_model.Project, error)
 }
+type RunnerResolver interface {
+	ID(ctx context.Context, obj *runner_model.Runner) (string, error)
+}
 type ServiceResolver interface {
 	ID(ctx context.Context, obj *service_model.Service) (string, error)
+}
+type SourceResolver interface {
+	ID(ctx context.Context, obj *source_model.Source) (string, error)
+	Type(ctx context.Context, obj *source_model.Source) (string, error)
+	Data(ctx context.Context, obj *source_model.Source) (any, error)
 }
 type UserResolver interface {
 	ID(ctx context.Context, obj *user_model.User) (string, error)
@@ -136,7 +145,7 @@ func (ec *executionContext) _BaseService_source(ctx context.Context, field graph
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.BaseService().Source(rctx, obj)
+		return obj.Source, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -148,19 +157,21 @@ func (ec *executionContext) _BaseService_source(ctx context.Context, field graph
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*public_graph_model.Source)
+	res := resTmp.(*source_model.Source)
 	fc.Result = res
-	return ec.marshalNSource2ᚖbrumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐSource(ctx, field.Selections, res)
+	return ec.marshalNSource2ᚖbrumeᚗdevᚋsourceᚋmodelᚐSource(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_BaseService_source(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "BaseService",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
+			case "id":
+				return ec.fieldContext_Source_id(ctx, field)
 			case "type":
 				return ec.fieldContext_Source_type(ctx, field)
 			case "data":
@@ -211,6 +222,8 @@ func (ec *executionContext) fieldContext_BaseService_runner(_ context.Context, f
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
+			case "id":
+				return ec.fieldContext_Runner_id(ctx, field)
 			case "type":
 				return ec.fieldContext_Runner_type(ctx, field)
 			case "link":
@@ -267,6 +280,8 @@ func (ec *executionContext) fieldContext_BaseService_builder(_ context.Context, 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
+			case "id":
+				return ec.fieldContext_Builder_id(ctx, field)
 			case "type":
 				return ec.fieldContext_Builder_type(ctx, field)
 			case "link":
@@ -279,6 +294,50 @@ func (ec *executionContext) fieldContext_BaseService_builder(_ context.Context, 
 				return ec.fieldContext_Builder_data(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Builder", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Builder_id(ctx context.Context, field graphql.CollectedField, obj *builder_model.Builder) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Builder_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Builder().ID(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Builder_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Builder",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -1118,6 +1177,50 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _Runner_id(ctx context.Context, field graphql.CollectedField, obj *runner_model.Runner) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Runner_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Runner().ID(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Runner_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Runner",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Runner_type(ctx context.Context, field graphql.CollectedField, obj *runner_model.Runner) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Runner_type(ctx, field)
 	if err != nil {
@@ -1527,7 +1630,51 @@ func (ec *executionContext) fieldContext_Service_draft(_ context.Context, field 
 	return fc, nil
 }
 
-func (ec *executionContext) _Source_type(ctx context.Context, field graphql.CollectedField, obj *public_graph_model.Source) (ret graphql.Marshaler) {
+func (ec *executionContext) _Source_id(ctx context.Context, field graphql.CollectedField, obj *source_model.Source) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Source_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Source().ID(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Source_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Source",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Source_type(ctx context.Context, field graphql.CollectedField, obj *source_model.Source) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Source_type(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1541,7 +1688,7 @@ func (ec *executionContext) _Source_type(ctx context.Context, field graphql.Coll
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Type, nil
+		return ec.resolvers.Source().Type(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1562,8 +1709,8 @@ func (ec *executionContext) fieldContext_Source_type(_ context.Context, field gr
 	fc = &graphql.FieldContext{
 		Object:     "Source",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -1571,7 +1718,7 @@ func (ec *executionContext) fieldContext_Source_type(_ context.Context, field gr
 	return fc, nil
 }
 
-func (ec *executionContext) _Source_data(ctx context.Context, field graphql.CollectedField, obj *public_graph_model.Source) (ret graphql.Marshaler) {
+func (ec *executionContext) _Source_data(ctx context.Context, field graphql.CollectedField, obj *source_model.Source) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Source_data(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -1585,7 +1732,7 @@ func (ec *executionContext) _Source_data(ctx context.Context, field graphql.Coll
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Data, nil
+		return ec.resolvers.Source().Data(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1606,8 +1753,8 @@ func (ec *executionContext) fieldContext_Source_data(_ context.Context, field gr
 	fc = &graphql.FieldContext{
 		Object:     "Source",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Any does not have child fields")
 		},
@@ -1879,50 +2026,19 @@ func (ec *executionContext) _BaseService(ctx context.Context, sel ast.SelectionS
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("BaseService")
 		case "source":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._BaseService_source(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
+			out.Values[i] = ec._BaseService_source(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "runner":
 			out.Values[i] = ec._BaseService_runner(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "builder":
 			out.Values[i] = ec._BaseService_builder(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -1958,30 +2074,66 @@ func (ec *executionContext) _Builder(ctx context.Context, sel ast.SelectionSet, 
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Builder")
+		case "id":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Builder_id(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "type":
 			out.Values[i] = ec._Builder_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "link":
 			out.Values[i] = ec._Builder_link(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "version":
 			out.Values[i] = ec._Builder_version(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "schema":
 			out.Values[i] = ec._Builder_schema(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "data":
 			out.Values[i] = ec._Builder_data(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -2312,30 +2464,66 @@ func (ec *executionContext) _Runner(ctx context.Context, sel ast.SelectionSet, o
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Runner")
+		case "id":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Runner_id(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "type":
 			out.Values[i] = ec._Runner_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "link":
 			out.Values[i] = ec._Runner_link(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "version":
 			out.Values[i] = ec._Runner_version(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "schema":
 			out.Values[i] = ec._Runner_schema(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "data":
 			out.Values[i] = ec._Runner_data(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -2444,7 +2632,7 @@ func (ec *executionContext) _Service(ctx context.Context, sel ast.SelectionSet, 
 
 var sourceImplementors = []string{"Source"}
 
-func (ec *executionContext) _Source(ctx context.Context, sel ast.SelectionSet, obj *public_graph_model.Source) graphql.Marshaler {
+func (ec *executionContext) _Source(ctx context.Context, sel ast.SelectionSet, obj *source_model.Source) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, sourceImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -2453,16 +2641,114 @@ func (ec *executionContext) _Source(ctx context.Context, sel ast.SelectionSet, o
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Source")
+		case "id":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Source_id(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "type":
-			out.Values[i] = ec._Source_type(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Source_type(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "data":
-			out.Values[i] = ec._Source_data(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Source_data(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -2642,12 +2928,12 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 
 // region    ***************************** type.gotpl *****************************
 
-func (ec *executionContext) unmarshalNAny2interface(ctx context.Context, v interface{}) (interface{}, error) {
+func (ec *executionContext) unmarshalNAny2interface(ctx context.Context, v interface{}) (any, error) {
 	res, err := graphql.UnmarshalAny(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNAny2interface(ctx context.Context, sel ast.SelectionSet, v interface{}) graphql.Marshaler {
+func (ec *executionContext) marshalNAny2interface(ctx context.Context, sel ast.SelectionSet, v any) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -2819,11 +3105,7 @@ func (ec *executionContext) marshalNService2ᚖbrumeᚗdevᚋserviceᚋmodelᚐS
 	return ec._Service(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNSource2brumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐSource(ctx context.Context, sel ast.SelectionSet, v public_graph_model.Source) graphql.Marshaler {
-	return ec._Source(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNSource2ᚖbrumeᚗdevᚋinternalᚋrouterᚋpublicᚑgqlᚋgraphᚋmodelᚐSource(ctx context.Context, sel ast.SelectionSet, v *public_graph_model.Source) graphql.Marshaler {
+func (ec *executionContext) marshalNSource2ᚖbrumeᚗdevᚋsourceᚋmodelᚐSource(ctx context.Context, sel ast.SelectionSet, v *source_model.Source) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")

@@ -97,6 +97,7 @@ autobind:
   - "brume.dev/runner/model"
   - "brume.dev/deployment/model"
   - "brume.dev/machine/model"
+  - "brume.dev/source/model"
 
 # This section declares type mapping between the GraphQL and go type systems
 #
@@ -122,16 +123,4 @@ models:
   Project:
     fields:
       services:
-        resolver: true
-  Service:
-    fields:
-      builder:
-        resolver: true
-      runner:
-        resolver: true
-      draftBuilder:
-        resolver: true
-      draftRunner:
-        resolver: true
-      deployments:
         resolver: true

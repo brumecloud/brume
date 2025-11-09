@@ -32,10 +32,12 @@ type Config struct {
 }
 
 type ResolverRoot interface {
-	BaseService() BaseServiceResolver
+	Builder() BuilderResolver
 	Project() ProjectResolver
 	Query() QueryResolver
+	Runner() RunnerResolver
 	Service() ServiceResolver
+	Source() SourceResolver
 	User() UserResolver
 }
 
@@ -51,6 +53,7 @@ type ComplexityRoot struct {
 
 	Builder struct {
 		Data    func(childComplexity int) int
+		ID      func(childComplexity int) int
 		Link    func(childComplexity int) int
 		Schema  func(childComplexity int) int
 		Type    func(childComplexity int) int
@@ -78,6 +81,7 @@ type ComplexityRoot struct {
 
 	Runner struct {
 		Data    func(childComplexity int) int
+		ID      func(childComplexity int) int
 		Link    func(childComplexity int) int
 		Schema  func(childComplexity int) int
 		Type    func(childComplexity int) int
@@ -93,6 +97,7 @@ type ComplexityRoot struct {
 
 	Source struct {
 		Data func(childComplexity int) int
+		ID   func(childComplexity int) int
 		Type func(childComplexity int) int
 	}
 
@@ -151,6 +156,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Builder.Data(childComplexity), true
+
+	case "Builder.id":
+		if e.complexity.Builder.ID == nil {
+			break
+		}
+
+		return e.complexity.Builder.ID(childComplexity), true
 
 	case "Builder.link":
 		if e.complexity.Builder.Link == nil {
@@ -262,6 +274,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Runner.Data(childComplexity), true
 
+	case "Runner.id":
+		if e.complexity.Runner.ID == nil {
+			break
+		}
+
+		return e.complexity.Runner.ID(childComplexity), true
+
 	case "Runner.link":
 		if e.complexity.Runner.Link == nil {
 			break
@@ -324,6 +343,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Source.Data(childComplexity), true
+
+	case "Source.id":
+		if e.complexity.Source.ID == nil {
+			break
+		}
+
+		return e.complexity.Source.ID(childComplexity), true
 
 	case "Source.type":
 		if e.complexity.Source.Type == nil {
@@ -482,11 +508,13 @@ type Project {
 }
 
 type Source {
+	id: String!
 	type: String!
 	data: Any!
 }
 
 type Runner {
+	id: String!
 	type: String!
 	link: String!
 	version: String!
@@ -496,6 +524,7 @@ type Runner {
 }
 
 type Builder {
+	id: String!
 	type: String!
 	link: String!
 	version: String!

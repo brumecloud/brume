@@ -17,7 +17,7 @@ import type { RouteParams } from "@/router/router.param";
 import { cn } from "@/utils";
 
 export const SettingPage = () => {
-  const { projectId, serviceId } = useParams<RouteParams>();
+  const { serviceId } = useParams<RouteParams>();
 
   const { data: service, complete } = useFragment({
     from: `Service:${serviceId}`,

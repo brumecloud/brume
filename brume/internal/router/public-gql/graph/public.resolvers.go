@@ -9,24 +9,19 @@ import (
 	"errors"
 
 	user_model "brume.dev/account/user/model"
+	builder_model "brume.dev/builder/model"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	project_model "brume.dev/project/model"
+	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
 	source_model "brume.dev/source/model"
 	"github.com/google/uuid"
 )
 
-// Source is the resolver for the source field.
-func (r *baseServiceResolver) Source(ctx context.Context, obj *service_model.BaseService) (*public_graph_model.Source, error) {
-	if obj.Source.Type == source_model.SourceTypeGit {
-		return &public_graph_model.Source{
-			Type: "git",
-			Data: obj.Source.GitData,
-		}, nil
-	}
-
-	return nil, errors.New("source type not supported")
+// ID is the resolver for the id field.
+func (r *builderResolver) ID(ctx context.Context, obj *builder_model.Builder) (string, error) {
+	return obj.ID.String(), nil
 }
 
 // ID is the resolver for the id field.
@@ -67,8 +62,32 @@ func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project
 }
 
 // ID is the resolver for the id field.
+func (r *runnerResolver) ID(ctx context.Context, obj *runner_model.Runner) (string, error) {
+	return obj.ID.String(), nil
+}
+
+// ID is the resolver for the id field.
 func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (string, error) {
 	return obj.ID.String(), nil
+}
+
+// ID is the resolver for the id field.
+func (r *sourceResolver) ID(ctx context.Context, obj *source_model.Source) (string, error) {
+	return obj.ID.String(), nil
+}
+
+// Type is the resolver for the type field.
+func (r *sourceResolver) Type(ctx context.Context, obj *source_model.Source) (string, error) {
+	return string(obj.Type), nil
+}
+
+// Data is the resolver for the data field.
+func (r *sourceResolver) Data(ctx context.Context, obj *source_model.Source) (any, error) {
+	if obj.Type == source_model.SourceTypeGit {
+		return obj.GitData, nil
+	}
+
+	return nil, errors.New("source type not supported")
 }
 
 // ID is the resolver for the id field.
@@ -97,8 +116,8 @@ func (r *userResolver) Organization(ctx context.Context, obj *user_model.User) (
 	}, nil
 }
 
-// BaseService returns generated.BaseServiceResolver implementation.
-func (r *Resolver) BaseService() generated.BaseServiceResolver { return &baseServiceResolver{r} }
+// Builder returns generated.BuilderResolver implementation.
+func (r *Resolver) Builder() generated.BuilderResolver { return &builderResolver{r} }
 
 // Project returns generated.ProjectResolver implementation.
 func (r *Resolver) Project() generated.ProjectResolver { return &projectResolver{r} }
@@ -106,16 +125,24 @@ func (r *Resolver) Project() generated.ProjectResolver { return &projectResolver
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
+// Runner returns generated.RunnerResolver implementation.
+func (r *Resolver) Runner() generated.RunnerResolver { return &runnerResolver{r} }
+
 // Service returns generated.ServiceResolver implementation.
 func (r *Resolver) Service() generated.ServiceResolver { return &serviceResolver{r} }
+
+// Source returns generated.SourceResolver implementation.
+func (r *Resolver) Source() generated.SourceResolver { return &sourceResolver{r} }
 
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
-type baseServiceResolver struct{ *Resolver }
+type builderResolver struct{ *Resolver }
 type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type runnerResolver struct{ *Resolver }
 type serviceResolver struct{ *Resolver }
+type sourceResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
 
 // !!! WARNING !!!
@@ -125,32 +152,19 @@ type userResolver struct{ *Resolver }
 //    it when you're done.
 //  - You have helper methods in this file. Move them out to keep these resolver files clean.
 /*
-	func (r *builderResolver) Schema(ctx context.Context, obj *builder_model.Builder) (any, error) {
-	return obj.Schema, nil
+	func (r *baseServiceResolver) Source(ctx context.Context, obj *service_model.BaseService) (*public_graph_model.Source, error) {
+	if obj.Source.Type == source_model.SourceTypeGit {
+		gitData, err := json.Marshal(obj.Source.GitData)
+		if err != nil {
+			return nil, err
+		}
+		return &public_graph_model.Source{
+			Type: "git",
+			Data: gitData,
+		}, nil
+	}
+	return nil, errors.New("source type not supported")
 }
-func (r *builderResolver) Data(ctx context.Context, obj *builder_model.Builder) (any, error) {
-	return obj.Data, nil
-}
-func (r *runnerResolver) Link(ctx context.Context, obj *runner_model.Runner) (string, error) {
-	return obj.Link, nil
-}
-func (r *runnerResolver) Version(ctx context.Context, obj *runner_model.Runner) (string, error) {
-	return obj.Version, nil
-}
-func (r *runnerResolver) Schema(ctx context.Context, obj *runner_model.Runner) (any, error) {
-	return obj.Schema, nil
-}
-func (r *runnerResolver) Data(ctx context.Context, obj *runner_model.Runner) (any, error) {
-	return obj.Data, nil
-}
-func (r *serviceResolver) Live(ctx context.Context, obj *service_model.Service) (*service_model.BaseService, error) {
-	return obj.Live, nil
-}
-func (r *serviceResolver) Draft(ctx context.Context, obj *service_model.Service) (*service_model.BaseService, error) {
-	return obj.Draft, nil
-}
-func (r *Resolver) Builder() generated.BuilderResolver { return &builderResolver{r} }
-func (r *Resolver) Runner() generated.RunnerResolver { return &runnerResolver{r} }
-type builderResolver struct{ *Resolver }
-type runnerResolver struct{ *Resolver }
+func (r *Resolver) BaseService() generated.BaseServiceResolver { return &baseServiceResolver{r} }
+type baseServiceResolver struct{ *Resolver }
 */

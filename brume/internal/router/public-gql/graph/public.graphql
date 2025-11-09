@@ -24,11 +24,13 @@ type Project {
 }
 
 type Source {
+	id: String!
 	type: String!
 	data: Any!
 }
 
 type Runner {
+	id: String!
 	type: String!
 	link: String!
 	version: String!
@@ -38,6 +40,7 @@ type Runner {
 }
 
 type Builder {
+	id: String!
 	type: String!
 	link: String!
 	version: String!
