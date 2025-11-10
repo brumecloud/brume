@@ -1,13 +1,13 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { PlusCircle, Trash } from "lucide-react";
+import React, { useState } from "react";
+import { useFieldArray, useForm } from "react-hook-form";
+import { Form } from "react-router-dom";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form";
 import { Input, type InputProps } from "@/components/ui/input";
 import { cn } from "@/utils";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Trash, PlusCircle } from "lucide-react";
-import React, { useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
-import { Form } from "react-router-dom";
-import { z } from "zod";
 
 export const VariableSchema = z.object({
   variables: z.array(
@@ -34,11 +34,11 @@ const HiddableInput = React.forwardRef<HTMLInputElement, InputProps>(
         className={cn(className)}
         ref={ref}
         {...props}
-        type={isVisible || isFocused ? "text" : "password"}
+        onBlur={() => setIsFocused(false)}
+        onFocus={() => setIsFocused(true)}
         onMouseEnter={() => setIsVisible(true)}
         onMouseLeave={() => setIsVisible(false)}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
+        type={isVisible || isFocused ? "text" : "password"}
       />
     );
   }
@@ -83,18 +83,18 @@ export const VariableForm = ({
                 <Loader2 className="h-4 w-4 animate-spin" />
               )} */}
               <Button
-                variant="outline"
+                className="text-xs"
                 disabled={Object.keys(form.formState.errors).length > 0}
                 size="sm"
-                className="text-xs"
+                variant="outline"
               >
                 Save changes
               </Button>
               <Button
-                onClick={() => form.reset()}
-                variant="destructive"
-                size="sm"
                 className="text-xs"
+                onClick={() => form.reset()}
+                size="sm"
+                variant="destructive"
               >
                 Discard
               </Button>
@@ -115,12 +115,12 @@ export const VariableForm = ({
                       render={({ field, fieldState }) => (
                         <Input
                           {...field}
-                          placeholder="e. g. CLIENT_KEY"
                           className={cn(
                             "shadow-none",
                             fieldState.isDirty && "border-green-500",
                             fieldState.error && "border-red-500"
                           )}
+                          placeholder="e. g. CLIENT_KEY"
                         />
                       )}
                     />
@@ -143,7 +143,7 @@ export const VariableForm = ({
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <Button variant="ghost" onClick={() => remove(index)}>
+                  <Button onClick={() => remove(index)} variant="ghost">
                     <Trash className="h-4 w-4" />
                   </Button>
                 </div>
@@ -151,9 +151,9 @@ export const VariableForm = ({
             ))}
           </div>
           <Button
-            variant="outline"
             className="mt-4"
             onClick={() => append({ key: "", value: "" })}
+            variant="outline"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Variable

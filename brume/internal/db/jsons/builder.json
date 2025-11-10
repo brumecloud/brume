@@ -1,0 +1,52 @@
+{
+	"brume:internal": {
+		"type": "object",
+		"properties": {
+			"bucket_path": {
+				"type": "string",
+				"title": "Bucket Path",
+				"description": "The path of the base bucket"
+			},
+			"folder_path": {
+				"type": "string",
+				"title": "Folder Path",
+				"description": "The path of the folder to deploy"
+			}
+		}
+	},
+	"builder_first": {
+		"type": "object",
+		"title": "Builder details",
+		"icon": "Fence",
+		"description": "The builder configuration",
+		"properties": {
+			"install_command": {
+				"type": "string",
+				"title": "Install Command",
+				"description": "The command to install the dependencies"
+			},
+			"build_command": {
+				"type": "string",
+				"title": "Build Command",
+				"description": "The command to build the artifact"
+			},
+			"output_path": {
+				"type": "string",
+				"title": "Build output path",
+				"description": "The path of the output artifact"
+			}
+		}
+	},
+	"ui": {
+		"brume:stepper": ["builder_first"],
+		"install_command": {
+			"ui:placeholder": "pnpm install"
+		},
+		"build_command": {
+			"ui:placeholder": "pnpm run build"
+		},
+		"output_path": {
+			"ui:placeholder": "./dist"
+		}
+	}
+}

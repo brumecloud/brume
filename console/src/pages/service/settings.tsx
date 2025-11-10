@@ -70,11 +70,7 @@ export const SettingPage = () => {
 
   return (
     <Page.Container>
-      <Page.Header>
-        <Page.Title>Settings</Page.Title>
-        <Page.Description>General settings about the service</Page.Description>
-      </Page.Header>
-      <Page.Body className="pt-8">
+      <Page.Body className="pt-4">
         <Stepper.Root leftBorder>
           <Stepper.Item>
             <Stepper.Header>
