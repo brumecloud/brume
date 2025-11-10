@@ -1,6 +1,8 @@
 package builder_model
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"time"
 
 	source_model "brume.dev/source/model"
@@ -40,4 +42,12 @@ type Builder struct {
 type BuildJobRequest struct {
 	Builder     *Builder                  `json:"builder"`
 	SourceEvent *source_model.SourceEvent `json:"source_event"`
+}
+
+func (b *Builder) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), &b)
+}
+
+func (b *Builder) Value() (driver.Value, error) {
+	return json.Marshal(b)
 }

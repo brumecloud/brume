@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"os"
 
 	agent_model "brume.dev/account/agent/model"
 	org "brume.dev/account/org/model"
@@ -103,6 +104,12 @@ func SeedProjects(db *DB) []*project.Project {
 
 	frontendId := uuid.MustParse("536b85d4-53ff-4a8f-b3f3-ec134257adb9")
 
+	// read the builder.json file
+	builderJsonRaw, _ := os.ReadFile("internal/db/jsons/builder.json")
+	runnerJsonRaw, _ := os.ReadFile("internal/db/jsons/runner.json")
+	builderJson := string(builderJsonRaw)
+	runnerJson := string(runnerJsonRaw)
+
 	frontend := &service.Service{
 		Name:  "Frontend",
 		ID:    frontendId,
@@ -118,32 +125,9 @@ func SeedProjects(db *DB) []*project.Project {
 				},
 			},
 			Runner: &runner_model.Runner{
-				ID:   frontendId,
-				Type: "spa-cloudfront",
-				Schema: `{
-					"type": "object",
-					"properties": {
-						"automatic": {
-							"type": "object",
-							"properties": {
-								"bucket_path": {
-									"type": "string",
-									"description": "The path of the base bucket",
-								},
-								"folder_path": {
-									"type": "string",
-									"description": "The path of the folder to deploy",
-								},
-							},
-							"additionalProperties": "false",
-						},
-						"manual": {
-							"type": "object",
-							"properties": {},
-						},
-					},
-					"additionalProperties": false,
-				}`,
+				ID:     frontendId,
+				Type:   "spa-cloudfront",
+				Schema: runnerJson,
 				Data: `{
 					"automatic": {
 						"bucket_path": "brume-portfolio",
@@ -153,47 +137,9 @@ func SeedProjects(db *DB) []*project.Project {
 				}`,
 			},
 			Builder: &builder_model.Builder{
-				ID:   frontendId,
-				Type: "spa",
-				Schema: `{
-					"type": "object",
-					"properties": {
-						"automatic": {
-							"type": "object",
-							"properties": {
-								"bucket_path": {
-									"type": "string",
-									"description": "The path of the base bucket",
-								},
-								"folder_path": {
-									"type": "string",
-									"description": "The path of the folder to deploy",
-								},
-							},
-						},
-						"manual": {
-							"type": "object",
-							"properties": {
-								"install_command": {
-									"type": "string",
-									"title": "Install Command",
-									"description": "The command to install the dependencies",
-								},
-								"build_command": {
-									"type": "string",
-									"title": "Build Command",
-									"description": "The command to build the artifact",
-								},
-								"output_path": {
-									"type": "string",
-									"title": "Output Path",
-									"description": "The path of the output artifact",
-								},
-							},
-						},
-					},
-					"additionalProperties": false,
-				}`,
+				ID:     frontendId,
+				Type:   "spa",
+				Schema: builderJson,
 				Data: `{
 					"automatic": {
 						"bucket_path": "brume-portfolio",

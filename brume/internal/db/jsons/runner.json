@@ -1,0 +1,121 @@
+{
+	"brume:internal": {
+		"type": "object",
+		"properties": {
+			"automatic": {
+				"type": "object",
+				"properties": {
+					"bucket_path": {
+						"type": "string",
+						"title": "Bucket Path"
+					},
+					"folder_path": {
+						"type": "string",
+						"title": "Folder Path"
+					}
+				}
+			},
+			"manual": {
+				"type": "object",
+				"properties": {}
+			}
+		}
+	},
+	"domain": {
+		"type": "object",
+		"icon": "Fence",
+		"description": "Set the domain name for the website",
+		"title": "Domain name",
+		"properties": {
+			"domain": {
+				"type": "string",
+				"title": "Website domain",
+				"description": "The domain of the website",
+				"enum": ["porfolio.dev", "p6n.dev"]
+			},
+			"www": {
+				"type": "boolean",
+				"title": "Redirect www",
+				"label": "Redirect www requests to the non-www domain",
+				"description": "Redirect www requests to the non-www domain",
+				"default": true
+			},
+			"need_subdomain": {
+				"type": "boolean",
+				"title": "Need subdomain",
+				"label": "Host the website on a subdomain",
+				"description": "Host the website on a subdomain",
+				"default": false
+			}
+		},
+		"allOf": [
+			{
+				"if": {
+					"properties": {
+						"need_subdomain": {
+							"const": true
+						}
+					}
+				},
+				"then": {
+					"properties": {
+						"subdomain": {
+							"type": "string",
+							"title": "Subdomain",
+							"description": "The subdomain of the website"
+						}
+					}
+				}
+			}
+		]
+	},
+	"security": {
+		"type": "object",
+		"icon": "Fence",
+		"description": "Set the security policies for the website",
+		"title": "Security",
+		"properties": {
+			"security": {
+				"type": "string",
+				"title": "Content Security Policy",
+				"description": "Set content security policies for the website"
+			},
+			"password_protected": {
+				"type": "boolean",
+				"title": "Password Protected",
+				"description": "Protect the website with a password",
+				"label": "Use password protection",
+				"default": false
+			}
+		},
+		"allOf": [
+			{
+				"if": {
+					"properties": {
+						"password_protected": {
+							"const": true
+						}
+					}
+				},
+				"then": {
+					"properties": {
+						"password": {
+							"type": "string",
+							"title": "Password",
+							"description": "The password to protect the website"
+						}
+					}
+				}
+			}
+		]
+	},
+	"ui": {
+		"brume:stepper": ["domain", "security"],
+		"domain": {
+			"brume:input": "domain"
+		},
+		"security": {
+			"ui:placeholder": "default-src 'self';"
+		}
+	}
+}
