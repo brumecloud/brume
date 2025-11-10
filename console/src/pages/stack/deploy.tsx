@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { MdChecklist, MdPreview } from "react-icons/md";
+import { TfiPackage } from "react-icons/tfi";
 import { Page } from "@/components/page-comp/header";
 import { Stepper } from "@/components/stepper";
 import { Button } from "@/components/ui/button";
@@ -10,9 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
-import { MdChecklist, MdPreview } from "react-icons/md";
-import { TfiPackage } from "react-icons/tfi";
 
 export const DeployStack = () => {
   const [domain, setDomain] = useState("");
@@ -29,35 +29,35 @@ export const DeployStack = () => {
         </Page.Description>
       </Page.Header>
       <Page.Body className="h-full pt-16">
-        <Stepper.Root shouldAnimate leftBorder>
+        <Stepper.Root leftBorder shouldAnimate>
           <Stepper.Item>
             <Stepper.Header>
               <Stepper.Icon>
                 <TfiPackage className="h-5 w-5" />
               </Stepper.Icon>
-              <Stepper.Title>Choose the domain</Stepper.Title>
+              <Stepper.Title>Choose the cloud account</Stepper.Title>
             </Stepper.Header>
             <Stepper.Body>
               {({ setStep }) => (
                 <>
                   <div className="flex flex-col space-y-1">
                     <div className="font-medium text-sm">
-                      All of your domains
+                      All of your clouds
                     </div>
                     <p className="text-gray-500 text-sm">
-                      Choose on which domain / account you want the stack to be
+                      Choose on which cloud / account you want the stack to be
                       deployed on.
                     </p>
                     <div className="pt-4">
                       <Select
-                        value={domain}
                         onValueChange={(value) => {
                           setStep(1);
                           setDomain(value);
                         }}
+                        value={domain}
                       >
                         <SelectTrigger className="w-[300px]">
-                          <SelectValue placeholder="Select a domain" />
+                          <SelectValue placeholder="Select a cloud account" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="dev">Dev AWS</SelectItem>
@@ -88,8 +88,8 @@ export const DeployStack = () => {
                   <div className="flex flex-col gap-4 pt-4">
                     <div className="flex items-center gap-3">
                       <Checkbox
-                        id="terms"
                         checked={agreement}
+                        id="terms"
                         onCheckedChange={(v) => {
                           if (v === "indeterminate") {
                             setAgreement(false);
@@ -134,8 +134,8 @@ export const DeployStack = () => {
                   <div className="pt-4">
                     <div className="flex items-center gap-3">
                       <Checkbox
-                        id="terms"
                         checked={applyStack}
+                        id="terms"
                         onCheckedChange={(v) => {
                           if (v === "indeterminate") {
                             setApplyStack(false);
@@ -150,10 +150,10 @@ export const DeployStack = () => {
                     </div>
                     <div className="pt-8">
                       <Button
+                        disabled={!agreement}
                         onClick={() => {
                           setStep(3);
                         }}
-                        disabled={!agreement}
                       >
                         Deploy the SPA stack
                       </Button>
