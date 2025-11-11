@@ -15,6 +15,26 @@ type Organization {
 	name: String!
 }
 
+enum CloudProvider {
+	AWS
+	Azure
+	GCP
+}
+
+enum CloudStatus {
+	Pending
+	Connected
+	Disconnected
+	Error
+}
+
+type CloudAccount {
+	id: String!
+	cloudProvider: CloudProvider!
+	status: CloudStatus!
+	accountId: String!
+}
+
 type Project {
 	id: String!
 	name: String!
