@@ -60,6 +60,13 @@ type ComplexityRoot struct {
 		Version func(childComplexity int) int
 	}
 
+	CloudAccount struct {
+		AccountID     func(childComplexity int) int
+		CloudProvider func(childComplexity int) int
+		ID            func(childComplexity int) int
+		Status        func(childComplexity int) int
+	}
+
 	Organization struct {
 		ID         func(childComplexity int) int
 		Name       func(childComplexity int) int
@@ -191,6 +198,34 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Builder.Version(childComplexity), true
+
+	case "CloudAccount.accountId":
+		if e.complexity.CloudAccount.AccountID == nil {
+			break
+		}
+
+		return e.complexity.CloudAccount.AccountID(childComplexity), true
+
+	case "CloudAccount.cloudProvider":
+		if e.complexity.CloudAccount.CloudProvider == nil {
+			break
+		}
+
+		return e.complexity.CloudAccount.CloudProvider(childComplexity), true
+
+	case "CloudAccount.id":
+		if e.complexity.CloudAccount.ID == nil {
+			break
+		}
+
+		return e.complexity.CloudAccount.ID(childComplexity), true
+
+	case "CloudAccount.status":
+		if e.complexity.CloudAccount.Status == nil {
+			break
+		}
+
+		return e.complexity.CloudAccount.Status(childComplexity), true
 
 	case "Organization.id":
 		if e.complexity.Organization.ID == nil {
@@ -497,6 +532,26 @@ type Organization {
 	id: String!
 	providerId: String!
 	name: String!
+}
+
+enum CloudProvider {
+	AWS
+	Azure
+	GCP
+}
+
+enum CloudStatus {
+	Pending
+	Connected
+	Disconnected
+	Error
+}
+
+type CloudAccount {
+	id: String!
+	cloudProvider: CloudProvider!
+	status: CloudStatus!
+	accountId: String!
 }
 
 type Project {

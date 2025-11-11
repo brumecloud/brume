@@ -2,6 +2,19 @@
 
 package public_graph_model
 
+import (
+	"fmt"
+	"io"
+	"strconv"
+)
+
+type CloudAccount struct {
+	ID            string        `json:"id"`
+	CloudProvider CloudProvider `json:"cloudProvider"`
+	Status        CloudStatus   `json:"status"`
+	AccountID     string        `json:"accountId"`
+}
+
 type Organization struct {
 	ID         string `json:"id"`
 	ProviderID string `json:"providerId"`
@@ -9,4 +22,92 @@ type Organization struct {
 }
 
 type Query struct {
+}
+
+type CloudProvider string
+
+const (
+	CloudProviderAWS   CloudProvider = "AWS"
+	CloudProviderAzure CloudProvider = "Azure"
+	CloudProviderGCP   CloudProvider = "GCP"
+)
+
+var AllCloudProvider = []CloudProvider{
+	CloudProviderAWS,
+	CloudProviderAzure,
+	CloudProviderGCP,
+}
+
+func (e CloudProvider) IsValid() bool {
+	switch e {
+	case CloudProviderAWS, CloudProviderAzure, CloudProviderGCP:
+		return true
+	}
+	return false
+}
+
+func (e CloudProvider) String() string {
+	return string(e)
+}
+
+func (e *CloudProvider) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CloudProvider(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CloudProvider", str)
+	}
+	return nil
+}
+
+func (e CloudProvider) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+type CloudStatus string
+
+const (
+	CloudStatusPending      CloudStatus = "Pending"
+	CloudStatusConnected    CloudStatus = "Connected"
+	CloudStatusDisconnected CloudStatus = "Disconnected"
+	CloudStatusError        CloudStatus = "Error"
+)
+
+var AllCloudStatus = []CloudStatus{
+	CloudStatusPending,
+	CloudStatusConnected,
+	CloudStatusDisconnected,
+	CloudStatusError,
+}
+
+func (e CloudStatus) IsValid() bool {
+	switch e {
+	case CloudStatusPending, CloudStatusConnected, CloudStatusDisconnected, CloudStatusError:
+		return true
+	}
+	return false
+}
+
+func (e CloudStatus) String() string {
+	return string(e)
+}
+
+func (e *CloudStatus) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CloudStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CloudStatus", str)
+	}
+	return nil
+}
+
+func (e CloudStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
 }
