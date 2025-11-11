@@ -111,9 +111,8 @@ func SeedProjects(db *DB) []*project.Project {
 	runnerJson := string(runnerJsonRaw)
 
 	frontend := &service.Service{
-		Name:  "Frontend",
-		ID:    frontendId,
-		Draft: nil,
+		Name: "Frontend",
+		ID:   frontendId,
 		Live: &service.BaseService{
 			Source: &source_model.Source{
 				ID:   frontendId,
