@@ -36,11 +36,11 @@ func SeedOrganization(db *DB, projects []*project.Project, config *config.BrumeC
 	}
 
 	if err := db.Gorm.First(brume, "name = ?", "BrumeCloud").Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Info().Msg("No organization found in database, creating brume")
+		logger.Debug().Msg("No organization found in database, creating brume")
 		db.Gorm.Create(brume)
-		logger.Info().Msg("Organization seeded")
+		logger.Debug().Msg("Organization seeded")
 	} else {
-		logger.Info().Msg("Organization found, skipping seeding")
+		logger.Debug().Msg("Organization found, skipping seeding")
 	}
 
 	return brume
@@ -55,12 +55,12 @@ func SeedAdminUser(db *DB, brume *org.Organization, config *config.BrumeConfig) 
 	}
 
 	if err := db.Gorm.First(admin, "provider_id = ?", config.BrumeGeneralConfig.SudoProviderID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Info().Msg("No user found in database, creating sudo user")
+		logger.Debug().Msg("No user found in database, creating sudo user")
 
 		db.Gorm.Create(admin)
-		logger.Info().Msg("Admin user seeded")
+		logger.Debug().Msg("Admin user seeded")
 	} else {
-		logger.Info().Msg("Admin user found, skipping seeding")
+		logger.Debug().Msg("Admin user found, skipping seeding")
 	}
 
 	return admin
@@ -81,19 +81,19 @@ func SeedAgent(db *DB, brume *org.Organization, config *config.BrumeConfig) (*ag
 	}
 
 	if err := db.Gorm.First(runnerAgent, "id = ?", runnerAgent.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Info().Msg("No runner agent found in database, creating it")
+		logger.Debug().Msg("No runner agent found in database, creating it")
 		db.Gorm.Create(runnerAgent)
-		logger.Info().Msg("Runner agent seeded")
+		logger.Debug().Msg("Runner agent seeded")
 	} else {
-		logger.Info().Msg("Runner agent found, skipping seeding")
+		logger.Debug().Msg("Runner agent found, skipping seeding")
 	}
 
 	if err := db.Gorm.First(builderAgent, "id = ?", builderAgent.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Info().Msg("No builder agent found in database, creating it")
+		logger.Debug().Msg("No builder agent found in database, creating it")
 		db.Gorm.Create(builderAgent)
-		logger.Info().Msg("Builder agent seeded")
+		logger.Debug().Msg("Builder agent seeded")
 	} else {
-		logger.Info().Msg("Builder agent found, skipping seeding")
+		logger.Debug().Msg("Builder agent found, skipping seeding")
 	}
 
 	return runnerAgent, builderAgent
@@ -163,12 +163,12 @@ func SeedProjects(db *DB) []*project.Project {
 	}
 
 	if err := db.Gorm.First(project, "id = ?", project.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Info().Msg("Porfolio project not found, creating it")
+		logger.Debug().Msg("Porfolio project not found, creating it")
 
 		db.Gorm.Create(project)
-		logger.Info().Msg("Porfolio project created")
+		logger.Debug().Msg("Porfolio project created")
 	} else {
-		logger.Info().Msg("Porfolio project found, skipping seeding")
+		logger.Debug().Msg("Porfolio project found, skipping seeding")
 	}
 
 	projects[0] = project

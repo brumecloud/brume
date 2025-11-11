@@ -37,7 +37,6 @@ func (db *DB) migrate(config *config.BrumeConfig) {
 	db.Gorm.Raw("SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_database WHERE datname = ?)", config.DurableConfig.DatabaseName).Scan(&result)
 	if result {
 		logger.Info().Msg("Durable database already exists, skipping creation")
-		return
 	} else {
 		logger.Info().Msg("Durable database does not exist, creating it")
 		db.Gorm.Exec("CREATE DATABASE " + config.DurableConfig.DatabaseName)

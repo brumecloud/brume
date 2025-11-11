@@ -144,27 +144,3 @@ type runnerResolver struct{ *Resolver }
 type serviceResolver struct{ *Resolver }
 type sourceResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *baseServiceResolver) Source(ctx context.Context, obj *service_model.BaseService) (*public_graph_model.Source, error) {
-	if obj.Source.Type == source_model.SourceTypeGit {
-		gitData, err := json.Marshal(obj.Source.GitData)
-		if err != nil {
-			return nil, err
-		}
-		return &public_graph_model.Source{
-			Type: "git",
-			Data: gitData,
-		}, nil
-	}
-	return nil, errors.New("source type not supported")
-}
-func (r *Resolver) BaseService() generated.BaseServiceResolver { return &baseServiceResolver{r} }
-type baseServiceResolver struct{ *Resolver }
-*/
