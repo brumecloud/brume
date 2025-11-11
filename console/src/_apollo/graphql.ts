@@ -34,6 +34,27 @@ export type Builder = {
   version: Scalars['String']['output'];
 };
 
+export type CloudAccount = {
+  __typename?: 'CloudAccount';
+  accountId: Scalars['String']['output'];
+  cloudProvider: CloudProvider;
+  id: Scalars['String']['output'];
+  status: CloudStatus;
+};
+
+export enum CloudProvider {
+  Aws = 'AWS',
+  Azure = 'Azure',
+  Gcp = 'GCP'
+}
+
+export enum CloudStatus {
+  Connected = 'Connected',
+  Disconnected = 'Disconnected',
+  Error = 'Error',
+  Pending = 'Pending'
+}
+
 export type Organization = {
   __typename?: 'Organization';
   id: Scalars['String']['output'];

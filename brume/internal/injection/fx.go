@@ -8,6 +8,7 @@ import (
 	fx_common "brume.dev/internal/common/fx"
 	config "brume.dev/internal/config"
 	db "brume.dev/internal/db"
+	durable "brume.dev/internal/durable"
 	brume_log "brume.dev/internal/log"
 	brume_redis "brume.dev/internal/redis"
 	fx_grpc "brume.dev/internal/router/grpc/fx"
@@ -53,6 +54,7 @@ func NewMasterInjector() *GlobalInjector {
 		db.DBModule,
 		fx_ticker.TickerModule,
 		fx_workos.WorkOSModule,
+		durable.DurableModule,
 
 		fx_http.HttpModule,
 		fx_grpc.GRPCModule,

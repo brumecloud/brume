@@ -71,6 +71,14 @@ type BrumeGeneralConfig struct {
 	StaffOrgID     string `mapstructure:"staff_org_id" validate:"required,min=1"`
 }
 
+type DurableConfig struct {
+	DurableName     string `mapstructure:"durable_name" validate:"required,min=1"`
+	DatabaseConn    string `mapstructure:"database_conn" validate:"required,min=1"`
+	DatabaseName    string `mapstructure:"database_name" validate:"required,min=1"`
+	AdminServer     bool   `mapstructure:"admin_server" validate:"required,boolean"`
+	AdminServerPort int    `mapstructure:"admin_server_port" validate:"required,min=1,max=65535"`
+}
+
 type BrumeConfig struct {
 	Logs               map[string]string  `mapstructure:"logs" validate:"required"`
 	ServerConfig       ServerConfig       `mapstructure:"server" validate:"required"`
@@ -81,6 +89,7 @@ type BrumeConfig struct {
 	OrchestratorConfig OrchestratorConfig `mapstructure:"orchestrator" validate:"required"`
 	WorkOSConfig       WorkOSConfig       `mapstructure:"workos" validate:"required"`
 	BrumeGeneralConfig BrumeGeneralConfig `mapstructure:"brume" validate:"required"`
+	DurableConfig      DurableConfig      `mapstructure:"durable" validate:"required"`
 }
 
 // we want to avoid import cycle
