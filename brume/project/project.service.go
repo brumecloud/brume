@@ -105,6 +105,7 @@ func (s *ProjectService) AssignProjectToOrganization(project *project.Project, o
 
 func (s *ProjectService) GetProject(project *project.Project) (*project.Project, error) {
 	err := s.db.Gorm.Preload("Services").First(&project, "id = ?", project.ID).Error
+	logger.Info().Interface("project", project).Msg("Getting project")
 
 	return project, err
 }
