@@ -33,11 +33,14 @@ type Config struct {
 
 type ResolverRoot interface {
 	Builder() BuilderResolver
+	CloudAccount() CloudAccountResolver
+	Organization() OrganizationResolver
 	Project() ProjectResolver
 	Query() QueryResolver
 	Runner() RunnerResolver
 	Service() ServiceResolver
 	Source() SourceResolver
+	Stack() StackResolver
 	User() UserResolver
 }
 
@@ -61,16 +64,18 @@ type ComplexityRoot struct {
 	}
 
 	CloudAccount struct {
-		AccountID     func(childComplexity int) int
 		CloudProvider func(childComplexity int) int
 		ID            func(childComplexity int) int
+		Name          func(childComplexity int) int
+		Stacks        func(childComplexity int) int
 		Status        func(childComplexity int) int
 	}
 
 	Organization struct {
-		ID         func(childComplexity int) int
-		Name       func(childComplexity int) int
-		ProviderID func(childComplexity int) int
+		CloudAccounts func(childComplexity int) int
+		ID            func(childComplexity int) int
+		Name          func(childComplexity int) int
+		ProviderID    func(childComplexity int) int
 	}
 
 	Project struct {
@@ -82,8 +87,9 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		GetProjectByID func(childComplexity int, id string) int
-		Me             func(childComplexity int) int
+		GetAWSCloudFormationURL func(childComplexity int) int
+		GetProjectByID          func(childComplexity int, id string) int
+		Me                      func(childComplexity int) int
 	}
 
 	Runner struct {
@@ -106,6 +112,12 @@ type ComplexityRoot struct {
 		Data func(childComplexity int) int
 		ID   func(childComplexity int) int
 		Type func(childComplexity int) int
+	}
+
+	Stack struct {
+		ID         func(childComplexity int) int
+		Name       func(childComplexity int) int
+		TemplateID func(childComplexity int) int
 	}
 
 	User struct {
@@ -199,13 +211,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Builder.Version(childComplexity), true
 
-	case "CloudAccount.accountId":
-		if e.complexity.CloudAccount.AccountID == nil {
-			break
-		}
-
-		return e.complexity.CloudAccount.AccountID(childComplexity), true
-
 	case "CloudAccount.cloudProvider":
 		if e.complexity.CloudAccount.CloudProvider == nil {
 			break
@@ -220,12 +225,33 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.CloudAccount.ID(childComplexity), true
 
+	case "CloudAccount.name":
+		if e.complexity.CloudAccount.Name == nil {
+			break
+		}
+
+		return e.complexity.CloudAccount.Name(childComplexity), true
+
+	case "CloudAccount.stacks":
+		if e.complexity.CloudAccount.Stacks == nil {
+			break
+		}
+
+		return e.complexity.CloudAccount.Stacks(childComplexity), true
+
 	case "CloudAccount.status":
 		if e.complexity.CloudAccount.Status == nil {
 			break
 		}
 
 		return e.complexity.CloudAccount.Status(childComplexity), true
+
+	case "Organization.cloudAccounts":
+		if e.complexity.Organization.CloudAccounts == nil {
+			break
+		}
+
+		return e.complexity.Organization.CloudAccounts(childComplexity), true
 
 	case "Organization.id":
 		if e.complexity.Organization.ID == nil {
@@ -282,6 +308,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Project.Services(childComplexity), true
+
+	case "Query.getAWSCloudFormationURL":
+		if e.complexity.Query.GetAWSCloudFormationURL == nil {
+			break
+		}
+
+		return e.complexity.Query.GetAWSCloudFormationURL(childComplexity), true
 
 	case "Query.getProjectById":
 		if e.complexity.Query.GetProjectByID == nil {
@@ -392,6 +425,27 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Source.Type(childComplexity), true
+
+	case "Stack.id":
+		if e.complexity.Stack.ID == nil {
+			break
+		}
+
+		return e.complexity.Stack.ID(childComplexity), true
+
+	case "Stack.name":
+		if e.complexity.Stack.Name == nil {
+			break
+		}
+
+		return e.complexity.Stack.Name(childComplexity), true
+
+	case "Stack.template_id":
+		if e.complexity.Stack.TemplateID == nil {
+			break
+		}
+
+		return e.complexity.Stack.TemplateID(childComplexity), true
 
 	case "User.avatar":
 		if e.complexity.User.Avatar == nil {
@@ -532,6 +586,8 @@ type Organization {
 	id: String!
 	providerId: String!
 	name: String!
+
+	cloudAccounts: [CloudAccount!]!
 }
 
 enum CloudProvider {
@@ -547,11 +603,19 @@ enum CloudStatus {
 	Error
 }
 
+type Stack {
+	template_id: String!
+	id: String!
+	name: String!
+}
+
 type CloudAccount {
 	id: String!
 	cloudProvider: CloudProvider!
 	status: CloudStatus!
-	accountId: String!
+	name: String!
+
+	stacks: [Stack!]!
 }
 
 type Project {
@@ -607,6 +671,7 @@ type Query {
 	me: User!
 
 	getProjectById(id: String!): Project!
+	getAWSCloudFormationURL: String!
 }
 `, BuiltIn: false},
 }

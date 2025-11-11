@@ -8,20 +8,55 @@ import (
 	"context"
 	"errors"
 
+	org_model "brume.dev/account/org/model"
 	user_model "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
+	cloud_account_model "brume.dev/cloud/account/model"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
-	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	project_model "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
 	source_model "brume.dev/source/model"
+	stack_model "brume.dev/stack/model"
 	"github.com/google/uuid"
 )
 
 // ID is the resolver for the id field.
 func (r *builderResolver) ID(ctx context.Context, obj *builder_model.Builder) (string, error) {
 	return obj.ID.String(), nil
+}
+
+// ID is the resolver for the id field.
+func (r *cloudAccountResolver) ID(ctx context.Context, obj *cloud_account_model.CloudAccount) (string, error) {
+	return obj.ID.String(), nil
+}
+
+// Stacks is the resolver for the stacks field.
+func (r *cloudAccountResolver) Stacks(ctx context.Context, obj *cloud_account_model.CloudAccount) ([]*stack_model.Stack, error) {
+	cloudAccount, err := r.CloudAccountService.WithStacks(obj)
+	if err != nil {
+		return nil, err
+	}
+	return cloudAccount.Stacks, nil
+}
+
+// ID is the resolver for the id field.
+func (r *organizationResolver) ID(ctx context.Context, obj *org_model.Organization) (string, error) {
+	return obj.ID.String(), nil
+}
+
+// CloudAccounts is the resolver for the cloudAccounts field.
+func (r *organizationResolver) CloudAccounts(ctx context.Context, obj *org_model.Organization) ([]*cloud_account_model.CloudAccount, error) {
+	accounts, err := r.OrganizationService.GetOrganizationCloudAccounts(obj)
+	if err != nil {
+		return nil, err
+	}
+	// convert to []*cloud_account_model.CloudAccount
+	accountsList := make([]*cloud_account_model.CloudAccount, len(accounts))
+	for i, account := range accounts {
+		accountsList[i] = &account
+	}
+	return accountsList, nil
 }
 
 // ID is the resolver for the id field.
@@ -61,6 +96,13 @@ func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project
 	return r.ProjectService.GetProjectByID(project_uuid)
 }
 
+// GetAWSCloudFormationURL is the resolver for the getAWSCloudFormationURL field.
+func (r *queryResolver) GetAWSCloudFormationURL(ctx context.Context) (string, error) {
+	policyURL := r.ConfigService.BrumeGeneralConfig.PolicyURL
+	baseUrl := "https://eu-west-3.console.aws.amazon.com/cloudformation/home?region=eu-west-3#/stacks/quickcreate?templateURL=" + policyURL + "&stackName=BrumeInitStack&param_TrustArnParameter=arn:aws:iam::401399516766:role/BrumeUserAssume"
+	return baseUrl, nil
+}
+
 // ID is the resolver for the id field.
 func (r *runnerResolver) ID(ctx context.Context, obj *runner_model.Runner) (string, error) {
 	return obj.ID.String(), nil
@@ -91,6 +133,11 @@ func (r *sourceResolver) Data(ctx context.Context, obj *source_model.Source) (an
 }
 
 // ID is the resolver for the id field.
+func (r *stackResolver) ID(ctx context.Context, obj *stack_model.Stack) (string, error) {
+	return obj.ID.String(), nil
+}
+
+// ID is the resolver for the id field.
 func (r *userResolver) ID(ctx context.Context, obj *user_model.User) (string, error) {
 	return obj.ID.String(), nil
 }
@@ -103,14 +150,14 @@ func (r *userResolver) Projects(ctx context.Context, obj *user_model.User) ([]*p
 }
 
 // Organization is the resolver for the organization field.
-func (r *userResolver) Organization(ctx context.Context, obj *user_model.User) (*public_graph_model.Organization, error) {
+func (r *userResolver) Organization(ctx context.Context, obj *user_model.User) (*org_model.Organization, error) {
 	org, err := r.UserService.GetUserOrganization(obj)
 	if err != nil {
 		return nil, err
 	}
 
-	return &public_graph_model.Organization{
-		ID:         org.ID.String(),
+	return &org_model.Organization{
+		ID:         org.ID,
 		ProviderID: org.ProviderID,
 		Name:       org.Name,
 	}, nil
@@ -118,6 +165,12 @@ func (r *userResolver) Organization(ctx context.Context, obj *user_model.User) (
 
 // Builder returns generated.BuilderResolver implementation.
 func (r *Resolver) Builder() generated.BuilderResolver { return &builderResolver{r} }
+
+// CloudAccount returns generated.CloudAccountResolver implementation.
+func (r *Resolver) CloudAccount() generated.CloudAccountResolver { return &cloudAccountResolver{r} }
+
+// Organization returns generated.OrganizationResolver implementation.
+func (r *Resolver) Organization() generated.OrganizationResolver { return &organizationResolver{r} }
 
 // Project returns generated.ProjectResolver implementation.
 func (r *Resolver) Project() generated.ProjectResolver { return &projectResolver{r} }
@@ -134,13 +187,31 @@ func (r *Resolver) Service() generated.ServiceResolver { return &serviceResolver
 // Source returns generated.SourceResolver implementation.
 func (r *Resolver) Source() generated.SourceResolver { return &sourceResolver{r} }
 
+// Stack returns generated.StackResolver implementation.
+func (r *Resolver) Stack() generated.StackResolver { return &stackResolver{r} }
+
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
 type builderResolver struct{ *Resolver }
+type cloudAccountResolver struct{ *Resolver }
+type organizationResolver struct{ *Resolver }
 type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type runnerResolver struct{ *Resolver }
 type serviceResolver struct{ *Resolver }
 type sourceResolver struct{ *Resolver }
+type stackResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *cloudAccountResolver) AccountID(ctx context.Context, obj *cloud_account_model.CloudAccount) (string, error) {
+	return obj.AWS.AccountID, nil
+}
+*/
