@@ -1,17 +1,32 @@
+import { useLazyQuery } from "@apollo/client";
+import { useState } from "react";
+import { FaArrowRightLong } from "react-icons/fa6";
+import { MdChecklist, MdOutlineLocalPolice, MdPreview } from "react-icons/md";
+import { TfiPackage } from "react-icons/tfi";
 import { Page } from "@/components/page-comp/header";
 import { Stepper } from "@/components/stepper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { FaArrowRightLong } from "react-icons/fa6";
-import { MdChecklist, MdOutlineLocalPolice, MdPreview } from "react-icons/md";
-import { TfiPackage } from "react-icons/tfi";
+import { GET_AWS_CLOUD_FORMATION_URL } from "@/gql/cloud.graphql";
 
 export const AwsPage = () => {
-  const [awsAccount, setAwsAccount] = useState<string>("");
+  const [awsAccount, setAwsAccount] = useState<string>("123456789012");
   const [agreement, setAgreement] = useState<boolean>(false);
+  const [getUrl] = useLazyQuery(GET_AWS_CLOUD_FORMATION_URL);
+
+  const redirectToAWS = async () => {
+    const { data, error } = await getUrl({
+      fetchPolicy: "network-only",
+    });
+    if (error) {
+      console.error(error);
+      return;
+    }
+    // new tab to the url
+    window.open(data.getAWSCloudFormationURL, "_blank");
+  };
 
   return (
     <Page.Container>
@@ -22,7 +37,7 @@ export const AwsPage = () => {
         </Page.Description>
       </Page.Header>
       <Page.Body className="h-full pt-16">
-        <Stepper.Root shouldAnimate leftBorder>
+        <Stepper.Root leftBorder>
           <Stepper.Item>
             <Stepper.Header>
               <Stepper.Icon>
@@ -41,15 +56,15 @@ export const AwsPage = () => {
                   </div>
                   <div className="flex flex-row gap-4">
                     <Input
-                      placeholder="Enter the Account ID (123456789012)"
                       className="max-w-96"
-                      value={awsAccount}
                       onChange={(e) => setAwsAccount(e.target.value)}
+                      placeholder="Enter the Account ID (123456789012)"
+                      value={awsAccount}
                     />
                     <Button
                       className="w-32"
-                      onClick={() => setStep(1)}
                       disabled={awsAccount.length !== 12}
+                      onClick={() => setStep(1)}
                     >
                       <FaArrowRightLong className="h-4 w-4" />
                       Continue
@@ -82,8 +97,8 @@ export const AwsPage = () => {
                   <div className="pt-4">
                     <div className="flex items-center gap-3">
                       <Checkbox
-                        id="terms"
                         checked={agreement}
+                        id="terms"
                         onCheckedChange={(checked) => {
                           setAgreement(
                             checked === "indeterminate" ? false : checked
@@ -124,7 +139,14 @@ export const AwsPage = () => {
                     </p>
                   </div>
                   <div className="pt-4">
-                    <Button onClick={() => setStep(3)}>Create the role</Button>
+                    <Button
+                      onClick={() => {
+                        redirectToAWS();
+                        setStep(3);
+                      }}
+                    >
+                      Create the role
+                    </Button>
                   </div>
                 </>
               )}

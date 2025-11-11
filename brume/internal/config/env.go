@@ -69,6 +69,7 @@ type BrumeGeneralConfig struct {
 	IsDev          bool   `mapstructure:"is_dev" validate:"required,boolean"`
 	SudoProviderID string `mapstructure:"sudo_provider_id" validate:"required,min=1"`
 	StaffOrgID     string `mapstructure:"staff_org_id" validate:"required,min=1"`
+	PolicyURL      string `mapstructure:"policy_url" validate:"required,min=1"`
 }
 
 type DurableConfig struct {

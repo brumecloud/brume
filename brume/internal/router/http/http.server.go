@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"brume.dev/account/org"
 	"brume.dev/account/user"
-	"brume.dev/internal/common"
+	cloud_account_service "brume.dev/cloud/account"
+	common "brume.dev/internal/common"
 	config "brume.dev/internal/config"
 	"brume.dev/internal/log"
 	http_middleware "brume.dev/internal/router/http/middleware"
@@ -40,15 +42,20 @@ func NewHTTPServer(
 	workosClient *brume_workos.WorkOSClient,
 	schedulerHTTPRouter *SchedulerHTTPRouterV1,
 	monitoringHTTPRouter *MonitoringHTTPRouterV1,
+	cloudAccountService *cloud_account_service.CloudAccountService,
+	organizationService *org.OrganizationService,
 	cfg *config.BrumeConfig,
 ) *BrumeHTTPServer {
 	logger.Info().Msg("Launching the HTTP Server")
 
 	public_resolver := &public_graph.Resolver{
-		UserService:    userService,
-		ProjectService: projectService,
-		ServiceService: serviceService,
-		MachineService: machineService,
+		ConfigService:       cfg,
+		UserService:         userService,
+		ProjectService:      projectService,
+		ServiceService:      serviceService,
+		MachineService:      machineService,
+		CloudAccountService: cloudAccountService,
+		OrganizationService: organizationService,
 	}
 
 	public_gql := handler.New(public_graph_generated.NewExecutableSchema(public_graph_generated.Config{Resolvers: public_resolver}))

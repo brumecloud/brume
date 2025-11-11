@@ -34,7 +34,7 @@
 				"Path": "/",
 				"Policies": [
 					{
-						"PolicyName": "brume-access-policy",
+						"PolicyName": "brume-access",
 						"PolicyDocument": {
 							"Version": "2012-10-17",
 							"Statement": [
@@ -102,7 +102,7 @@
 						}
 					}
 				],
-				"RoleName": "brume-access-role",
+				"RoleName": "brume-access",
 				"Tags": [
 					{
 						"Key": "brume.dev/managed",
@@ -115,7 +115,7 @@
 	"Parameters": {
 		"TrustArnParameter": {
 			"Type": "String",
-			"Description": "Brume AWS account ID. This is used to allow the BrumeCloud AWS account to assume the role (to create the stacks)."
+			"Description": "source ARN for the trust policy"
 		}
 	}
 }

@@ -90,6 +90,7 @@ resolver:
 # if they match it will use them, otherwise it will generate them.
 autobind:
   - "brume.dev/account/user/model"
+  - "brume.dev/account/org/model"
   - "brume.dev/logs/model"
   - "brume.dev/project/model"
   - "brume.dev/service/model"
@@ -98,6 +99,8 @@ autobind:
   - "brume.dev/deployment/model"
   - "brume.dev/machine/model"
   - "brume.dev/source/model"
+  - "brume.dev/stack/model"
+  - "brume.dev/cloud/account/model"
 
 # This section declares type mapping between the GraphQL and go type systems
 #
@@ -123,4 +126,12 @@ models:
   Project:
     fields:
       services:
+        resolver: true
+  Organization:
+    fields:
+      cloudAccounts:
+        resolver: true
+  CloudAccount:
+    fields:
+      stacks:
         resolver: true

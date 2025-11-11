@@ -13,6 +13,8 @@ type Organization {
 	id: String!
 	providerId: String!
 	name: String!
+
+	cloudAccounts: [CloudAccount!]!
 }
 
 enum CloudProvider {
@@ -28,11 +30,19 @@ enum CloudStatus {
 	Error
 }
 
+type Stack {
+	template_id: String!
+	id: String!
+	name: String!
+}
+
 type CloudAccount {
 	id: String!
 	cloudProvider: CloudProvider!
 	status: CloudStatus!
-	accountId: String!
+	name: String!
+
+	stacks: [Stack!]!
 }
 
 type Project {
@@ -88,4 +98,5 @@ type Query {
 	me: User!
 
 	getProjectById(id: String!): Project!
+	getAWSCloudFormationURL: String!
 }

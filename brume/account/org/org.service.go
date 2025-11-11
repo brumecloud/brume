@@ -3,6 +3,7 @@ package org
 import (
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
+	cloud_account_model "brume.dev/cloud/account/model"
 	"brume.dev/internal/db"
 	"brume.dev/internal/log"
 	project_model "brume.dev/project/model"
@@ -50,6 +51,16 @@ func (s *OrganizationService) GetOrganizationProjects(org *org.Organization) ([]
 	}
 
 	return org.Projects, err
+}
+
+func (s *OrganizationService) GetOrganizationCloudAccounts(org *org.Organization) ([]cloud_account_model.CloudAccount, error) {
+	logger.Trace().Str("org_id", org.ID.String()).Msg("Getting organization cloud accounts")
+	err := s.db.Gorm.Preload("CloudAccounts").Find(&org).Error
+	if err != nil {
+		logger.Error().Err(err).Str("org_id", org.ID.String()).Msg("Error getting organization cloud accounts")
+		return nil, err
+	}
+	return org.CloudAccounts, err
 }
 
 func (s *OrganizationService) AddProjectToOrganization(org *org.Organization, project *project_model.Project) error {

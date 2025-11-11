@@ -4,6 +4,7 @@ import (
 	fx_org "brume.dev/account/org/fx"
 	fx_user "brume.dev/account/user/fx"
 	fx_builder "brume.dev/builder/fx"
+	cloud_account_service "brume.dev/cloud/account"
 	fx_deployment "brume.dev/deployment/fx"
 	fx_common "brume.dev/internal/common/fx"
 	config "brume.dev/internal/config"
@@ -55,6 +56,7 @@ func NewMasterInjector() *GlobalInjector {
 		fx_ticker.TickerModule,
 		fx_workos.WorkOSModule,
 		durable.DurableModule,
+		cloud_account_service.CloudAccountServiceModule,
 
 		fx_http.HttpModule,
 		fx_grpc.GRPCModule,

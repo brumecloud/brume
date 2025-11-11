@@ -16,6 +16,9 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
 type Documents = {
     "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n": typeof types.MyProjectsDocument,
     "\n  fragment BuilderFragment on Builder {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n": typeof types.BuilderFragmentFragmentDoc,
+    "\n  query GetAWSCloudFormationURL {\n    getAWSCloudFormationURL\n  }\n": typeof types.GetAwsCloudFormationUrlDocument,
+    "\n  query GetCloudAccounts {\n    me {\n      organization {\n        cloudAccounts {\n          ...CloudAccountFragment\n        }\n      }\n    }\n  }\n": typeof types.GetCloudAccountsDocument,
+    "\n  fragment CloudAccountFragment on CloudAccount {\n    id\n    cloudProvider\n    name\n    status\n    stacks {\n      id\n      name\n      template_id\n    }\n  }\n": typeof types.CloudAccountFragmentFragmentDoc,
     "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      ...ServiceFragment\n    }\n  }\n": typeof types.ProjectFragmentFragmentDoc,
     "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": typeof types.GetProjectByIdDocument,
     "\n  fragment RunnerFragment on Runner {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n": typeof types.RunnerFragmentFragmentDoc,
@@ -29,6 +32,9 @@ type Documents = {
 const documents: Documents = {
     "\n  query myProjects {\n    me {\n      projects {\n        ...ProjectFragment\n      }\n    }\n  }\n": types.MyProjectsDocument,
     "\n  fragment BuilderFragment on Builder {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n": types.BuilderFragmentFragmentDoc,
+    "\n  query GetAWSCloudFormationURL {\n    getAWSCloudFormationURL\n  }\n": types.GetAwsCloudFormationUrlDocument,
+    "\n  query GetCloudAccounts {\n    me {\n      organization {\n        cloudAccounts {\n          ...CloudAccountFragment\n        }\n      }\n    }\n  }\n": types.GetCloudAccountsDocument,
+    "\n  fragment CloudAccountFragment on CloudAccount {\n    id\n    cloudProvider\n    name\n    status\n    stacks {\n      id\n      name\n      template_id\n    }\n  }\n": types.CloudAccountFragmentFragmentDoc,
     "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      ...ServiceFragment\n    }\n  }\n": types.ProjectFragmentFragmentDoc,
     "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": types.GetProjectByIdDocument,
     "\n  fragment RunnerFragment on Runner {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n": types.RunnerFragmentFragmentDoc,
@@ -62,6 +68,18 @@ export function gql(source: "\n  query myProjects {\n    me {\n      projects {\
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  fragment BuilderFragment on Builder {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n"): (typeof documents)["\n  fragment BuilderFragment on Builder {\n    id\n    type\n    data\n    link\n    version\n    schema\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  query GetAWSCloudFormationURL {\n    getAWSCloudFormationURL\n  }\n"): (typeof documents)["\n  query GetAWSCloudFormationURL {\n    getAWSCloudFormationURL\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  query GetCloudAccounts {\n    me {\n      organization {\n        cloudAccounts {\n          ...CloudAccountFragment\n        }\n      }\n    }\n  }\n"): (typeof documents)["\n  query GetCloudAccounts {\n    me {\n      organization {\n        cloudAccounts {\n          ...CloudAccountFragment\n        }\n      }\n    }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  fragment CloudAccountFragment on CloudAccount {\n    id\n    cloudProvider\n    name\n    status\n    stacks {\n      id\n      name\n      template_id\n    }\n  }\n"): (typeof documents)["\n  fragment CloudAccountFragment on CloudAccount {\n    id\n    cloudProvider\n    name\n    status\n    stacks {\n      id\n      name\n      template_id\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

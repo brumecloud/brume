@@ -8,11 +8,13 @@ import (
 	org "brume.dev/account/org/model"
 	user "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
+	cloud_account_model "brume.dev/cloud/account/model"
 	"brume.dev/internal/config"
 	project "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	service "brume.dev/service/model"
 	source_model "brume.dev/source/model"
+	stack_model "brume.dev/stack/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -20,10 +22,12 @@ import (
 func SeedAll(db *DB, config *config.BrumeConfig) error {
 	projects := SeedProjects(db)
 	brume := SeedOrganization(db, projects, config)
+	cloudAccounts := SeedCloudAccounts(db, brume)
 	admin := SeedAdminUser(db, brume, config)
 	_, _ = SeedAgent(db, brume, config)
 
 	_ = admin
+	_ = cloudAccounts
 
 	return nil
 }
@@ -173,4 +177,41 @@ func SeedProjects(db *DB) []*project.Project {
 	projects[0] = project
 
 	return projects
+}
+
+func SeedCloudAccounts(db *DB, brume *org.Organization) []*cloud_account_model.CloudAccount {
+	cloudAccounts := make([]*cloud_account_model.CloudAccount, 1)
+
+	stacks := make([]*stack_model.Stack, 1)
+
+	stack := &stack_model.Stack{
+		ID:   uuid.MustParse("619a33d4-00c3-4753-a2cc-3f29ea37c238"),
+		Name: "Cloud front SPA",
+	}
+
+	stacks[0] = stack
+
+	cloudAccount := &cloud_account_model.CloudAccount{
+		ID:            uuid.MustParse("619a33d4-00c3-4753-a2cc-3f29ea37c238"),
+		Status:        cloud_account_model.CloudStatusConnected,
+		Name:          "AWS Dev account",
+		Description:   "This is the development AWS account",
+		CloudProvider: cloud_account_model.CloudProviderAWS,
+		AWS: &cloud_account_model.AWSCloudAccount{
+			AccountID: "123456789012",
+		},
+		Stacks:         stacks,
+		OrganizationID: brume.ID,
+	}
+
+	if err := db.Gorm.First(cloudAccount, "id = ?", cloudAccount.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.Debug().Msg("No cloud account found in database, creating it")
+		db.Gorm.Create(cloudAccount)
+		logger.Debug().Msg("Cloud account seeded")
+	} else {
+		logger.Debug().Msg("Cloud account found, skipping seeding")
+	}
+
+	cloudAccounts[0] = cloudAccount
+	return cloudAccounts
 }
