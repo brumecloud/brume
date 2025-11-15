@@ -31,3 +31,16 @@ export const CLOUD_ACCOUNT_FRAGMENT = gql(`
     }
   }
 `);
+
+export const CREATE_CLOUD_ACCOUNT = gql(`
+  mutation CreateCloudAccount($name: String!, $cloudAccountId: String!, $cloudProvider: CloudProvider!) {
+    createCloudAccount(input: {
+      name: $name
+      accountId: $cloudAccountId
+      cloudProvider: $cloudProvider
+    }) {
+      status
+      logs
+    }
+  }
+`);

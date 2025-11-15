@@ -7,12 +7,14 @@ package public_graph
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	org_model "brume.dev/account/org/model"
 	user_model "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
 	cloud_account_model "brume.dev/cloud/account/model"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
+	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	project_model "brume.dev/project/model"
 	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
@@ -38,6 +40,11 @@ func (r *cloudAccountResolver) Stacks(ctx context.Context, obj *cloud_account_mo
 		return nil, err
 	}
 	return cloudAccount.Stacks, nil
+}
+
+// CreateCloudAccount is the resolver for the createCloudAccount field.
+func (r *mutationResolver) CreateCloudAccount(ctx context.Context, input public_graph_model.CreateCloudAccountInput) (*public_graph_model.CreateCloudAccountResponse, error) {
+	panic(fmt.Errorf("not implemented: CreateCloudAccount - createCloudAccount"))
 }
 
 // ID is the resolver for the id field.
@@ -169,6 +176,9 @@ func (r *Resolver) Builder() generated.BuilderResolver { return &builderResolver
 // CloudAccount returns generated.CloudAccountResolver implementation.
 func (r *Resolver) CloudAccount() generated.CloudAccountResolver { return &cloudAccountResolver{r} }
 
+// Mutation returns generated.MutationResolver implementation.
+func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
+
 // Organization returns generated.OrganizationResolver implementation.
 func (r *Resolver) Organization() generated.OrganizationResolver { return &organizationResolver{r} }
 
@@ -195,6 +205,7 @@ func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
 type builderResolver struct{ *Resolver }
 type cloudAccountResolver struct{ *Resolver }
+type mutationResolver struct{ *Resolver }
 type organizationResolver struct{ *Resolver }
 type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
@@ -203,15 +214,3 @@ type serviceResolver struct{ *Resolver }
 type sourceResolver struct{ *Resolver }
 type stackResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *cloudAccountResolver) AccountID(ctx context.Context, obj *cloud_account_model.CloudAccount) (string, error) {
-	return obj.AWS.AccountID, nil
-}
-*/

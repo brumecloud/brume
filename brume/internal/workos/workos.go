@@ -14,7 +14,7 @@ import (
 	"go.uber.org/fx"
 )
 
-var logger = brume_log.GetLogger("workos")
+var logger = brume_log.GetLogger("internal.workos")
 
 type WorkOSClient struct {
 	jwkSet jwk.Set

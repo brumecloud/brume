@@ -26,43 +26,21 @@ services:
       - postgres
       - redis
 
-  # agent:
-  #   <<: *brume-default
-  #   image: brume-agent
-  #   container_name: brume-agent
-  #   build:
-  #     dockerfile: ./agent/Dockerfile.dev
-  #   command: ["air", "-c", ".air.toml"]
-  #   working_dir: /brume/agent
-  #   # for the collector to read the logs
-  #   user: "0"
-  #   volumes:
-  #     - .:/brume
-  #     # to call the local docker daemon
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #     # for the collector to read the logs
-  #     - /var/lib/docker/containers:/var/lib/docker/containers:ro
-  #   restart: always
-  #   ports:
-  #     - 9878:9878
-  #   depends_on:
-  #     - orchestrator
-
-  #  console:
-  #    <<: *brume-default
-  #    image: brume-console
-  #    container_name: brume-console
-  #    build:
-  #      context: ./console
-  #      dockerfile: Dockerfile.dev
-  #    ports:
-  #      - 3000:5173
-  #    volumes:
-  #      - ./console/src:/app/src
-  #      - ./console/codegen.ts:/app/codegen.ts
-  #      - ./brume/internal/router/public-gql/graph/public.graphql:/graph/public.graphql
-  #    depends_on:
-  #      - orchestrator
+  console:
+    <<: *brume-default
+    image: brume-console
+    container_name: brume-console
+    build:
+      context: ./console
+      dockerfile: Dockerfile.dev
+    ports:
+      - 3000:5173
+    volumes:
+      - ./console/src:/app/src
+      - ./console/codegen.ts:/app/codegen.ts
+      - ./brume/internal/router/public-gql/graph/public.graphql:/app/graph/public.graphql
+    depends_on:
+      - orchestrator
 
   # service land
   postgres:
@@ -78,15 +56,6 @@ services:
       - 5432:5432
     volumes:
       - postgres:/data/postgres
-
-  # dozzle:
-  #   <<: *brume-default
-  #   image: amir20/dozzle:latest
-  #   container_name: brume-dozzle
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #   ports:
-  #     - 9999:8080
 
   # clickhouse:
   #   <<: *brume-default
@@ -113,21 +82,6 @@ services:
       - 6379:6379
     volumes:
       - redis-data:/data
-
-  # otel-ingest:
-  #   <<: *brume-default
-  #   image: otel/opentelemetry-collector-contrib:latest
-  #   restart: always
-  #   container_name: brume-otel
-  #   command: ["--config", "/etc/otel/otel-ingest.yaml"]
-  #   ports:
-  #     - 9910:9910
-  #   volumes:
-  #     - ./infra/otel-ingest.yaml:/etc/otel/otel-ingest.yaml
-  #   depends_on:
-  #     - clickhouse
-  #     - orchestrator
-  #     - agent
 
 networks:
   brume-net:

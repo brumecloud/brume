@@ -29,7 +29,7 @@ import (
 
 type BrumeHTTPServer struct{}
 
-var logger = log.GetLogger("http")
+var logger = log.GetLogger("router.http")
 
 func NewHTTPServer(
 	lc fx.Lifecycle,

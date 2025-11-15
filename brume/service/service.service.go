@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var logger = log.GetLogger("service")
+var logger = log.GetLogger("service.service")
 
 type ServiceService struct {
 	db                *db.DB

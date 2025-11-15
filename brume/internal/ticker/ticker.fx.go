@@ -8,7 +8,7 @@ import (
 	"go.uber.org/fx"
 )
 
-var logger = log.GetLogger("ticker")
+var logger = log.GetLogger("internal.ticker")
 
 var TickerModule = fx.Module("ticker",
 	fx.Provide(NewTickerService),

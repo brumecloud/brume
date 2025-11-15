@@ -1,29 +1,39 @@
-import { useLazyQuery } from "@apollo/client";
+import { useLazyQuery, useMutation } from "@apollo/client";
 import { useState } from "react";
 import { FaArrowRightLong } from "react-icons/fa6";
 import { MdChecklist, MdOutlineLocalPolice, MdPreview } from "react-icons/md";
 import { TfiPackage } from "react-icons/tfi";
+import { CloudProvider } from "@/_apollo/graphql";
 import { Page } from "@/components/page-comp/header";
 import { Stepper } from "@/components/stepper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GET_AWS_CLOUD_FORMATION_URL } from "@/gql/cloud.graphql";
+import {
+  CREATE_CLOUD_ACCOUNT,
+  GET_AWS_CLOUD_FORMATION_URL,
+} from "@/gql/cloud.graphql";
 
 export const AwsPage = () => {
-  const [awsAccount, setAwsAccount] = useState<string>("123456789012");
+  const [awsAccount, setAwsAccount] = useState<string>("913355241065");
+  const [awsName, setAwsName] = useState<string>("TestCloud - AWS");
   const [agreement, setAgreement] = useState<boolean>(false);
   const [getUrl] = useLazyQuery(GET_AWS_CLOUD_FORMATION_URL);
-
+  const [
+    startEndToEndTestMutation,
+    { data: accountCreationData, error: accountCreationError },
+  ] = useMutation(CREATE_CLOUD_ACCOUNT);
   const redirectToAWS = async () => {
     const { data, error } = await getUrl({
       fetchPolicy: "network-only",
     });
-    if (error) {
+
+    if (error || !data) {
       console.error(error);
       return;
     }
+
     // new tab to the url
     window.open(data.getAWSCloudFormationURL, "_blank");
   };
@@ -48,8 +58,22 @@ export const AwsPage = () => {
             <Stepper.Body>
               {({ setStep }) => (
                 <>
+                  <div>
+                    <Label className="text-sm" htmlFor="awsName">
+                      Account Name
+                    </Label>
+                    <p className="pb-2 text-gray-500 text-sm">
+                      Enter the name of the account you want to connect
+                    </p>
+                    <Input
+                      className="max-w-96"
+                      id="awsName"
+                      onChange={(e) => setAwsName(e.target.value)}
+                      value={awsName}
+                    />
+                  </div>
                   <div className="flex flex-col space-y-1">
-                    <div className="font-medium text-sm">AWS account</div>
+                    <div className="font-medium text-sm">AWS account ID</div>
                     <p className="text-gray-500 text-sm">
                       Enter the Account ID of the one you want to connect
                     </p>
@@ -141,8 +165,8 @@ export const AwsPage = () => {
                   <div className="pt-4">
                     <Button
                       onClick={() => {
-                        redirectToAWS();
                         setStep(3);
+                        redirectToAWS();
                       }}
                     >
                       Create the role
@@ -167,14 +191,26 @@ export const AwsPage = () => {
                       Deploying the end to end test stack
                     </div>
                     <p className="text-gray-500 text-sm">
-                      Brume will deploy a very simple stack to verify everything
-                      is working
+                      Brume will <span className="font-medium">dry-run</span>{" "}
+                      some calls on your account to verify everything is working
                     </p>
                   </div>
                   <div className="pt-4">
-                    <Button onClick={() => setStep(4)}>
-                      Start the end to end test
-                    </Button>
+                    {!accountCreationData && (
+                      <Button
+                        onClick={() =>
+                          startEndToEndTestMutation({
+                            variables: {
+                              name: awsName,
+                              cloudAccountId: awsAccount,
+                              cloudProvider: CloudProvider.Aws,
+                            },
+                          })
+                        }
+                      >
+                        Start the end to end test
+                      </Button>
+                    )}
                   </div>
                 </>
               )}

@@ -8,7 +8,7 @@ import (
 	brume_workos "brume.dev/internal/workos"
 )
 
-var logger = log.GetLogger("http_middleware")
+var logger = log.GetLogger("router.http.middleware")
 
 func AuthMiddleware(workosClient *brume_workos.WorkOSClient, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

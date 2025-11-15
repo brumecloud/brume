@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var logger = brume_log.GetLogger("db")
+var logger = brume_log.GetLogger("internal.db")
 
 var DBModule = fx.Module("db", fx.Provide(InitDB))
 

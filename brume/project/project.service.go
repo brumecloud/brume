@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var logger = log.GetLogger("project")
+var logger = log.GetLogger("project.service")
 
 type ProjectService struct {
 	db             *db.DB

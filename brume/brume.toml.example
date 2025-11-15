@@ -25,25 +25,24 @@ log_activity = "error"
 service = "error"
 project = "error"
 job_workflow = "error"
-
+durable = "error"
+workos = "error"
+cloud_account_service = "error"
 
 [orchestrator]
 unhealthy_machine_threshold = 10
 unhealthy_job_threshold = 10
 reschedule_jobs = false
 
-# ticker configuration
 [ticker]
 rapid_ticker = 5
 
-# all servers running on the orchestrator
 [server]
 host = "0.0.0.0"
 orchestrator_port = 9876
 graphql_port = 9877
 grpc_port = 9878
 
-# postgres configuration
 [postgres]
 host = "postgres"
 port = 5432
@@ -54,14 +53,12 @@ max_idle = 1
 max_open = 1
 logs = "info"
 
-# redis configuration
 [redis]
 host = "redis"
 port = 6379
 db = 0
 password = ""
 
-# clickhouse configuration
 [clickhouse]
 host = "clickhouse"
 port = 9000
@@ -73,6 +70,17 @@ password = "brumepass"
 client_id = ""
 client_secret = ""
 redirect_uri = "http://localhost:9877/wos/callback"
-api_key = ""
-connection_id = ""
-cookie_secret = ""
+
+[brume]
+frontend = "http://localhost:3000"
+is_dev = true
+sudo_provider_id = ""
+staff_org_id = ""
+policy_url = "https://brume-dev-cloudformation-role-20251111.s3.eu-west-3.amazonaws.com/cloudformation-access-policy.json"
+
+[durable]
+durable_name = "durable"
+database_conn = "postgres://brume:brumepass@postgres:5432"
+database_name = "dbos"
+admin_server = true
+admin_server_port = 8080

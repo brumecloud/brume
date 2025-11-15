@@ -9,7 +9,7 @@ import (
 	project_model "brume.dev/project/model"
 )
 
-var logger = log.GetLogger("account_org")
+var logger = log.GetLogger("account.org")
 
 type OrganizationService struct {
 	db *db.DB

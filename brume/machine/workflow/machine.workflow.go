@@ -11,7 +11,7 @@ import (
 	"go.uber.org/fx"
 )
 
-var logger = log.GetLogger("machine_workflow")
+var logger = log.GetLogger("machine.workflow")
 
 type MachineWorkflow struct {
 	machineService *machine.MachineService

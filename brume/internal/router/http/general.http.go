@@ -54,7 +54,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, authService *common.Au
 	w.Write([]byte(token))
 }
 
-var workosLogger = brume_log.GetLogger("workos")
+var workosLogger = brume_log.GetLogger("router.http.workos")
 
 func GeneralHTTPRouter(authService *common.AuthentificationService, public_gql *handler.Server, workosClient *brume_workos.WorkOSClient, cfg *config.BrumeConfig) *mux.Router {
 	router := mux.NewRouter()

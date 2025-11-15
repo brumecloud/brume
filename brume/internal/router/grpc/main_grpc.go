@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var logger = brume_log.GetLogger("grpc")
+var logger = brume_log.GetLogger("router.grpc")
 
 type GRPCRouter struct{}
 

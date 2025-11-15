@@ -18,7 +18,7 @@ const (
 	StatusCheckInterval    = time.Second * 3
 )
 
-var logger = log.GetLogger("deployment_workflow")
+var logger = log.GetLogger("deployment.workflow")
 
 type DeploymentWorkflow struct {
 	jobService *job_service.JobService

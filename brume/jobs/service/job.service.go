@@ -21,7 +21,7 @@ const (
 	JobStatusKey = "job:status:%s"
 )
 
-var jobLogger = log.GetLogger("job_service")
+var jobLogger = log.GetLogger("job.service")
 
 type JobService struct {
 	redisClient *redis.Client

@@ -16,7 +16,7 @@ import (
 
 var DurableModule = fx.Module("durable", fx.Provide(NewDurable), fx.Invoke(func(d *Durable) {}))
 
-var logger = log.GetLogger("durable")
+var logger = log.GetLogger("internal.durable")
 
 type Durable struct {
 	config *config.BrumeConfig

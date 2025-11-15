@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var bidLogger = brume_log.GetLogger("bid_service")
+var bidLogger = brume_log.GetLogger("bid.service")
 
 type BidService struct {
 	db *db.DB

@@ -9,7 +9,7 @@ import (
 	project "brume.dev/project/model"
 )
 
-var logger = log.GetLogger("account_user")
+var logger = log.GetLogger("account.user")
 
 type UserService struct {
 	db         *db.DB

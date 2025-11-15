@@ -11,7 +11,7 @@ import (
 	"go.uber.org/fx"
 )
 
-var logger = brume_log.GetLogger("clickhouse")
+var logger = brume_log.GetLogger("internal.clickhouse")
 
 type ClickhouseDB struct {
 	Conn driver.Conn

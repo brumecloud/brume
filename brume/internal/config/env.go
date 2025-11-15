@@ -59,9 +59,7 @@ type OrchestratorConfig struct {
 type WorkOSConfig struct {
 	ClientID     string `mapstructure:"client_id" validate:"required,min=1"`
 	ClientSecret string `mapstructure:"client_secret" validate:"required,min=1"`
-	ConnectionID string `mapstructure:"connection_id" validate:"required,min=1"`
 	RedirectURI  string `mapstructure:"redirect_uri" validate:"required,min=1"`
-	CookieSecret string `mapstructure:"cookie_secret" validate:"required,min=1"`
 }
 
 type BrumeGeneralConfig struct {
@@ -81,7 +79,7 @@ type DurableConfig struct {
 }
 
 type BrumeConfig struct {
-	Logs               map[string]string  `mapstructure:"logs" validate:"required"`
+	Logs               map[string]any     `mapstructure:"logs" validate:"required"`
 	ServerConfig       ServerConfig       `mapstructure:"server" validate:"required"`
 	TickerConfig       TickerConfig       `mapstructure:"ticker" validate:"required"`
 	ClickhouseConfig   ClickhouseConfig   `mapstructure:"clickhouse" validate:"required"`

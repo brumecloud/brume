@@ -8,7 +8,7 @@ import (
 	"brume.dev/internal/log"
 )
 
-var logger = log.GetLogger("grpc_server")
+var logger = log.GetLogger("router.grpc.server")
 
 type GRPCAuthentificationServer struct {
 	v1.AuthentificationServer

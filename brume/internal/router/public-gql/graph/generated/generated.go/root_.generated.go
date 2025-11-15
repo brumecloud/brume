@@ -8,6 +8,7 @@ import (
 	"errors"
 	"sync/atomic"
 
+	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -34,6 +35,7 @@ type Config struct {
 type ResolverRoot interface {
 	Builder() BuilderResolver
 	CloudAccount() CloudAccountResolver
+	Mutation() MutationResolver
 	Organization() OrganizationResolver
 	Project() ProjectResolver
 	Query() QueryResolver
@@ -69,6 +71,15 @@ type ComplexityRoot struct {
 		Name          func(childComplexity int) int
 		Stacks        func(childComplexity int) int
 		Status        func(childComplexity int) int
+	}
+
+	CreateCloudAccountResponse struct {
+		Logs   func(childComplexity int) int
+		Status func(childComplexity int) int
+	}
+
+	Mutation struct {
+		CreateCloudAccount func(childComplexity int, input public_graph_model.CreateCloudAccountInput) int
 	}
 
 	Organization struct {
@@ -245,6 +256,32 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.CloudAccount.Status(childComplexity), true
+
+	case "CreateCloudAccountResponse.logs":
+		if e.complexity.CreateCloudAccountResponse.Logs == nil {
+			break
+		}
+
+		return e.complexity.CreateCloudAccountResponse.Logs(childComplexity), true
+
+	case "CreateCloudAccountResponse.status":
+		if e.complexity.CreateCloudAccountResponse.Status == nil {
+			break
+		}
+
+		return e.complexity.CreateCloudAccountResponse.Status(childComplexity), true
+
+	case "Mutation.createCloudAccount":
+		if e.complexity.Mutation.CreateCloudAccount == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createCloudAccount_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateCloudAccount(childComplexity, args["input"].(public_graph_model.CreateCloudAccountInput)), true
 
 	case "Organization.cloudAccounts":
 		if e.complexity.Organization.CloudAccounts == nil {
@@ -489,7 +526,9 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
-	inputUnmarshalMap := graphql.BuildUnmarshalerMap()
+	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputCreateCloudAccountInput,
+	)
 	first := true
 
 	switch opCtx.Operation.Operation {
@@ -522,6 +561,21 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			}
 
 			return &response
+		}
+	case ast.Mutation:
+		return func(ctx context.Context) *graphql.Response {
+			if !first {
+				return nil
+			}
+			first = false
+			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
+			data := ec._Mutation(ctx, opCtx.Operation.SelectionSet)
+			var buf bytes.Buffer
+			data.MarshalGQL(&buf)
+
+			return &graphql.Response{
+				Data: buf.Bytes(),
+			}
 		}
 
 	default:
@@ -672,6 +726,23 @@ type Query {
 
 	getProjectById(id: String!): Project!
 	getAWSCloudFormationURL: String!
+}
+
+input CreateCloudAccountInput {
+	name: String!
+	accountId: String!
+	cloudProvider: CloudProvider!
+}
+
+type CreateCloudAccountResponse {
+	status: CloudStatus!
+	logs: [String!]!
+}
+
+type Mutation {
+	createCloudAccount(
+		input: CreateCloudAccountInput!
+	): CreateCloudAccountResponse!
 }
 `, BuiltIn: false},
 }

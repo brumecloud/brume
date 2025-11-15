@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-var logger = log.GetLogger("grpc_interceptor")
+var logger = log.GetLogger("router.grpc.interceptor")
 
 // authentificationInterceptor is a gRPC interceptor that checks if the user is authenticated
 func AuthentificationInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {

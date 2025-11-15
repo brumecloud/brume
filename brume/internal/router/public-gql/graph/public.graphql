@@ -100,3 +100,20 @@ type Query {
 	getProjectById(id: String!): Project!
 	getAWSCloudFormationURL: String!
 }
+
+input CreateCloudAccountInput {
+	name: String!
+	accountId: String!
+	cloudProvider: CloudProvider!
+}
+
+type CreateCloudAccountResponse {
+	status: CloudStatus!
+	logs: [String!]!
+}
+
+type Mutation {
+	createCloudAccount(
+		input: CreateCloudAccountInput!
+	): CreateCloudAccountResponse!
+}

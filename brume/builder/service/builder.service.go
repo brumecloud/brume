@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var logger = log.GetLogger("builder")
+var logger = log.GetLogger("builder.service")
 
 type BuilderService struct {
 	db *db.DB

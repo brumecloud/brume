@@ -2,6 +2,7 @@ package log
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"brume.dev/internal/config"
@@ -9,8 +10,6 @@ import (
 	zlog "github.com/rs/zerolog/log"
 	"github.com/rs/zerolog/pkgerrors"
 )
-
-var logger = RootLogger().With().Str("module", "log").Logger()
 
 func RootLogger() zerolog.Logger {
 	zerolog.TimeFieldFormat = time.RFC3339Nano
@@ -20,26 +19,73 @@ func RootLogger() zerolog.Logger {
 	return zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.InfoLevel)
 }
 
+// init the logger for the log module
+func LogLogger() zerolog.Logger {
+	cfg := config.GetConfig()
+
+	level := "warn"
+
+	rootLevel, ok := cfg.Logs["root"].(string)
+	if ok {
+		level = rootLevel
+	}
+
+	// internal.log
+	internalLogLevel, ok := cfg.Logs["internal.log"].(string)
+	if ok {
+		level = internalLogLevel
+	}
+
+	parsedLevel, err := zerolog.ParseLevel(level)
+	if err != nil {
+		parsedLevel = zerolog.WarnLevel
+	}
+
+	return RootLogger().Level(parsedLevel).With().Str("module", "internal.log").Logger()
+}
+
+var logger = LogLogger()
+
+func diveIntoLogs(module []string, logs map[string]any, tmpLevel string) string {
+	if len(module) == 0 {
+		return tmpLevel
+	}
+
+	if len(module) == 1 {
+		// we found an exact match, great
+		if level, ok := logs[module[0]].(string); ok {
+			return level
+		}
+		return tmpLevel
+	}
+
+	key := module[0]
+	if subModule, ok := logs[key].(map[string]any); ok {
+		return diveIntoLogs(module[1:], subModule, tmpLevel)
+	}
+
+	return tmpLevel
+}
+
 // GetLogger returns a logger for a given module
 // it will mute certain modules from logging
 func GetLogger(module string) zerolog.Logger {
 	cfg := config.GetConfig()
 
-	// mute certain modules from logging
-	if level, ok := cfg.Logs[module]; ok {
-		logger.Debug().Str("module", module).Str("log_level", level).Msg("Module logger level")
-		if level == "silent" {
-			return zerolog.Nop()
-		}
+	logger.Debug().Str("module", module).Msg("Computing logger level")
 
-		level, err := zerolog.ParseLevel(level)
-		if err != nil {
-			level = zerolog.InfoLevel
-		}
-
-		return RootLogger().Level(level).With().Str("module", module).Logger()
+	rootLevel, ok := cfg.Logs["root"].(string)
+	if !ok {
+		rootLevel = "warn"
 	}
 
-	logger.Error().Str("module", module).Msg("module not in log filters")
-	return zerolog.Nop()
+	splitModule := strings.Split(module, ".")
+	level := diveIntoLogs(splitModule, cfg.Logs, rootLevel)
+
+	parsedLevel, err := zerolog.ParseLevel(level)
+	if err != nil {
+		parsedLevel = zerolog.WarnLevel
+	}
+
+	return RootLogger().Level(parsedLevel).With().Str("module", module).Logger()
 }

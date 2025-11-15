@@ -5,9 +5,12 @@ import (
 
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
+	"brume.dev/internal/log"
 	job_model "brume.dev/jobs/model"
 	"github.com/google/uuid"
 )
+
+var logger = log.GetLogger("deployment.service")
 
 type DeploymentService struct {
 	db *db.DB

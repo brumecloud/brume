@@ -10,7 +10,7 @@ import (
 	"go.uber.org/fx"
 )
 
-var logger = brume_log.GetLogger("redis")
+var logger = brume_log.GetLogger("internal.redis")
 
 func NewRedisClient(cfg *config.BrumeConfig) *redis.Client {
 	client := redis.NewClient(&redis.Options{

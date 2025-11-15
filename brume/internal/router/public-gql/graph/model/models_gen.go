@@ -2,5 +2,23 @@
 
 package public_graph_model
 
+import (
+	cloud_account_model "brume.dev/cloud/account/model"
+)
+
+type CreateCloudAccountInput struct {
+	Name          string                            `json:"name"`
+	AccountID     string                            `json:"accountId"`
+	CloudProvider cloud_account_model.CloudProvider `json:"cloudProvider"`
+}
+
+type CreateCloudAccountResponse struct {
+	Status cloud_account_model.CloudStatus `json:"status"`
+	Logs   []string                        `json:"logs"`
+}
+
+type Mutation struct {
+}
+
 type Query struct {
 }
