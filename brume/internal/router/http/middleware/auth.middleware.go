@@ -48,11 +48,24 @@ func AuthMiddleware(workosClient *brume_workos.WorkOSClient, next http.Handler) 
 
 		subject, ok := validatedToken.Subject()
 		if !ok {
-			logger.Panic().Msg("Failed to get subject from token AFTER verification")
+			logger.Error().Msg("Failed to get subject from token AFTER verification")
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("Unauthorized"))
+			return
+		}
+
+		org_id := ""
+		err = validatedToken.Get("org_id", &org_id)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to get org_id from token")
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("Unauthorized"))
+			return
 		}
 
 		// set the provider id in the context
 		ctx := context.WithValue(r.Context(), "user", subject)
+		ctx = context.WithValue(ctx, "org_id", org_id)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

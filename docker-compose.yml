@@ -1,4 +1,3 @@
-version: "3"
 x-restart-policy: &restart_policy
   restart: unless-stopped
 x-brume-default: &brume-default
@@ -19,6 +18,8 @@ services:
     volumes:
       - .:/brume
     restart: always
+    env_file:
+      - ./brume/.env.assume-role
     ports:
       - 9877:9877
       - 9876:9876
@@ -26,21 +27,21 @@ services:
       - postgres
       - redis
 
-  console:
-    <<: *brume-default
-    image: brume-console
-    container_name: brume-console
-    build:
-      context: ./console
-      dockerfile: Dockerfile.dev
-    ports:
-      - 3000:5173
-    volumes:
-      - ./console/src:/app/src
-      - ./console/codegen.ts:/app/codegen.ts
-      - ./brume/internal/router/public-gql/graph/public.graphql:/app/graph/public.graphql
-    depends_on:
-      - orchestrator
+  # console:
+  #   <<: *brume-default
+  #   image: brume-console
+  #   container_name: brume-console
+  #   build:
+  #     context: ./console
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - 3000:5173
+  #   volumes:
+  #     - ./console/src:/app/src
+  #     - ./console/codegen.ts:/app/codegen.ts
+  #     - ./brume/internal/router/public-gql/graph/public.graphql:/app/graph/public.graphql
+  #   depends_on:
+  #     - orchestrator
 
   # service land
   postgres:
@@ -73,6 +74,40 @@ services:
   #     - brume-net
   #   volumes:
   #     - clickhouse-data:/var/lib/clickhouse
+
+  temporal:
+    container_name: temporal
+    depends_on:
+      - postgres
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=brume
+      - POSTGRES_PWD=brumepass
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    image: temporalio/auto-setup:1.29.1
+    networks:
+      - brume-net
+    ports:
+      - 7233:7233
+    volumes:
+      - ./infra/temporal.yaml:/etc/temporal/config/dynamicconfig/development-sql.yaml
+
+  temporal-ui:
+    container_name: temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    image: temporalio/ui:2.34.0
+    networks:
+      - brume-net
+    ports:
+      - 8080:8080
 
   redis:
     <<: *brume-default

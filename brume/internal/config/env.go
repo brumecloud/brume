@@ -68,14 +68,13 @@ type BrumeGeneralConfig struct {
 	SudoProviderID string `mapstructure:"sudo_provider_id" validate:"required,min=1"`
 	StaffOrgID     string `mapstructure:"staff_org_id" validate:"required,min=1"`
 	PolicyURL      string `mapstructure:"policy_url" validate:"required,min=1"`
+	BrumeTrustArn  string `mapstructure:"brume_trust_arn" validate:"required,min=1"`
 }
 
 type DurableConfig struct {
-	DurableName     string `mapstructure:"durable_name" validate:"required,min=1"`
-	DatabaseConn    string `mapstructure:"database_conn" validate:"required,min=1"`
-	DatabaseName    string `mapstructure:"database_name" validate:"required,min=1"`
-	AdminServer     bool   `mapstructure:"admin_server" validate:"required,boolean"`
-	AdminServerPort int    `mapstructure:"admin_server_port" validate:"required,min=1,max=65535"`
+	TemporalHost      string `mapstructure:"temporal_host" validate:"required,min=1"`
+	TemporalPort      int    `mapstructure:"temporal_port" validate:"required,min=1,max=65535"`
+	TemporalNamespace string `mapstructure:"temporal_namespace" validate:"required,min=1"`
 }
 
 type BrumeConfig struct {

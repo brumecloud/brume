@@ -108,8 +108,7 @@ input CreateCloudAccountInput {
 }
 
 type CreateCloudAccountResponse {
-	status: CloudStatus!
-	logs: [String!]!
+	id: String!
 }
 
 type Mutation {

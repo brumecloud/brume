@@ -3,6 +3,7 @@ import { useState } from "react";
 import { FaArrowRightLong } from "react-icons/fa6";
 import { MdChecklist, MdOutlineLocalPolice, MdPreview } from "react-icons/md";
 import { TfiPackage } from "react-icons/tfi";
+import { useNavigate } from "react-router-dom";
 import { CloudProvider } from "@/_apollo/graphql";
 import { Page } from "@/components/page-comp/header";
 import { Stepper } from "@/components/stepper";
@@ -16,14 +17,34 @@ import {
 } from "@/gql/cloud.graphql";
 
 export const AwsPage = () => {
+  const navigate = useNavigate();
   const [awsAccount, setAwsAccount] = useState<string>("913355241065");
   const [awsName, setAwsName] = useState<string>("TestCloud - AWS");
   const [agreement, setAgreement] = useState<boolean>(false);
+
   const [getUrl] = useLazyQuery(GET_AWS_CLOUD_FORMATION_URL);
-  const [
-    startEndToEndTestMutation,
-    { data: accountCreationData, error: accountCreationError },
-  ] = useMutation(CREATE_CLOUD_ACCOUNT);
+  const [startEndToEndTestMutation, { loading: accountCreationLoading }] =
+    useMutation(CREATE_CLOUD_ACCOUNT);
+
+  const beginEnrollingAccount = async () => {
+    const { data, errors } = await startEndToEndTestMutation({
+      variables: {
+        name: awsName,
+        cloudAccountId: awsAccount,
+        cloudProvider: CloudProvider.Aws,
+      },
+    });
+
+    if (errors || !data) {
+      console.error(error);
+      return;
+    }
+
+    const id = data.createCloudAccount.id;
+
+    navigate(`/settings/cloud/aws/${id}`);
+  };
+
   const redirectToAWS = async () => {
     const { data, error } = await getUrl({
       fetchPolicy: "network-only",
@@ -196,21 +217,20 @@ export const AwsPage = () => {
                     </p>
                   </div>
                   <div className="pt-4">
-                    {!accountCreationData && (
-                      <Button
-                        onClick={() =>
-                          startEndToEndTestMutation({
-                            variables: {
-                              name: awsName,
-                              cloudAccountId: awsAccount,
-                              cloudProvider: CloudProvider.Aws,
-                            },
-                          })
-                        }
-                      >
-                        Start the end to end test
-                      </Button>
-                    )}
+                    <Button
+                      disabled={accountCreationLoading}
+                      onClick={() =>
+                        startEndToEndTestMutation({
+                          variables: {
+                            name: awsName,
+                            cloudAccountId: awsAccount,
+                            cloudProvider: CloudProvider.Aws,
+                          },
+                        })
+                      }
+                    >
+                      Begin enrolling the account
+                    </Button>
                   </div>
                 </>
               )}

@@ -1,8 +1,9 @@
 package main
 
 import (
-	cmd "brume.dev/internal/cmd"
 	"os"
+
+	cmd "brume.dev/internal/cmd"
 )
 
 func main() {
@@ -11,11 +12,7 @@ func main() {
 	// running style
 	master := cmd.NewMasterCommand()
 
-	// cli
-	project := cmd.NewProjectCmd()
-	login := cmd.NewLoginCommand()
-
-	root.AddCommand(project, login, master)
+	root.AddCommand(master)
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)

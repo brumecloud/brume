@@ -1,51 +1,52 @@
 package cloud_account_service
 
 import (
+	"context"
 	"errors"
 
 	cloud_account_model "brume.dev/cloud/account/model"
+	cloud_account_repository "brume.dev/cloud/account/repository"
+	aws_cloud_workflow "brume.dev/cloud/aws/workflow"
 	"brume.dev/internal/db"
+	"brume.dev/internal/durable"
 	"brume.dev/internal/log"
-	"github.com/google/uuid"
-	"go.uber.org/fx"
+	"go.temporal.io/sdk/client"
 )
 
 var logger = log.GetLogger("cloud.account")
 
-var CloudAccountServiceModule = fx.Module("cloud_account_service",
-	fx.Provide(NewCloudAccountService),
-)
-
 type CloudAccountService struct {
-	db *db.DB
+	cloudAccountRepository *cloud_account_repository.CloudAccountRepository
+	durable                *durable.Durable
 }
 
-func NewCloudAccountService(db *db.DB) *CloudAccountService {
+func NewCloudAccountService(db *db.DB, durable *durable.Durable, cloudAccountRepository *cloud_account_repository.CloudAccountRepository) *CloudAccountService {
 	return &CloudAccountService{
-		db: db,
+		cloudAccountRepository: cloudAccountRepository,
+		durable:                durable,
 	}
 }
 
-func (s *CloudAccountService) WithStacks(cloudAccount *cloud_account_model.CloudAccount) (*cloud_account_model.CloudAccount, error) {
-	err := s.db.Gorm.Preload("Stacks").Find(&cloudAccount).Error
-	logger.Info().Str("cloud_account_id", cloudAccount.ID.String()).Msg("Getting stacks for cloud account")
-	if err != nil {
-		logger.Error().Str("cloud_account_id", cloudAccount.ID.String()).Err(err).Msg("Error getting stacks for cloud account")
-		return nil, err
-	}
-	return cloudAccount, nil
+// this will preload the stacks for the cloud account
+func (s *CloudAccountService) WithStacks(ctx context.Context, cloudAccount *cloud_account_model.CloudAccount) (*cloud_account_model.CloudAccount, error) {
+	return s.cloudAccountRepository.PreloadStacks(ctx, cloudAccount)
 }
 
 type CreateCloudAccountInput struct {
-	Name           string
-	AccountID      string
-	CloudProvider  cloud_account_model.CloudProvider
-	OrganizationID uuid.UUID
+	Name          string
+	AccountID     string
+	CloudProvider cloud_account_model.CloudProvider
 }
 
-func (s *CloudAccountService) CreateCloudAccount(input CreateCloudAccountInput) (*cloud_account_model.CloudAccount, error) {
+// this will begin the creation of a new cloud account
+// this launchs the workflow to create the cloud account
+func (s *CloudAccountService) BeginCreateCloudAccount(ctx context.Context, input CreateCloudAccountInput) (*cloud_account_model.CloudAccount, error) {
+	organizationID := ctx.Value("org_id").(string)
+
+	ctx = logger.With().Str("account_id", input.AccountID).Str("cloud_provider", string(input.CloudProvider)).Logger().WithContext(ctx)
+
 	if input.CloudProvider != cloud_account_model.CloudProviderAWS {
-		logger.Warn().Str("cloud_provider", string(input.CloudProvider)).Msg("Trying to create cloud account with unsupported cloud provider")
+		logger.Error().Ctx(ctx).Msg("Cloud provider not supported")
 		return nil, errors.New("cloud provider not supported")
 	}
 
@@ -53,16 +54,30 @@ func (s *CloudAccountService) CreateCloudAccount(input CreateCloudAccountInput) 
 		AccountID: input.AccountID,
 	}
 
-	cloudAccount := &cloud_account_model.CloudAccount{
+	cloudAccountInput := &cloud_account_model.CloudAccount{
 		Name:           input.Name,
 		CloudProvider:  input.CloudProvider,
 		AWS:            awsCloudAccount,
 		Status:         cloud_account_model.CloudStatusPending,
-		OrganizationID: input.OrganizationID,
+		OrganizationID: organizationID,
 	}
 
-	logger.Debug().Interface("cloud_account", cloudAccount).Msg("Creating cloud account")
+	cloudAccount, err := s.cloudAccountRepository.CreateCloudAccount(ctx, cloudAccountInput)
+	if err != nil {
+		logger.Error().Ctx(ctx).Err(err).Msg("Failed to create cloud account")
+		return nil, err
+	}
 
-	err := s.db.Gorm.Create(cloudAccount).Error
+	// start the enrollment workflow
+	opts := client.StartWorkflowOptions{
+		ID:        "create-cloud-account-workflow-" + cloudAccount.ID.String(),
+		TaskQueue: durable.TemporalTaskQueue,
+	}
+
+	_, err = s.durable.TemporalClient.ExecuteWorkflow(context.Background(), opts, aws_cloud_workflow.CreateCloudAccountWorkflow, aws_cloud_workflow.CreateCloudAccountWorkflowInput{
+		CloudAccount: cloudAccount,
+	})
+
+	// but return the id instantly
 	return cloudAccount, err
 }

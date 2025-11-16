@@ -39,7 +39,7 @@ type MutationResolver interface {
 	CreateCloudAccount(ctx context.Context, input public_graph_model.CreateCloudAccountInput) (*public_graph_model.CreateCloudAccountResponse, error)
 }
 type OrganizationResolver interface {
-	ID(ctx context.Context, obj *org_model.Organization) (string, error)
+	ProviderID(ctx context.Context, obj *org_model.Organization) (string, error)
 
 	CloudAccounts(ctx context.Context, obj *org_model.Organization) ([]*cloud_account_model.CloudAccount, error)
 }
@@ -843,8 +843,8 @@ func (ec *executionContext) fieldContext_CloudAccount_stacks(_ context.Context, 
 	return fc, nil
 }
 
-func (ec *executionContext) _CreateCloudAccountResponse_status(ctx context.Context, field graphql.CollectedField, obj *public_graph_model.CreateCloudAccountResponse) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_CreateCloudAccountResponse_status(ctx, field)
+func (ec *executionContext) _CreateCloudAccountResponse_id(ctx context.Context, field graphql.CollectedField, obj *public_graph_model.CreateCloudAccountResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CreateCloudAccountResponse_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -857,7 +857,7 @@ func (ec *executionContext) _CreateCloudAccountResponse_status(ctx context.Conte
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Status, nil
+		return obj.ID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -869,56 +869,12 @@ func (ec *executionContext) _CreateCloudAccountResponse_status(ctx context.Conte
 		}
 		return graphql.Null
 	}
-	res := resTmp.(cloud_account_model.CloudStatus)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNCloudStatus2brumeᚗdevᚋcloudᚋaccountᚋmodelᚐCloudStatus(ctx, field.Selections, res)
+	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_CreateCloudAccountResponse_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "CreateCloudAccountResponse",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type CloudStatus does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _CreateCloudAccountResponse_logs(ctx context.Context, field graphql.CollectedField, obj *public_graph_model.CreateCloudAccountResponse) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_CreateCloudAccountResponse_logs(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Logs, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]string)
-	fc.Result = res
-	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_CreateCloudAccountResponse_logs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_CreateCloudAccountResponse_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "CreateCloudAccountResponse",
 		Field:      field,
@@ -970,10 +926,8 @@ func (ec *executionContext) fieldContext_Mutation_createCloudAccount(ctx context
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "status":
-				return ec.fieldContext_CreateCloudAccountResponse_status(ctx, field)
-			case "logs":
-				return ec.fieldContext_CreateCloudAccountResponse_logs(ctx, field)
+			case "id":
+				return ec.fieldContext_CreateCloudAccountResponse_id(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type CreateCloudAccountResponse", field.Name)
 		},
@@ -1006,7 +960,7 @@ func (ec *executionContext) _Organization_id(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Organization().ID(rctx, obj)
+		return obj.ID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1027,8 +981,8 @@ func (ec *executionContext) fieldContext_Organization_id(_ context.Context, fiel
 	fc = &graphql.FieldContext{
 		Object:     "Organization",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -1050,7 +1004,7 @@ func (ec *executionContext) _Organization_providerId(ctx context.Context, field 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.ProviderID, nil
+		return ec.resolvers.Organization().ProviderID(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1071,8 +1025,8 @@ func (ec *executionContext) fieldContext_Organization_providerId(_ context.Conte
 	fc = &graphql.FieldContext{
 		Object:     "Organization",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -2994,13 +2948,8 @@ func (ec *executionContext) _CreateCloudAccountResponse(ctx context.Context, sel
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("CreateCloudAccountResponse")
-		case "status":
-			out.Values[i] = ec._CreateCloudAccountResponse_status(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "logs":
-			out.Values[i] = ec._CreateCloudAccountResponse_logs(ctx, field, obj)
+		case "id":
+			out.Values[i] = ec._CreateCloudAccountResponse_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -3088,6 +3037,11 @@ func (ec *executionContext) _Organization(ctx context.Context, sel ast.Selection
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Organization")
 		case "id":
+			out.Values[i] = ec._Organization_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "providerId":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -3096,7 +3050,7 @@ func (ec *executionContext) _Organization(ctx context.Context, sel ast.Selection
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Organization_id(ctx, field, obj)
+				res = ec._Organization_providerId(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -3123,11 +3077,6 @@ func (ec *executionContext) _Organization(ctx context.Context, sel ast.Selection
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "providerId":
-			out.Values[i] = ec._Organization_providerId(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "name":
 			out.Values[i] = ec._Organization_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -4015,12 +3964,12 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 
 // region    ***************************** type.gotpl *****************************
 
-func (ec *executionContext) unmarshalNAny2interface(ctx context.Context, v interface{}) (any, error) {
+func (ec *executionContext) unmarshalNAny2interface(ctx context.Context, v interface{}) (interface{}, error) {
 	res, err := graphql.UnmarshalAny(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNAny2interface(ctx context.Context, sel ast.SelectionSet, v any) graphql.Marshaler {
+func (ec *executionContext) marshalNAny2interface(ctx context.Context, sel ast.SelectionSet, v interface{}) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")

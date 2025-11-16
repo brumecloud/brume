@@ -13,8 +13,7 @@ type CreateCloudAccountInput struct {
 }
 
 type CreateCloudAccountResponse struct {
-	Status cloud_account_model.CloudStatus `json:"status"`
-	Logs   []string                        `json:"logs"`
+	ID string `json:"id"`
 }
 
 type Mutation struct {

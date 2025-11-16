@@ -51,7 +51,8 @@ frontend = "http://localhost:3000"
 is_dev = true
 sudo_provider_id = ""
 staff_org_id = ""
-policy_url = "https://brume-dev-cloudformation-role-20251111.s3.eu-west-3.amazonaws.com/cloudformation-access-policy.json"
+policy_url = "https://brumecloud-cf-access-policy.s3.eu-north-1.amazonaws.com/cloudformation-access-policy.json"
+brume_trust_arn = "arn:aws:iam::396677989814:role/BrumeAssume"
 
 [durable]
 durable_name = "durable"

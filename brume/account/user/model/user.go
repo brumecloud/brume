@@ -15,7 +15,7 @@ type User struct {
 	Avatar     string
 
 	// user only have one organization
-	OrganizationID uuid.UUID
+	OrganizationID string
 }
 
 func (u *User) HashPassword() error {

@@ -39,8 +39,7 @@ export const CREATE_CLOUD_ACCOUNT = gql(`
       accountId: $cloudAccountId
       cloudProvider: $cloudProvider
     }) {
-      status
-      logs
+      id
     }
   }
 `);

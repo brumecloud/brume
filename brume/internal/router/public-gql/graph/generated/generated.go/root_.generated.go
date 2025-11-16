@@ -74,8 +74,7 @@ type ComplexityRoot struct {
 	}
 
 	CreateCloudAccountResponse struct {
-		Logs   func(childComplexity int) int
-		Status func(childComplexity int) int
+		ID func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -257,19 +256,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.CloudAccount.Status(childComplexity), true
 
-	case "CreateCloudAccountResponse.logs":
-		if e.complexity.CreateCloudAccountResponse.Logs == nil {
+	case "CreateCloudAccountResponse.id":
+		if e.complexity.CreateCloudAccountResponse.ID == nil {
 			break
 		}
 
-		return e.complexity.CreateCloudAccountResponse.Logs(childComplexity), true
-
-	case "CreateCloudAccountResponse.status":
-		if e.complexity.CreateCloudAccountResponse.Status == nil {
-			break
-		}
-
-		return e.complexity.CreateCloudAccountResponse.Status(childComplexity), true
+		return e.complexity.CreateCloudAccountResponse.ID(childComplexity), true
 
 	case "Mutation.createCloudAccount":
 		if e.complexity.Mutation.CreateCloudAccount == nil {
@@ -735,8 +727,7 @@ input CreateCloudAccountInput {
 }
 
 type CreateCloudAccountResponse {
-	status: CloudStatus!
-	logs: [String!]!
+	id: String!
 }
 
 type Mutation {

@@ -8,7 +8,7 @@ import (
 type AgentType string
 
 const (
-	AgentTypeRunner AgentType = "runner"
+	AgentTypeRunner  AgentType = "runner"
 	AgentTypeBuilder AgentType = "builder"
 )
 
@@ -23,5 +23,5 @@ type Agent struct {
 	AgentType AgentType `gorm:"type:varchar(255);not null"`
 
 	// the organization the agent belongs to
-	OrganizationID uuid.UUID `gorm:"type:uuid;not null"`
+	OrganizationID string `gorm:"type:varchar(255);not null"`
 }

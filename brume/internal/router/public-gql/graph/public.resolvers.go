@@ -12,6 +12,7 @@ import (
 	org_model "brume.dev/account/org/model"
 	user_model "brume.dev/account/user/model"
 	builder_model "brume.dev/builder/model"
+	cloud_account_service "brume.dev/cloud/account"
 	cloud_account_model "brume.dev/cloud/account/model"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
@@ -35,7 +36,7 @@ func (r *cloudAccountResolver) ID(ctx context.Context, obj *cloud_account_model.
 
 // Stacks is the resolver for the stacks field.
 func (r *cloudAccountResolver) Stacks(ctx context.Context, obj *cloud_account_model.CloudAccount) ([]*stack_model.Stack, error) {
-	cloudAccount, err := r.CloudAccountService.WithStacks(obj)
+	cloudAccount, err := r.CloudAccountService.WithStacks(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -44,12 +45,24 @@ func (r *cloudAccountResolver) Stacks(ctx context.Context, obj *cloud_account_mo
 
 // CreateCloudAccount is the resolver for the createCloudAccount field.
 func (r *mutationResolver) CreateCloudAccount(ctx context.Context, input public_graph_model.CreateCloudAccountInput) (*public_graph_model.CreateCloudAccountResponse, error) {
-	panic(fmt.Errorf("not implemented: CreateCloudAccount - createCloudAccount"))
+	data, err := r.CloudAccountService.BeginCreateCloudAccount(ctx, cloud_account_service.CreateCloudAccountInput{
+		Name:          input.Name,
+		AccountID:     input.AccountID,
+		CloudProvider: input.CloudProvider,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &public_graph_model.CreateCloudAccountResponse{
+		ID: data.ID.String(),
+	}, nil
 }
 
-// ID is the resolver for the id field.
-func (r *organizationResolver) ID(ctx context.Context, obj *org_model.Organization) (string, error) {
-	return obj.ID.String(), nil
+// ProviderID is the resolver for the providerId field.
+func (r *organizationResolver) ProviderID(ctx context.Context, obj *org_model.Organization) (string, error) {
+	panic(fmt.Errorf("not implemented: ProviderID - providerId"))
 }
 
 // CloudAccounts is the resolver for the cloudAccounts field.
@@ -106,7 +119,9 @@ func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project
 // GetAWSCloudFormationURL is the resolver for the getAWSCloudFormationURL field.
 func (r *queryResolver) GetAWSCloudFormationURL(ctx context.Context) (string, error) {
 	policyURL := r.ConfigService.BrumeGeneralConfig.PolicyURL
-	baseUrl := "https://eu-west-3.console.aws.amazon.com/cloudformation/home?region=eu-west-3#/stacks/quickcreate?templateURL=" + policyURL + "&stackName=BrumeInitStack&param_TrustArnParameter=arn:aws:iam::401399516766:role/BrumeUserAssume"
+	trustArn := r.ConfigService.BrumeGeneralConfig.BrumeTrustArn
+
+	baseUrl := "https://eu-west-3.console.aws.amazon.com/cloudformation/home?region=eu-west-3#/stacks/quickcreate?templateURL=" + policyURL + "&stackName=BrumeInitStack&param_TrustArnParameter=" + trustArn
 	return baseUrl, nil
 }
 
@@ -164,9 +179,8 @@ func (r *userResolver) Organization(ctx context.Context, obj *user_model.User) (
 	}
 
 	return &org_model.Organization{
-		ID:         org.ID,
-		ProviderID: org.ProviderID,
-		Name:       org.Name,
+		ID:   org.ID,
+		Name: org.Name,
 	}, nil
 }
 
@@ -214,3 +228,15 @@ type serviceResolver struct{ *Resolver }
 type sourceResolver struct{ *Resolver }
 type stackResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *organizationResolver) ID(ctx context.Context, obj *org_model.Organization) (string, error) {
+	return obj.ID, nil
+}
+*/
