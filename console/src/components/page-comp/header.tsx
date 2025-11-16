@@ -12,7 +12,7 @@ const PageHeader = ({
     )}
     {...props}
   >
-    <div className="flex flex-col pb-8">{children}</div>
+    <div className="flex w-full flex-col pb-8">{children}</div>
   </div>
 );
 
@@ -41,8 +41,8 @@ const PageContainer = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex h-full flex-col", className)} {...props}>
-    <div className="h-full px-32 pt-8">{children}</div>
+  <div className={cn("flex h-full w-full flex-col", className)} {...props}>
+    <div className="h-full w-full px-32 pt-8">{children}</div>
   </div>
 );
 

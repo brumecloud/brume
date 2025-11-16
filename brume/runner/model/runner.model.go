@@ -5,15 +5,14 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type Runner struct {
-	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ID string `gorm:"type:varchar(255);primaryKey"`
 
 	// reference to the service
-	ServiceId uuid.UUID `gorm:"type:uuid"`
+	ServiceId string `gorm:"type:varchar(255)"`
 
 	// reference to the builder repository
 	// this link must follow the builder convention

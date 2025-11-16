@@ -23,7 +23,7 @@ type Log struct {
 
 // this is the format of the logs that the agent sends to the orchestrator
 type AgentLogs struct {
-	JobID     string `json:"job_id" validate:"required,uuid"`
+	JobID     string `json:"job_id" validate:"required"`
 	Message   string `json:"message" validate:"required"`
 	Level     string `json:"level" validate:"required"`
 	Timestamp string `json:"timestamp" validate:"required"`

@@ -64,13 +64,13 @@ func (s *OrganizationService) GetOrganizationCloudAccounts(org *org.Organization
 }
 
 func (s *OrganizationService) AddProjectToOrganization(org *org.Organization, project *project_model.Project) error {
-	logger.Trace().Str("org_id", org.ID).Str("project_id", project.ID.String()).Msg("Adding project to organization")
+	logger.Trace().Str("org_id", org.ID).Str("project_id", project.ID).Msg("Adding project to organization")
 
 	org.Projects = append(org.Projects, project)
 
 	err := s.db.Gorm.Save(org).Error
 	if err != nil {
-		logger.Error().Err(err).Str("org_id", org.ID).Str("project_id", project.ID.String()).Msg("Error adding project to organization")
+		logger.Error().Err(err).Str("org_id", org.ID).Str("project_id", project.ID).Msg("Error adding project to organization")
 		return err
 	}
 

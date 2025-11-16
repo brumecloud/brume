@@ -10,8 +10,8 @@ import (
 	"brume.dev/internal/db"
 	"brume.dev/internal/log"
 	ticker "brume.dev/internal/ticker"
+	brume_utils "brume.dev/internal/utils"
 	job_model "brume.dev/jobs/model"
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 )
@@ -49,13 +49,13 @@ func NewJobService(lc fx.Lifecycle, redisClient *redis.Client, ticker *ticker.Ti
 
 func (s *JobService) CreateDeploymentJob(deployment *deployment_model.Deployment) (*job_model.Job, error) {
 	job := &job_model.Job{
-		ID:      uuid.New(),
+		ID:      brume_utils.JobID(),
 		JobType: job_model.JobTypeRunner,
 		Status:  job_model.JobStatusEnumCreating,
 	}
 
 	// set the job status to creating
-	s.redisClient.Set(context.Background(), fmt.Sprintf(JobStatusKey, job.ID.String()), string(job_model.JobStatusEnumCreating), 0).Err()
+	s.redisClient.Set(context.Background(), fmt.Sprintf(JobStatusKey, job.ID), string(job_model.JobStatusEnumCreating), 0).Err()
 
 	return job, s.db.Gorm.Create(job).Error
 }
@@ -78,16 +78,16 @@ func (s *JobService) GetJobHealth(jobID string) (job_model.JobStatusEnum, error)
 }
 
 // set the job status in the database
-func (s *JobService) SetJobStatus(jobID uuid.UUID, status job_model.JobStatusEnum) error {
+func (s *JobService) SetJobStatus(jobID string, status job_model.JobStatusEnum) error {
 	err := s.db.Gorm.Model(&job_model.Job{
 		ID: jobID,
 	}).Update("status", status).Error
-	jobLogger.Trace().Str("job_id", jobID.String()).Str("status", string(status)).Msg("Setting job status")
+	jobLogger.Trace().Str("job_id", jobID).Str("status", string(status)).Msg("Setting job status")
 	return err
 }
 
 // get the status of the job from the database
-func (s *JobService) GetJobStatus(jobID uuid.UUID) (job_model.JobStatusEnum, error) {
+func (s *JobService) GetJobStatus(jobID string) (job_model.JobStatusEnum, error) {
 	var job job_model.Job
 	err := s.db.Gorm.Where("id = ?", jobID).First(&job).Error
 	return job.Status, err
@@ -95,9 +95,9 @@ func (s *JobService) GetJobStatus(jobID uuid.UUID) (job_model.JobStatusEnum, err
 
 // do the actual job health check
 func (s *JobService) WatchJob(job job_model.Job) bool {
-	lastStatus, err := s.GetJobHealth(job.ID.String())
+	lastStatus, err := s.GetJobHealth(job.ID)
 	if err != nil {
-		jobLogger.Error().Err(err).Str("job_id", job.ID.String()).Msg("Failed to get the job health")
+		jobLogger.Error().Err(err).Str("job_id", job.ID).Msg("Failed to get the job health")
 		return false
 	}
 
@@ -108,7 +108,7 @@ func (s *JobService) WatchJob(job job_model.Job) bool {
 	}
 
 	// problems
-	jobLogger.Error().Str("job_id", job.ID.String()).Msg("Job is not healthy")
+	jobLogger.Error().Str("job_id", job.ID).Msg("Job is not healthy")
 
 	// TODO: do something about it
 	// - delete this job
@@ -128,13 +128,13 @@ func (s *JobService) GetJobs() ([]job_model.Job, error) {
 	return jobs, err
 }
 
-func (s *JobService) GetJob(jobID uuid.UUID) (job_model.Job, error) {
+func (s *JobService) GetJob(jobID string) (job_model.Job, error) {
 	var job job_model.Job
 	err := s.db.Gorm.First(&job, jobID).Error
 	return job, err
 }
 
-func (s *JobService) GetJobsByServiceID(serviceID uuid.UUID) ([]job_model.Job, error) {
+func (s *JobService) GetJobsByServiceID(serviceID string) ([]job_model.Job, error) {
 	var jobs []job_model.Job
 	err := s.db.Gorm.Where("service_id = ?", serviceID).Find(&jobs).Error
 	return jobs, err
@@ -181,6 +181,6 @@ func (s *JobService) RunHealthLoop() {
 func (s *JobService) unhandleUnhealthyJobs(jobs []job_model.Job) {
 	for _, job := range jobs {
 		// TODO: send a message to the deployment workflow
-		jobLogger.Error().Str("job_id", job.ID.String()).Msg("Job is unhealthy")
+		jobLogger.Error().Str("job_id", job.ID).Msg("Job is unhealthy")
 	}
 }

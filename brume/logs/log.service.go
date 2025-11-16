@@ -9,7 +9,6 @@ import (
 	job_service "brume.dev/jobs/service"
 	log_model "brume.dev/logs/model"
 	project_service "brume.dev/project"
-	"github.com/google/uuid"
 	redis "github.com/redis/go-redis/v9"
 )
 
@@ -28,12 +27,12 @@ func NewLogService(chdb *clickhouse.ClickhouseDB, redis *redis.Client, jobServic
 // Get the logs for all the services in the project, across all the machines and the differents containers
 // we need to cache the project -> container id mapping
 // this is easy to burst, as we know when we deploy a new version of a service
-func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID, timestamp time.Time, limit int) ([]*log_model.Log, error) {
-	logger.Trace().Str("projectId", projectID.String()).Msg("Getting logs")
+func (l *LogService) GetLogs(ctx context.Context, projectID string, timestamp time.Time, limit int) ([]*log_model.Log, error) {
+	logger.Trace().Str("projectId", projectID).Msg("Getting logs")
 
 	project, err := l.ProjectService.GetProjectByID(projectID)
 	if err != nil {
-		logger.Error().Err(err).Str("projectId", projectID.String()).Msg("Failed to get project")
+		logger.Error().Err(err).Str("projectId", projectID).Msg("Failed to get project")
 		return nil, err
 	}
 
@@ -42,7 +41,7 @@ func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID, timestamp
 	for _, service := range project.Services {
 		localLogs, err := l.GetLogsByServiceID(ctx, service.ID, timestamp, limit)
 		if err != nil {
-			logger.Error().Err(err).Str("serviceId", service.ID.String()).Msg("Failed to get logs")
+			logger.Error().Err(err).Str("serviceId", service.ID).Msg("Failed to get logs")
 			return nil, err
 		}
 
@@ -52,6 +51,6 @@ func (l *LogService) GetLogs(ctx context.Context, projectID uuid.UUID, timestamp
 	return logs, nil
 }
 
-func (l *LogService) GetLogsByServiceID(ctx context.Context, serviceID uuid.UUID, timestamp time.Time, limit int) ([]*log_model.Log, error) {
+func (l *LogService) GetLogsByServiceID(ctx context.Context, serviceID string, timestamp time.Time, limit int) ([]*log_model.Log, error) {
 	return nil, nil
 }

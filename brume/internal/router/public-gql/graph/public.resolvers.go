@@ -7,32 +7,18 @@ package public_graph
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	org_model "brume.dev/account/org/model"
 	user_model "brume.dev/account/user/model"
-	builder_model "brume.dev/builder/model"
 	cloud_account_service "brume.dev/cloud/account"
 	cloud_account_model "brume.dev/cloud/account/model"
 	generated "brume.dev/internal/router/public-gql/graph/generated/generated.go"
 	public_graph_model "brume.dev/internal/router/public-gql/graph/model"
 	project_model "brume.dev/project/model"
-	runner_model "brume.dev/runner/model"
 	service_model "brume.dev/service/model"
 	source_model "brume.dev/source/model"
 	stack_model "brume.dev/stack/model"
-	"github.com/google/uuid"
 )
-
-// ID is the resolver for the id field.
-func (r *builderResolver) ID(ctx context.Context, obj *builder_model.Builder) (string, error) {
-	return obj.ID.String(), nil
-}
-
-// ID is the resolver for the id field.
-func (r *cloudAccountResolver) ID(ctx context.Context, obj *cloud_account_model.CloudAccount) (string, error) {
-	return obj.ID.String(), nil
-}
 
 // Stacks is the resolver for the stacks field.
 func (r *cloudAccountResolver) Stacks(ctx context.Context, obj *cloud_account_model.CloudAccount) ([]*stack_model.Stack, error) {
@@ -56,13 +42,8 @@ func (r *mutationResolver) CreateCloudAccount(ctx context.Context, input public_
 	}
 
 	return &public_graph_model.CreateCloudAccountResponse{
-		ID: data.ID.String(),
+		ID: data.ID,
 	}, nil
-}
-
-// ProviderID is the resolver for the providerId field.
-func (r *organizationResolver) ProviderID(ctx context.Context, obj *org_model.Organization) (string, error) {
-	panic(fmt.Errorf("not implemented: ProviderID - providerId"))
 }
 
 // CloudAccounts is the resolver for the cloudAccounts field.
@@ -77,11 +58,6 @@ func (r *organizationResolver) CloudAccounts(ctx context.Context, obj *org_model
 		accountsList[i] = &account
 	}
 	return accountsList, nil
-}
-
-// ID is the resolver for the id field.
-func (r *projectResolver) ID(ctx context.Context, obj *project_model.Project) (string, error) {
-	return obj.ID.String(), nil
 }
 
 // IsDirty is the resolver for the isDirty field.
@@ -108,12 +84,7 @@ func (r *queryResolver) Me(ctx context.Context) (*user_model.User, error) {
 
 // GetProjectByID is the resolver for the getProjectById field.
 func (r *queryResolver) GetProjectByID(ctx context.Context, id string) (*project_model.Project, error) {
-	project_uuid, err := uuid.Parse(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.ProjectService.GetProjectByID(project_uuid)
+	return r.ProjectService.GetProjectByID(id)
 }
 
 // GetAWSCloudFormationURL is the resolver for the getAWSCloudFormationURL field.
@@ -125,19 +96,9 @@ func (r *queryResolver) GetAWSCloudFormationURL(ctx context.Context) (string, er
 	return baseUrl, nil
 }
 
-// ID is the resolver for the id field.
-func (r *runnerResolver) ID(ctx context.Context, obj *runner_model.Runner) (string, error) {
-	return obj.ID.String(), nil
-}
-
-// ID is the resolver for the id field.
-func (r *serviceResolver) ID(ctx context.Context, obj *service_model.Service) (string, error) {
-	return obj.ID.String(), nil
-}
-
-// ID is the resolver for the id field.
-func (r *sourceResolver) ID(ctx context.Context, obj *source_model.Source) (string, error) {
-	return obj.ID.String(), nil
+// GetCloudAccountByID is the resolver for the getCloudAccountById field.
+func (r *queryResolver) GetCloudAccountByID(ctx context.Context, id string) (*cloud_account_model.CloudAccount, error) {
+	return r.CloudAccountService.GetCloudAccountByID(ctx, id)
 }
 
 // Type is the resolver for the type field.
@@ -152,16 +113,6 @@ func (r *sourceResolver) Data(ctx context.Context, obj *source_model.Source) (an
 	}
 
 	return nil, errors.New("source type not supported")
-}
-
-// ID is the resolver for the id field.
-func (r *stackResolver) ID(ctx context.Context, obj *stack_model.Stack) (string, error) {
-	return obj.ID.String(), nil
-}
-
-// ID is the resolver for the id field.
-func (r *userResolver) ID(ctx context.Context, obj *user_model.User) (string, error) {
-	return obj.ID.String(), nil
 }
 
 // Projects is the resolver for the projects field.
@@ -184,9 +135,6 @@ func (r *userResolver) Organization(ctx context.Context, obj *user_model.User) (
 	}, nil
 }
 
-// Builder returns generated.BuilderResolver implementation.
-func (r *Resolver) Builder() generated.BuilderResolver { return &builderResolver{r} }
-
 // CloudAccount returns generated.CloudAccountResolver implementation.
 func (r *Resolver) CloudAccount() generated.CloudAccountResolver { return &cloudAccountResolver{r} }
 
@@ -202,41 +150,16 @@ func (r *Resolver) Project() generated.ProjectResolver { return &projectResolver
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
-// Runner returns generated.RunnerResolver implementation.
-func (r *Resolver) Runner() generated.RunnerResolver { return &runnerResolver{r} }
-
-// Service returns generated.ServiceResolver implementation.
-func (r *Resolver) Service() generated.ServiceResolver { return &serviceResolver{r} }
-
 // Source returns generated.SourceResolver implementation.
 func (r *Resolver) Source() generated.SourceResolver { return &sourceResolver{r} }
-
-// Stack returns generated.StackResolver implementation.
-func (r *Resolver) Stack() generated.StackResolver { return &stackResolver{r} }
 
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
-type builderResolver struct{ *Resolver }
 type cloudAccountResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type organizationResolver struct{ *Resolver }
 type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-type runnerResolver struct{ *Resolver }
-type serviceResolver struct{ *Resolver }
 type sourceResolver struct{ *Resolver }
-type stackResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *organizationResolver) ID(ctx context.Context, obj *org_model.Organization) (string, error) {
-	return obj.ID, nil
-}
-*/

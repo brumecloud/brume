@@ -56,9 +56,9 @@ func (m *MachineWorkflow) HealthCheck(ctx context.Context) error {
 	// if the machine is healthy, the redis key will be set
 	// if the machine is unhealthy, the redis key will not be set (TTL will have expired)
 	for _, machine := range allMachines {
-		_, err := m.redis.Get(context.Background(), fmt.Sprintf("machine:last_alive:%s", machine.ID.String())).Result()
+		_, err := m.redis.Get(context.Background(), fmt.Sprintf("machine:last_alive:%s", machine.ID)).Result()
 		if err != nil {
-			logger.Warn().Err(err).Str("machine_id", machine.ID.String()).Msg("Machine not healthy: failed to get last alive")
+			logger.Warn().Err(err).Str("machine_id", machine.ID).Msg("Machine not healthy: failed to get last alive")
 			unhealthyMachines = append(unhealthyMachines, machine)
 		} else {
 			healthyMachines = append(healthyMachines, machine)

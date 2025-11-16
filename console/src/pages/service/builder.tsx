@@ -8,7 +8,6 @@ import { BrumeForm } from "@/components/form/form";
 import { Page } from "@/components/page-comp/header";
 import { Stepper } from "@/components/stepper";
 import { BUILDER_FRAGMENT } from "@/gql/builder.graphql";
-import type { RouteParams } from "@/router/router.param";
 import { cn } from "@/utils";
 
 export const BuildTypeValues = {
@@ -20,15 +19,20 @@ export const BuildTypeValues = {
 export type BuildType = (typeof BuildTypeValues)[keyof typeof BuildTypeValues];
 
 export const BuilderPage = () => {
-  const { serviceId } = useParams<RouteParams>();
+  const { serviceId } = useParams<{ serviceId: string }>();
 
-  const { data: builder, complete } = useFragment({
+  const {
+    data: builder,
+    complete,
+    missing,
+  } = useFragment({
     from: `Builder:${serviceId}`,
     fragment: BUILDER_FRAGMENT,
     fragmentName: "BuilderFragment",
   });
 
   if (!complete) {
+    console.log(missing);
     throw new Error("Builder not complete");
   }
 

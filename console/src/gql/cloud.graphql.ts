@@ -32,6 +32,14 @@ export const CLOUD_ACCOUNT_FRAGMENT = gql(`
   }
 `);
 
+export const GET_CLOUD_ACCOUNT = gql(`
+  query GetCloudAccount($id: String!) {
+    getCloudAccountById(id: $id) {
+      ...CloudAccountFragment
+    }
+  }
+`);
+
 export const CREATE_CLOUD_ACCOUNT = gql(`
   mutation CreateCloudAccount($name: String!, $cloudAccountId: String!, $cloudProvider: CloudProvider!) {
     createCloudAccount(input: {

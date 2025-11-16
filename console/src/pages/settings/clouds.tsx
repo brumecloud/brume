@@ -80,7 +80,7 @@ const _cloudProviderMapping = {
   },
 };
 
-const _statusMapping: Record<
+export const _statusMapping: Record<
   CloudStatus,
   {
     status: "ok" | "error" | "warning" | "cancelled" | "pending";
@@ -115,8 +115,6 @@ const CloudCard = ({ cid }: { cid: string }) => {
     return null;
   }
 
-  console.log(data);
-
   const cloudProvider = _cloudProviderMapping[data.cloudProvider];
   const _status = _statusMapping[data.status];
 
@@ -128,7 +126,7 @@ const CloudCard = ({ cid }: { cid: string }) => {
     >
       <Link
         className="flex h-full w-full flex-row items-center justify-between gap-4 bg-gray-100 px-3 py-2"
-        to={`/settings/cloud/${cid}`}
+        to={`/settings/cloud/${cid}/overview`}
       >
         <div className="flex flex-row items-center gap-4">
           <div className="p-2">
@@ -152,6 +150,9 @@ const CloudCard = ({ cid }: { cid: string }) => {
         </div>
       </Link>
       <div className="w-full border-gray-200 border-t p-3">
+        {data.stacks.length === 0 && (
+          <p className="text-gray-400 text-xs">No stacks created yet</p>
+        )}
         {data.stacks.map((stack) => (
           <Badge key={stack.id} variant="outline">
             {stack.name}

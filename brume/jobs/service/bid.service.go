@@ -7,7 +7,6 @@ import (
 	brume_log "brume.dev/internal/log"
 	job_model "brume.dev/jobs/model"
 	service_model "brume.dev/service/model"
-	"github.com/google/uuid"
 )
 
 var bidLogger = brume_log.GetLogger("bid.service")
@@ -46,7 +45,7 @@ func (s *BidService) GetAllCurrentBids() ([]*job_model.Job, error) {
 }
 
 // for the moment we accept the first bid
-func (s *BidService) AcceptBid(bidID string, machineID uuid.UUID) error {
+func (s *BidService) AcceptBid(bidID string, machineID string) error {
 	bid := &job_model.Job{}
 	err := s.db.Gorm.Model(&job_model.Job{}).Where("id = ?", bidID).First(bid).Error
 	if err != nil {

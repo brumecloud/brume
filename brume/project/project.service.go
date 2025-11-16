@@ -4,10 +4,10 @@ import (
 	org_model "brume.dev/account/org/model"
 	"brume.dev/internal/db"
 	"brume.dev/internal/log"
+	brume_utils "brume.dev/internal/utils"
 	project "brume.dev/project/model"
 	"brume.dev/service"
 	service_model "brume.dev/service/model"
-	"github.com/google/uuid"
 )
 
 var logger = log.GetLogger("project.service")
@@ -25,7 +25,7 @@ func NewProjectService(db *db.DB, serviceService *service.ServiceService) *Proje
 }
 
 // launch the deploy of all the services of the projec (if needed)
-func (s *ProjectService) DeployProject(projectId uuid.UUID) (*project.Project, error) {
+func (s *ProjectService) DeployProject(projectId string) (*project.Project, error) {
 	project, err := s.GetProjectByID(projectId)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (s *ProjectService) IsDirty(project *project.Project) (bool, error) {
 	return projectDirty, nil
 }
 
-func (s *ProjectService) GetProjectByID(id uuid.UUID) (*project.Project, error) {
+func (s *ProjectService) GetProjectByID(id string) (*project.Project, error) {
 	var project *project.Project
 
 	err := s.db.Gorm.Preload("Services").First(&project, "id = ?", id).Error
@@ -64,7 +64,7 @@ func (s *ProjectService) GetProjectByID(id uuid.UUID) (*project.Project, error) 
 	return project, nil
 }
 
-func (s *ProjectService) DeleteDraft(projectId uuid.UUID) (*project.Project, error) {
+func (s *ProjectService) DeleteDraft(projectId string) (*project.Project, error) {
 	project, err := s.GetProjectByID(projectId)
 	if err != nil {
 		return nil, err
@@ -79,11 +79,7 @@ func (s *ProjectService) DeleteDraft(projectId uuid.UUID) (*project.Project, err
 }
 
 func (s *ProjectService) CreateProject(name string, description string) (*project.Project, error) {
-	id, uuidErr := uuid.NewRandom()
-
-	if uuidErr != nil {
-		return nil, uuidErr
-	}
+	id := brume_utils.ProjectID()
 
 	project := &project.Project{
 		Name:        name,

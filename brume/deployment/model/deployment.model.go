@@ -6,18 +6,16 @@ import (
 	"time"
 
 	job_model "brume.dev/jobs/model"
-
-	"github.com/google/uuid"
 )
 
 type Deployment struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
-	ServiceID uuid.UUID `gorm:"type:uuid"`
+	ID        string `gorm:"type:varchar(255);primaryKey"`
+	ServiceID string `gorm:"type:varchar(255)"`
 
 	Name string
 	Env  string
 
-	ProjectID uuid.UUID `gorm:"type:uuid"`
+	ProjectID string `gorm:"type:varchar(255)"`
 
 	Source DeploymentSource `gorm:"type:jsonb"`
 

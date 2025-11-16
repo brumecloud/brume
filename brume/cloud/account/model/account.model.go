@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	stack_model "brume.dev/stack/model"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -37,7 +36,7 @@ type Workflows struct {
 type CloudAccount struct {
 	gorm.Model
 
-	ID uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	ID string `gorm:"type:varchar(255);primaryKey" json:"id"`
 
 	Name        string `gorm:"type:varchar(255);not null" json:"name"`
 	Description string `gorm:"type:text;not null" json:"description"`

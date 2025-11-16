@@ -2,8 +2,8 @@ package runner
 
 import (
 	"brume.dev/internal/db"
+	brume_utils "brume.dev/internal/utils"
 	runner "brume.dev/runner/model"
-	"github.com/google/uuid"
 )
 
 type RunnerService struct {
@@ -16,13 +16,13 @@ func NewRunnerService(db *db.DB) *RunnerService {
 	}
 }
 
-func (e *RunnerService) GetRunner(runnerId uuid.UUID) (*runner.Runner, error) {
+func (e *RunnerService) GetRunner(runnerId string) (*runner.Runner, error) {
 	runner := &runner.Runner{}
 	err := e.db.Gorm.First(runner, runnerId).Error
 	return runner, err
 }
 
-func (e *RunnerService) DuplicateRunner(runnerId uuid.UUID) (*runner.Runner, error) {
+func (e *RunnerService) DuplicateRunner(runnerId string) (*runner.Runner, error) {
 	runner, err := e.GetRunner(runnerId)
 	if err != nil {
 		return nil, err
@@ -30,19 +30,16 @@ func (e *RunnerService) DuplicateRunner(runnerId uuid.UUID) (*runner.Runner, err
 
 	duplicateRunner := runner
 
-	id, _ := uuid.NewRandom()
-	duplicateRunner.ID = id
+	duplicateRunner.ID = brume_utils.RunnerID()
 
 	err = e.db.Gorm.Create(&duplicateRunner).Error
 
 	return duplicateRunner, err
 }
 
-func (e *RunnerService) CreateDockerExecutor(serviceId uuid.UUID) (*runner.Runner, error) {
-	id, _ := uuid.NewRandom()
-
+func (e *RunnerService) CreateDockerExecutor(serviceId string) (*runner.Runner, error) {
 	runner := &runner.Runner{
-		ID:        id,
+		ID:        brume_utils.RunnerID(),
 		Type:      "generic-docker",
 		ServiceId: serviceId,
 		Schema:    nil,

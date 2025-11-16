@@ -59,7 +59,7 @@ func CreateCloudAccountWorkflow(ctx workflow.Context, input CreateCloudAccountWo
 		return nil, err
 	}
 
-	logger.Info().Str("cloud_account_id", cloudAccount.ID.String()).Msg("Inital cloud sync finished. Account connected")
+	logger.Info().Str("cloud_account_id", cloudAccount.ID).Msg("Inital cloud sync finished. Account connected")
 
 	return nil, nil
 }

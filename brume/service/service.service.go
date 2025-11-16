@@ -9,10 +9,10 @@ import (
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
 	"brume.dev/internal/log"
+	brume_utils "brume.dev/internal/utils"
 	job_model "brume.dev/jobs/model"
 	"brume.dev/runner"
 	service_model "brume.dev/service/model"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -37,7 +37,7 @@ func NewServiceService(db *db.DB, runnerService *runner.RunnerService, builderSe
 // deploying a service mean creating a deployment out of the current service configuration
 // and then, creating all the required jobs for this deployment
 // at least the runner job, maybe a builder job if needed
-func (s *ServiceService) DeployService(serviceId uuid.UUID, source deployment_model.DeploymentSource) error {
+func (s *ServiceService) DeployService(serviceId string, source deployment_model.DeploymentSource) error {
 	// service, err := s.GetService(serviceId)
 	// if err != nil {
 	// 	return err
@@ -76,7 +76,7 @@ func (s *ServiceService) DeployService(serviceId uuid.UUID, source deployment_mo
 	return nil
 }
 
-func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data json.RawMessage) (*builder_model.Builder, error) {
+func (s *ServiceService) UpdateBuilder(serviceId string, data json.RawMessage) (*builder_model.Builder, error) {
 	// var err error
 
 	// service, err := s.GetService(serviceId)
@@ -114,7 +114,7 @@ func (s *ServiceService) UpdateBuilder(serviceId uuid.UUID, data json.RawMessage
 	return nil, nil
 }
 
-func (s *ServiceService) DeleteService(serviceId uuid.UUID) (*service_model.Service, error) {
+func (s *ServiceService) DeleteService(serviceId string) (*service_model.Service, error) {
 	service, err := s.GetService(serviceId)
 	if err != nil {
 		return nil, err
@@ -140,18 +140,18 @@ func (s *ServiceService) DeleteService(serviceId uuid.UUID) (*service_model.Serv
 	}
 
 	// this will stop the job, without any restart
-	logger.Error().Str("job_id", job.ID.String()).Msg("Job is unhealthy")
+	logger.Error().Str("job_id", job.ID).Msg("Job is unhealthy")
 
 	return service, nil
 }
 
-func (s *ServiceService) GetService(serviceId uuid.UUID) (*service_model.Service, error) {
+func (s *ServiceService) GetService(serviceId string) (*service_model.Service, error) {
 	service := &service_model.Service{}
 	err := s.db.Gorm.Preload("DraftRunner").Preload("DraftBuilder").Preload("LiveRunner").Preload("LiveBuilder").First(service, serviceId).Error
 	return service, err
 }
 
-func (s *ServiceService) UpdateServiceSettings(serviceId uuid.UUID, name string) (*service_model.Service, error) {
+func (s *ServiceService) UpdateServiceSettings(serviceId string, name string) (*service_model.Service, error) {
 	service, err := s.GetService(serviceId)
 	if err != nil {
 		return nil, err
@@ -174,12 +174,10 @@ func (s *ServiceService) UpdateServiceSettings(serviceId uuid.UUID, name string)
 // 	return service.Deployments, err
 // }
 
-func (s *ServiceService) CreateService(name string, projectId uuid.UUID, image string) (*service_model.Service, error) {
-	id, _ := uuid.NewRandom()
-
+func (s *ServiceService) CreateService(name string, projectId string, image string) (*service_model.Service, error) {
 	service := &service_model.Service{
 		Name:      name,
-		ID:        id,
+		ID:        brume_utils.ServiceID(),
 		ProjectID: projectId,
 	}
 
@@ -203,7 +201,7 @@ func (s *ServiceService) CreateService(name string, projectId uuid.UUID, image s
 	return service, err
 }
 
-func (s *ServiceService) GetServiceJobs(serviceId uuid.UUID) ([]*job_model.Job, error) {
+func (s *ServiceService) GetServiceJobs(serviceId string) ([]*job_model.Job, error) {
 	jobs := []*job_model.Job{}
 	err := s.db.Gorm.Where("service_id = ?", serviceId).Find(&jobs).Error
 	return jobs, err

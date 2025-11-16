@@ -38,6 +38,20 @@ type CreateCloudAccountInput struct {
 	CloudProvider cloud_account_model.CloudProvider
 }
 
+func (s *CloudAccountService) GetCloudAccountByID(ctx context.Context, id string) (*cloud_account_model.CloudAccount, error) {
+	organizationID := ctx.Value("org_id").(string)
+	cloudAccount, err := s.cloudAccountRepository.GetCloudAccountByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if cloudAccount.OrganizationID != organizationID {
+		return nil, errors.New("cloud account not found")
+	}
+
+	return cloudAccount, nil
+}
+
 // this will begin the creation of a new cloud account
 // this launchs the workflow to create the cloud account
 func (s *CloudAccountService) BeginCreateCloudAccount(ctx context.Context, input CreateCloudAccountInput) (*cloud_account_model.CloudAccount, error) {
@@ -70,7 +84,7 @@ func (s *CloudAccountService) BeginCreateCloudAccount(ctx context.Context, input
 
 	// start the enrollment workflow
 	opts := client.StartWorkflowOptions{
-		ID:        "create-cloud-account-workflow-" + cloudAccount.ID.String(),
+		ID:        "create-cloud-account-workflow-" + cloudAccount.ID,
 		TaskQueue: durable.TemporalTaskQueue,
 	}
 

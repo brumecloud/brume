@@ -9,7 +9,6 @@ import (
 	log_model "brume.dev/logs/model"
 	"brume.dev/machine"
 	"github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -20,17 +19,17 @@ type MonitoringHTTPRouterV1 struct {
 
 type StatusRequest struct {
 	// machine id will comes from the token later
-	MachineId uuid.UUID `json:"machine_id" validate:"required"`
-	Status    string    `json:"status" validate:"required"`
+	MachineId string `json:"machine_id" validate:"required"`
+	Status    string `json:"status" validate:"required"`
 }
 
 type JobsStatusRequest struct {
-	MachineId uuid.UUID                      `json:"machine_id" validate:"required"`
+	MachineId string                         `json:"machine_id" validate:"required"`
 	Status    map[string]job_model.JobStatus `json:"status" validate:"required"`
 }
 
 type LogsRequest struct {
-	MachineId uuid.UUID              `json:"machine_id" validate:"required"`
+	MachineId string                 `json:"machine_id" validate:"required"`
 	Logs      []*log_model.AgentLogs `json:"logs" validate:"required,dive"`
 }
 

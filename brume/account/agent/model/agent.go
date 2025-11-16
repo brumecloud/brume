@@ -1,7 +1,6 @@
 package agent_model
 
 import (
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -14,7 +13,7 @@ const (
 
 type Agent struct {
 	gorm.Model
-	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ID string `gorm:"type:varchar(255);primaryKey"`
 
 	// the API key is used to authenticate the agent with the API
 	APIKey string `gorm:"type:varchar(255);not null"`

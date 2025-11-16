@@ -4,7 +4,7 @@ import (
 	builder_model "brume.dev/builder/model"
 	"brume.dev/internal/db"
 	"brume.dev/internal/log"
-	"github.com/google/uuid"
+	brume_utils "brume.dev/internal/utils"
 )
 
 var logger = log.GetLogger("builder.service")
@@ -19,39 +19,38 @@ func NewBuilderService(db *db.DB) *BuilderService {
 	}
 }
 
-func (e *BuilderService) GetBuilder(builderId uuid.UUID) (*builder_model.Builder, error) {
-	logger.Trace().Str("builder_id", builderId.String()).Msg("Getting builder")
+func (e *BuilderService) GetBuilder(builderId string) (*builder_model.Builder, error) {
+	logger.Trace().Str("builder_id", builderId).Msg("Getting builder")
 
 	builder := &builder_model.Builder{}
 	err := e.db.Gorm.First(builder, builderId).Error
 
 	if err != nil {
-		logger.Error().Err(err).Str("builder_id", builderId.String()).Msg("Error getting builder")
+		logger.Error().Err(err).Str("builder_id", builderId).Msg("Error getting builder")
 		return nil, err
 	}
 
 	return builder, nil
 }
 
-func (e *BuilderService) DuplicateBuilder(builderId uuid.UUID) (*builder_model.Builder, error) {
-	logger.Trace().Str("builder_id", builderId.String()).Msg("Duplicating builder")
+func (e *BuilderService) DuplicateBuilder(builderId string) (*builder_model.Builder, error) {
+	logger.Trace().Str("builder_id", builderId).Msg("Duplicating builder")
 
 	builder, err := e.GetBuilder(builderId)
 
 	if err != nil {
-		logger.Error().Err(err).Str("builder_id", builderId.String()).Msg("Error getting builder")
+		logger.Error().Err(err).Str("builder_id", builderId).Msg("Error getting builder")
 		return nil, err
 	}
 
 	duplicateBuilder := builder
 
-	id, _ := uuid.NewRandom()
-	duplicateBuilder.ID = id
+	duplicateBuilder.ID = brume_utils.BuilderID()
 
 	err = e.db.Gorm.Create(&duplicateBuilder).Error
 
 	if err != nil {
-		logger.Error().Err(err).Str("builder_id", builderId.String()).Msg("Error duplicating builder")
+		logger.Error().Err(err).Str("builder_id", builderId).Msg("Error duplicating builder")
 		return nil, err
 	}
 

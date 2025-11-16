@@ -8,7 +8,6 @@ import (
 	runner_model "brume.dev/runner/model"
 	source_model "brume.dev/source/model"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -27,7 +26,7 @@ This are the last deployed version. They only change when the user clicks on dep
 
 type Service struct {
 	gorm.Model
-	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ID string `gorm:"type:varchar(255);primaryKey"`
 
 	// general settings
 	Name string
@@ -42,7 +41,7 @@ type Service struct {
 	// Deployments []*deployment_model.Deployment `gorm:"foreignKey:ServiceID"`
 
 	// project of the service
-	ProjectID uuid.UUID
+	ProjectID string
 }
 
 // func (s *Service) Scan(value interface{}) error {

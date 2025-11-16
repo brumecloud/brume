@@ -11,7 +11,6 @@ type User {
 
 type Organization {
 	id: String!
-	providerId: String!
 	name: String!
 
 	cloudAccounts: [CloudAccount!]!
@@ -99,6 +98,7 @@ type Query {
 
 	getProjectById(id: String!): Project!
 	getAWSCloudFormationURL: String!
+	getCloudAccountById(id: String!): CloudAccount!
 }
 
 input CreateCloudAccountInput {

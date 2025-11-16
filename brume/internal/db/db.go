@@ -48,6 +48,7 @@ func openDB(dsn string, config *config.BrumeConfig) (*DB, error) {
 	gorm, err := gorm.Open(dialector, &gorm.Config{
 		Logger: dblogger,
 	})
+
 	if err != nil {
 		return nil, err
 	}

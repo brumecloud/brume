@@ -3,8 +3,6 @@ package source_model
 import (
 	"database/sql/driver"
 	"encoding/json"
-
-	"github.com/google/uuid"
 )
 
 type SourceType string
@@ -15,7 +13,7 @@ const (
 
 // this represent what
 type Source struct {
-	ID uuid.UUID `json:"id"`
+	ID string `json:"id"`
 
 	Type SourceType `gorm:"type:text" json:"type"`
 

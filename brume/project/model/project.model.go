@@ -2,7 +2,6 @@ package project_model
 
 import (
 	service_model "brume.dev/service/model"
-	"github.com/google/uuid"
 
 	// "gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -11,7 +10,7 @@ import (
 type Project struct {
 	gorm.Model
 
-	ID          uuid.UUID
+	ID          string
 	Name        string
 	Description string
 

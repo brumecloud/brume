@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -24,18 +23,18 @@ const (
 type Job struct {
 	gorm.Model
 
-	ID           uuid.UUID     `gorm:"type:uuid;primaryKey" json:"id"`
+	ID           string        `gorm:"type:varchar(255);primaryKey" json:"id"`
 	JobType      JobType       `gorm:"type:varchar(255);not null" json:"job_type"`
 	Status       JobStatusEnum `gorm:"type:varchar(255);not null" json:"status"`
-	DeploymentID uuid.UUID     `gorm:"type:uuid;not null" json:"deployment_id"`
+	DeploymentID string        `gorm:"type:varchar(255);not null" json:"deployment_id"`
 
 	CreatedAt  time.Time  `json:"created_at"`
 	AcceptedAt *time.Time `json:"accepted_at"`
 
 	// a runner job can be blocked by a builder job for example
 	// the blocked job will be release when the blocking job is done
-	BlockedBy   *Job       `gorm:"foreignKey:BlockedByID" json:"blocked_by"`
-	BlockedByID *uuid.UUID `gorm:"type:uuid" json:"blocked_by_id"`
+	BlockedBy   *Job    `gorm:"foreignKey:BlockedByID" json:"blocked_by"`
+	BlockedByID *string `gorm:"type:varchar(255)" json:"blocked_by_id"`
 }
 
 type JobStatusEnum string

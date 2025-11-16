@@ -35,7 +35,7 @@ func NewDeploymentWorkflow(jobService *job_service.JobService, cfg *config.Brume
 // This is responsible for the health of the service. Not logs and metrics. This is done
 // at the machine scrapping level.
 func (d *DeploymentWorkflow) DeploymentWorkflow(ctx context.Context, deployment *deployment_model.Deployment) error {
-	logger.Trace().Str("deployment_id", deployment.ID.String()).Msg("Starting deployment workflow")
+	logger.Trace().Str("deployment_id", deployment.ID).Msg("Starting deployment workflow")
 	return errors.New("not implemented")
 }
 

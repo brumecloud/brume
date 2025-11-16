@@ -6,8 +6,8 @@ import (
 	deployment_model "brume.dev/deployment/model"
 	"brume.dev/internal/db"
 	"brume.dev/internal/log"
+	brume_utils "brume.dev/internal/utils"
 	job_model "brume.dev/jobs/model"
-	"github.com/google/uuid"
 )
 
 var logger = log.GetLogger("deployment.service")
@@ -23,7 +23,7 @@ func NewDeploymentService(db *db.DB) *DeploymentService {
 // starting a deployment mean creating the right jobs for the deployments :
 // - builder job if needed
 // - runner job
-func (s *DeploymentService) StartDeployment(id uuid.UUID) error {
+func (s *DeploymentService) StartDeployment(id string) error {
 	var deployment deployment_model.Deployment
 	err := s.db.Gorm.Where("id = ?", id).First(&deployment).Error
 	if err != nil {
@@ -31,7 +31,7 @@ func (s *DeploymentService) StartDeployment(id uuid.UUID) error {
 	}
 
 	builderJob := &job_model.Job{
-		ID:        uuid.New(),
+		ID:        brume_utils.JobID(),
 		JobType:   job_model.JobTypeBuilder,
 		Status:    job_model.JobStatusEnumCreating,
 		CreatedAt: time.Now(),
@@ -43,7 +43,7 @@ func (s *DeploymentService) StartDeployment(id uuid.UUID) error {
 	}
 
 	runnerJob := &job_model.Job{
-		ID:        uuid.New(),
+		ID:        brume_utils.JobID(),
 		JobType:   job_model.JobTypeRunner,
 		Status:    job_model.JobStatusEnumBlocked,
 		CreatedAt: time.Now(),
@@ -61,7 +61,7 @@ func (s *DeploymentService) StartDeployment(id uuid.UUID) error {
 	return nil
 }
 
-func (s *DeploymentService) GetDeployment(id uuid.UUID) (*deployment_model.Deployment, error) {
+func (s *DeploymentService) GetDeployment(id string) (*deployment_model.Deployment, error) {
 	var deployment deployment_model.Deployment
 	err := s.db.Gorm.Where("id = ?", id).First(&deployment).Error
 	return &deployment, err

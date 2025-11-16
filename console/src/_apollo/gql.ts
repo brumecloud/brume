@@ -19,6 +19,7 @@ type Documents = {
     "\n  query GetAWSCloudFormationURL {\n    getAWSCloudFormationURL\n  }\n": typeof types.GetAwsCloudFormationUrlDocument,
     "\n  query GetCloudAccounts {\n    me {\n      organization {\n        cloudAccounts {\n          ...CloudAccountFragment\n        }\n      }\n    }\n  }\n": typeof types.GetCloudAccountsDocument,
     "\n  fragment CloudAccountFragment on CloudAccount {\n    id\n    cloudProvider\n    name\n    status\n    stacks {\n      id\n      name\n      template_id\n    }\n  }\n": typeof types.CloudAccountFragmentFragmentDoc,
+    "\n  query GetCloudAccount($id: String!) {\n    getCloudAccountById(id: $id) {\n      ...CloudAccountFragment\n    }\n  }\n": typeof types.GetCloudAccountDocument,
     "\n  mutation CreateCloudAccount($name: String!, $cloudAccountId: String!, $cloudProvider: CloudProvider!) {\n    createCloudAccount(input: {\n      name: $name\n      accountId: $cloudAccountId\n      cloudProvider: $cloudProvider\n    }) {\n      id\n    }\n  }\n": typeof types.CreateCloudAccountDocument,
     "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      ...ServiceFragment\n    }\n  }\n": typeof types.ProjectFragmentFragmentDoc,
     "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": typeof types.GetProjectByIdDocument,
@@ -36,6 +37,7 @@ const documents: Documents = {
     "\n  query GetAWSCloudFormationURL {\n    getAWSCloudFormationURL\n  }\n": types.GetAwsCloudFormationUrlDocument,
     "\n  query GetCloudAccounts {\n    me {\n      organization {\n        cloudAccounts {\n          ...CloudAccountFragment\n        }\n      }\n    }\n  }\n": types.GetCloudAccountsDocument,
     "\n  fragment CloudAccountFragment on CloudAccount {\n    id\n    cloudProvider\n    name\n    status\n    stacks {\n      id\n      name\n      template_id\n    }\n  }\n": types.CloudAccountFragmentFragmentDoc,
+    "\n  query GetCloudAccount($id: String!) {\n    getCloudAccountById(id: $id) {\n      ...CloudAccountFragment\n    }\n  }\n": types.GetCloudAccountDocument,
     "\n  mutation CreateCloudAccount($name: String!, $cloudAccountId: String!, $cloudProvider: CloudProvider!) {\n    createCloudAccount(input: {\n      name: $name\n      accountId: $cloudAccountId\n      cloudProvider: $cloudProvider\n    }) {\n      id\n    }\n  }\n": types.CreateCloudAccountDocument,
     "\n  fragment ProjectFragment on Project {\n    id\n    name\n    description\n    isDirty\n    services {\n      ...ServiceFragment\n    }\n  }\n": types.ProjectFragmentFragmentDoc,
     "\n  query GetProjectById($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n    }\n  }\n": types.GetProjectByIdDocument,
@@ -82,6 +84,10 @@ export function gql(source: "\n  query GetCloudAccounts {\n    me {\n      organ
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  fragment CloudAccountFragment on CloudAccount {\n    id\n    cloudProvider\n    name\n    status\n    stacks {\n      id\n      name\n      template_id\n    }\n  }\n"): (typeof documents)["\n  fragment CloudAccountFragment on CloudAccount {\n    id\n    cloudProvider\n    name\n    status\n    stacks {\n      id\n      name\n      template_id\n    }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  query GetCloudAccount($id: String!) {\n    getCloudAccountById(id: $id) {\n      ...CloudAccountFragment\n    }\n  }\n"): (typeof documents)["\n  query GetCloudAccount($id: String!) {\n    getCloudAccountById(id: $id) {\n      ...CloudAccountFragment\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

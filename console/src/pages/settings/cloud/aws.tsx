@@ -36,13 +36,15 @@ export const AwsPage = () => {
     });
 
     if (errors || !data) {
-      console.error(error);
+      console.error(errors);
       return;
     }
 
     const id = data.createCloudAccount.id;
 
-    navigate(`/settings/cloud/aws/${id}`);
+    setTimeout(() => {
+      navigate(`/settings/cloud/${id}`);
+    }, 500);
   };
 
   const redirectToAWS = async () => {
@@ -54,8 +56,6 @@ export const AwsPage = () => {
       console.error(error);
       return;
     }
-
-    // new tab to the url
     window.open(data.getAWSCloudFormationURL, "_blank");
   };
 
@@ -219,15 +219,10 @@ export const AwsPage = () => {
                   <div className="pt-4">
                     <Button
                       disabled={accountCreationLoading}
-                      onClick={() =>
-                        startEndToEndTestMutation({
-                          variables: {
-                            name: awsName,
-                            cloudAccountId: awsAccount,
-                            cloudProvider: CloudProvider.Aws,
-                          },
-                        })
-                      }
+                      onClick={() => {
+                        setStep(4);
+                        beginEnrollingAccount();
+                      }}
                     >
                       Begin enrolling the account
                     </Button>

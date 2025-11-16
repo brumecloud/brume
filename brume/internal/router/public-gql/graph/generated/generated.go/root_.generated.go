@@ -33,16 +33,12 @@ type Config struct {
 }
 
 type ResolverRoot interface {
-	Builder() BuilderResolver
 	CloudAccount() CloudAccountResolver
 	Mutation() MutationResolver
 	Organization() OrganizationResolver
 	Project() ProjectResolver
 	Query() QueryResolver
-	Runner() RunnerResolver
-	Service() ServiceResolver
 	Source() SourceResolver
-	Stack() StackResolver
 	User() UserResolver
 }
 
@@ -85,7 +81,6 @@ type ComplexityRoot struct {
 		CloudAccounts func(childComplexity int) int
 		ID            func(childComplexity int) int
 		Name          func(childComplexity int) int
-		ProviderID    func(childComplexity int) int
 	}
 
 	Project struct {
@@ -98,6 +93,7 @@ type ComplexityRoot struct {
 
 	Query struct {
 		GetAWSCloudFormationURL func(childComplexity int) int
+		GetCloudAccountByID     func(childComplexity int, id string) int
 		GetProjectByID          func(childComplexity int, id string) int
 		Me                      func(childComplexity int) int
 	}
@@ -296,13 +292,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Organization.Name(childComplexity), true
 
-	case "Organization.providerId":
-		if e.complexity.Organization.ProviderID == nil {
-			break
-		}
-
-		return e.complexity.Organization.ProviderID(childComplexity), true
-
 	case "Project.description":
 		if e.complexity.Project.Description == nil {
 			break
@@ -344,6 +333,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.GetAWSCloudFormationURL(childComplexity), true
+
+	case "Query.getCloudAccountById":
+		if e.complexity.Query.GetCloudAccountByID == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getCloudAccountById_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetCloudAccountByID(childComplexity, args["id"].(string)), true
 
 	case "Query.getProjectById":
 		if e.complexity.Query.GetProjectByID == nil {
@@ -630,7 +631,6 @@ type User {
 
 type Organization {
 	id: String!
-	providerId: String!
 	name: String!
 
 	cloudAccounts: [CloudAccount!]!
@@ -718,6 +718,7 @@ type Query {
 
 	getProjectById(id: String!): Project!
 	getAWSCloudFormationURL: String!
+	getCloudAccountById(id: String!): CloudAccount!
 }
 
 input CreateCloudAccountInput {

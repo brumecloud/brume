@@ -6,7 +6,6 @@ import (
 
 	job_model "brume.dev/jobs/model"
 	job_service "brume.dev/jobs/service"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -68,16 +67,8 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 
 		logger.Trace().Str("bid_id", mux.Vars(r)["bidId"]).Str("machine_id", machineID).Msg("Ingesting bid")
 
-		machineIDUUID, err := uuid.Parse(machineID)
-		if err != nil {
-			logger.Error().Err(err).Str("bid_id", mux.Vars(r)["bidId"]).Msg("Failed to parse machine id")
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
 		bidID := mux.Vars(r)["bidId"]
-		err = s.bidService.AcceptBid(bidID, machineIDUUID)
+		err := s.bidService.AcceptBid(bidID, machineID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
@@ -93,25 +84,19 @@ func (s *SchedulerHTTPRouterV1) RegisterRoutes(router *mux.Router) {
 	// this route is used to get the latest status of the job
 	// it can be running or stoped by the orchestrator
 	router.HandleFunc("/job/{jobId}", func(w http.ResponseWriter, r *http.Request) {
-		jobID, err := uuid.Parse(mux.Vars(r)["jobId"])
-		if err != nil {
-			logger.Error().Err(err).Str("job_id", mux.Vars(r)["jobId"]).Msg("Failed to parse job id")
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-			return
-		}
+		jobID := mux.Vars(r)["jobId"]
 
 		status, err := s.jobService.GetJobStatus(jobID)
 		// this should never happen
 		if err != nil {
-			logger.Error().Err(err).Str("job_id", jobID.String()).Msg("Failed to get job status")
+			logger.Error().Err(err).Str("job_id", jobID).Msg("Failed to get job status")
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return
 		}
 
 		jobStatus := &job_model.JobStatus{
-			JobID:  jobID.String(),
+			JobID:  jobID,
 			Status: status,
 		}
 

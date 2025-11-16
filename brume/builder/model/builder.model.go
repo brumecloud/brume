@@ -6,16 +6,15 @@ import (
 	"time"
 
 	source_model "brume.dev/source/model"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 // builder for a service
 type Builder struct {
-	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ID string `gorm:"type:varchar(255);primaryKey"`
 
 	// service using this builder
-	ServiceId uuid.UUID `gorm:"type:uuid"`
+	ServiceId string `gorm:"type:varchar(255)"`
 
 	// reference to the builder repository
 	// this link must follow the builder convention

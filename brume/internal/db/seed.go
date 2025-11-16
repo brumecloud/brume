@@ -15,7 +15,6 @@ import (
 	service "brume.dev/service/model"
 	source_model "brume.dev/source/model"
 	stack_model "brume.dev/stack/model"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -72,13 +71,13 @@ func SeedAdminUser(db *DB, brume *org.Organization, config *config.BrumeConfig) 
 
 func SeedAgent(db *DB, brume *org.Organization, config *config.BrumeConfig) (*agent_model.Agent, *agent_model.Agent) {
 	runnerAgent := &agent_model.Agent{
-		ID:             uuid.MustParse("b36d84e9-bec2-4ba1-8b51-536884f06bc7"),
+		ID:             "agnt_339fa4e0bd17",
 		APIKey:         "runner-api-key",
 		AgentType:      agent_model.AgentTypeRunner,
 		OrganizationID: brume.ID,
 	}
 	builderAgent := &agent_model.Agent{
-		ID:             uuid.MustParse("b36d84e9-bec2-4ba1-8b51-536884f06bc8"),
+		ID:             "agnt_1590234b2dbb",
 		APIKey:         "builder-api-key",
 		AgentType:      agent_model.AgentTypeBuilder,
 		OrganizationID: brume.ID,
@@ -106,7 +105,7 @@ func SeedAgent(db *DB, brume *org.Organization, config *config.BrumeConfig) (*ag
 func SeedProjects(db *DB) []*project.Project {
 	projects := make([]*project.Project, 1)
 
-	frontendId := uuid.MustParse("536b85d4-53ff-4a8f-b3f3-ec134257adb9")
+	frontendId := "serv_8e395e26117e"
 
 	// read the builder.json file
 	builderJsonRaw, _ := os.ReadFile("internal/db/jsons/builder.json")
@@ -161,7 +160,7 @@ func SeedProjects(db *DB) []*project.Project {
 	project := &project.Project{
 		Name:        "Brume Test Project",
 		Description: "This is a test project",
-		ID:          uuid.MustParse("619a33d4-00c3-4753-a2cc-3f29ea37c238"),
+		ID:          "proj_3f29ea37c238",
 		Services:    []*service.Service{frontend},
 	}
 
@@ -185,16 +184,16 @@ func SeedCloudAccounts(db *DB, brume *org.Organization) []*cloud_account_model.C
 	stacks := make([]*stack_model.Stack, 1)
 
 	stack := &stack_model.Stack{
-		ID:   uuid.MustParse("619a33d4-00c3-4753-a2cc-3f29ea37c238"),
-		Name: "Cloud front SPA",
+		ID:   "stck_3f29ea37c238",
+		Name: "Dummy Cloud front SPA",
 	}
 
 	stacks[0] = stack
 
 	cloudAccount := &cloud_account_model.CloudAccount{
-		ID:            uuid.MustParse("619a33d4-00c3-4753-a2cc-3f29ea37c238"),
+		ID:            "ca_d5736d9338a5",
 		Status:        cloud_account_model.CloudStatusConnected,
-		Name:          "AWS Dev account",
+		Name:          "Dummy AWS Dev account",
 		Description:   "This is the development AWS account",
 		CloudProvider: cloud_account_model.CloudProviderAWS,
 		AWS: &cloud_account_model.AWSCloudAccount{
