@@ -17,6 +17,7 @@ import (
 	project_model "brume.dev/project/model"
 	service_model "brume.dev/service/model"
 	source_model "brume.dev/source/model"
+	stack_service "brume.dev/stack"
 	stack_model "brume.dev/stack/model"
 )
 
@@ -42,6 +43,22 @@ func (r *mutationResolver) CreateCloudAccount(ctx context.Context, input public_
 	}
 
 	return &public_graph_model.CreateCloudAccountResponse{
+		ID: data.ID,
+	}, nil
+}
+
+// DeployStack is the resolver for the deployStack field.
+func (r *mutationResolver) DeployStack(ctx context.Context, input public_graph_model.DeployStackInput) (*public_graph_model.DeployStackResponse, error) {
+	data, err := r.StackService.StartStackDeployment(ctx, stack_service.StartStackDeploymentInput{
+		Name:           input.Name,
+		TemplateID:     input.TemplateID,
+		CloudAccountID: input.CloudAccountID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &public_graph_model.DeployStackResponse{
 		ID: data.ID,
 	}, nil
 }
@@ -99,6 +116,16 @@ func (r *queryResolver) GetAWSCloudFormationURL(ctx context.Context) (string, er
 // GetCloudAccountByID is the resolver for the getCloudAccountById field.
 func (r *queryResolver) GetCloudAccountByID(ctx context.Context, id string) (*cloud_account_model.CloudAccount, error) {
 	return r.CloudAccountService.GetCloudAccountByID(ctx, id)
+}
+
+// GetStackTemplates is the resolver for the getStackTemplates field.
+func (r *queryResolver) GetStackTemplates(ctx context.Context) ([]*stack_model.StackTemplate, error) {
+	return r.StackService.GetAllStackTemplates(ctx)
+}
+
+// GetStacks is the resolver for the getStacks field.
+func (r *queryResolver) GetStacks(ctx context.Context) ([]*stack_model.Stack, error) {
+	return r.StackService.GetAllStacks(ctx)
 }
 
 // Type is the resolver for the type field.

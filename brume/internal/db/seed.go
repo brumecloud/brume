@@ -24,6 +24,7 @@ func SeedAll(db *DB, config *config.BrumeConfig) error {
 	cloudAccounts := SeedCloudAccounts(db, brume)
 	admin := SeedAdminUser(db, brume, config)
 	_, _ = SeedAgent(db, brume, config)
+	SeedStackTemplates(db)
 
 	_ = admin
 	_ = cloudAccounts
@@ -176,6 +177,21 @@ func SeedProjects(db *DB) []*project.Project {
 	projects[0] = project
 
 	return projects
+}
+
+func SeedStackTemplates(db *DB) {
+	stackTemplate := &stack_model.StackTemplate{
+		ID:   "stk_tpl_d32a242475c5",
+		Name: "Dummy Cloud front SPA",
+	}
+
+	if err := db.Gorm.First(stackTemplate, "id = ?", stackTemplate.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.Debug().Msg("No stack template found in database, creating it")
+		db.Gorm.Create(stackTemplate)
+		logger.Debug().Msg("Stack template seeded")
+	} else {
+		logger.Debug().Msg("Stack template found, skipping seeding")
+	}
 }
 
 func SeedCloudAccounts(db *DB, brume *org.Organization) []*cloud_account_model.CloudAccount {

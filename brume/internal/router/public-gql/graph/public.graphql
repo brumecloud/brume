@@ -29,8 +29,21 @@ enum CloudStatus {
 	Error
 }
 
+enum StackStatus {
+	Pending
+	Deploying
+	Deployed
+	Failed
+}
+
 type Stack {
 	template_id: String!
+	id: String!
+	name: String!
+	status: StackStatus!
+}
+
+type StackTemplate {
 	id: String!
 	name: String!
 }
@@ -99,6 +112,8 @@ type Query {
 	getProjectById(id: String!): Project!
 	getAWSCloudFormationURL: String!
 	getCloudAccountById(id: String!): CloudAccount!
+	getStackTemplates: [StackTemplate!]!
+	getStacks: [Stack!]!
 }
 
 input CreateCloudAccountInput {
@@ -111,8 +126,20 @@ type CreateCloudAccountResponse {
 	id: String!
 }
 
+input DeployStackInput {
+	name: String!
+	templateId: String!
+	cloudAccountId: String!
+}
+
+type DeployStackResponse {
+	id: String!
+}
+
 type Mutation {
 	createCloudAccount(
 		input: CreateCloudAccountInput!
 	): CreateCloudAccountResponse!
+
+	deployStack(input: DeployStackInput!): DeployStackResponse!
 }

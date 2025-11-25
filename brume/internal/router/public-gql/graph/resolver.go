@@ -9,6 +9,7 @@ import (
 	"brume.dev/machine"
 	"brume.dev/project"
 	"brume.dev/service"
+	stack_service "brume.dev/stack"
 )
 
 // This file will not be regenerated automatically.
@@ -24,4 +25,5 @@ type Resolver struct {
 	ConfigService       *config.BrumeConfig
 	CloudAccountService *cloud_account_service.CloudAccountService
 	OrganizationService *org.OrganizationService
+	StackService        *stack_service.StackService
 }

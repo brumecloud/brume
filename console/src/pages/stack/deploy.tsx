@@ -1,10 +1,14 @@
+import { useMutation, useQuery } from "@apollo/client";
 import { useState } from "react";
 import { MdChecklist, MdPreview } from "react-icons/md";
 import { TfiPackage } from "react-icons/tfi";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import { Page } from "@/components/page-comp/header";
 import { Stepper } from "@/components/stepper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -13,12 +17,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { GET_CLOUD_ACCOUNTS } from "@/gql/cloud.graphql";
+import { DEPLOY_STACK } from "@/gql/stack.graphql";
 
 export const DeployStack = () => {
+  const { data, loading } = useQuery(GET_CLOUD_ACCOUNTS);
+  // get from the query params
+  const [searchParams] = useSearchParams();
   const [domain, setDomain] = useState("");
+  const [name, setName] = useState("");
   const [agreement, setAgreement] = useState(false);
   const [_planReview, setPlanReview] = useState(false);
   const [applyStack, setApplyStack] = useState(false);
+  const navigate = useNavigate();
+
+  const templateId = searchParams.get("stack");
+  if (!templateId) {
+    navigate("/overview");
+  }
+
+  const [deployStack] = useMutation(DEPLOY_STACK);
+
+  const handleDeployStack = async () => {
+    if (!templateId) {
+      throw new Error("Template ID is required");
+    }
+
+    const { data: deployStackData } = await deployStack({
+      variables: {
+        name: "test",
+        templateId,
+        cloudAccountId: domain,
+      },
+    });
+
+    const id = deployStackData?.deployStack.id;
+
+    toast.success(`Stack deployed successfully with id: ${id}`);
+
+    navigate("/overview");
+  };
 
   return (
     <Page.Container>
@@ -50,8 +88,8 @@ export const DeployStack = () => {
                     </p>
                     <div className="pt-4">
                       <Select
+                        disabled={loading}
                         onValueChange={(value) => {
-                          setStep(1);
                           setDomain(value);
                         }}
                         value={domain}
@@ -60,10 +98,32 @@ export const DeployStack = () => {
                           <SelectValue placeholder="Select a cloud account" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="dev">Dev AWS</SelectItem>
-                          <SelectItem value="prod">Production AWS</SelectItem>
+                          {!loading &&
+                            data?.me.organization.cloudAccounts.map((cloud) => (
+                              <SelectItem key={cloud.id} value={cloud.id}>
+                                {cloud.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="flex flex-col gap-2 pt-4">
+                      <Label htmlFor="name">Name of the stack</Label>
+                      <Input
+                        className="w-[300px]"
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Name of the stack"
+                        value={name}
+                      />
+                    </div>
+                    <div className="pt-4">
+                      <Button
+                        className="w-44"
+                        disabled={!(name && domain)}
+                        onClick={() => setStep(1)}
+                      >
+                        Next step
+                      </Button>
                     </div>
                   </div>
                 </>
@@ -152,7 +212,8 @@ export const DeployStack = () => {
                       <Button
                         disabled={!agreement}
                         onClick={() => {
-                          setStep(3);
+                          // setStep(3);
+                          handleDeployStack();
                         }}
                       >
                         Deploy the SPA stack

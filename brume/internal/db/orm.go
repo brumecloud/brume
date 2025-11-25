@@ -25,6 +25,7 @@ var AllModels = []interface{}{
 	&agent_model.Agent{},
 	&cloud_account_model.CloudAccount{},
 	&stack_model.Stack{},
+	&stack_model.StackTemplate{},
 }
 
 type Model struct {

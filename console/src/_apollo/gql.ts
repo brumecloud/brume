@@ -27,6 +27,11 @@ type Documents = {
     "\n  fragment BaseServiceFragment on BaseService {\n    source {\n      ...SourceFragment\n    }\n    runner {\n      ...RunnerFragment\n    }\n    builder {\n      ...BuilderFragment\n    }\n  }\n": typeof types.BaseServiceFragmentFragmentDoc,
     "\n  fragment ServiceFragment on Service {\n      name\n      id\n      live {\n        ...BaseServiceFragment\n      }\n      draft {\n        ...BaseServiceFragment\n      }\n   }\n": typeof types.ServiceFragmentFragmentDoc,
     "\n  fragment SourceFragment on Source {\n    id\n    type\n    data\n  }\n": typeof types.SourceFragmentFragmentDoc,
+    "\n  mutation DeployStack($name: String!, $templateId: String!, $cloudAccountId: String!) {\n    deployStack(input: { name: $name, templateId: $templateId, cloudAccountId: $cloudAccountId }) {\n      id\n    }\n  }\n": typeof types.DeployStackDocument,
+    "\n  fragment StacksTemplateFragment on StackTemplate {\n    id\n    name\n  }\n": typeof types.StacksTemplateFragmentFragmentDoc,
+    "\n  query GetStackTemplates {\n    getStackTemplates {\n      id\n      ...StacksTemplateFragment\n    }\n  }\n": typeof types.GetStackTemplatesDocument,
+    "\n  fragment StackFragment on Stack {\n    id\n    name\n    template_id\n    status\n  }\n": typeof types.StackFragmentFragmentDoc,
+    "\n  query GetStacks {\n    getStacks {\n      id\n      ...StackFragment\n    }\n  }\n": typeof types.GetStacksDocument,
     "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n    organization {\n      id\n      name\n    }\n  }\n": typeof types.UserFragmentFragmentDoc,
     "\n  query me {\n    me {\n      projects {\n        id\n        name\n        services {\n          id\n          name\n        }\n      }\n      ...UserFragment\n    }\n  }\n": typeof types.MeDocument,
     "\n  query ProjectQuery($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n      services {\n        ...ServiceFragment\n      }\n    }\n  }\n": typeof types.ProjectQueryDocument,
@@ -45,6 +50,11 @@ const documents: Documents = {
     "\n  fragment BaseServiceFragment on BaseService {\n    source {\n      ...SourceFragment\n    }\n    runner {\n      ...RunnerFragment\n    }\n    builder {\n      ...BuilderFragment\n    }\n  }\n": types.BaseServiceFragmentFragmentDoc,
     "\n  fragment ServiceFragment on Service {\n      name\n      id\n      live {\n        ...BaseServiceFragment\n      }\n      draft {\n        ...BaseServiceFragment\n      }\n   }\n": types.ServiceFragmentFragmentDoc,
     "\n  fragment SourceFragment on Source {\n    id\n    type\n    data\n  }\n": types.SourceFragmentFragmentDoc,
+    "\n  mutation DeployStack($name: String!, $templateId: String!, $cloudAccountId: String!) {\n    deployStack(input: { name: $name, templateId: $templateId, cloudAccountId: $cloudAccountId }) {\n      id\n    }\n  }\n": types.DeployStackDocument,
+    "\n  fragment StacksTemplateFragment on StackTemplate {\n    id\n    name\n  }\n": types.StacksTemplateFragmentFragmentDoc,
+    "\n  query GetStackTemplates {\n    getStackTemplates {\n      id\n      ...StacksTemplateFragment\n    }\n  }\n": types.GetStackTemplatesDocument,
+    "\n  fragment StackFragment on Stack {\n    id\n    name\n    template_id\n    status\n  }\n": types.StackFragmentFragmentDoc,
+    "\n  query GetStacks {\n    getStacks {\n      id\n      ...StackFragment\n    }\n  }\n": types.GetStacksDocument,
     "\n  fragment UserFragment on User {\n    id\n    name\n    avatar\n    organization {\n      id\n      name\n    }\n  }\n": types.UserFragmentFragmentDoc,
     "\n  query me {\n    me {\n      projects {\n        id\n        name\n        services {\n          id\n          name\n        }\n      }\n      ...UserFragment\n    }\n  }\n": types.MeDocument,
     "\n  query ProjectQuery($projectId: String!) {\n    getProjectById(id: $projectId) {\n      ...ProjectFragment\n      services {\n        ...ServiceFragment\n      }\n    }\n  }\n": types.ProjectQueryDocument,
@@ -116,6 +126,26 @@ export function gql(source: "\n  fragment ServiceFragment on Service {\n      na
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  fragment SourceFragment on Source {\n    id\n    type\n    data\n  }\n"): (typeof documents)["\n  fragment SourceFragment on Source {\n    id\n    type\n    data\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  mutation DeployStack($name: String!, $templateId: String!, $cloudAccountId: String!) {\n    deployStack(input: { name: $name, templateId: $templateId, cloudAccountId: $cloudAccountId }) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation DeployStack($name: String!, $templateId: String!, $cloudAccountId: String!) {\n    deployStack(input: { name: $name, templateId: $templateId, cloudAccountId: $cloudAccountId }) {\n      id\n    }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  fragment StacksTemplateFragment on StackTemplate {\n    id\n    name\n  }\n"): (typeof documents)["\n  fragment StacksTemplateFragment on StackTemplate {\n    id\n    name\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  query GetStackTemplates {\n    getStackTemplates {\n      id\n      ...StacksTemplateFragment\n    }\n  }\n"): (typeof documents)["\n  query GetStackTemplates {\n    getStackTemplates {\n      id\n      ...StacksTemplateFragment\n    }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  fragment StackFragment on Stack {\n    id\n    name\n    template_id\n    status\n  }\n"): (typeof documents)["\n  fragment StackFragment on Stack {\n    id\n    name\n    template_id\n    status\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  query GetStacks {\n    getStacks {\n      id\n      ...StackFragment\n    }\n  }\n"): (typeof documents)["\n  query GetStacks {\n    getStacks {\n      id\n      ...StackFragment\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

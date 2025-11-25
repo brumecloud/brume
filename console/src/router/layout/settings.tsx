@@ -39,7 +39,7 @@ export const SettingsOutlet = () => {
               Clouds
             </Link>
             <Link
-              className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
+              className="pointer-events-none select-none border-gray-800 py-2 text-gray-400 hover:cursor-not-allowed hover:text-gray-400 data-[state=active]:border-b data-[state=active]:text-gray-800"
               data-state={path === "domains" ? "active" : ""}
               to="domains"
             >

@@ -8,7 +8,7 @@ import (
 	cloud_account_repository "brume.dev/cloud/account/repository"
 	aws_cloud_workflow "brume.dev/cloud/aws/workflow"
 	"brume.dev/internal/db"
-	"brume.dev/internal/durable"
+	temporal_client "brume.dev/internal/durable/client"
 	"brume.dev/internal/log"
 	"go.temporal.io/sdk/client"
 )
@@ -17,13 +17,13 @@ var logger = log.GetLogger("cloud.account")
 
 type CloudAccountService struct {
 	cloudAccountRepository *cloud_account_repository.CloudAccountRepository
-	durable                *durable.Durable
+	temporalClient         *temporal_client.TemporalClient
 }
 
-func NewCloudAccountService(db *db.DB, durable *durable.Durable, cloudAccountRepository *cloud_account_repository.CloudAccountRepository) *CloudAccountService {
+func NewCloudAccountService(db *db.DB, temporalClient *temporal_client.TemporalClient, cloudAccountRepository *cloud_account_repository.CloudAccountRepository) *CloudAccountService {
 	return &CloudAccountService{
 		cloudAccountRepository: cloudAccountRepository,
-		durable:                durable,
+		temporalClient:         temporalClient,
 	}
 }
 
@@ -85,10 +85,10 @@ func (s *CloudAccountService) BeginCreateCloudAccount(ctx context.Context, input
 	// start the enrollment workflow
 	opts := client.StartWorkflowOptions{
 		ID:        "create-cloud-account-workflow-" + cloudAccount.ID,
-		TaskQueue: durable.TemporalTaskQueue,
+		TaskQueue: temporal_client.DefaultTaskQueue,
 	}
 
-	_, err = s.durable.TemporalClient.ExecuteWorkflow(context.Background(), opts, aws_cloud_workflow.CreateCloudAccountWorkflow, aws_cloud_workflow.CreateCloudAccountWorkflowInput{
+	_, err = s.temporalClient.Client.ExecuteWorkflow(context.Background(), opts, aws_cloud_workflow.CreateCloudAccountWorkflow, aws_cloud_workflow.CreateCloudAccountWorkflowInput{
 		CloudAccount: cloudAccount,
 	})
 

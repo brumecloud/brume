@@ -12,6 +12,7 @@ import (
 	config "brume.dev/internal/config"
 	db "brume.dev/internal/db"
 	durable "brume.dev/internal/durable"
+	temporal_client "brume.dev/internal/durable/client"
 	brume_log "brume.dev/internal/log"
 	brume_redis "brume.dev/internal/redis"
 	fx_http "brume.dev/internal/router/http/fx"
@@ -22,6 +23,7 @@ import (
 	fx_project "brume.dev/project/fx"
 	fx_runner "brume.dev/runner/fx"
 	fx_service "brume.dev/service/fx"
+	stack_fx "brume.dev/stack/fx"
 
 	"github.com/ipfans/fxlogger"
 	"go.uber.org/fx"
@@ -57,9 +59,11 @@ func NewMasterInjector() *GlobalInjector {
 		fx_ticker.TickerModule,
 		fx_workos.WorkOSModule,
 		durable.DurableModule,
+		temporal_client.TemporalClientModule,
 		cloud_account_fx.CloudAccountFxModule,
 		aws_cloud_activity.AWSCloudActivityModule,
 		cloud_aws.AWSCloudServiceModule,
+		stack_fx.StackModule,
 
 		fx_http.HttpModule,
 	)

@@ -19,6 +19,7 @@ import (
 	"brume.dev/machine"
 	"brume.dev/project"
 	"brume.dev/service"
+	stack_service "brume.dev/stack"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
@@ -44,6 +45,7 @@ func NewHTTPServer(
 	monitoringHTTPRouter *MonitoringHTTPRouterV1,
 	cloudAccountService *cloud_account_service.CloudAccountService,
 	organizationService *org.OrganizationService,
+	stackService *stack_service.StackService,
 	cfg *config.BrumeConfig,
 ) *BrumeHTTPServer {
 	logger.Info().Msg("Launching the HTTP Server")
@@ -56,6 +58,7 @@ func NewHTTPServer(
 		MachineService:      machineService,
 		CloudAccountService: cloudAccountService,
 		OrganizationService: organizationService,
+		StackService:        stackService,
 	}
 
 	public_gql := handler.New(public_graph_generated.NewExecutableSchema(public_graph_generated.Config{Resolvers: public_resolver}))

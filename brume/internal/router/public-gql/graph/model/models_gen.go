@@ -16,6 +16,16 @@ type CreateCloudAccountResponse struct {
 	ID string `json:"id"`
 }
 
+type DeployStackInput struct {
+	Name           string `json:"name"`
+	TemplateID     string `json:"templateId"`
+	CloudAccountID string `json:"cloudAccountId"`
+}
+
+type DeployStackResponse struct {
+	ID string `json:"id"`
+}
+
 type Mutation struct {
 }
 

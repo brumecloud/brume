@@ -23,6 +23,7 @@ import { PROJECT_FRAGMENT } from "./gql/project.graphql";
 import { RUNNER_FRAGMENT } from "./gql/runner.graphql";
 import { BASE_SERVICE_FRAGMENT, ServiceFragment } from "./gql/service.graphql";
 import { SourceFragment } from "./gql/source.graphql";
+import { STACK_FRAGMENT, STACKS_TEMPLATE_FRAGMENT } from "./gql/stack.graphql";
 import { ENV } from "./utils/env";
 
 const httpLink = new HttpLink({
@@ -120,7 +121,9 @@ const graphqlClient = new ApolloClient({
       SourceFragment,
       BASE_SERVICE_FRAGMENT,
       ServiceFragment,
-      CLOUD_ACCOUNT_FRAGMENT
+      CLOUD_ACCOUNT_FRAGMENT,
+      STACKS_TEMPLATE_FRAGMENT,
+      STACK_FRAGMENT
     ),
     dataIdFromObject(responseObject) {
       switch (responseObject.__typename) {

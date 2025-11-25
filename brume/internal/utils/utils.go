@@ -48,3 +48,11 @@ func CloudAccountID() string {
 func UserID() string {
 	return GenerateID("usr")
 }
+
+func StackID() string {
+	return GenerateID("stk")
+}
+
+func StackTemplateID() string {
+	return GenerateID("stck_tpl")
+}

@@ -73,8 +73,13 @@ type ComplexityRoot struct {
 		ID func(childComplexity int) int
 	}
 
+	DeployStackResponse struct {
+		ID func(childComplexity int) int
+	}
+
 	Mutation struct {
 		CreateCloudAccount func(childComplexity int, input public_graph_model.CreateCloudAccountInput) int
+		DeployStack        func(childComplexity int, input public_graph_model.DeployStackInput) int
 	}
 
 	Organization struct {
@@ -95,6 +100,8 @@ type ComplexityRoot struct {
 		GetAWSCloudFormationURL func(childComplexity int) int
 		GetCloudAccountByID     func(childComplexity int, id string) int
 		GetProjectByID          func(childComplexity int, id string) int
+		GetStackTemplates       func(childComplexity int) int
+		GetStacks               func(childComplexity int) int
 		Me                      func(childComplexity int) int
 	}
 
@@ -123,7 +130,13 @@ type ComplexityRoot struct {
 	Stack struct {
 		ID         func(childComplexity int) int
 		Name       func(childComplexity int) int
+		Status     func(childComplexity int) int
 		TemplateID func(childComplexity int) int
+	}
+
+	StackTemplate struct {
+		ID   func(childComplexity int) int
+		Name func(childComplexity int) int
 	}
 
 	User struct {
@@ -259,6 +272,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.CreateCloudAccountResponse.ID(childComplexity), true
 
+	case "DeployStackResponse.id":
+		if e.complexity.DeployStackResponse.ID == nil {
+			break
+		}
+
+		return e.complexity.DeployStackResponse.ID(childComplexity), true
+
 	case "Mutation.createCloudAccount":
 		if e.complexity.Mutation.CreateCloudAccount == nil {
 			break
@@ -270,6 +290,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.CreateCloudAccount(childComplexity, args["input"].(public_graph_model.CreateCloudAccountInput)), true
+
+	case "Mutation.deployStack":
+		if e.complexity.Mutation.DeployStack == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deployStack_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeployStack(childComplexity, args["input"].(public_graph_model.DeployStackInput)), true
 
 	case "Organization.cloudAccounts":
 		if e.complexity.Organization.CloudAccounts == nil {
@@ -357,6 +389,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.GetProjectByID(childComplexity, args["id"].(string)), true
+
+	case "Query.getStackTemplates":
+		if e.complexity.Query.GetStackTemplates == nil {
+			break
+		}
+
+		return e.complexity.Query.GetStackTemplates(childComplexity), true
+
+	case "Query.getStacks":
+		if e.complexity.Query.GetStacks == nil {
+			break
+		}
+
+		return e.complexity.Query.GetStacks(childComplexity), true
 
 	case "Query.me":
 		if e.complexity.Query.Me == nil {
@@ -470,12 +516,33 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Stack.Name(childComplexity), true
 
+	case "Stack.status":
+		if e.complexity.Stack.Status == nil {
+			break
+		}
+
+		return e.complexity.Stack.Status(childComplexity), true
+
 	case "Stack.template_id":
 		if e.complexity.Stack.TemplateID == nil {
 			break
 		}
 
 		return e.complexity.Stack.TemplateID(childComplexity), true
+
+	case "StackTemplate.id":
+		if e.complexity.StackTemplate.ID == nil {
+			break
+		}
+
+		return e.complexity.StackTemplate.ID(childComplexity), true
+
+	case "StackTemplate.name":
+		if e.complexity.StackTemplate.Name == nil {
+			break
+		}
+
+		return e.complexity.StackTemplate.Name(childComplexity), true
 
 	case "User.avatar":
 		if e.complexity.User.Avatar == nil {
@@ -521,6 +588,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputCreateCloudAccountInput,
+		ec.unmarshalInputDeployStackInput,
 	)
 	first := true
 
@@ -649,8 +717,21 @@ enum CloudStatus {
 	Error
 }
 
+enum StackStatus {
+	Pending
+	Deploying
+	Deployed
+	Failed
+}
+
 type Stack {
 	template_id: String!
+	id: String!
+	name: String!
+	status: StackStatus!
+}
+
+type StackTemplate {
 	id: String!
 	name: String!
 }
@@ -719,6 +800,8 @@ type Query {
 	getProjectById(id: String!): Project!
 	getAWSCloudFormationURL: String!
 	getCloudAccountById(id: String!): CloudAccount!
+	getStackTemplates: [StackTemplate!]!
+	getStacks: [Stack!]!
 }
 
 input CreateCloudAccountInput {
@@ -731,10 +814,22 @@ type CreateCloudAccountResponse {
 	id: String!
 }
 
+input DeployStackInput {
+	name: String!
+	templateId: String!
+	cloudAccountId: String!
+}
+
+type DeployStackResponse {
+	id: String!
+}
+
 type Mutation {
 	createCloudAccount(
 		input: CreateCloudAccountInput!
 	): CreateCloudAccountResponse!
+
+	deployStack(input: DeployStackInput!): DeployStackResponse!
 }
 `, BuiltIn: false},
 }
