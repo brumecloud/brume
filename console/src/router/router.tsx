@@ -21,8 +21,8 @@ import { DomainPage } from "@/pages/settings/domain";
 import { AddDomain } from "@/pages/settings/domain/add";
 import Stacks from "@/pages/stack";
 import { DeployStack } from "@/pages/stack/deploy";
+import { StackOverview } from "@/pages/stack/id/stack-overview";
 import { Marketplace } from "@/pages/stack/marketplace";
-import { StackView } from "@/pages/stack/stack-view";
 import { ProjectLayout } from "@/router/layout/project.layout";
 import { SettingsOutlet } from "@/router/layout/settings";
 import { RouteParams } from "@/router/router.param";
@@ -31,6 +31,7 @@ import { ConsoleLayout } from "./layout/console.layout";
 import { PageLayout } from "./layout/page.layout";
 import { ProjectSettingsLayout } from "./layout/project-settings.layout";
 import { RunnerLayout } from "./layout/runner.layout";
+import { StackLayout } from "./layout/stack.layout";
 
 export const Router = createRoutesFromElements(
   <Route errorElement={<ErrorPage />} path="/">
@@ -38,10 +39,12 @@ export const Router = createRoutesFromElements(
     <Route element={<Logout />} path="/logout" />
     <Route element={<ConsoleLayout />} path="/">
       <Route element={<PageLayout />} path="/">
-        <Route path="/overview">
+        <Route path="/stacks">
           <Route element={<Stacks />} index />
           <Route element={<DeployStack />} path="deploy" />
-          <Route element={<StackView />} path={`:${RouteParams.StackID}`} />
+          <Route element={<StackLayout />} path={`:${RouteParams.StackID}`}>
+            <Route element={<StackOverview />} path="overview" />
+          </Route>
         </Route>
         <Route element={<Marketplace />} path="/marketplace" />
 

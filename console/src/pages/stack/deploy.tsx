@@ -33,7 +33,7 @@ export const DeployStack = () => {
 
   const templateId = searchParams.get("stack");
   if (!templateId) {
-    navigate("/overview");
+    navigate("/stacks");
   }
 
   const [deployStack] = useMutation(DEPLOY_STACK);
@@ -55,7 +55,7 @@ export const DeployStack = () => {
 
     toast.success(`Stack deployed successfully with id: ${id}`);
 
-    navigate("/overview");
+    navigate("/stacks");
   };
 
   return (

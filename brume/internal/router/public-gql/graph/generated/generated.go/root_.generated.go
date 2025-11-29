@@ -100,6 +100,7 @@ type ComplexityRoot struct {
 		GetAWSCloudFormationURL func(childComplexity int) int
 		GetCloudAccountByID     func(childComplexity int, id string) int
 		GetProjectByID          func(childComplexity int, id string) int
+		GetStack                func(childComplexity int, id string) int
 		GetStackTemplates       func(childComplexity int) int
 		GetStacks               func(childComplexity int) int
 		Me                      func(childComplexity int) int
@@ -389,6 +390,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.GetProjectByID(childComplexity, args["id"].(string)), true
+
+	case "Query.getStack":
+		if e.complexity.Query.GetStack == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getStack_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetStack(childComplexity, args["id"].(string)), true
 
 	case "Query.getStackTemplates":
 		if e.complexity.Query.GetStackTemplates == nil {
@@ -802,6 +815,7 @@ type Query {
 	getCloudAccountById(id: String!): CloudAccount!
 	getStackTemplates: [StackTemplate!]!
 	getStacks: [Stack!]!
+	getStack(id: String!): Stack!
 }
 
 input CreateCloudAccountInput {

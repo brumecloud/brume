@@ -51,7 +51,7 @@ export const Login = () => {
         credentials: "include",
       }
     ).then(() => {
-      navigate("/overview");
+      navigate("/stacks");
       setLoading(false);
     });
   };
@@ -61,9 +61,9 @@ export const Login = () => {
       <div className="z-10 flex h-[500px] w-[800px] flex-row overflow-hidden rounded-lg border bg-white shadow-gray-900/10 shadow-lg">
         <div className="h-full w-1/2 overflow-hidden rounded-r-sm p-2">
           <img
-            src={login}
             alt="Brume Cloud"
             className="h-full w-full rounded-sm object-cover"
+            src={login}
           />
         </div>
         <div className="flex w-1/2 flex-col justify-between gap-4 rounded-sm p-4 pr-6">
@@ -80,16 +80,16 @@ export const Login = () => {
                 onSubmit={(e) => submit(e)}
               >
                 <Input
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="Email"
                   type="email"
-                  onChange={(e) => setEmail(e.target.value)}
                 />
                 <Button
                   className="mt-2 w-fit"
-                  type="submit"
                   disabled={!email || loading === true}
+                  type="submit"
                 >
-                  {loading && <Spinner size="sm" className="border-white" />}
+                  {loading && <Spinner className="border-white" size="sm" />}
                   Send me a magic link
                 </Button>
               </form>
@@ -105,12 +105,12 @@ export const Login = () => {
                 <InputOTP
                   className="z-10 text-gray-800"
                   maxLength={6}
-                  pattern={REGEXP_ONLY_DIGITS}
                   onChange={(e) => setCode(e)}
                   onComplete={(e) => {
                     setCode(e);
                     console.log(e);
                   }}
+                  pattern={REGEXP_ONLY_DIGITS}
                 >
                   <InputOTPGroup>
                     <InputOTPSlot index={0} />
@@ -126,8 +126,8 @@ export const Login = () => {
                 </InputOTP>
                 <Button
                   className="mt-2 w-fit"
-                  type="submit"
                   disabled={!code || loading === true}
+                  type="submit"
                 >
                   {loading && <Spinner size="sm" />}
                   Login
@@ -140,11 +140,11 @@ export const Login = () => {
             <div className="flex flex-col gap-y-2">
               <div className="flex flex-row items-center gap-x-2">
                 <Input
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="join the waitlist"
                   type="email"
-                  onChange={(e) => setEmail(e.target.value)}
                 />
-                <Button className="size-9" type="submit" disabled={!email}>
+                <Button className="size-9" disabled={!email} type="submit">
                   <ArrowRightIcon className="h-4 w-4" />
                 </Button>
               </div>
@@ -156,10 +156,10 @@ export const Login = () => {
         </div>
       </div>
       <div
+        className="absolute top-0 left-0 flex h-screen w-screen flex-col items-center justify-center bg-[size:180px] bg-repeat opacity-[0.04] [z-index:-1]"
         style={{
           backgroundImage: `url(${noise})`,
         }}
-        className="absolute top-0 left-0 flex h-screen w-screen flex-col items-center justify-center bg-[size:180px] bg-repeat opacity-[0.04] [z-index:-1]"
       />
     </main>
   );

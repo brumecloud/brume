@@ -41,7 +41,7 @@ const StackCard = ({ stacksTemplateId }: { stacksTemplateId: string }) => {
       >
         {isHovering ? (
           <div>
-            <NavLink to={`/overview/deploy?stack=${stacksTemplateData.id}`}>
+            <NavLink to={`/stacks/deploy?stack=${stacksTemplateData.id}`}>
               <Button>Deploy this stack</Button>
             </NavLink>
           </div>

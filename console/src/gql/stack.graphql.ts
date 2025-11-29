@@ -41,3 +41,12 @@ export const GET_STACKS = gql(`
     }
   }
 `);
+
+export const GET_STACK = gql(`
+  query GetStack($id: String!) {
+    getStack(id: $id) {
+      id
+      ...StackFragment
+    }
+  }
+`);

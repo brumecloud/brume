@@ -114,6 +114,7 @@ type Query {
 	getCloudAccountById(id: String!): CloudAccount!
 	getStackTemplates: [StackTemplate!]!
 	getStacks: [Stack!]!
+	getStack(id: String!): Stack!
 }
 
 input CreateCloudAccountInput {

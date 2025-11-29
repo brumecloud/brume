@@ -3,14 +3,14 @@ import ArchitectureServiceAmazonCloudFront from "aws-react-icons/lib/icons/Archi
 import ArchitectureServiceAWSPrivateCertificateAuthority from "aws-react-icons/lib/icons/ArchitectureServiceAWSPrivateCertificateAuthority";
 import ResourceAmazonSimpleStorageServiceBucket from "aws-react-icons/lib/icons/ResourceAmazonSimpleStorageServiceBucket";
 import { useState } from "react";
-import { BiCheck, BiLoader, BiPulse, BiX } from "react-icons/bi";
 import { NavLink } from "react-router-dom";
 import { StackStatus } from "@/_apollo/graphql";
 import { Page } from "@/components/page-comp/header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StatusIndicator } from "@/components/ui/status";
 import { GET_STACKS, STACK_FRAGMENT } from "@/gql/stack.graphql";
+import { cn } from "@/utils";
 
 const StackCard = ({ stackId }: { stackId: string }) => {
   const { data: stack, complete } = useFragment({
@@ -22,36 +22,24 @@ const StackCard = ({ stackId }: { stackId: string }) => {
   if (!(complete && stack)) {
     return null;
   }
+
+  console.log("stack.status", stack);
+
+  const status = {
+    [StackStatus.Deployed]: "online",
+    [StackStatus.Deploying]: "pending",
+    [StackStatus.Failed]: "offline",
+    [StackStatus.Pending]: "pending",
+  };
+
   return (
     <div className="overflow-hidden rounded-md border">
       <div className="flex h-16 flex-row items-center justify-between border-b px-3">
         <div className="flex flex-col gap-[3px]">
           <h2>{stack.name}</h2>
-          <div className="flex flex-row gap-2">
-            <Badge variant={"outline"}>{stack.template_id}</Badge>
-          </div>
         </div>
         <div className="flex flex-row items-center justify-center gap-x-3 pr-2">
-          {stack.status === StackStatus.Deploying && (
-            <div className="rounded-full border border-yellow-300 bg-yellow-50 p-1">
-              <BiPulse className="size-4 text-yellow-500" />
-            </div>
-          )}
-          {stack.status === StackStatus.Pending && (
-            <div className="rounded-full border border-gray-300 bg-gray-50 p-1">
-              <BiLoader className="size-4 animate-spin text-gray-500" />
-            </div>
-          )}
-          {stack.status === StackStatus.Deployed && (
-            <div className="rounded-full border border-green-300 bg-green-50 p-1">
-              <BiCheck className="size-4 text-green-500" />
-            </div>
-          )}
-          {stack.status === StackStatus.Failed && (
-            <div className="rounded-full border border-red-300 bg-red-50 p-1">
-              <BiX className="size-4 text-red-500" />
-            </div>
-          )}
+          <StatusIndicator className={cn("group", status[stack.status])} />
         </div>
       </div>
       <div
@@ -61,7 +49,7 @@ const StackCard = ({ stackId }: { stackId: string }) => {
       >
         {isHovering ? (
           <div>
-            <NavLink to={`/overview/stack/${stack.id}`}>
+            <NavLink to={`/stacks/${stack.id}/overview`}>
               <Button>View stack</Button>
             </NavLink>
           </div>

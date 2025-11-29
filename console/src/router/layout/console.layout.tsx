@@ -9,7 +9,7 @@ export const ConsoleLayout = () => {
 
   useEffect(() => {
     if (location.pathname === "/") {
-      nav("/overview", { replace: true });
+      nav("/stacks", { replace: true });
     }
   }, [location, nav]);
 

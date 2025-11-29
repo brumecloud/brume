@@ -21,10 +21,10 @@ import (
 func SeedAll(db *DB, config *config.BrumeConfig) error {
 	projects := SeedProjects(db)
 	brume := SeedOrganization(db, projects, config)
-	cloudAccounts := SeedCloudAccounts(db, brume)
+	stackTemplate := SeedStackTemplates(db)
+	cloudAccounts := SeedCloudAccounts(db, brume, stackTemplate)
 	admin := SeedAdminUser(db, brume, config)
 	_, _ = SeedAgent(db, brume, config)
-	SeedStackTemplates(db)
 
 	_ = admin
 	_ = cloudAccounts
@@ -179,10 +179,10 @@ func SeedProjects(db *DB) []*project.Project {
 	return projects
 }
 
-func SeedStackTemplates(db *DB) {
+func SeedStackTemplates(db *DB) *stack_model.StackTemplate {
 	stackTemplate := &stack_model.StackTemplate{
 		ID:   "stk_tpl_d32a242475c5",
-		Name: "Dummy Cloud front SPA",
+		Name: "Cloud front SPA",
 	}
 
 	if err := db.Gorm.First(stackTemplate, "id = ?", stackTemplate.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
@@ -192,16 +192,20 @@ func SeedStackTemplates(db *DB) {
 	} else {
 		logger.Debug().Msg("Stack template found, skipping seeding")
 	}
+
+	return stackTemplate
 }
 
-func SeedCloudAccounts(db *DB, brume *org.Organization) []*cloud_account_model.CloudAccount {
+func SeedCloudAccounts(db *DB, brume *org.Organization, stackTemplate *stack_model.StackTemplate) []*cloud_account_model.CloudAccount {
 	cloudAccounts := make([]*cloud_account_model.CloudAccount, 1)
 
 	stacks := make([]*stack_model.Stack, 1)
 
 	stack := &stack_model.Stack{
-		ID:   "stck_3f29ea37c238",
-		Name: "Dummy Cloud front SPA",
+		ID:         "stck_3f29ea37c238",
+		Name:       "Cloudfront SPA",
+		Status:     stack_model.StackStatusDeployed,
+		TemplateID: stackTemplate.ID,
 	}
 
 	stacks[0] = stack

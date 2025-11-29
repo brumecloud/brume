@@ -128,6 +128,11 @@ func (r *queryResolver) GetStacks(ctx context.Context) ([]*stack_model.Stack, er
 	return r.StackService.GetAllStacks(ctx)
 }
 
+// GetStack is the resolver for the getStack field.
+func (r *queryResolver) GetStack(ctx context.Context, id string) (*stack_model.Stack, error) {
+	return r.StackService.GetStackByID(ctx, id)
+}
+
 // Type is the resolver for the type field.
 func (r *sourceResolver) Type(ctx context.Context, obj *source_model.Source) (string, error) {
 	return string(obj.Type), nil
@@ -190,3 +195,15 @@ type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type sourceResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *queryResolver) GetStackByID(ctx context.Context, id string) (*stack_model.Stack, error) {
+	return r.StackService.GetStackByID(ctx, id)
+}
+*/

@@ -1,31 +1,36 @@
 import { useQuery } from "@apollo/client";
 import { Link, Outlet, useLocation, useParams } from "react-router-dom";
+import { StackStatus } from "@/_apollo/graphql";
 import { Page } from "@/components/page-comp/header";
 import { Badge } from "@/components/ui/badge";
-import { CloudIcon } from "@/components/ui/cloud";
-import { Status } from "@/components/ui/status";
-import { GET_CLOUD_ACCOUNT } from "@/gql/cloud.graphql";
-import { _statusMapping } from "@/pages/settings/clouds";
+import { StatusIndicator } from "@/components/ui/status";
+import { GET_STACK } from "@/gql/stack.graphql";
+import { cn } from "@/utils";
 
-export const CloudLayout = () => {
+export const StackLayout = () => {
   const location = useLocation();
   const path = location.pathname.split("/").pop();
-  const { cloudAccountId } = useParams() as {
-    cloudAccountId: string;
-  };
+  const { stackId } = useParams();
 
-  const { data, loading } = useQuery(GET_CLOUD_ACCOUNT, {
+  const { data, loading } = useQuery(GET_STACK, {
     variables: {
-      id: cloudAccountId,
+      id: stackId || "",
     },
-    fetchPolicy: "cache-and-network",
   });
 
   if (loading || !data) {
     return null;
   }
 
-  const _status = _statusMapping[data.getCloudAccountById.status];
+  const stack = data?.getStack;
+
+  const status = {
+    [StackStatus.Deployed]: "online",
+    [StackStatus.Deploying]: "pending",
+    [StackStatus.Failed]: "offline",
+    [StackStatus.Pending]: "pending",
+    "": "offline",
+  };
 
   return (
     <Page.Container>
@@ -33,24 +38,20 @@ export const CloudLayout = () => {
         <div className="flex flex-row items-center gap-2">
           <Page.Title className="w-full">
             <div className="flex flex-row items-center gap-4">
-              <CloudIcon
-                className="size-8"
-                cloudProvider={data?.getCloudAccountById?.cloudProvider}
-              />
-              {data?.getCloudAccountById.name}
+              Stack - {stack.name}
             </div>
           </Page.Title>
           <Badge
             className="flex flex-row items-center gap-2"
             variant="secondary"
           >
-            <Status status={_status.status} />
-            {_status.label}
+            <StatusIndicator className={cn("group", status[stack.status])} />
+            {status[stack.status] || "Offline"}
           </Badge>
         </div>
         <Page.Description>
-          Explore the details of this cloud account. See what is running, on
-          what stacks.
+          Explore the details of this stack. See what is running, on what
+          services, logs etc.
         </Page.Description>
       </Page.Header>
       <Page.Body>
@@ -58,24 +59,24 @@ export const CloudLayout = () => {
           <div className="flex shrink-0 gap-6 border-b">
             <Link
               className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
-              data-state={path === "stacks" ? "active" : ""}
+              data-state={path === "overview" ? "active" : ""}
               to="overview"
             >
               Overview
             </Link>
             <Link
               className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
-              data-state={path === "stacks" ? "active" : ""}
-              to="stacks"
+              data-state={path === "logs" ? "active" : ""}
+              to="logs"
             >
-              Stacks
+              Logs
             </Link>
             <Link
               className="select-none border-gray-800 py-2 text-gray-500 data-[state=active]:border-b data-[state=active]:text-gray-800"
-              data-state={path === "settings" ? "active" : ""}
-              to="settings"
+              data-state={path === "template" ? "active" : ""}
+              to="template"
             >
-              Settings
+              Template
             </Link>
           </div>
           <Outlet />
