@@ -24,7 +24,7 @@ use tempfile::TempDir;
     about = "Publish agent plans as durable documentation"
 )]
 struct Cli {
-    #[arg(long, env = "BRUME_BASE_URL", default_value = "https://brume.dev")]
+    #[arg(long, env = "BRUME_BASE_URL", default_value = "https://api.brume.dev")]
     base_url: String,
     #[command(subcommand)]
     command: Command,

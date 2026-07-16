@@ -148,7 +148,7 @@ Une lecture est enregistrée après cinq secondes continues avec la page visible
 Variables du service web et du Cron:
 
 ```dotenv
-BRUME_PUBLIC_URL=https://brume.dev
+BRUME_PUBLIC_URL=https://plan.brume.dev
 BRUME_DATABASE_URL=${{Postgres.DATABASE_URL}}
 BRUME_STORAGE_BACKEND=s3
 BRUME_GITHUB_CLIENT_ID=...
@@ -161,11 +161,14 @@ Brume accepte les variables Railway natives `ENDPOINT`, `REGION`, `BUCKET`, `ACC
 La valeur `AWS_S3_URL_STYLE=virtual` correspond aux buckets Railway récents.
 Pour un ancien bucket path-style, utiliser `AWS_S3_URL_STYLE=path`.
 
-Créer une GitHub OAuth App avec `https://brume.dev/auth/github/callback` comme callback URL.
+Créer une GitHub OAuth App avec `https://plan.brume.dev/auth/github/callback` comme callback URL.
 Le champ `BRUME_GITHUB_ALLOWED_IDS` est une liste d’identifiants GitHub numériques séparés par des virgules.
 Une liste vide autorise tous les comptes GitHub.
 
-Configurer `brume.dev` comme domaine custom du service web.
+Configurer `api.brume.dev` et `plan.brume.dev` comme domaines custom du même service web.
+Le CLI utilise `api.brume.dev`, tandis que les plans publiés et l’authentification web utilisent `plan.brume.dev`.
+Le domaine `brume.dev` reste réservé au site marketing.
+Les deux sous-domaines utilisent les routes existantes du serveur sans réécriture.
 Le healthcheck Railway est `/health` et vérifie également PostgreSQL.
 
 ## Rétention et remplacement
@@ -175,4 +178,3 @@ Une republication remplace atomiquement la version visible et réinitialise sa f
 L’ancien bundle est supprimé après la bascule.
 Un plan pin n’expire pas.
 La suppression manuelle demande un challenge court avant d’effacer le bundle et la ligne PostgreSQL.
-
