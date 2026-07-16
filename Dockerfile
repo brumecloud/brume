@@ -2,6 +2,7 @@ FROM oven/bun:1.3.14 AS renderer
 
 WORKDIR /app/renderer
 COPY renderer/package.json renderer/bun.lock ./
+RUN bun install --frozen-lockfile
 COPY renderer/ ./
 RUN bun run typecheck && bun run build:web
 
