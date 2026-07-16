@@ -11,9 +11,10 @@ mod web;
 use std::time::Duration;
 
 use anyhow::Result;
-use axum::{Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use clap::{Parser, Subcommand};
 use config::Config;
+use serde::Serialize;
 use state::AppState;
 use tower_cookies::CookieManagerLayer;
 use tower_http::{catch_panic::CatchPanicLayer, compression::CompressionLayer, trace::TraceLayer};
@@ -89,12 +90,25 @@ async fn index() -> &'static str {
     "Brume publishes agent plans. Use the Brume CLI to deploy one."
 }
 
+#[derive(Serialize)]
+struct HealthResponse {
+    status: &'static str,
+    commit: &'static str,
+}
+
 async fn health(State(state): State<AppState>) -> impl IntoResponse {
-    match sqlx::query_scalar::<_, i32>("SELECT 1")
+    let (status_code, status) = match sqlx::query_scalar::<_, i32>("SELECT 1")
         .fetch_one(&state.database)
         .await
     {
         Ok(1) => (StatusCode::OK, "ok"),
         _ => (StatusCode::SERVICE_UNAVAILABLE, "database unavailable"),
-    }
+    };
+    (
+        status_code,
+        Json(HealthResponse {
+            status,
+            commit: env!("BRUME_BUILD_COMMIT"),
+        }),
+    )
 }

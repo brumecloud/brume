@@ -13,7 +13,7 @@ get {
 tests {
   test("server and database are healthy", function() {
     expect(res.status).to.equal(200);
-    expect(res.body).to.equal("ok");
+    expect(res.body.status).to.equal("ok");
+    expect(res.body.commit).to.be.a("string").and.not.be.empty;
   });
 }
-

@@ -3,6 +3,13 @@ use std::{env, fs, path::PathBuf};
 use anyhow::{Result, bail};
 
 fn main() -> Result<()> {
+    println!("cargo:rerun-if-env-changed=RAILWAY_GIT_COMMIT_SHA");
+    let commit = env::var("RAILWAY_GIT_COMMIT_SHA")
+        .ok()
+        .filter(|commit| !commit.is_empty())
+        .unwrap_or_else(|| "unknown".to_owned());
+    println!("cargo:rustc-env=BRUME_BUILD_COMMIT={commit}");
+
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
     let dist = env::var("BRUME_RENDERER_DIST")
         .map(PathBuf::from)

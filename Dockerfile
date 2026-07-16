@@ -9,6 +9,7 @@ RUN bun run typecheck && bun run build:web
 FROM rust:1.97.0-bookworm AS builder
 
 WORKDIR /app
+ARG RAILWAY_GIT_COMMIT_SHA
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
 COPY migrations/ migrations/
