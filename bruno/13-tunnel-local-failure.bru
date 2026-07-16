@@ -1,0 +1,17 @@
+meta {
+  name: Tunnel local failure
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{base_url}}/e2e/{{failed_tunnel}}/inspect
+  body: none
+  auth: none
+}
+
+tests {
+  test("an unreachable local service returns bad gateway", function() {
+    expect(res.status).to.equal(502);
+  });
+}

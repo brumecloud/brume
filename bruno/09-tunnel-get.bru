@@ -1,0 +1,29 @@
+meta {
+  name: Tunnel GET
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{base_url}}/e2e/{{tunnel}}/inspect?hello=world
+  body: none
+  auth: none
+}
+
+headers {
+  x-tunnel-test: forwarded
+}
+
+tests {
+  test("public tunnel strips its prefix and forwards request context", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.instance).to.equal("second");
+    expect(res.body.method).to.equal("GET");
+    expect(res.body.pathname).to.equal("/inspect");
+    expect(res.body.search).to.equal("?hello=world");
+    expect(res.body.host).to.equal("127.0.0.1:18082");
+    expect(res.body.forwardedPrefix).to.equal(`/e2e/${bru.getEnvVar("tunnel")}`);
+    expect(res.body.forwardedProto).to.equal("http");
+    expect(res.body.testHeader).to.equal("forwarded");
+  });
+}

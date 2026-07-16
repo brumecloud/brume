@@ -1,0 +1,18 @@
+meta {
+  name: Tunnel root
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{base_url}}/e2e/{{tunnel}}/
+  body: none
+  auth: none
+}
+
+tests {
+  test("trailing-slash tunnel root maps to the local root", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.pathname).to.equal("/");
+  });
+}

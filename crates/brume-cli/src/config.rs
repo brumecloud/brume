@@ -54,7 +54,7 @@ pub fn default_slug(directory: &Path) -> Result<String> {
 
 pub fn validate_slug(slug: &str) -> Result<()> {
     if slug.is_empty() || slug.len() > 80 {
-        bail!("a plan slug must contain between 1 and 80 characters");
+        bail!("a URL slug must contain between 1 and 80 characters");
     }
     if slug.starts_with('-')
         || slug.ends_with('-')
@@ -62,7 +62,7 @@ pub fn validate_slug(slug: &str) -> Result<()> {
             character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
         })
     {
-        bail!("plan slugs may contain lowercase ASCII letters, digits, and internal hyphens only");
+        bail!("URL slugs may contain lowercase ASCII letters, digits, and internal hyphens only");
     }
     Ok(())
 }
@@ -74,9 +74,13 @@ pub fn load_token(base_url: &str) -> Result<String> {
         return Ok(token);
     }
     let entry = keyring::Entry::new("dev.brume.cli", base_url)?;
-    entry.get_password().map_err(|_| {
-        anyhow!("not logged in to {base_url}; run `brume --base-url {base_url} login` first")
-    })
+    match entry.get_password() {
+        Ok(token) => Ok(token),
+        Err(keyring::Error::NoEntry) => Err(anyhow!(
+            "not logged in to {base_url}; run `brume --base-url {base_url} login` first"
+        )),
+        Err(error) => Err(error).context("loading the Brume token from the system keychain"),
+    }
 }
 
 pub fn save_token(base_url: &str, token: &str) -> Result<()> {

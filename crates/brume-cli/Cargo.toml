@@ -16,24 +16,31 @@ axum.workspace = true
 brume-api-client = { path = "../brume-api-client" }
 brume-core = { path = "../brume-core" }
 brume-mcp = { path = "../brume-mcp" }
+bytes.workspace = true
 chrono.workspace = true
 clap.workspace = true
 directories.workspace = true
 fs2.workspace = true
+futures.workspace = true
 hex.workspace = true
+http.workspace = true
 keyring.workspace = true
 mime_guess.workspace = true
 open.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 tar.workspace = true
 tempfile.workspace = true
 tokio.workspace = true
+tokio-tungstenite.workspace = true
 toml.workspace = true
 tower-http.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+url.workspace = true
+uuid.workspace = true
 walkdir.workspace = true
 zstd.workspace = true
 

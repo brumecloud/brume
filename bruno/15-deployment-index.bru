@@ -1,0 +1,20 @@
+meta {
+  name: Static deployment index
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{base_url}}/e2e/{{deployment}}/
+  body: none
+  auth: none
+}
+
+tests {
+  test("raw index HTML is served without the plan renderer", function() {
+    expect(res.status).to.equal(200);
+    expect(res.headers["content-type"]).to.include("text/html");
+    expect(res.body).to.include("Brume static deployment fixture");
+    expect(res.body).not.to.include("brume-layout");
+  });
+}

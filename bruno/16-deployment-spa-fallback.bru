@@ -1,0 +1,19 @@
+meta {
+  name: Static deployment SPA fallback
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{base_url}}/e2e/{{deployment}}/settings/profile
+  body: none
+  auth: none
+}
+
+tests {
+  test("an extensionless SPA route serves index.html", function() {
+    expect(res.status).to.equal(200);
+    expect(res.headers["content-type"]).to.include("text/html");
+    expect(res.body).to.include("Brume static deployment fixture");
+  });
+}

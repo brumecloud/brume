@@ -2,7 +2,7 @@ use anyhow::Result;
 use sqlx::Row;
 use uuid::Uuid;
 
-use crate::{plans, state::AppState};
+use crate::{deployments, plans, state::AppState};
 
 pub async fn run(state: &AppState) -> Result<()> {
     loop {
@@ -20,7 +20,30 @@ pub async fn run(state: &AppState) -> Result<()> {
             }
         }
     }
+    loop {
+        let mut transaction = state.database.begin().await?;
+        let expired = deployments::claim_expired(&mut transaction, 50).await?;
+        transaction.commit().await?;
+        if expired.is_empty() {
+            break;
+        }
+        for (user_id, deployment_id) in expired {
+            if let Err(error) =
+                deployments::delete_objects_and_row(state, user_id, deployment_id).await
+            {
+                tracing::error!(
+                    %user_id,
+                    %deployment_id,
+                    error = %error.status(),
+                    "deployment retention deletion failed"
+                );
+            } else {
+                tracing::info!(%user_id, %deployment_id, "deleted expired deployment");
+            }
+        }
+    }
     cleanup_superseded_bundles(state).await?;
+    deployments::cleanup_superseded(state).await?;
     cleanup_expired_auth(state).await?;
     Ok(())
 }

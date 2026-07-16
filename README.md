@@ -1,12 +1,12 @@
 # Brume
 
-Brume publie des plans Markdown ou MDX sous forme de documentation web lisible.
+Brume publie des plans Markdown ou MDX et déploie des sites HTML statiques.
 Le dépôt est un monorepo avec un CLI Rust, un serveur Rust, un serveur MCP et un renderer React/MDX embarqué dans le binaire du CLI.
 
 ## Structure
 
 - `crates/brume-cli` contient la commande `brume`.
-- `crates/brume-server` contient l’API, l’authentification GitHub et le serveur des plans.
+- `crates/brume-server` contient l’API, l’authentification GitHub et les serveurs des plans et déploiements statiques.
 - `crates/brume-mcp` expose les opérations de gestion aux agents via MCP stdio.
 - `crates/brume-core` contient le contrat partagé des plans et des bundles.
 - `crates/brume-api-client` contient le client HTTP utilisé par le CLI et le MCP.
@@ -80,6 +80,41 @@ Les plans privés nécessitent la session GitHub du propriétaire.
 Les plans non listés utilisent une URL secrète.
 Les plans publics sont lisibles sans session.
 
+## Déploiements HTML statiques
+
+`brume deploy` publie directement le contenu d’un dossier sans passer par le renderer Markdown ou modifier son HTML.
+Le dossier doit contenir un fichier `index.html` à sa racine.
+
+```bash
+brume deploy ./dist
+brume deploy ./dist --url mon-app
+brume deploy ./dist --url mon-spa --spa
+brume deploy ./dist --url documentation --pin
+```
+
+Sans `--url`, le slug est dérivé du nom du dossier.
+Les déploiements sont publics à l’adresse `https://deploy.brume.dev/<handle>/<slug>/`.
+L’option `--spa` sert `index.html` pour les routes GET inexistantes sans extension, tout en conservant une réponse 404 pour les assets inexistants.
+Les chemins de fichiers exacts et les fichiers `index.html` des sous-dossiers sont servis normalement.
+Chaque fichier est limité à 20 MiB, avec une limite de 100 MiB et 5 000 fichiers par déploiement.
+Les liens et les chemins d’assets ne sont pas réécrits.
+Une application utilisant des chemins absolus doit donc être construite avec `/<handle>/<slug>/` comme chemin de base.
+Comme les plans, les déploiements non pin expirent après quinze jours sans lecture et une republication remplace atomiquement la version active.
+
+## Tunnel HTTP local
+
+Après `brume login`, exposer un serveur HTTP local avec une URL publique stable:
+
+```bash
+brume tunnel 3000 --url mon-app
+```
+
+Le tunnel public devient `https://tunnel.brume.dev/<handle>/mon-app` et reste actif tant que la commande tourne.
+Les requêtes HTTP, les corps en streaming et les WebSockets sont relayés vers `http://127.0.0.1:3000`.
+Le préfixe `/<handle>/mon-app` est retiré avant l'appel local.
+Les applications utilisant des chemins absolus dans leur HTML ou leur JavaScript doivent être configurées pour ce préfixe, car Brume ne réécrit pas le contenu des réponses.
+L'URL est publique et ne doit pas exposer un service local contenant des données sensibles.
+
 ## Renderer MDX sûr
 
 Le renderer accepte Markdown, GFM, Mermaid et un ensemble fermé de composants MDX: `Callout`, `Card`, `CardGrid`, `CodeGroup`, `Decision`, `FileTree`, `Mermaid`, `Risk`, `Step`, `Steps`, `Tab` et `Tabs`.
@@ -142,13 +177,16 @@ Créer quatre ressources dans le même projet Railway:
 4. Un service Cron lié au même dépôt, avec `/railway.gc.toml` comme chemin Config as Code.
 
 Le service web exécute automatiquement les migrations au démarrage.
-Le Cron exécute `garbage-collect` chaque heure et supprime les plans non pin après quinze jours sans lecture significative.
+Le Cron exécute `garbage-collect` chaque heure et supprime les plans et déploiements non pin après quinze jours sans lecture.
 Une lecture est enregistrée après cinq secondes continues avec la page visible et les écritures sont limitées à une fois par heure et par plan.
+Pour un déploiement statique, une réponse HTML enregistre directement la lecture, au maximum une fois par heure.
 
 Variables du service web et du Cron:
 
 ```dotenv
 BRUME_PUBLIC_URL=https://plan.brume.dev
+BRUME_TUNNEL_PUBLIC_URL=https://tunnel.brume.dev
+BRUME_DEPLOY_PUBLIC_URL=https://deploy.brume.dev
 BRUME_DATABASE_URL=${{Postgres.DATABASE_URL}}
 BRUME_STORAGE_BACKEND=s3
 BRUME_GITHUB_CLIENT_ID=...
@@ -165,10 +203,13 @@ Créer une GitHub OAuth App avec `https://plan.brume.dev/auth/github/callback` c
 Le champ `BRUME_GITHUB_ALLOWED_IDS` est une liste d’identifiants GitHub numériques séparés par des virgules.
 Une liste vide autorise tous les comptes GitHub.
 
-Configurer `api.brume.dev` et `plan.brume.dev` comme domaines custom du même service web.
+Configurer `api.brume.dev`, `plan.brume.dev`, `deploy.brume.dev` et `tunnel.brume.dev` comme domaines custom du même service web.
 Le CLI utilise `api.brume.dev`, tandis que les plans publiés et l’authentification web utilisent `plan.brume.dev`.
+Les fichiers HTML statiques sont servis depuis `deploy.brume.dev` afin d’isoler leur JavaScript de l’origine authentifiée des plans.
+Les requêtes reçues sur `tunnel.brume.dev` sont dirigées vers les tunnels actifs en mémoire.
+Le service doit rester sur une seule réplique tant que le registre des tunnels n’est pas distribué.
 Le domaine `brume.dev` reste réservé au site marketing.
-Les deux sous-domaines utilisent les routes existantes du serveur sans réécriture.
+Les quatre sous-domaines utilisent les routes existantes du serveur sans réécriture.
 Le healthcheck Railway est `/health` et vérifie également PostgreSQL.
 
 ## Rétention et remplacement

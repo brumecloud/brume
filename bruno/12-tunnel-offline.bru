@@ -1,0 +1,17 @@
+meta {
+  name: Offline tunnel
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{base_url}}/e2e/not-running/inspect
+  body: none
+  auth: none
+}
+
+tests {
+  test("inactive tunnels are hidden", function() {
+    expect(res.status).to.equal(404);
+  });
+}

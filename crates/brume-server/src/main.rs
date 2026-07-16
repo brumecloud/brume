@@ -1,10 +1,13 @@
 mod auth;
 mod config;
+mod deployments;
 mod error;
 mod gc;
 mod plans;
+mod public;
 mod state;
 mod storage;
+mod tunnels;
 mod util;
 mod web;
 
@@ -64,17 +67,7 @@ async fn main() -> Result<()> {
 }
 
 async fn serve(state: AppState, bind: std::net::SocketAddr) -> Result<()> {
-    let router = Router::new()
-        .route("/", get(index))
-        .route("/health", get(health))
-        .merge(auth::router())
-        .merge(plans::router())
-        .merge(web::router())
-        .layer(CatchPanicLayer::new())
-        .layer(CompressionLayer::new())
-        .layer(TraceLayer::new_for_http())
-        .layer(CookieManagerLayer::new())
-        .with_state(state);
+    let router = application_router().with_state(state);
     let listener = tokio::net::TcpListener::bind(bind).await?;
     tracing::info!(address = %listener.local_addr()?, "Brume server listening");
     axum::serve(listener, router)
@@ -86,8 +79,24 @@ async fn serve(state: AppState, bind: std::net::SocketAddr) -> Result<()> {
     Ok(())
 }
 
+fn application_router() -> Router<AppState> {
+    Router::new()
+        .route("/", get(index))
+        .route("/health", get(health))
+        .merge(auth::router())
+        .merge(deployments::api_router())
+        .merge(plans::router())
+        .merge(tunnels::router())
+        .merge(web::router())
+        .merge(public::router())
+        .layer(CatchPanicLayer::new())
+        .layer(CompressionLayer::new())
+        .layer(TraceLayer::new_for_http())
+        .layer(CookieManagerLayer::new())
+}
+
 async fn index() -> &'static str {
-    "Brume publishes agent plans. Use the Brume CLI to deploy one."
+    "Brume publishes agent plans and static sites. Use the Brume CLI to deploy one."
 }
 
 #[derive(Serialize)]
@@ -111,4 +120,14 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
             commit: env!("BRUME_BUILD_COMMIT"),
         }),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn public_and_api_routes_merge_without_conflicts() {
+        let _ = application_router();
+    }
 }

@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use brume_core::{
     ApiErrorBody, BeginCliLoginResponse, ConfirmDeletionRequest, CreateDeletionChallengeResponse,
-    DeployPlanResponse, ListPlansResponse, PlanDetails, PlanPatch, PollCliLoginResponse,
-    Visibility,
+    DeployPlanResponse, DeploySiteResponse, ListPlansResponse, PlanDetails, PlanPatch,
+    PollCliLoginResponse, Visibility,
 };
 use reqwest::{Response, StatusCode};
 use thiserror::Error;
@@ -84,6 +84,27 @@ impl BrumeClient {
     ) -> Result<DeployPlanResponse, ClientError> {
         let path = format!(
             "api/v1/plans/{}/deploy?visibility={visibility}&pinned={pinned}",
+            urlencoding::encode(slug)
+        );
+        decode(
+            self.request(reqwest::Method::POST, &path)
+                .header(reqwest::header::CONTENT_TYPE, "application/zstd")
+                .body(archive)
+                .send()
+                .await?,
+        )
+        .await
+    }
+
+    pub async fn deploy_site(
+        &self,
+        slug: &str,
+        spa: bool,
+        pinned: bool,
+        archive: Vec<u8>,
+    ) -> Result<DeploySiteResponse, ClientError> {
+        let path = format!(
+            "api/v1/deployments/{}?spa={spa}&pinned={pinned}",
             urlencoding::encode(slug)
         );
         decode(

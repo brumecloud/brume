@@ -4,7 +4,7 @@ use anyhow::Result;
 use reqwest::Client;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
-use crate::{config::Config, storage};
+use crate::{config::Config, storage, tunnels::TunnelRegistry};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -12,6 +12,7 @@ pub struct AppState {
     pub database: PgPool,
     pub http: Client,
     pub storage: Arc<dyn storage::ObjectStore>,
+    pub tunnels: TunnelRegistry,
 }
 
 impl AppState {
@@ -30,6 +31,7 @@ impl AppState {
             database,
             http,
             storage,
+            tunnels: TunnelRegistry::default(),
         })
     }
 }

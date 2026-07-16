@@ -1,0 +1,19 @@
+meta {
+  name: Tunnel streamed response
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{base_url}}/e2e/{{tunnel}}/stream
+  body: none
+  auth: none
+}
+
+tests {
+  test("tunnel returns the complete streamed response", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.equal("alpha-beta");
+    expect(res.headers["x-local-response"]).to.equal("stream");
+  });
+}

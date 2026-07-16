@@ -1,0 +1,19 @@
+meta {
+  name: Static deployment asset
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{base_url}}/e2e/{{deployment}}/assets/app.js
+  body: none
+  auth: none
+}
+
+tests {
+  test("static assets keep their browser content type", function() {
+    expect(res.status).to.equal(200);
+    expect(res.headers["content-type"]).to.include("text/javascript");
+    expect(res.body).to.include("data-ready");
+  });
+}

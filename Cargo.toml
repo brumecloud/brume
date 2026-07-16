@@ -21,7 +21,7 @@ anyhow = "1"
 async-trait = "0.1"
 aws-config = "1"
 aws-sdk-s3 = "1"
-axum = { version = "0.8", features = ["http2", "json", "multipart", "query", "tokio"] }
+axum = { version = "0.8", features = ["http2", "json", "multipart", "query", "tokio", "ws"] }
 base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
@@ -31,15 +31,17 @@ fs2 = "0.4"
 futures = "0.3"
 hex = "0.4"
 http = "1"
-keyring = "3"
+keyring = { version = "3", features = ["apple-native", "sync-secret-service", "vendored", "windows-native"] }
 mime_guess = "2"
 moka = { version = "0.12", features = ["future"] }
 open = "5"
 percent-encoding = "2"
 rand = "0.8"
-reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls", "stream"] }
+rmp-serde = "1"
 rmcp = { version = "0.16", features = ["macros", "server", "transport-io"] }
 serde = { version = "1", features = ["derive"] }
+serde_bytes = "0.11"
 serde_json = "1"
 sha2 = "0.10"
 sqlx = { version = "0.8", default-features = false, features = ["chrono", "macros", "migrate", "postgres", "runtime-tokio-rustls", "uuid"] }
@@ -47,6 +49,7 @@ tar = "0.4"
 tempfile = "3"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.29", features = ["rustls-tls-webpki-roots"] }
 tower = "0.5"
 tower-cookies = "0.11"
 tower-http = { version = "0.6", features = ["catch-panic", "compression-gzip", "cors", "limit", "request-id", "trace"] }
@@ -58,4 +61,3 @@ urlencoding = "2"
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
 walkdir = "2"
 zstd = "0.13"
-

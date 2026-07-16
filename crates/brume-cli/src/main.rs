@@ -3,6 +3,7 @@ mod config;
 mod embedded;
 mod preview;
 mod renderer;
+mod tunnel;
 
 use std::{
     fs,
@@ -21,7 +22,7 @@ use tempfile::TempDir;
 #[command(
     name = "brume",
     version,
-    about = "Publish agent plans as durable documentation"
+    about = "Publish agent plans and static HTML sites"
 )]
 struct Cli {
     #[arg(long, env = "BRUME_BASE_URL", default_value = "https://api.brume.dev")]
@@ -33,6 +34,21 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     Login,
+    Deploy {
+        #[arg(default_value = ".")]
+        directory: PathBuf,
+        #[arg(long)]
+        url: Option<String>,
+        #[arg(long)]
+        spa: bool,
+        #[arg(long)]
+        pin: bool,
+    },
+    Tunnel {
+        port: u16,
+        #[arg(long)]
+        url: String,
+    },
     Plan {
         #[command(subcommand)]
         command: PlanCommand,
@@ -111,9 +127,41 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::Login => login(&cli.base_url).await,
+        Command::Deploy {
+            directory,
+            url,
+            spa,
+            pin,
+        } => deploy(&cli.base_url, &directory, url, spa, pin).await,
+        Command::Tunnel { port, url } => {
+            config::validate_slug(&url)?;
+            let token = config::load_token(&cli.base_url)?;
+            tunnel::run(&cli.base_url, token, port, &url).await
+        }
         Command::Mcp { command } => mcp(&cli.base_url, command).await,
         Command::Plan { command } => plan(&cli.base_url, command).await,
     }
+}
+
+async fn deploy(
+    base_url: &str,
+    directory: &Path,
+    slug: Option<String>,
+    spa: bool,
+    pin: bool,
+) -> Result<()> {
+    let token = config::load_token(base_url)?;
+    let source = canonical_directory(directory)?;
+    let slug = slug
+        .map(Ok)
+        .unwrap_or_else(|| config::default_slug(&source))?;
+    config::validate_slug(&slug)?;
+    let archive = archive::create_deployment_archive(&source)?;
+    let deployed = BrumeClient::new(base_url, Some(token))?
+        .deploy_site(&slug, spa, pin, archive)
+        .await?;
+    println!("Deployed {}", deployed.deployment.url);
+    Ok(())
 }
 
 async fn login(base_url: &str) -> Result<()> {

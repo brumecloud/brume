@@ -1,0 +1,17 @@
+meta {
+  name: Static deployment missing asset
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{base_url}}/e2e/{{deployment}}/assets/missing.js
+  body: none
+  auth: none
+}
+
+tests {
+  test("SPA fallback does not hide missing assets", function() {
+    expect(res.status).to.equal(404);
+  });
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Tunnel POST
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{base_url}}/e2e/{{tunnel}}/submit
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "message": "through-brume"
+  }
+}
+
+tests {
+  test("tunnel preserves method, body, status, and response headers", function() {
+    expect(res.status).to.equal(202);
+    expect(res.body.method).to.equal("POST");
+    expect(JSON.parse(res.body.body).message).to.equal("through-brume");
+    expect(res.headers["x-local-response"]).to.equal("second");
+  });
+}

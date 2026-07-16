@@ -6,6 +6,11 @@ use anyhow::{Context, Result, anyhow};
 pub struct Config {
     pub bind: SocketAddr,
     pub public_url: String,
+    pub tunnel_public_url: String,
+    pub tunnel_public_host: String,
+    pub tunnel_public_scheme: String,
+    pub deploy_public_url: String,
+    pub deploy_public_host: String,
     pub database_url: String,
     pub storage: StorageConfig,
     pub github_client_id: String,
@@ -43,6 +48,66 @@ impl Config {
             .unwrap_or_else(|_| "http://localhost:8080".to_owned())
             .trim_end_matches('/')
             .to_owned();
+        let tunnel_public_url = env::var("BRUME_TUNNEL_PUBLIC_URL")
+            .unwrap_or_else(|_| public_url.clone())
+            .trim_end_matches('/')
+            .to_owned();
+        let parsed_tunnel_url =
+            url::Url::parse(&tunnel_public_url).context("parsing BRUME_TUNNEL_PUBLIC_URL")?;
+        if !matches!(parsed_tunnel_url.scheme(), "http" | "https")
+            || parsed_tunnel_url.path() != "/"
+            || parsed_tunnel_url.query().is_some()
+            || parsed_tunnel_url.fragment().is_some()
+            || !parsed_tunnel_url.username().is_empty()
+            || parsed_tunnel_url.password().is_some()
+        {
+            return Err(anyhow!(
+                "BRUME_TUNNEL_PUBLIC_URL must be an http(s) origin without credentials, a path, a query, or a fragment"
+            ));
+        }
+        let mut tunnel_public_host = parsed_tunnel_url
+            .host_str()
+            .ok_or_else(|| anyhow!("BRUME_TUNNEL_PUBLIC_URL must contain a host"))?
+            .to_owned();
+        if let Some(port) = parsed_tunnel_url.port()
+            && !matches!(
+                (parsed_tunnel_url.scheme(), port),
+                ("http", 80) | ("https", 443)
+            )
+        {
+            tunnel_public_host.push(':');
+            tunnel_public_host.push_str(&port.to_string());
+        }
+        let tunnel_public_scheme = parsed_tunnel_url.scheme().to_owned();
+        let deploy_public_url = required("BRUME_DEPLOY_PUBLIC_URL")?
+            .trim_end_matches('/')
+            .to_owned();
+        let parsed_deploy_url =
+            url::Url::parse(&deploy_public_url).context("parsing BRUME_DEPLOY_PUBLIC_URL")?;
+        if !matches!(parsed_deploy_url.scheme(), "http" | "https")
+            || parsed_deploy_url.path() != "/"
+            || parsed_deploy_url.query().is_some()
+            || parsed_deploy_url.fragment().is_some()
+            || !parsed_deploy_url.username().is_empty()
+            || parsed_deploy_url.password().is_some()
+        {
+            return Err(anyhow!(
+                "BRUME_DEPLOY_PUBLIC_URL must be an http(s) origin without credentials, a path, a query, or a fragment"
+            ));
+        }
+        let mut deploy_public_host = parsed_deploy_url
+            .host_str()
+            .ok_or_else(|| anyhow!("BRUME_DEPLOY_PUBLIC_URL must contain a host"))?
+            .to_owned();
+        if let Some(port) = parsed_deploy_url.port()
+            && !matches!(
+                (parsed_deploy_url.scheme(), port),
+                ("http", 80) | ("https", 443)
+            )
+        {
+            deploy_public_host.push(':');
+            deploy_public_host.push_str(&port.to_string());
+        }
         let database_url = first_required(&["BRUME_DATABASE_URL", "DATABASE_URL"])?;
         let github_allowed_ids = env::var("BRUME_GITHUB_ALLOWED_IDS")
             .unwrap_or_default()
@@ -79,6 +144,11 @@ impl Config {
         Ok(Self {
             bind,
             public_url,
+            tunnel_public_url,
+            tunnel_public_host,
+            tunnel_public_scheme,
+            deploy_public_url,
+            deploy_public_host,
             database_url,
             storage,
             github_client_id: required("BRUME_GITHUB_CLIENT_ID")?,
