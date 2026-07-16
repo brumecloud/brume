@@ -1,0 +1,61 @@
+[workspace]
+resolver = "3"
+members = [
+  "crates/brume-api-client",
+  "crates/brume-cli",
+  "crates/brume-core",
+  "crates/brume-mcp",
+  "crates/brume-server",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+license = "MIT"
+repository = "https://github.com/paulplanchon/brume"
+
+[workspace.dependencies]
+ammonia = "4"
+anyhow = "1"
+async-trait = "0.1"
+aws-config = "1"
+aws-sdk-s3 = "1"
+axum = { version = "0.8", features = ["http2", "json", "multipart", "query", "tokio"] }
+base64 = "0.22"
+bytes = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive", "env"] }
+directories = "6"
+fs2 = "0.4"
+futures = "0.3"
+hex = "0.4"
+http = "1"
+keyring = "3"
+mime_guess = "2"
+moka = { version = "0.12", features = ["future"] }
+open = "5"
+percent-encoding = "2"
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
+rmcp = { version = "0.16", features = ["macros", "server", "transport-io"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sqlx = { version = "0.8", default-features = false, features = ["chrono", "macros", "migrate", "postgres", "runtime-tokio-rustls", "uuid"] }
+tar = "0.4"
+tempfile = "3"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-cookies = "0.11"
+tower-http = { version = "0.6", features = ["catch-panic", "compression-gzip", "cors", "limit", "request-id", "trace"] }
+toml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+url = "2"
+urlencoding = "2"
+uuid = { version = "1", features = ["serde", "v4", "v7"] }
+walkdir = "2"
+zstd = "0.13"
+

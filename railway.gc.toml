@@ -1,0 +1,9 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "/usr/local/bin/brume-server garbage-collect"
+cronSchedule = "17 * * * *"
+restartPolicyType = "NEVER"
+

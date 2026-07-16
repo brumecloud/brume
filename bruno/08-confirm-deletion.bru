@@ -1,0 +1,27 @@
+meta {
+  name: Confirm deletion
+  type: http
+  seq: 9
+}
+
+delete {
+  url: {{base_url}}/api/v1/plans/{{plan}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "challenge": "{{delete_challenge}}"
+  }
+}
+
+tests {
+  test("plan is permanently deleted", function() {
+    expect(res.status).to.equal(204);
+  });
+}

@@ -1,0 +1,10 @@
+/target/
+/renderer/node_modules/
+/renderer/dist/*
+!/renderer/dist/.gitkeep
+/.env
+/.env.*
+!.env.example
+/.DS_Store
+/.brume/
+

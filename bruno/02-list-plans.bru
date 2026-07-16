@@ -1,0 +1,24 @@
+meta {
+  name: List plans
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/v1/plans
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("deployed plan is listed", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.plans).to.be.an("array");
+    expect(res.body.plans.some((plan) => plan.slug === bru.getEnvVar("plan"))).to.equal(true);
+  });
+}
+

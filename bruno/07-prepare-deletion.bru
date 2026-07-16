@@ -1,0 +1,27 @@
+meta {
+  name: Prepare deletion
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/api/v1/plans/{{plan}}/deletion-challenges
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  bru.setVar("delete_challenge", res.body.challenge);
+}
+
+tests {
+  test("deletion requires a short-lived challenge", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.challenge).to.match(/^delete_/);
+    expect(res.body.expires_in_seconds).to.equal(300);
+  });
+}

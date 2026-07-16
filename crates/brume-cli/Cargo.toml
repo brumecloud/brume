@@ -1,0 +1,41 @@
+[package]
+name = "brume-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "brume"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+brume-api-client = { path = "../brume-api-client" }
+brume-core = { path = "../brume-core" }
+brume-mcp = { path = "../brume-mcp" }
+chrono.workspace = true
+clap.workspace = true
+directories.workspace = true
+fs2.workspace = true
+hex.workspace = true
+keyring.workspace = true
+mime_guess.workspace = true
+open.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tar.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+toml.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+walkdir.workspace = true
+zstd.workspace = true
+
+[build-dependencies]
+anyhow.workspace = true

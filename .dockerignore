@@ -1,0 +1,8 @@
+.git
+.brume
+.env*
+target
+renderer/node_modules
+renderer/dist
+bruno/.reports
+

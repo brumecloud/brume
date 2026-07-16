@@ -1,0 +1,33 @@
+.brume-shell { min-height: 100vh; }
+.brume-topbar { align-items: center; border-bottom: 1px solid var(--brume-border); display: flex; height: 3.5rem; justify-content: space-between; padding: 0 1.25rem; position: sticky; top: 0; z-index: 10; backdrop-filter: blur(14px); background: color-mix(in srgb, var(--brume-bg) 84%, transparent); }
+.brume-topbar a { color: var(--brume-text); font-weight: 700; text-decoration: none; }
+.brume-theme-toggle { background: var(--brume-surface); border: 1px solid var(--brume-border); border-radius: 999px; color: var(--brume-text); cursor: pointer; padding: 0.4rem 0.75rem; }
+.brume-layout { display: grid; gap: 2.5rem; grid-template-columns: minmax(10rem, 14rem) minmax(0, 50rem) minmax(9rem, 13rem); justify-content: center; margin: 0 auto; max-width: 92rem; padding: 3.5rem 2rem 6rem; }
+.brume-document { min-width: 0; }
+.brume-sidebar, .brume-toc { align-self: start; position: sticky; top: 5.5rem; }
+.brume-sidebar ul, .brume-toc ul { list-style: none; margin: 0.8rem 0; padding: 0; }
+.brume-sidebar a, .brume-toc a { border-radius: 6px; color: var(--brume-muted); display: block; font-size: 0.9rem; padding: 0.35rem 0.55rem; text-decoration: none; }
+.brume-sidebar a[aria-current="page"], .brume-sidebar a:hover, .brume-toc a:hover { background: var(--brume-accent-soft); color: var(--brume-accent); }
+.brume-toc-depth-3 { padding-left: 0.75rem; }
+.brume-callout, .brume-decision, .brume-risk { background: var(--brume-surface); border: 1px solid var(--brume-border); border-left: 4px solid var(--brume-accent); border-radius: var(--brume-radius); box-shadow: var(--brume-shadow); margin: 1.5rem 0; padding: 1rem 1.15rem; }
+.brume-callout-warning, .brume-risk-medium { border-left-color: #d18a25; }
+.brume-callout-danger, .brume-risk-high { border-left-color: #c65353; }
+.brume-callout-success, .brume-decision-accepted { border-left-color: #3b8f62; }
+.brume-callout-title { display: block; margin-bottom: 0.35rem; }
+.brume-steps { counter-reset: step; list-style: none; padding: 0; }
+.brume-step { border-left: 2px solid var(--brume-border); margin-left: 1rem; padding: 0 0 1.5rem 2rem; position: relative; }
+.brume-step::before { align-items: center; background: var(--brume-accent); border-radius: 50%; color: var(--brume-bg); content: counter(step); counter-increment: step; display: flex; font-size: 0.8rem; font-weight: 700; height: 1.7rem; justify-content: center; left: -0.9rem; position: absolute; width: 1.7rem; }
+.brume-tabs { border: 1px solid var(--brume-border); border-radius: var(--brume-radius); margin: 1.5rem 0; overflow: hidden; }
+.brume-tab-list { background: var(--brume-code); border-bottom: 1px solid var(--brume-border); display: flex; gap: 0.25rem; padding: 0.4rem; }
+.brume-tab-button { background: transparent; border: 0; border-radius: 7px; color: var(--brume-muted); cursor: pointer; padding: 0.5rem 0.75rem; }
+.brume-tab-button[aria-selected="true"] { background: var(--brume-surface); color: var(--brume-text); }
+.brume-tab-panel { padding: 1rem; }
+.brume-card-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin: 1.5rem 0; }
+.brume-card { background: var(--brume-surface); border: 1px solid var(--brume-border); border-radius: var(--brume-radius); color: var(--brume-text); padding: 1rem; text-decoration: none; }
+.brume-card:hover { border-color: var(--brume-accent); }
+.brume-file-tree { white-space: pre-wrap; }
+.brume-copy-code { background: var(--brume-surface); border: 1px solid var(--brume-border); border-radius: 6px; color: var(--brume-muted); cursor: pointer; font-size: 0.75rem; position: absolute; right: 0.65rem; top: 0.65rem; }
+.mermaid { background: var(--brume-surface); border: 1px solid var(--brume-border); border-radius: var(--brume-radius); margin: 1.5rem 0; overflow-x: auto; padding: 1rem; text-align: center; }
+@media (max-width: 1050px) { .brume-layout { grid-template-columns: minmax(10rem, 13rem) minmax(0, 50rem); } .brume-toc { display: none; } }
+@media (max-width: 760px) { .brume-layout { display: block; padding: 2rem 1.1rem 4rem; } .brume-sidebar { margin-bottom: 2rem; position: static; } }
+

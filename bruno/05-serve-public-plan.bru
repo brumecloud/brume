@@ -1,0 +1,21 @@
+meta {
+  name: Serve public plan page
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/@e2e/{{plan}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("multi-page rendered HTML is publicly served", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.include("brume-layout");
+    expect(res.body).to.include("class=\"mermaid\"");
+    expect(res.body).to.include(`/@e2e/${bru.getEnvVar("plan")}/architecture`);
+    expect(res.body).to.include("/_brume/runtime.js");
+  });
+}
