@@ -11,6 +11,10 @@ mod tunnels;
 mod util;
 mod web;
 
+mod build_metadata {
+    include!(concat!(env!("OUT_DIR"), "/build_metadata.rs"));
+}
+
 use std::time::Duration;
 
 use anyhow::Result;
@@ -178,6 +182,8 @@ fn dynamic_public_label(headers: &HeaderMap, config: &Config) -> Option<String> 
 struct HealthResponse {
     status: &'static str,
     commit: &'static str,
+    commit_title: &'static str,
+    commit_message: &'static str,
 }
 
 async fn health(State(state): State<AppState>) -> impl IntoResponse {
@@ -192,7 +198,9 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
         status_code,
         Json(HealthResponse {
             status,
-            commit: env!("BRUME_BUILD_COMMIT"),
+            commit: build_metadata::COMMIT_SHA,
+            commit_title: build_metadata::COMMIT_TITLE,
+            commit_message: build_metadata::COMMIT_MESSAGE,
         }),
     )
 }

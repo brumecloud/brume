@@ -10,6 +10,7 @@ FROM rust:1.97.0-bookworm AS builder
 
 WORKDIR /app
 ARG RAILWAY_GIT_COMMIT_SHA
+ARG RAILWAY_GIT_COMMIT_MESSAGE
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
 COPY migrations/ migrations/

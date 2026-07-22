@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/scripts/build-metadata.sh"
+brume_prepare_build "${ROOT_DIR}"
+
 export BUN_BIN="${BUN_BIN:-$(command -v bun || true)}"
 export BRUME_BIND="127.0.0.1:18080"
 export BRUME_API_PUBLIC_URL="http://api.localhost:18080"
@@ -23,7 +26,7 @@ cd "${ROOT_DIR}"
 docker compose up -d --wait postgres
 mkdir -p "${ROOT_DIR}/.brume"
 "${ROOT_DIR}/scripts/build-renderer.sh"
-BRUME_RENDERER_DIST="${ROOT_DIR}/renderer/dist" cargo build --package brume-server --package brume-cli
+BRUME_RENDERER_DIST="${ROOT_DIR}/renderer/dist" cargo build --locked --package brume-server --package brume-cli
 
 PIDS=()
 cleanup() {

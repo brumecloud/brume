@@ -9,8 +9,12 @@ use axum::{
     routing::get,
 };
 use brume_core::{BASE_PATH_PLACEHOLDER, BundleManifest, validate_relative_path};
+use serde_json::json;
 
-use crate::embedded::{WEB_RUNTIME, WEB_THEME};
+use crate::{
+    embedded::{WEB_RUNTIME, WEB_THEME},
+    output::{self, OutputFormat},
+};
 
 struct PreviewState {
     output: PathBuf,
@@ -23,6 +27,9 @@ pub async fn serve(
     manifest: BundleManifest,
     port: u16,
     open_browser: bool,
+    page_count: usize,
+    asset_count: usize,
+    output_format: OutputFormat,
 ) -> Result<()> {
     let state = Arc::new(PreviewState {
         output,
@@ -43,7 +50,17 @@ pub async fn serve(
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
     let address = listener.local_addr()?;
     let url = format!("http://{address}");
-    println!("Preview: {url}");
+    if output_format.is_json() {
+        output::json(&json!({
+            "status": "serving",
+            "url": url,
+            "page_count": page_count,
+            "asset_count": asset_count,
+        }))?;
+    } else {
+        println!("Rendered {page_count} pages and {asset_count} assets");
+        println!("Preview: {url}");
+    }
     if open_browser {
         open::that(&url).context("opening the preview in the default browser")?;
     }

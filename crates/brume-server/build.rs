@@ -2,15 +2,16 @@ use std::{env, fs, path::PathBuf};
 
 use anyhow::{Result, bail};
 
-fn main() -> Result<()> {
-    println!("cargo:rerun-if-env-changed=RAILWAY_GIT_COMMIT_SHA");
-    let commit = env::var("RAILWAY_GIT_COMMIT_SHA")
-        .ok()
-        .filter(|commit| !commit.is_empty())
-        .unwrap_or_else(|| "unknown".to_owned());
-    println!("cargo:rustc-env=BRUME_BUILD_COMMIT={commit}");
+#[path = "../build_metadata.rs"]
+mod build_metadata;
 
+fn main() -> Result<()> {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+    let repository = manifest_dir.join("../..");
+    let output = PathBuf::from(env::var("OUT_DIR")?);
+    let metadata = build_metadata::collect(&repository);
+    build_metadata::write_rust_source(&output, &metadata)?;
+
     let dist = env::var("BRUME_RENDERER_DIST")
         .map(PathBuf::from)
         .unwrap_or_else(|_| manifest_dir.join("../../renderer/dist"));
@@ -25,7 +26,6 @@ fn main() -> Result<()> {
         }
         println!("cargo:rerun-if-changed={}", path.display());
     }
-    let output = PathBuf::from(env::var("OUT_DIR")?);
     fs::copy(runtime, output.join("runtime.js"))?;
     fs::copy(theme, output.join("theme.css"))?;
     Ok(())

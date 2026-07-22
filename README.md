@@ -61,10 +61,10 @@ brume plan build ./mon-plan
 ```
 
 Par défaut, le résultat est écrit dans `./mon-plan/.brume/dist`.
-Utiliser `--output` pour choisir un autre dossier.
+Utiliser `--destination` pour choisir un autre dossier.
 
 ```bash
-brume plan build ./mon-plan --output ./dist
+brume plan build ./mon-plan --destination ./dist
 ```
 
 ### Publier un plan
@@ -118,7 +118,22 @@ brume plan delete brume-v1
 ```
 
 `plan list` affiche notamment la visibilité, la dernière lecture et la date d’expiration.
+Dans un terminal interactif, les dates sont raccourcies et les URL complètes des plans sont cliquables.
 `plan delete` demande une confirmation avant de supprimer définitivement le plan et ses fichiers.
+
+### Sortie JSON pour les agents
+
+L'option globale `--output json` produit des données structurées sur la sortie standard et fonctionne avec toutes les commandes.
+Elle peut être placée avant ou après les sous-commandes.
+
+```bash
+brume plan list --output json
+brume plan show brume-v1 --output json
+brume deploy ./dist --output json
+```
+
+Les commandes longues comme `plan preview` et `tunnel` produisent un objet JSON par événement, séparé par une nouvelle ligne.
+Les diagnostics et les confirmations interactives restent sur la sortie d'erreur afin de ne pas corrompre la sortie JSON.
 
 Les plans privés nécessitent la session GitHub du propriétaire.
 Les plans non listés utilisent une URL secrète.
@@ -195,7 +210,7 @@ brume version
 brume mcp config
 ```
 
-`brume version` affiche la version du CLI et le commit utilisé pour le construire.
+`brume version` affiche la version du CLI, le SHA court, le titre et le corps du message du commit utilisé pour le construire.
 `brume mcp config` affiche la configuration MCP à copier dans Codex.
 
 ## Renderer MDX sûr
@@ -232,6 +247,10 @@ Le serveur MCP permet de lister les plans et leur dernière lecture, inspecter u
 ## Construire le projet
 
 Le développement nécessite Rust 1.97 avec `rustfmt` et `clippy`, Bun 1.3.14 ou plus récent, Docker et Bruno CLI.
+
+Chaque commit doit incrémenter la version SemVer du workspace dans `Cargo.toml` et synchroniser `Cargo.lock`.
+Les scripts de build refusent une version invalide, inchangée ou inférieure à celle du commit parent.
+Ils incorporent également le SHA complet, le titre et le corps du message du dernier commit dans les binaires CLI et serveur.
 
 Le script du CLI compile le renderer web et le worker Bun autonome, puis incorpore les trois artefacts dans le binaire Rust.
 

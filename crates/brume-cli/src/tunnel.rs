@@ -20,12 +20,20 @@ use tokio_tungstenite::{
 use url::Url;
 use uuid::Uuid;
 
-use crate::config;
+use crate::{
+    config,
+    output::{self, OutputFormat},
+};
 
 const CONTROL_QUEUE_SIZE: usize = 256;
 const LOCAL_EVENT_QUEUE_SIZE: usize = 16;
 
-pub async fn run(base_url: &str, port: u16, slug: Option<&str>) -> Result<()> {
+pub async fn run(
+    base_url: &str,
+    port: u16,
+    slug: Option<&str>,
+    output_format: OutputFormat,
+) -> Result<()> {
     if port == 0 {
         bail!("tunnel port must be between 1 and 65535");
     }
@@ -39,7 +47,7 @@ pub async fn run(base_url: &str, port: u16, slug: Option<&str>) -> Result<()> {
 
     loop {
         let token = config::load_access_token(base_url).await?;
-        match run_session(&endpoint, &token, port, http.clone()).await {
+        match run_session(&endpoint, &token, port, http.clone(), output_format).await {
             Ok(SessionEnd::Stopped) => return Ok(()),
             Ok(SessionEnd::Replaced) => {
                 bail!("this tunnel was replaced by a newer connection using the same URL")
@@ -80,6 +88,7 @@ async fn run_session(
     token: &str,
     port: u16,
     http: reqwest::Client,
+    output_format: OutputFormat,
 ) -> Result<SessionEnd> {
     let mut request = endpoint.as_str().into_client_request()?;
     request.headers_mut().insert(
@@ -130,8 +139,16 @@ async fn run_session(
                         let frame = TunnelFrame::decode(&encoded)?;
                         match frame.message {
                             TunnelMessage::Welcome { public_url } => {
-                                println!("Forwarding {public_url} -> http://127.0.0.1:{port}");
-                                println!("This URL is public. Press Ctrl-C to stop.");
+                                if output_format.is_json() {
+                                    output::json(&serde_json::json!({
+                                        "status": "forwarding",
+                                        "public_url": public_url,
+                                        "local_url": format!("http://127.0.0.1:{port}"),
+                                    }))?;
+                                } else {
+                                    println!("Forwarding {public_url} -> http://127.0.0.1:{port}");
+                                    println!("This URL is public. Press Ctrl-C to stop.");
+                                }
                             }
                             TunnelMessage::Replaced => return Ok(SessionEnd::Replaced),
                             TunnelMessage::RequestStart {

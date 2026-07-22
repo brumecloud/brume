@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/scripts/build-metadata.sh"
+brume_prepare_build "${ROOT_DIR}"
+
 PROFILE="debug"
 TARGET=""
 EXPLICIT_TARGET="false"
@@ -20,7 +23,7 @@ fi
 
 "${ROOT_DIR}/scripts/build-renderer.sh" "${TARGET}"
 
-CARGO_ARGS=(build --package brume-cli)
+CARGO_ARGS=(build --locked --package brume-cli)
 if [[ "${EXPLICIT_TARGET}" == "true" ]]; then
   CARGO_ARGS+=(--target "${TARGET}")
 fi

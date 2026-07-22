@@ -1,9 +1,14 @@
 mod archive;
 mod config;
 mod embedded;
+mod output;
 mod preview;
 mod renderer;
 mod tunnel;
+
+mod build_metadata {
+    include!(concat!(env!("OUT_DIR"), "/build_metadata.rs"));
+}
 
 use std::{
     fs,
@@ -17,6 +22,8 @@ use anyhow::{Context, Result, bail};
 use brume_api_client::BrumeClient;
 use brume_core::{PlanPatch, PollCliLoginResponse, Visibility};
 use clap::{Parser, Subcommand};
+use output::OutputFormat;
+use serde_json::json;
 use tempfile::TempDir;
 
 #[derive(Parser)]
@@ -28,6 +35,15 @@ use tempfile::TempDir;
 struct Cli {
     #[arg(long, env = "BRUME_BASE_URL", default_value = "https://api.brume.dev")]
     base_url: String,
+    #[arg(
+        long,
+        global = true,
+        value_enum,
+        default_value_t,
+        value_name = "FORMAT",
+        help = "Select human-readable or JSON output"
+    )]
+    output: OutputFormat,
     #[command(subcommand)]
     command: Command,
 }
@@ -80,8 +96,8 @@ enum PlanCommand {
     Build {
         #[arg(default_value = ".")]
         directory: PathBuf,
-        #[arg(long)]
-        output: Option<PathBuf>,
+        #[arg(long, alias = "output-dir")]
+        destination: Option<PathBuf>,
     },
     Deploy {
         #[arg(default_value = ".")]
@@ -129,28 +145,42 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::Version => {
-            println!(
-                "brume {} {}",
-                env!("CARGO_PKG_VERSION"),
-                env!("BRUME_BUILD_COMMIT")
-            );
+            let short_commit = build_metadata::COMMIT_SHA
+                .chars()
+                .take(7)
+                .collect::<String>();
+            if cli.output.is_json() {
+                output::json(&json!({
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "commit": {
+                        "sha": build_metadata::COMMIT_SHA,
+                        "short_sha": short_commit,
+                        "title": build_metadata::COMMIT_TITLE,
+                        "message": build_metadata::COMMIT_MESSAGE,
+                    }
+                }))?;
+            } else {
+                println!("brume {} {}", env!("CARGO_PKG_VERSION"), short_commit);
+                println!("commit title: {}", build_metadata::COMMIT_TITLE);
+                println!("commit message: {}", build_metadata::COMMIT_MESSAGE);
+            }
             Ok(())
         }
-        Command::Login => login(&cli.base_url).await,
+        Command::Login => login(&cli.base_url, cli.output).await,
         Command::Deploy {
             directory,
             url,
             spa,
             pin,
-        } => deploy(&cli.base_url, &directory, url, spa, pin).await,
+        } => deploy(&cli.base_url, &directory, url, spa, pin, cli.output).await,
         Command::Tunnel { port, url } => {
             if let Some(url) = &url {
                 config::validate_slug(url)?;
             }
-            tunnel::run(&cli.base_url, port, url.as_deref()).await
+            tunnel::run(&cli.base_url, port, url.as_deref(), cli.output).await
         }
-        Command::Mcp { command } => mcp(&cli.base_url, command).await,
-        Command::Plan { command } => plan(&cli.base_url, command).await,
+        Command::Mcp { command } => mcp(&cli.base_url, command, cli.output).await,
+        Command::Plan { command } => plan(&cli.base_url, command, cli.output).await,
     }
 }
 
@@ -160,6 +190,7 @@ async fn deploy(
     slug: Option<String>,
     spa: bool,
     pin: bool,
+    output_format: OutputFormat,
 ) -> Result<()> {
     let token = config::load_access_token(base_url).await?;
     let source = canonical_directory(directory)?;
@@ -170,14 +201,20 @@ async fn deploy(
     let deployed = BrumeClient::new(base_url, Some(token))?
         .deploy_site(slug.as_deref(), spa, pin, archive)
         .await?;
-    println!("Deployed {}", deployed.deployment.url);
+    if output_format.is_json() {
+        output::json(&deployed)?;
+    } else {
+        println!("Deployed {}", deployed.deployment.url);
+    }
     Ok(())
 }
 
-async fn login(base_url: &str) -> Result<()> {
+async fn login(base_url: &str, output_format: OutputFormat) -> Result<()> {
     let client = BrumeClient::new(base_url, None)?;
     let session = client.begin_cli_login().await?;
-    println!("Opening {}", session.browser_url);
+    if !output_format.is_json() {
+        println!("Opening {}", session.browser_url);
+    }
     open::that(&session.browser_url).context("opening GitHub login in the default browser")?;
     let deadline = Instant::now() + Duration::from_secs(session.expires_in_seconds);
     loop {
@@ -194,7 +231,14 @@ async fn login(base_url: &str) -> Result<()> {
                 user_handle,
             } => {
                 config::save_credentials(base_url, &credentials)?;
-                println!("Logged in as @{user_handle}");
+                if output_format.is_json() {
+                    output::json(&json!({
+                        "status": "authorized",
+                        "user_handle": user_handle,
+                    }))?;
+                } else {
+                    println!("Logged in as @{user_handle}");
+                }
                 return Ok(());
             }
             PollCliLoginResponse::Expired => {
@@ -204,7 +248,7 @@ async fn login(base_url: &str) -> Result<()> {
     }
 }
 
-async fn mcp(base_url: &str, command: McpCommand) -> Result<()> {
+async fn mcp(base_url: &str, command: McpCommand, output_format: OutputFormat) -> Result<()> {
     match command {
         McpCommand::Serve => {
             let _ = config::load_access_token(base_url).await?;
@@ -220,15 +264,26 @@ async fn mcp(base_url: &str, command: McpCommand) -> Result<()> {
             brume_mcp::serve(base_url, token_loader).await
         }
         McpCommand::Config => {
-            println!(
-                "[mcp_servers.brume]\ncommand = \"brume\"\nargs = [\"--base-url\", \"{base_url}\", \"mcp\", \"serve\"]"
-            );
+            if output_format.is_json() {
+                output::json(&json!({
+                    "mcp_servers": {
+                        "brume": {
+                            "command": "brume",
+                            "args": ["--base-url", base_url, "mcp", "serve"]
+                        }
+                    }
+                }))?;
+            } else {
+                println!(
+                    "[mcp_servers.brume]\ncommand = \"brume\"\nargs = [\"--base-url\", \"{base_url}\", \"mcp\", \"serve\"]"
+                );
+            }
             Ok(())
         }
     }
 }
 
-async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
+async fn plan(base_url: &str, command: PlanCommand, output_format: OutputFormat) -> Result<()> {
     match command {
         PlanCommand::Preview {
             directory,
@@ -245,23 +300,25 @@ async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
                 project.plan.title.as_deref(),
             )
             .await?;
-            println!(
-                "Rendered {} pages and {} assets",
-                rendered.page_count, rendered.asset_count
-            );
             preview::serve(
                 temporary.path().to_path_buf(),
                 rendered.manifest,
                 port,
                 !no_open,
+                rendered.page_count,
+                rendered.asset_count,
+                output_format,
             )
             .await
         }
-        PlanCommand::Build { directory, output } => {
+        PlanCommand::Build {
+            directory,
+            destination,
+        } => {
             let source = canonical_directory(&directory)?;
             let project = config::load_project(&source)?;
             let destination =
-                absolute_path(output.unwrap_or_else(|| source.join(".brume").join("dist")))?;
+                absolute_path(destination.unwrap_or_else(|| source.join(".brume").join("dist")))?;
             let rendered = renderer::render(
                 &source,
                 &destination,
@@ -269,12 +326,20 @@ async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
                 project.plan.title.as_deref(),
             )
             .await?;
-            println!(
-                "Built {} pages and {} assets in {}",
-                rendered.page_count,
-                rendered.asset_count,
-                destination.display()
-            );
+            if output_format.is_json() {
+                output::json(&json!({
+                    "page_count": rendered.page_count,
+                    "asset_count": rendered.asset_count,
+                    "destination": destination,
+                }))?;
+            } else {
+                println!(
+                    "Built {} pages and {} assets in {}",
+                    rendered.page_count,
+                    rendered.asset_count,
+                    destination.display()
+                );
+            }
             Ok(())
         }
         PlanCommand::Deploy {
@@ -306,35 +371,22 @@ async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
             let deployed = BrumeClient::new(base_url, Some(token))?
                 .deploy(&slug, visibility, pin, archive)
                 .await?;
-            println!("Deployed {}", deployed.plan.summary.url);
-            if let Some(url) = deployed.unlisted_url {
-                println!("Unlisted URL: {url}");
+            if output_format.is_json() {
+                output::json(&deployed)?;
+            } else {
+                println!("Deployed {}", deployed.plan.summary.url);
+                if let Some(url) = deployed.unlisted_url {
+                    println!("Unlisted URL: {url}");
+                }
             }
             Ok(())
         }
         PlanCommand::List => {
-            let plans = authenticated_client(base_url)
-                .await?
-                .list_plans()
-                .await?
-                .plans;
-            println!(
-                "{:<28} {:<10} {:<22} {:<22} URL",
-                "SLUG", "VISIBILITY", "LAST READ", "EXPIRES"
-            );
-            for plan in plans {
-                let last_read = plan
-                    .last_read_at
-                    .map(|value| value.to_rfc3339())
-                    .unwrap_or_else(|| "never".to_owned());
-                let expires = plan
-                    .expires_at
-                    .map(|value| value.to_rfc3339())
-                    .unwrap_or_else(|| "pinned".to_owned());
-                println!(
-                    "{:<28} {:<10} {:<22} {:<22} {}",
-                    plan.slug, plan.visibility, last_read, expires, plan.url
-                );
+            let response = authenticated_client(base_url).await?.list_plans().await?;
+            if output_format.is_json() {
+                output::json(&response)?;
+            } else {
+                output::plans(&response)?;
             }
             Ok(())
         }
@@ -343,7 +395,11 @@ async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
                 .await?
                 .get_plan(&plan)
                 .await?;
-            println!("{}", serde_json::to_string_pretty(&details)?);
+            if output_format.is_json() {
+                output::json(&details)?;
+            } else {
+                println!("{}", serde_json::to_string_pretty(&details)?);
+            }
             Ok(())
         }
         PlanCommand::Open { plan } => {
@@ -352,6 +408,9 @@ async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
                 .get_plan(&plan)
                 .await?;
             open::that(&details.summary.url)?;
+            if output_format.is_json() {
+                output::json(&details)?;
+            }
             Ok(())
         }
         PlanCommand::Visibility { plan, visibility } => {
@@ -365,19 +424,28 @@ async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
                     },
                 )
                 .await?;
-            println!(
-                "{} is now {}",
-                details.summary.slug, details.summary.visibility
-            );
+            if output_format.is_json() {
+                output::json(&details)?;
+            } else {
+                println!(
+                    "{} is now {}",
+                    details.summary.slug, details.summary.visibility
+                );
+            }
             Ok(())
         }
-        PlanCommand::Pin { plan } => patch_pin(base_url, &plan, true).await,
-        PlanCommand::Unpin { plan } => patch_pin(base_url, &plan, false).await,
-        PlanCommand::Delete { plan, yes } => delete_plan(base_url, &plan, yes).await,
+        PlanCommand::Pin { plan } => patch_pin(base_url, &plan, true, output_format).await,
+        PlanCommand::Unpin { plan } => patch_pin(base_url, &plan, false, output_format).await,
+        PlanCommand::Delete { plan, yes } => delete_plan(base_url, &plan, yes, output_format).await,
     }
 }
 
-async fn patch_pin(base_url: &str, plan: &str, pinned: bool) -> Result<()> {
+async fn patch_pin(
+    base_url: &str,
+    plan: &str,
+    pinned: bool,
+    output_format: OutputFormat,
+) -> Result<()> {
     let details = authenticated_client(base_url)
         .await?
         .patch_plan(
@@ -388,36 +456,67 @@ async fn patch_pin(base_url: &str, plan: &str, pinned: bool) -> Result<()> {
             },
         )
         .await?;
-    println!(
-        "{} is {}",
-        details.summary.slug,
-        if pinned {
-            "pinned"
-        } else {
-            "subject to retention"
-        }
-    );
+    if output_format.is_json() {
+        output::json(&details)?;
+    } else {
+        println!(
+            "{} is {}",
+            details.summary.slug,
+            if pinned {
+                "pinned"
+            } else {
+                "subject to retention"
+            }
+        );
+    }
     Ok(())
 }
 
-async fn delete_plan(base_url: &str, plan: &str, yes: bool) -> Result<()> {
+async fn delete_plan(
+    base_url: &str,
+    plan: &str,
+    yes: bool,
+    output_format: OutputFormat,
+) -> Result<()> {
     let client = authenticated_client(base_url).await?;
     let challenge = client.create_deletion_challenge(plan).await?;
     if !yes {
-        print!(
-            "Delete `{}` and all of its files permanently? [y/N] ",
-            challenge.plan.slug
-        );
-        io::stdout().flush()?;
+        if output_format.is_json() {
+            eprint!(
+                "Delete `{}` and all of its files permanently? [y/N] ",
+                challenge.plan.slug
+            );
+            io::stderr().flush()?;
+        } else {
+            print!(
+                "Delete `{}` and all of its files permanently? [y/N] ",
+                challenge.plan.slug
+            );
+            io::stdout().flush()?;
+        }
         let mut answer = String::new();
         io::stdin().read_line(&mut answer)?;
         if !matches!(answer.trim(), "y" | "Y" | "yes" | "YES") {
-            println!("Deletion cancelled");
+            if output_format.is_json() {
+                output::json(&json!({
+                    "status": "cancelled",
+                    "plan": challenge.plan,
+                }))?;
+            } else {
+                println!("Deletion cancelled");
+            }
             return Ok(());
         }
     }
     client.confirm_deletion(plan, challenge.challenge).await?;
-    println!("Deleted {}", challenge.plan.slug);
+    if output_format.is_json() {
+        output::json(&json!({
+            "status": "deleted",
+            "plan": challenge.plan,
+        }))?;
+    } else {
+        println!("Deleted {}", challenge.plan.slug);
+    }
     Ok(())
 }
 
@@ -439,5 +538,54 @@ fn absolute_path(path: PathBuf) -> Result<PathBuf> {
         Ok(path)
     } else {
         Ok(std::env::current_dir()?.join(path))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn output_format_is_accepted_after_nested_commands() {
+        let cli = Cli::try_parse_from(["brume", "plan", "list", "--output", "json"])
+            .expect("global output option should parse after nested commands");
+
+        assert_eq!(cli.output, OutputFormat::Json);
+        assert!(matches!(
+            cli.command,
+            Command::Plan {
+                command: PlanCommand::List
+            }
+        ));
+    }
+
+    #[test]
+    fn build_destination_does_not_conflict_with_output_format() {
+        let cli = Cli::try_parse_from([
+            "brume",
+            "plan",
+            "build",
+            ".",
+            "--destination",
+            "./dist",
+            "--output",
+            "json",
+        ])
+        .expect("build destination and output format should parse together");
+
+        assert_eq!(cli.output, OutputFormat::Json);
+        match cli.command {
+            Command::Plan {
+                command:
+                    PlanCommand::Build {
+                        directory,
+                        destination,
+                    },
+            } => {
+                assert_eq!(directory, PathBuf::from("."));
+                assert_eq!(destination, Some(PathBuf::from("./dist")));
+            }
+            _ => panic!("expected plan build command"),
+        }
     }
 }

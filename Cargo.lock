@@ -747,7 +747,7 @@ dependencies = [
 
 [[package]]
 name = "brume-api-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "brume-core",
  "reqwest",
@@ -760,7 +760,7 @@ dependencies = [
 
 [[package]]
 name = "brume-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -799,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "brume-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "rmp-serde",
@@ -812,7 +812,7 @@ dependencies = [
 
 [[package]]
 name = "brume-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "brume-api-client",
@@ -825,7 +825,7 @@ dependencies = [
 
 [[package]]
 name = "brume-server"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ammonia",
  "anyhow",
