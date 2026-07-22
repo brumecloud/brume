@@ -14,11 +14,18 @@ mod web;
 use std::time::Duration;
 
 use anyhow::Result;
-use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
+use axum::{
+    Json, Router,
+    extract::{Request, State},
+    http::{HeaderMap, StatusCode, header::HOST},
+    response::{IntoResponse, Response},
+    routing::get,
+};
 use clap::{Parser, Subcommand};
 use config::Config;
 use serde::Serialize;
 use state::AppState;
+use tower::ServiceExt;
 use tower_cookies::CookieManagerLayer;
 use tower_http::{catch_panic::CatchPanicLayer, compression::CompressionLayer, trace::TraceLayer};
 
@@ -59,15 +66,15 @@ async fn main() -> Result<()> {
         Command::GarbageCollect => gc::run(&state).await,
         Command::CreateDevToken { github_id, login } => {
             let user = auth::provision_user(&state, github_id, &login).await?;
-            let token = auth::issue_api_token(&state, user.id).await?;
-            println!("{token}");
+            let credentials = auth::issue_development_credentials(&state, user.id).await?;
+            println!("{}", serde_json::to_string(&credentials)?);
             Ok(())
         }
     }
 }
 
 async fn serve(state: AppState, bind: std::net::SocketAddr) -> Result<()> {
-    let router = application_router().with_state(state);
+    let router = application_router(state);
     let listener = tokio::net::TcpListener::bind(bind).await?;
     tracing::info!(address = %listener.local_addr()?, "Brume server listening");
     axum::serve(listener, router)
@@ -79,24 +86,92 @@ async fn serve(state: AppState, bind: std::net::SocketAddr) -> Result<()> {
     Ok(())
 }
 
-fn application_router() -> Router<AppState> {
+fn application_router(state: AppState) -> Router {
     Router::new()
-        .route("/", get(index))
-        .route("/health", get(health))
-        .merge(auth::router())
-        .merge(deployments::api_router())
-        .merge(plans::router())
-        .merge(tunnels::router())
-        .merge(web::router())
-        .merge(public::router())
+        .fallback(dispatch_by_host)
         .layer(CatchPanicLayer::new())
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .layer(CookieManagerLayer::new())
+        .with_state(state)
 }
 
-async fn index() -> &'static str {
-    "Brume publishes agent plans and static sites. Use the Brume CLI to deploy one."
+async fn dispatch_by_host(State(state): State<AppState>, request: Request) -> Response {
+    if host_matches(request.headers(), &state.config.api_public_host) {
+        return Router::new()
+            .route("/health", get(health))
+            .merge(auth::api_router())
+            .merge(deployments::api_router())
+            .merge(plans::router())
+            .merge(tunnels::router())
+            .with_state(state)
+            .oneshot(request)
+            .await
+            .expect("API router is infallible");
+    }
+    if host_matches(request.headers(), &state.config.auth_public_host) {
+        return auth::browser_router()
+            .with_state(state)
+            .oneshot(request)
+            .await
+            .expect("auth router is infallible");
+    }
+    if host_matches(request.headers(), &state.config.plan_public_host) {
+        return Router::new()
+            .merge(auth::plan_router())
+            .merge(web::router())
+            .with_state(state)
+            .oneshot(request)
+            .await
+            .expect("plan router is infallible");
+    }
+    let Some(label) = dynamic_public_label(request.headers(), &state.config) else {
+        if request.uri().path() == "/health" {
+            return health(State(state)).await.into_response();
+        }
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    public::serve(state, label, request).await
+}
+
+fn host_matches(headers: &HeaderMap, expected: &str) -> bool {
+    headers
+        .get(HOST)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.eq_ignore_ascii_case(expected))
+}
+
+fn dynamic_public_label(headers: &HeaderMap, config: &Config) -> Option<String> {
+    let mut host = headers.get(HOST)?.to_str().ok()?.to_ascii_lowercase();
+    if host_matches(headers, &config.api_public_host)
+        || host_matches(headers, &config.auth_public_host)
+        || host_matches(headers, &config.plan_public_host)
+    {
+        return None;
+    }
+    if let Some(port) = config.public_port
+        && !matches!(
+            (config.public_scheme.as_str(), port),
+            ("http", 80) | ("https", 443)
+        )
+    {
+        host = host.strip_suffix(&format!(":{port}"))?.to_owned();
+    } else if host.contains(':') {
+        return None;
+    }
+    let label = host.strip_suffix(&format!(".{}", config.public_domain))?;
+    if label.is_empty()
+        || label.len() > 63
+        || label.contains('.')
+        || label.starts_with('-')
+        || label.ends_with('-')
+        || !label
+            .chars()
+            .all(|value| value.is_ascii_lowercase() || value.is_ascii_digit() || value == '-')
+    {
+        return None;
+    }
+    Some(label.to_owned())
 }
 
 #[derive(Serialize)]
@@ -120,14 +195,4 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
             commit: env!("BRUME_BUILD_COMMIT"),
         }),
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn public_and_api_routes_merge_without_conflicts() {
-        let _ = application_router();
-    }
 }

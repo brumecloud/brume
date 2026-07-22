@@ -37,6 +37,10 @@ impl ApiError {
         Self::new(StatusCode::FORBIDDEN, "forbidden", message)
     }
 
+    pub fn public_url_conflict(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::CONFLICT, "public_url_conflict", message)
+    }
+
     pub fn not_found() -> Self {
         Self::new(StatusCode::NOT_FOUND, "not_found", "Plan not found")
     }

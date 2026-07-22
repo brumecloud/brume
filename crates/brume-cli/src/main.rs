@@ -9,6 +9,7 @@ use std::{
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -33,6 +34,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    Version,
     Login,
     Deploy {
         #[arg(default_value = ".")]
@@ -47,7 +49,7 @@ enum Command {
     Tunnel {
         port: u16,
         #[arg(long)]
-        url: String,
+        url: Option<String>,
     },
     Plan {
         #[command(subcommand)]
@@ -126,6 +128,14 @@ async fn main() -> Result<()> {
         .init();
     let cli = Cli::parse();
     match cli.command {
+        Command::Version => {
+            println!(
+                "brume {} {}",
+                env!("CARGO_PKG_VERSION"),
+                env!("BRUME_BUILD_COMMIT")
+            );
+            Ok(())
+        }
         Command::Login => login(&cli.base_url).await,
         Command::Deploy {
             directory,
@@ -134,9 +144,10 @@ async fn main() -> Result<()> {
             pin,
         } => deploy(&cli.base_url, &directory, url, spa, pin).await,
         Command::Tunnel { port, url } => {
-            config::validate_slug(&url)?;
-            let token = config::load_token(&cli.base_url)?;
-            tunnel::run(&cli.base_url, token, port, &url).await
+            if let Some(url) = &url {
+                config::validate_slug(url)?;
+            }
+            tunnel::run(&cli.base_url, port, url.as_deref()).await
         }
         Command::Mcp { command } => mcp(&cli.base_url, command).await,
         Command::Plan { command } => plan(&cli.base_url, command).await,
@@ -150,15 +161,14 @@ async fn deploy(
     spa: bool,
     pin: bool,
 ) -> Result<()> {
-    let token = config::load_token(base_url)?;
+    let token = config::load_access_token(base_url).await?;
     let source = canonical_directory(directory)?;
-    let slug = slug
-        .map(Ok)
-        .unwrap_or_else(|| config::default_slug(&source))?;
-    config::validate_slug(&slug)?;
+    if let Some(slug) = &slug {
+        config::validate_slug(slug)?;
+    }
     let archive = archive::create_deployment_archive(&source)?;
     let deployed = BrumeClient::new(base_url, Some(token))?
-        .deploy_site(&slug, spa, pin, archive)
+        .deploy_site(slug.as_deref(), spa, pin, archive)
         .await?;
     println!("Deployed {}", deployed.deployment.url);
     Ok(())
@@ -179,8 +189,11 @@ async fn login(base_url: &str) -> Result<()> {
             .await?
         {
             PollCliLoginResponse::Pending => tokio::time::sleep(Duration::from_secs(2)).await,
-            PollCliLoginResponse::Authorized { token, user_handle } => {
-                config::save_token(base_url, &token)?;
+            PollCliLoginResponse::Authorized {
+                credentials,
+                user_handle,
+            } => {
+                config::save_credentials(base_url, &credentials)?;
                 println!("Logged in as @{user_handle}");
                 return Ok(());
             }
@@ -194,8 +207,17 @@ async fn login(base_url: &str) -> Result<()> {
 async fn mcp(base_url: &str, command: McpCommand) -> Result<()> {
     match command {
         McpCommand::Serve => {
-            let token = config::load_token(base_url)?;
-            brume_mcp::serve(base_url, token).await
+            let _ = config::load_access_token(base_url).await?;
+            let credential_url = base_url.to_owned();
+            let token_loader: brume_mcp::TokenLoader = Arc::new(move || {
+                let credential_url = credential_url.clone();
+                Box::pin(async move {
+                    config::load_access_token(&credential_url)
+                        .await
+                        .map_err(|error| error.to_string())
+                })
+            });
+            brume_mcp::serve(base_url, token_loader).await
         }
         McpCommand::Config => {
             println!(
@@ -261,7 +283,7 @@ async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
             visibility,
             pin,
         } => {
-            let token = config::load_token(base_url)?;
+            let token = config::load_access_token(base_url).await?;
             let source = canonical_directory(&directory)?;
             let project = config::load_project(&source)?;
             let slug = slug
@@ -291,7 +313,11 @@ async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
             Ok(())
         }
         PlanCommand::List => {
-            let plans = authenticated_client(base_url)?.list_plans().await?.plans;
+            let plans = authenticated_client(base_url)
+                .await?
+                .list_plans()
+                .await?
+                .plans;
             println!(
                 "{:<28} {:<10} {:<22} {:<22} URL",
                 "SLUG", "VISIBILITY", "LAST READ", "EXPIRES"
@@ -313,17 +339,24 @@ async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
             Ok(())
         }
         PlanCommand::Show { plan } => {
-            let details = authenticated_client(base_url)?.get_plan(&plan).await?;
+            let details = authenticated_client(base_url)
+                .await?
+                .get_plan(&plan)
+                .await?;
             println!("{}", serde_json::to_string_pretty(&details)?);
             Ok(())
         }
         PlanCommand::Open { plan } => {
-            let details = authenticated_client(base_url)?.get_plan(&plan).await?;
+            let details = authenticated_client(base_url)
+                .await?
+                .get_plan(&plan)
+                .await?;
             open::that(&details.summary.url)?;
             Ok(())
         }
         PlanCommand::Visibility { plan, visibility } => {
-            let details = authenticated_client(base_url)?
+            let details = authenticated_client(base_url)
+                .await?
                 .patch_plan(
                     &plan,
                     &PlanPatch {
@@ -345,7 +378,8 @@ async fn plan(base_url: &str, command: PlanCommand) -> Result<()> {
 }
 
 async fn patch_pin(base_url: &str, plan: &str, pinned: bool) -> Result<()> {
-    let details = authenticated_client(base_url)?
+    let details = authenticated_client(base_url)
+        .await?
         .patch_plan(
             plan,
             &PlanPatch {
@@ -367,7 +401,7 @@ async fn patch_pin(base_url: &str, plan: &str, pinned: bool) -> Result<()> {
 }
 
 async fn delete_plan(base_url: &str, plan: &str, yes: bool) -> Result<()> {
-    let client = authenticated_client(base_url)?;
+    let client = authenticated_client(base_url).await?;
     let challenge = client.create_deletion_challenge(plan).await?;
     if !yes {
         print!(
@@ -387,8 +421,8 @@ async fn delete_plan(base_url: &str, plan: &str, yes: bool) -> Result<()> {
     Ok(())
 }
 
-fn authenticated_client(base_url: &str) -> Result<BrumeClient> {
-    BrumeClient::new(base_url, Some(config::load_token(base_url)?)).map_err(Into::into)
+async fn authenticated_client(base_url: &str) -> Result<BrumeClient> {
+    BrumeClient::new(base_url, Some(config::load_access_token(base_url).await?)).map_err(Into::into)
 }
 
 fn canonical_directory(path: &Path) -> Result<PathBuf> {

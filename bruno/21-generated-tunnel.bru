@@ -1,0 +1,19 @@
+meta {
+  name: Serve generated tunnel URL
+  type: http
+  seq: 22
+}
+
+get {
+  url: {{generated_tunnel_url}}/inspect
+  body: none
+  auth: none
+}
+
+tests {
+  test("a tunnel without url receives a working generated subdomain", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.instance).to.equal("first");
+    expect(bru.getEnvVar("generated_tunnel_url")).to.match(/^http:\/\/[a-z2-7]{16}-e2e\.localhost:18080$/);
+  });
+}

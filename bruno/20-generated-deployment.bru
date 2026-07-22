@@ -1,0 +1,19 @@
+meta {
+  name: Serve generated deployment URL
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{generated_deployment_url}}/
+  body: none
+  auth: none
+}
+
+tests {
+  test("a deployment without url receives a working generated subdomain", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.include("Brume static deployment fixture");
+    expect(bru.getEnvVar("generated_deployment_url")).to.match(/^http:\/\/[a-z2-7]{16}-e2e\.localhost:18080$/);
+  });
+}

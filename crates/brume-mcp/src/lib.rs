@@ -1,4 +1,4 @@
-use std::process::Stdio;
+use std::{future::Future, pin::Pin, process::Stdio, sync::Arc};
 
 use anyhow::Result;
 use brume_api_client::BrumeClient;
@@ -59,27 +59,49 @@ struct DeployRequest {
 #[derive(Clone)]
 struct BrumeMcp {
     base_url: String,
-    token: String,
-    client: BrumeClient,
+    token_loader: TokenLoader,
     tool_router: ToolRouter<Self>,
 }
 
+pub type TokenFuture = Pin<Box<dyn Future<Output = Result<String, String>> + Send>>;
+pub type TokenLoader = Arc<dyn Fn() -> TokenFuture + Send + Sync>;
+
 #[tool_router]
 impl BrumeMcp {
-    fn new(base_url: String, token: String) -> Result<Self> {
-        Ok(Self {
-            client: BrumeClient::new(&base_url, Some(token.clone()))?,
+    fn new(base_url: String, token_loader: TokenLoader) -> Self {
+        Self {
             base_url,
-            token,
+            token_loader,
             tool_router: Self::tool_router(),
-        })
+        }
+    }
+
+    async fn client(&self) -> Result<BrumeClient, String> {
+        let token = (self.token_loader)().await?;
+        BrumeClient::new(&self.base_url, Some(token)).map_err(|error| error.to_string())
+    }
+
+    fn command(&self) -> Result<Command, String> {
+        let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+        let mut command = Command::new(executable);
+        command
+            .arg("--base-url")
+            .arg(&self.base_url)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        Ok(command)
     }
 
     #[tool(
         description = "List Brume plans with visibility, last read time, expiry, pin state, and URL"
     )]
     async fn plans_list(&self) -> String {
-        match self.client.list_plans().await {
+        let client = match self.client().await {
+            Ok(client) => client,
+            Err(error) => return tool_error(error),
+        };
+        match client.list_plans().await {
             Ok(plans) => json(&plans),
             Err(error) => tool_error(error),
         }
@@ -87,7 +109,11 @@ impl BrumeMcp {
 
     #[tool(description = "Get metadata and routes for one Brume plan")]
     async fn plan_get(&self, Parameters(request): Parameters<PlanSelector>) -> String {
-        match self.client.get_plan(&request.plan).await {
+        let client = match self.client().await {
+            Ok(client) => client,
+            Err(error) => return tool_error(error),
+        };
+        match client.get_plan(&request.plan).await {
             Ok(plan) => json(&plan),
             Err(error) => tool_error(error),
         }
@@ -97,21 +123,11 @@ impl BrumeMcp {
         description = "Deploy a local Markdown or MDX plan directory using the embedded Brume renderer"
     )]
     async fn plan_deploy(&self, Parameters(request): Parameters<DeployRequest>) -> String {
-        let executable = match std::env::current_exe() {
-            Ok(value) => value,
+        let mut command = match self.command() {
+            Ok(command) => command,
             Err(error) => return tool_error(error),
         };
-        let mut command = Command::new(executable);
-        command
-            .arg("--base-url")
-            .arg(&self.base_url)
-            .arg("plan")
-            .arg("deploy")
-            .arg(&request.directory)
-            .env("BRUME_TOKEN", &self.token)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        command.arg("plan").arg("deploy").arg(&request.directory);
         if let Some(slug) = request.slug {
             command.arg("--slug").arg(slug);
         }
@@ -142,8 +158,11 @@ impl BrumeMcp {
             Ok(value) => value,
             Err(error) => return tool_error(error),
         };
-        match self
-            .client
+        let client = match self.client().await {
+            Ok(client) => client,
+            Err(error) => return tool_error(error),
+        };
+        match client
             .patch_plan(
                 &request.plan,
                 &PlanPatch {
@@ -162,8 +181,11 @@ impl BrumeMcp {
         description = "Pin or unpin a plan. Pinned plans are excluded from automatic retention deletion"
     )]
     async fn plan_set_pinned(&self, Parameters(request): Parameters<RetentionRequest>) -> String {
-        match self
-            .client
+        let client = match self.client().await {
+            Ok(client) => client,
+            Err(error) => return tool_error(error),
+        };
+        match client
             .patch_plan(
                 &request.plan,
                 &PlanPatch {
@@ -182,7 +204,11 @@ impl BrumeMcp {
         description = "Prepare permanent plan deletion and return a short-lived confirmation challenge"
     )]
     async fn plan_delete_prepare(&self, Parameters(request): Parameters<PlanSelector>) -> String {
-        match self.client.create_deletion_challenge(&request.plan).await {
+        let client = match self.client().await {
+            Ok(client) => client,
+            Err(error) => return tool_error(error),
+        };
+        match client.create_deletion_challenge(&request.plan).await {
             Ok(challenge) => json(&challenge),
             Err(error) => tool_error(error),
         }
@@ -195,8 +221,11 @@ impl BrumeMcp {
         &self,
         Parameters(request): Parameters<ConfirmDeletionRequest>,
     ) -> String {
-        match self
-            .client
+        let client = match self.client().await {
+            Ok(client) => client,
+            Err(error) => return tool_error(error),
+        };
+        match client
             .confirm_deletion(&request.plan, request.challenge)
             .await
         {
@@ -220,8 +249,8 @@ impl ServerHandler for BrumeMcp {
     }
 }
 
-pub async fn serve(base_url: &str, token: String) -> Result<()> {
-    let service = BrumeMcp::new(base_url.to_owned(), token)?
+pub async fn serve(base_url: &str, token_loader: TokenLoader) -> Result<()> {
+    let service = BrumeMcp::new(base_url.to_owned(), token_loader)
         .serve(stdio())
         .await?;
     service.waiting().await?;

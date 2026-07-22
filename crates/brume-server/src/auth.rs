@@ -7,10 +7,10 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
 };
-use brume_core::{BeginCliLoginResponse, PollCliLoginResponse};
-use chrono::{Duration, Utc};
+use brume_core::{BeginCliLoginResponse, PollCliLoginResponse, RefreshTokenRequest, TokenPair};
+use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
-use sqlx::Row;
+use sqlx::{Postgres, Row, Transaction};
 use tower_cookies::{
     Cookies,
     cookie::{Cookie, SameSite, time},
@@ -24,12 +24,15 @@ use crate::{
     util::{github_handle, hash_secret, random_token},
 };
 
-const WEB_SESSION_COOKIE: &str = "brume_session";
+const PLAN_ACCESS_COOKIE: &str = "brume_plan_access";
+const AUTH_REFRESH_COOKIE: &str = "brume_auth_refresh";
+const ACCESS_LIFETIME: Duration = Duration::hours(1);
+const REFRESH_LIFETIME: Duration = Duration::days(90);
+const TICKET_LIFETIME: Duration = Duration::minutes(1);
 
 #[derive(Debug, Clone)]
 pub struct AuthUser {
     pub id: Uuid,
-    #[allow(dead_code)]
     pub handle: String,
 }
 
@@ -46,43 +49,59 @@ impl FromRequestParts<AppState> for AuthUser {
             .and_then(|value| value.to_str().ok())
             .and_then(|value| value.strip_prefix("Bearer "))
             .ok_or_else(ApiError::unauthorized)?;
-        let token_hash = hash_secret(authorization);
-        let row = sqlx::query(
-            "SELECT users.id, users.handle
-             FROM api_tokens
-             JOIN users ON users.id = api_tokens.user_id
-             WHERE api_tokens.token_hash = $1
-               AND api_tokens.revoked_at IS NULL",
-        )
-        .bind(token_hash)
-        .fetch_optional(&state.database)
-        .await?
-        .ok_or_else(ApiError::unauthorized)?;
-        let user = Self {
-            id: row.try_get("id")?,
-            handle: row.try_get("handle")?,
-        };
-        let _ = sqlx::query(
-            "UPDATE api_tokens SET last_used_at = now()
-             WHERE token_hash = $1
-               AND (last_used_at IS NULL OR last_used_at < now() - interval '1 hour')",
-        )
-        .bind(hash_secret(authorization))
-        .execute(&state.database)
-        .await;
-        Ok(user)
+        authenticate_access_token(state, authorization).await
     }
 }
 
-pub fn router() -> Router<AppState> {
+pub fn api_router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/auth/cli/sessions", post(begin_cli_login))
         .route(
             "/api/v1/auth/cli/sessions/{session_id}/poll",
             post(poll_cli_login),
         )
+        .route("/api/v1/auth/tokens/refresh", post(refresh_cli_token))
+}
+
+pub fn browser_router() -> Router<AppState> {
+    Router::new()
         .route("/auth/github/start", get(github_start))
         .route("/auth/github/callback", get(github_callback))
+}
+
+pub fn plan_router() -> Router<AppState> {
+    Router::new().route("/_brume/auth/complete", get(complete_plan_auth))
+}
+
+async fn authenticate_access_token(state: &AppState, token: &str) -> Result<AuthUser, ApiError> {
+    let token_hash = hash_secret(token);
+    let row = sqlx::query(
+        "SELECT users.id, users.handle
+         FROM access_tokens
+         JOIN token_families ON token_families.id = access_tokens.family_id
+         JOIN users ON users.id = access_tokens.user_id
+         WHERE access_tokens.token_hash = $1
+           AND access_tokens.expires_at > now()
+           AND access_tokens.revoked_at IS NULL
+           AND token_families.expires_at > now()
+           AND token_families.revoked_at IS NULL",
+    )
+    .bind(&token_hash)
+    .fetch_optional(&state.database)
+    .await?
+    .ok_or_else(ApiError::unauthorized)?;
+    let _ = sqlx::query(
+        "UPDATE access_tokens SET last_used_at = now()
+         WHERE token_hash = $1
+           AND (last_used_at IS NULL OR last_used_at < now() - interval '1 hour')",
+    )
+    .bind(token_hash)
+    .execute(&state.database)
+    .await;
+    Ok(AuthUser {
+        id: row.try_get("id")?,
+        handle: row.try_get("handle")?,
+    })
 }
 
 async fn begin_cli_login(
@@ -103,7 +122,7 @@ async fn begin_cli_login(
         session_id,
         browser_url: format!(
             "{}/auth/github/start?cli_session={session_id}",
-            state.config.public_url
+            state.config.auth_public_url
         ),
         poll_secret,
         expires_in_seconds: 900,
@@ -121,7 +140,11 @@ async fn poll_cli_login(
         .ok_or_else(ApiError::unauthorized)?;
     let mut transaction = state.database.begin().await?;
     let row = sqlx::query(
-        "SELECT poll_secret_hash, issued_token, expires_at, consumed_at, users.handle
+        "SELECT cli_login_sessions.poll_secret_hash,
+                cli_login_sessions.expires_at,
+                cli_login_sessions.consumed_at,
+                cli_login_sessions.user_id,
+                users.handle
          FROM cli_login_sessions
          LEFT JOIN users ON users.id = cli_login_sessions.user_id
          WHERE cli_login_sessions.id = $1
@@ -135,34 +158,41 @@ async fn poll_cli_login(
     if expected != hash_secret(poll_secret) {
         return Err(ApiError::unauthorized());
     }
-    let expires_at: chrono::DateTime<Utc> = row.try_get("expires_at")?;
+    let expires_at: DateTime<Utc> = row.try_get("expires_at")?;
     if expires_at <= Utc::now()
         || row
-            .try_get::<Option<chrono::DateTime<Utc>>, _>("consumed_at")?
+            .try_get::<Option<DateTime<Utc>>, _>("consumed_at")?
             .is_some()
     {
         transaction.commit().await?;
         return Ok(Json(PollCliLoginResponse::Expired));
     }
-    let issued_token: Option<String> = row.try_get("issued_token")?;
-    let Some(token) = issued_token else {
+    let Some(user_id) = row.try_get::<Option<Uuid>, _>("user_id")? else {
         transaction.commit().await?;
         return Ok(Json(PollCliLoginResponse::Pending));
     };
+    let credentials = issue_new_family(&mut transaction, user_id, "cli").await?;
     let user_handle: String = row.try_get("handle")?;
-    sqlx::query(
-        "UPDATE cli_login_sessions
-         SET consumed_at = now(), issued_token = NULL
-         WHERE id = $1",
-    )
-    .bind(session_id)
-    .execute(&mut *transaction)
-    .await?;
+    sqlx::query("UPDATE cli_login_sessions SET consumed_at = now() WHERE id = $1")
+        .bind(session_id)
+        .execute(&mut *transaction)
+        .await?;
     transaction.commit().await?;
     Ok(Json(PollCliLoginResponse::Authorized {
-        token,
+        credentials,
         user_handle,
     }))
+}
+
+async fn refresh_cli_token(
+    State(state): State<AppState>,
+    Json(request): Json<RefreshTokenRequest>,
+) -> Result<Json<TokenPair>, ApiError> {
+    Ok(Json(
+        rotate_refresh_token(&state, &request.refresh_token)
+            .await?
+            .pair,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -173,8 +203,9 @@ struct GithubStartQuery {
 
 async fn github_start(
     State(state): State<AppState>,
+    cookies: Cookies,
     Query(query): Query<GithubStartQuery>,
-) -> Result<Redirect, ApiError> {
+) -> Result<Response, ApiError> {
     if let Some(session_id) = query.cli_session {
         let valid: bool = sqlx::query_scalar(
             "SELECT EXISTS(
@@ -191,9 +222,26 @@ async fn github_start(
             ));
         }
     }
-    let return_to = query
-        .return_to
-        .filter(|value| value.starts_with('/') && !value.starts_with("//"));
+    let return_to = sanitize_return_to(query.return_to);
+    if query.cli_session.is_none()
+        && let (Some(return_to), Some(refresh)) =
+            (return_to.as_deref(), cookies.get(AUTH_REFRESH_COOKIE))
+    {
+        match rotate_refresh_token(&state, refresh.value()).await {
+            Ok(rotated) => {
+                set_refresh_cookie(&state, &cookies, &rotated.pair);
+                return Ok(create_auth_ticket(
+                    &state,
+                    rotated.user_id,
+                    rotated.family_id,
+                    return_to,
+                )
+                .await?
+                .into_response());
+            }
+            Err(_) => remove_refresh_cookie(&cookies),
+        }
+    }
     let oauth_state = random_token("state_");
     sqlx::query(
         "INSERT INTO oauth_states (id, state_hash, cli_session_id, return_to, expires_at)
@@ -213,11 +261,11 @@ async fn github_start(
         .append_pair("client_id", &state.config.github_client_id)
         .append_pair(
             "redirect_uri",
-            &format!("{}/auth/github/callback", state.config.public_url),
+            &format!("{}/auth/github/callback", state.config.auth_public_url),
         )
         .append_pair("scope", "read:user")
         .append_pair("state", &oauth_state);
-    Ok(Redirect::temporary(authorize.as_str()))
+    Ok(Redirect::temporary(authorize.as_str()).into_response())
 }
 
 #[derive(Deserialize)]
@@ -298,40 +346,29 @@ async fn github_callback(
     let user = provision_user(&state, github_user.id, &github_user.login).await?;
     let cli_session_id: Option<Uuid> = oauth.try_get("cli_session_id")?;
     if let Some(cli_session_id) = cli_session_id {
-        let api_token = issue_api_token(&state, user.id).await?;
         sqlx::query(
             "UPDATE cli_login_sessions
-             SET user_id = $1, issued_token = $2, authorized_at = now()
-             WHERE id = $3 AND expires_at > now() AND consumed_at IS NULL",
+             SET user_id = $1, authorized_at = now()
+             WHERE id = $2 AND expires_at > now() AND consumed_at IS NULL",
         )
         .bind(user.id)
-        .bind(api_token)
         .bind(cli_session_id)
         .execute(&state.database)
         .await?;
     }
-    let web_token = random_token("web_");
-    sqlx::query(
-        "INSERT INTO web_sessions (id, user_id, session_hash, expires_at)
-         VALUES ($1, $2, $3, $4)",
-    )
-    .bind(Uuid::now_v7())
-    .bind(user.id)
-    .bind(hash_secret(&web_token))
-    .bind(Utc::now() + Duration::days(30))
-    .execute(&state.database)
-    .await?;
-    let cookie = Cookie::build((WEB_SESSION_COOKIE, web_token))
-        .path("/")
-        .http_only(true)
-        .same_site(SameSite::Lax)
-        .secure(state.config.public_url.starts_with("https://"))
-        .max_age(time::Duration::days(30))
-        .build();
-    cookies.add(cookie);
+
+    let mut transaction = state.database.begin().await?;
+    let browser = issue_new_family_with_id(&mut transaction, user.id, "browser").await?;
+    transaction.commit().await?;
+    set_refresh_cookie(&state, &cookies, &browser.pair);
+
     let return_to: Option<String> = oauth.try_get("return_to")?;
     if let Some(return_to) = return_to {
-        Ok(Redirect::to(&return_to).into_response())
+        Ok(
+            create_auth_ticket(&state, user.id, browser.family_id, &return_to)
+                .await?
+                .into_response(),
+        )
     } else {
         Ok(Html(
             "<!doctype html><html><body><h1>Brume login complete</h1><p>You can close this tab and return to the CLI.</p></body></html>",
@@ -340,26 +377,271 @@ async fn github_callback(
     }
 }
 
+#[derive(Deserialize)]
+struct TicketQuery {
+    ticket: String,
+}
+
+async fn complete_plan_auth(
+    State(state): State<AppState>,
+    cookies: Cookies,
+    Query(query): Query<TicketQuery>,
+) -> Result<Response, ApiError> {
+    let mut transaction = state.database.begin().await?;
+    let row = sqlx::query(
+        "UPDATE auth_tickets
+         SET consumed_at = now()
+         WHERE ticket_hash = $1 AND expires_at > now() AND consumed_at IS NULL
+         RETURNING user_id, family_id, return_to",
+    )
+    .bind(hash_secret(&query.ticket))
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(|| ApiError::bad_request("Authentication ticket is invalid or expired"))?;
+    let user_id: Uuid = row.try_get("user_id")?;
+    let family_id: Uuid = row.try_get("family_id")?;
+    let return_to: String = row.try_get("return_to")?;
+    let (access_token, access_expires_at) =
+        issue_access_token(&mut transaction, user_id, family_id).await?;
+    transaction.commit().await?;
+    set_plan_access_cookie(&state, &cookies, &access_token, access_expires_at);
+    Ok(Redirect::to(&return_to).into_response())
+}
+
+async fn create_auth_ticket(
+    state: &AppState,
+    user_id: Uuid,
+    family_id: Uuid,
+    return_to: &str,
+) -> Result<Redirect, ApiError> {
+    let ticket = random_token("ticket_");
+    sqlx::query(
+        "INSERT INTO auth_tickets (
+            id, user_id, family_id, ticket_hash, return_to, expires_at
+         ) VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(Uuid::now_v7())
+    .bind(user_id)
+    .bind(family_id)
+    .bind(hash_secret(&ticket))
+    .bind(return_to)
+    .bind(Utc::now() + TICKET_LIFETIME)
+    .execute(&state.database)
+    .await?;
+    Ok(Redirect::to(&format!(
+        "{}/_brume/auth/complete?ticket={}",
+        state.config.plan_public_url,
+        urlencoding::encode(&ticket)
+    )))
+}
+
+fn sanitize_return_to(value: Option<String>) -> Option<String> {
+    value.filter(|value| value.starts_with('/') && !value.starts_with("//"))
+}
+
+fn set_refresh_cookie(state: &AppState, cookies: &Cookies, pair: &TokenPair) {
+    let max_age = (pair.refresh_expires_at - Utc::now()).num_seconds().max(0);
+    cookies.add(
+        Cookie::build((AUTH_REFRESH_COOKIE, pair.refresh_token.clone()))
+            .path("/auth")
+            .http_only(true)
+            .same_site(SameSite::Lax)
+            .secure(state.config.auth_public_url.starts_with("https://"))
+            .max_age(time::Duration::seconds(max_age))
+            .build(),
+    );
+}
+
+fn remove_refresh_cookie(cookies: &Cookies) {
+    cookies.remove(Cookie::build(AUTH_REFRESH_COOKIE).path("/auth").build());
+}
+
+fn set_plan_access_cookie(
+    state: &AppState,
+    cookies: &Cookies,
+    token: &str,
+    expires_at: DateTime<Utc>,
+) {
+    let max_age = (expires_at - Utc::now()).num_seconds().max(0);
+    cookies.add(
+        Cookie::build((PLAN_ACCESS_COOKIE, token.to_owned()))
+            .path("/")
+            .http_only(true)
+            .same_site(SameSite::Lax)
+            .secure(state.config.plan_public_url.starts_with("https://"))
+            .max_age(time::Duration::seconds(max_age))
+            .build(),
+    );
+}
+
 pub async fn web_user(state: &AppState, cookies: &Cookies) -> Result<Option<AuthUser>, ApiError> {
-    let Some(cookie) = cookies.get(WEB_SESSION_COOKIE) else {
+    let Some(cookie) = cookies.get(PLAN_ACCESS_COOKIE) else {
         return Ok(None);
     };
-    let row = sqlx::query(
-        "SELECT users.id, users.handle
-         FROM web_sessions
-         JOIN users ON users.id = web_sessions.user_id
-         WHERE web_sessions.session_hash = $1 AND web_sessions.expires_at > now()",
+    match authenticate_access_token(state, cookie.value()).await {
+        Ok(user) => Ok(Some(user)),
+        Err(error) if error.status() == axum::http::StatusCode::UNAUTHORIZED => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+struct IssuedFamily {
+    family_id: Uuid,
+    pair: TokenPair,
+}
+
+struct RotatedFamily {
+    user_id: Uuid,
+    family_id: Uuid,
+    pair: TokenPair,
+}
+
+async fn issue_new_family(
+    transaction: &mut Transaction<'_, Postgres>,
+    user_id: Uuid,
+    client_type: &str,
+) -> Result<TokenPair, ApiError> {
+    Ok(issue_new_family_with_id(transaction, user_id, client_type)
+        .await?
+        .pair)
+}
+
+async fn issue_new_family_with_id(
+    transaction: &mut Transaction<'_, Postgres>,
+    user_id: Uuid,
+    client_type: &str,
+) -> Result<IssuedFamily, ApiError> {
+    let family_id = Uuid::now_v7();
+    let refresh_expires_at = Utc::now() + REFRESH_LIFETIME;
+    sqlx::query(
+        "INSERT INTO token_families (id, user_id, client_type, expires_at)
+         VALUES ($1, $2, $3, $4)",
     )
-    .bind(hash_secret(cookie.value()))
-    .fetch_optional(&state.database)
+    .bind(family_id)
+    .bind(user_id)
+    .bind(client_type)
+    .bind(refresh_expires_at)
+    .execute(&mut **transaction)
     .await?;
-    row.map(|row| {
-        Ok(AuthUser {
-            id: row.try_get("id")?,
-            handle: row.try_get("handle")?,
-        })
+    let pair = issue_pair(transaction, user_id, family_id, refresh_expires_at)
+        .await?
+        .pair;
+    Ok(IssuedFamily { family_id, pair })
+}
+
+struct IssuedPair {
+    refresh_id: Uuid,
+    pair: TokenPair,
+}
+
+async fn issue_pair(
+    transaction: &mut Transaction<'_, Postgres>,
+    user_id: Uuid,
+    family_id: Uuid,
+    refresh_expires_at: DateTime<Utc>,
+) -> Result<IssuedPair, ApiError> {
+    let (access_token, access_expires_at) =
+        issue_access_token(transaction, user_id, family_id).await?;
+    let refresh_token = random_token("refresh_");
+    let refresh_id = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO refresh_tokens (id, family_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, $4)",
+    )
+    .bind(refresh_id)
+    .bind(family_id)
+    .bind(hash_secret(&refresh_token))
+    .bind(refresh_expires_at)
+    .execute(&mut **transaction)
+    .await?;
+    Ok(IssuedPair {
+        refresh_id,
+        pair: TokenPair {
+            access_token,
+            refresh_token,
+            access_expires_at,
+            refresh_expires_at,
+        },
     })
-    .transpose()
+}
+
+async fn issue_access_token(
+    transaction: &mut Transaction<'_, Postgres>,
+    user_id: Uuid,
+    family_id: Uuid,
+) -> Result<(String, DateTime<Utc>), ApiError> {
+    let token = random_token("access_");
+    let expires_at = Utc::now() + ACCESS_LIFETIME;
+    sqlx::query(
+        "INSERT INTO access_tokens (id, family_id, user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(Uuid::now_v7())
+    .bind(family_id)
+    .bind(user_id)
+    .bind(hash_secret(&token))
+    .bind(expires_at)
+    .execute(&mut **transaction)
+    .await?;
+    Ok((token, expires_at))
+}
+
+async fn rotate_refresh_token(
+    state: &AppState,
+    refresh_token: &str,
+) -> Result<RotatedFamily, ApiError> {
+    let mut transaction = state.database.begin().await?;
+    let row = sqlx::query(
+        "SELECT refresh_tokens.id, refresh_tokens.family_id,
+                refresh_tokens.expires_at, refresh_tokens.consumed_at,
+                token_families.user_id, token_families.expires_at AS family_expires_at,
+                token_families.revoked_at
+         FROM refresh_tokens
+         JOIN token_families ON token_families.id = refresh_tokens.family_id
+         WHERE refresh_tokens.token_hash = $1
+         FOR UPDATE OF refresh_tokens, token_families",
+    )
+    .bind(hash_secret(refresh_token))
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(ApiError::unauthorized)?;
+    let family_id: Uuid = row.try_get("family_id")?;
+    if row
+        .try_get::<Option<DateTime<Utc>>, _>("consumed_at")?
+        .is_some()
+    {
+        sqlx::query("UPDATE token_families SET revoked_at = now() WHERE id = $1")
+            .bind(family_id)
+            .execute(&mut *transaction)
+            .await?;
+        transaction.commit().await?;
+        return Err(ApiError::unauthorized());
+    }
+    let expires_at: DateTime<Utc> = row.try_get("expires_at")?;
+    let family_expires_at: DateTime<Utc> = row.try_get("family_expires_at")?;
+    let revoked_at: Option<DateTime<Utc>> = row.try_get("revoked_at")?;
+    if expires_at <= Utc::now() || family_expires_at <= Utc::now() || revoked_at.is_some() {
+        transaction.commit().await?;
+        return Err(ApiError::unauthorized());
+    }
+    let user_id: Uuid = row.try_get("user_id")?;
+    let old_refresh_id: Uuid = row.try_get("id")?;
+    let issued = issue_pair(&mut transaction, user_id, family_id, family_expires_at).await?;
+    sqlx::query(
+        "UPDATE refresh_tokens
+         SET consumed_at = now(), replaced_by = $1
+         WHERE id = $2",
+    )
+    .bind(issued.refresh_id)
+    .bind(old_refresh_id)
+    .execute(&mut *transaction)
+    .await?;
+    transaction.commit().await?;
+    Ok(RotatedFamily {
+        user_id,
+        family_id,
+        pair: issued.pair,
+    })
 }
 
 pub async fn provision_user(
@@ -387,16 +669,12 @@ pub async fn provision_user(
     })
 }
 
-pub async fn issue_api_token(state: &AppState, user_id: Uuid) -> Result<String, ApiError> {
-    let token = random_token("brume_");
-    sqlx::query(
-        "INSERT INTO api_tokens (id, user_id, token_hash)
-         VALUES ($1, $2, $3)",
-    )
-    .bind(Uuid::now_v7())
-    .bind(user_id)
-    .bind(hash_secret(&token))
-    .execute(&state.database)
-    .await?;
-    Ok(token)
+pub async fn issue_development_credentials(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<TokenPair, ApiError> {
+    let mut transaction = state.database.begin().await?;
+    let credentials = issue_new_family(&mut transaction, user_id, "development").await?;
+    transaction.commit().await?;
+    Ok(credentials)
 }

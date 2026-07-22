@@ -20,10 +20,12 @@ use tokio_tungstenite::{
 use url::Url;
 use uuid::Uuid;
 
+use crate::config;
+
 const CONTROL_QUEUE_SIZE: usize = 256;
 const LOCAL_EVENT_QUEUE_SIZE: usize = 16;
 
-pub async fn run(base_url: &str, token: String, port: u16, slug: &str) -> Result<()> {
+pub async fn run(base_url: &str, port: u16, slug: Option<&str>) -> Result<()> {
     if port == 0 {
         bail!("tunnel port must be between 1 and 65535");
     }
@@ -36,6 +38,7 @@ pub async fn run(base_url: &str, token: String, port: u16, slug: &str) -> Result
     let mut reconnect_delay = Duration::from_secs(1);
 
     loop {
+        let token = config::load_access_token(base_url).await?;
         match run_session(&endpoint, &token, port, http.clone()).await {
             Ok(SessionEnd::Stopped) => return Ok(()),
             Ok(SessionEnd::Replaced) => {
@@ -472,7 +475,7 @@ async fn proxy_websocket(
     Ok(status)
 }
 
-fn tunnel_endpoint(base_url: &str, slug: &str) -> Result<Url> {
+fn tunnel_endpoint(base_url: &str, slug: Option<&str>) -> Result<Url> {
     let mut endpoint = Url::parse(base_url)?.join("/")?;
     let scheme = match endpoint.scheme() {
         "http" => "ws",
@@ -482,8 +485,11 @@ fn tunnel_endpoint(base_url: &str, slug: &str) -> Result<Url> {
     endpoint
         .set_scheme(scheme)
         .map_err(|_| anyhow!("could not build the Brume Tunnel WebSocket URL"))?;
-    endpoint.set_path(&format!("/api/v1/tunnels/{slug}/connect"));
-    endpoint.set_query(None);
+    endpoint.set_path("/api/v1/tunnels/connect");
+    endpoint.set_query(
+        slug.map(|slug| format!("slug={}", urlencoding::encode(slug)))
+            .as_deref(),
+    );
     endpoint.set_fragment(None);
     Ok(endpoint)
 }
@@ -588,16 +594,16 @@ mod tests {
     #[test]
     fn derives_websocket_endpoint_from_api_url() {
         assert_eq!(
-            tunnel_endpoint("https://api.brume.dev", "my-app")
+            tunnel_endpoint("https://api.brume.dev", Some("my-app"))
                 .unwrap()
                 .as_str(),
-            "wss://api.brume.dev/api/v1/tunnels/my-app/connect"
+            "wss://api.brume.dev/api/v1/tunnels/connect?slug=my-app"
         );
         assert_eq!(
-            tunnel_endpoint("http://127.0.0.1:8080", "my-app")
+            tunnel_endpoint("http://127.0.0.1:8080", Some("my-app"))
                 .unwrap()
                 .as_str(),
-            "ws://127.0.0.1:8080/api/v1/tunnels/my-app/connect"
+            "ws://127.0.0.1:8080/api/v1/tunnels/connect?slug=my-app"
         );
     }
 

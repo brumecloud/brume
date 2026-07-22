@@ -1,0 +1,21 @@
+meta {
+  name: Isolate API host
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{plan_url}}/api/v1/plans
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("API routes are unavailable from the plan host", function() {
+    expect(res.status).to.equal(404);
+  });
+}

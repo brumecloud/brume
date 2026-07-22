@@ -8,7 +8,7 @@ use std::{
 use axum::{
     Router,
     body::{Body, Bytes},
-    extract::{FromRequestParts, Path, Request, State, WebSocketUpgrade, ws},
+    extract::{FromRequestParts, Query, Request, State, WebSocketUpgrade, ws},
     http::{
         HeaderMap, HeaderName, HeaderValue, Method, StatusCode,
         header::{self, HOST},
@@ -21,10 +21,16 @@ use brume_core::{
     TunnelHeader, TunnelMessage, TunnelWebSocketMessage,
 };
 use futures::{SinkExt, StreamExt, stream};
+use serde::Deserialize;
 use tokio::sync::{Semaphore, mpsc, watch};
 use uuid::Uuid;
 
-use crate::{auth::AuthUser, error::ApiError, state::AppState};
+use crate::{
+    auth::AuthUser,
+    error::ApiError,
+    state::AppState,
+    util::{public_label, random_public_id},
+};
 
 const CONTROL_QUEUE_SIZE: usize = 256;
 const RESPONSE_QUEUE_SIZE: usize = 16;
@@ -32,7 +38,7 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(20);
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/api/v1/tunnels/{slug}/connect", get(connect_tunnel))
+    Router::new().route("/api/v1/tunnels/connect", get(connect_tunnel))
 }
 
 #[derive(Clone, Default)]
@@ -43,26 +49,45 @@ pub struct TunnelRegistry {
 #[derive(Default)]
 struct RegistryState {
     by_owner: HashMap<(Uuid, String), Arc<TunnelConnection>>,
-    by_public_path: HashMap<(String, String), Arc<TunnelConnection>>,
+    by_public_label: HashMap<String, Arc<TunnelConnection>>,
+    claims: HashMap<String, (Uuid, String)>,
 }
 
 impl TunnelRegistry {
-    pub(crate) fn contains(&self, handle: &str, slug: &str) -> bool {
-        self.get(handle, slug).is_some()
+    pub(crate) fn contains_label(&self, label: &str) -> bool {
+        let state = self.inner.lock().expect("tunnel registry lock poisoned");
+        state.by_public_label.contains_key(label) || state.claims.contains_key(label)
+    }
+
+    fn claim(&self, label: &str, user_id: Uuid, slug: &str) -> bool {
+        let mut state = self.inner.lock().expect("tunnel registry lock poisoned");
+        let owner = (user_id, slug.to_owned());
+        if state
+            .by_public_label
+            .get(label)
+            .is_some_and(|connection| (connection.user_id, connection.slug.clone()) != owner)
+            || state
+                .claims
+                .get(label)
+                .is_some_and(|claimed| claimed != &owner)
+        {
+            return false;
+        }
+        state.claims.insert(label.to_owned(), owner);
+        true
     }
 
     fn register(&self, connection: Arc<TunnelConnection>) {
         let owner_key = (connection.user_id, connection.slug.clone());
-        let public_key = (connection.handle.clone(), connection.slug.clone());
+        let public_key = connection.public_label.clone();
         let previous = {
             let mut state = self.inner.lock().expect("tunnel registry lock poisoned");
             let previous = state.by_owner.insert(owner_key, connection.clone());
             if let Some(previous) = &previous {
-                state
-                    .by_public_path
-                    .remove(&(previous.handle.clone(), previous.slug.clone()));
+                state.by_public_label.remove(&previous.public_label);
             }
-            state.by_public_path.insert(public_key, connection);
+            state.claims.remove(&public_key);
+            state.by_public_label.insert(public_key, connection);
             previous
         };
         if let Some(previous) = previous {
@@ -70,18 +95,18 @@ impl TunnelRegistry {
         }
     }
 
-    fn get(&self, handle: &str, slug: &str) -> Option<Arc<TunnelConnection>> {
+    fn get(&self, label: &str) -> Option<Arc<TunnelConnection>> {
         self.inner
             .lock()
             .expect("tunnel registry lock poisoned")
-            .by_public_path
-            .get(&(handle.to_owned(), slug.to_owned()))
+            .by_public_label
+            .get(label)
             .cloned()
     }
 
     fn remove(&self, connection: &TunnelConnection) {
         let owner_key = (connection.user_id, connection.slug.clone());
-        let public_key = (connection.handle.clone(), connection.slug.clone());
+        let public_key = connection.public_label.clone();
         let mut state = self.inner.lock().expect("tunnel registry lock poisoned");
         if state
             .by_owner
@@ -91,11 +116,11 @@ impl TunnelRegistry {
             state.by_owner.remove(&owner_key);
         }
         if state
-            .by_public_path
+            .by_public_label
             .get(&public_key)
             .is_some_and(|current| current.id == connection.id)
         {
-            state.by_public_path.remove(&public_key);
+            state.by_public_label.remove(&public_key);
         }
     }
 }
@@ -105,6 +130,7 @@ struct TunnelConnection {
     user_id: Uuid,
     handle: String,
     slug: String,
+    public_label: String,
     outbound: mpsc::Sender<TunnelFrame>,
     replaced: watch::Sender<bool>,
     pending: Mutex<HashMap<Uuid, mpsc::Sender<TunnelMessage>>>,
@@ -115,6 +141,7 @@ impl TunnelConnection {
     fn new(
         user: AuthUser,
         slug: String,
+        public_label: String,
         outbound: mpsc::Sender<TunnelFrame>,
         replaced: watch::Sender<bool>,
     ) -> Self {
@@ -123,6 +150,7 @@ impl TunnelConnection {
             user_id: user.id,
             handle: user.handle,
             slug,
+            public_label,
             outbound,
             replaced,
             pending: Mutex::new(HashMap::new()),
@@ -264,35 +292,77 @@ impl RelayFailure {
     }
 }
 
+#[derive(Deserialize)]
+struct ConnectParameters {
+    slug: Option<String>,
+}
+
 async fn connect_tunnel(
     State(state): State<AppState>,
     user: AuthUser,
-    Path(slug): Path<String>,
+    Query(parameters): Query<ConnectParameters>,
     websocket: WebSocketUpgrade,
 ) -> Result<Response, ApiError> {
-    validate_slug(&slug)?;
-    let public_url = format!(
-        "{}/{}/{}",
-        state.config.tunnel_public_url, user.handle, slug
-    );
+    let requested_slug = parameters.slug;
+    if let Some(slug) = &requested_slug {
+        validate_slug(slug)?;
+    }
+    let generated = requested_slug.is_none();
+    let mut candidate = requested_slug.unwrap_or_else(random_public_id);
+    let (slug, public_label) = {
+        let _guard = state.public_endpoints.lock().await;
+        loop {
+            let label = public_label(&candidate, &user.handle).ok_or_else(|| {
+                ApiError::bad_request("Tunnel URL slug is too long for this user handle")
+            })?;
+            let deployment_exists: bool = sqlx::query_scalar(
+                "SELECT EXISTS(
+                SELECT 1 FROM deployments
+                WHERE public_label = $1 AND status = 'active'
+            )",
+            )
+            .bind(&label)
+            .fetch_one(&state.database)
+            .await?;
+            if !deployment_exists && state.tunnels.claim(&label, user.id, &candidate) {
+                break (candidate, label);
+            }
+            if !generated {
+                return Err(ApiError::public_url_conflict(
+                    "This public URL is already used by another tunnel or deployment",
+                ));
+            }
+            candidate = random_public_id();
+        }
+    };
+    let public_url = state.config.public_url(&public_label);
     Ok(websocket
         .max_message_size(TUNNEL_MAX_FRAME_BYTES)
         .max_frame_size(TUNNEL_MAX_FRAME_BYTES)
         .write_buffer_size(0)
         .max_write_buffer_size(TUNNEL_MAX_FRAME_BYTES * 4)
-        .on_upgrade(move |socket| run_control_connection(state, user, slug, public_url, socket)))
+        .on_upgrade(move |socket| {
+            run_control_connection(state, user, slug, public_label, public_url, socket)
+        }))
 }
 
 async fn run_control_connection(
     state: AppState,
     user: AuthUser,
     slug: String,
+    public_label: String,
     public_url: String,
     socket: ws::WebSocket,
 ) {
     let (outbound_tx, mut outbound_rx) = mpsc::channel(CONTROL_QUEUE_SIZE);
     let (replaced_tx, mut replaced_rx) = watch::channel(false);
-    let connection = Arc::new(TunnelConnection::new(user, slug, outbound_tx, replaced_tx));
+    let connection = Arc::new(TunnelConnection::new(
+        user,
+        slug,
+        public_label,
+        outbound_tx,
+        replaced_tx,
+    ));
     state.tunnels.register(connection.clone());
     let _ = connection.send(TunnelMessage::Welcome { public_url }).await;
 
@@ -376,32 +446,19 @@ async fn run_control_connection(
 
 pub(crate) async fn relay_request(
     state: AppState,
-    handle: String,
-    slug: String,
+    public_label: String,
     request: Request,
 ) -> Response {
     let (mut parts, body) = request.into_parts();
-    if !host_matches(&parts.headers, &state.config.tunnel_public_host) {
-        return RelayFailure::NotFound.response();
-    }
-    let Some(connection) = state.tunnels.get(&handle, &slug) else {
+    let Some(connection) = state.tunnels.get(&public_label) else {
         return RelayFailure::NotFound.response();
     };
-    let prefix = format!("/{handle}/{slug}");
-    let Some(path) = parts.uri.path().strip_prefix(&prefix) else {
-        return RelayFailure::NotFound.response();
-    };
-    let mut path_and_query = if path.is_empty() {
-        "/".to_owned()
-    } else {
-        path.to_owned()
-    };
+    let mut path_and_query = parts.uri.path().to_owned();
     if let Some(query) = parts.uri.query() {
         path_and_query.push('?');
         path_and_query.push_str(query);
     }
-    let headers =
-        sanitize_request_headers(&parts.headers, &prefix, &state.config.tunnel_public_scheme);
+    let headers = sanitize_request_headers(&parts.headers, &state.config.public_scheme);
     let websocket_requested = is_websocket_request(&parts.method, &parts.headers);
     let websocket = if websocket_requested {
         match WebSocketUpgrade::from_request_parts(&mut parts, &state).await {
@@ -436,17 +493,17 @@ pub(crate) async fn relay_request(
         {
             return RelayFailure::Unavailable.response();
         }
-        return relay_websocket(websocket, pending, &prefix).await;
+        return relay_websocket(websocket, pending).await;
     }
 
     let body_connection = connection.clone();
     tokio::spawn(async move {
         forward_request_body(body_connection, request_id, body).await;
     });
-    relay_http(pending, &prefix).await
+    relay_http(pending).await
 }
 
-async fn relay_http(mut pending: PendingRequest, prefix: &str) -> Response {
+async fn relay_http(mut pending: PendingRequest) -> Response {
     let (status, headers) = loop {
         match pending.receive().await {
             Some(TunnelMessage::ResponseStart {
@@ -463,7 +520,7 @@ async fn relay_http(mut pending: PendingRequest, prefix: &str) -> Response {
         Ok(status) if status != StatusCode::SWITCHING_PROTOCOLS => status,
         _ => return RelayFailure::Unavailable.response(),
     };
-    let headers = match sanitize_response_headers(headers, prefix) {
+    let headers = match sanitize_response_headers(headers) {
         Ok(headers) => headers,
         Err(_) => return RelayFailure::Unavailable.response(),
     };
@@ -503,11 +560,7 @@ async fn relay_http(mut pending: PendingRequest, prefix: &str) -> Response {
     response
 }
 
-async fn relay_websocket(
-    mut websocket: WebSocketUpgrade,
-    mut pending: PendingRequest,
-    prefix: &str,
-) -> Response {
+async fn relay_websocket(mut websocket: WebSocketUpgrade, mut pending: PendingRequest) -> Response {
     let response_headers = loop {
         match pending.receive().await {
             Some(TunnelMessage::ResponseStart {
@@ -520,7 +573,7 @@ async fn relay_websocket(
             Some(_) => continue,
         }
     };
-    let mut headers = match sanitize_response_headers(response_headers, prefix) {
+    let mut headers = match sanitize_response_headers(response_headers) {
         Ok(headers) => headers,
         Err(_) => return RelayFailure::Unavailable.response(),
     };
@@ -631,13 +684,6 @@ fn validate_slug(slug: &str) -> Result<(), ApiError> {
     Ok(())
 }
 
-fn host_matches(headers: &HeaderMap, expected: &str) -> bool {
-    headers
-        .get(HOST)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| value.eq_ignore_ascii_case(expected))
-}
-
 fn is_websocket_request(method: &Method, headers: &HeaderMap) -> bool {
     method == Method::GET
         && headers
@@ -650,7 +696,7 @@ fn is_websocket_request(method: &Method, headers: &HeaderMap) -> bool {
         })
 }
 
-fn sanitize_request_headers(headers: &HeaderMap, prefix: &str, scheme: &str) -> HeaderMap {
+fn sanitize_request_headers(headers: &HeaderMap, scheme: &str) -> HeaderMap {
     let original_host = headers.get(HOST).cloned();
     let mut headers = remove_hop_by_hop(headers);
     headers.remove(HOST);
@@ -658,6 +704,7 @@ fn sanitize_request_headers(headers: &HeaderMap, prefix: &str, scheme: &str) -> 
     headers.remove(header::SEC_WEBSOCKET_VERSION);
     headers.remove(header::SEC_WEBSOCKET_EXTENSIONS);
     headers.remove(header::SEC_WEBSOCKET_ACCEPT);
+    strip_brume_cookies(&mut headers);
     if let Some(host) = original_host {
         headers.insert(HeaderName::from_static("x-forwarded-host"), host);
     }
@@ -665,28 +712,34 @@ fn sanitize_request_headers(headers: &HeaderMap, prefix: &str, scheme: &str) -> 
         HeaderName::from_static("x-forwarded-proto"),
         HeaderValue::from_str(scheme).expect("configured URL scheme is a valid header value"),
     );
-    headers.insert(
-        HeaderName::from_static("x-forwarded-prefix"),
-        HeaderValue::from_str(prefix).expect("validated tunnel prefix is a valid header value"),
-    );
     headers
 }
 
-fn sanitize_response_headers(headers: Vec<TunnelHeader>, prefix: &str) -> Result<HeaderMap, ()> {
-    let headers = tunnel_to_headers(headers)?;
-    let headers = remove_hop_by_hop(&headers);
-    let mut rewritten = HeaderMap::new();
-    for (name, value) in &headers {
-        let value = if name == header::LOCATION {
-            rewrite_location(value.clone(), prefix)?
-        } else if name == header::SET_COOKIE {
-            rewrite_cookie_path(value.clone(), prefix)?
-        } else {
-            value.clone()
-        };
-        rewritten.append(name.clone(), value);
+fn strip_brume_cookies(headers: &mut HeaderMap) {
+    let cookies = headers
+        .get_all(header::COOKIE)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .flat_map(|value| value.split(';'))
+        .map(str::trim)
+        .filter(|cookie| {
+            cookie
+                .split_once('=')
+                .is_some_and(|(name, _)| !name.trim().starts_with("brume_"))
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    headers.remove(header::COOKIE);
+    if !cookies.is_empty()
+        && let Ok(value) = HeaderValue::from_str(&cookies)
+    {
+        headers.insert(header::COOKIE, value);
     }
-    Ok(rewritten)
+}
+
+fn sanitize_response_headers(headers: Vec<TunnelHeader>) -> Result<HeaderMap, ()> {
+    let headers = tunnel_to_headers(headers)?;
+    Ok(remove_hop_by_hop(&headers))
 }
 
 fn remove_hop_by_hop(headers: &HeaderMap) -> HeaderMap {
@@ -747,34 +800,6 @@ fn tunnel_to_headers(headers: Vec<TunnelHeader>) -> Result<HeaderMap, ()> {
     Ok(decoded)
 }
 
-fn rewrite_location(value: HeaderValue, prefix: &str) -> Result<HeaderValue, ()> {
-    let value = value.to_str().map_err(|_| ())?;
-    if value.starts_with('/') && !value.starts_with("//") {
-        HeaderValue::from_str(&format!("{prefix}{value}")).map_err(|_| ())
-    } else {
-        HeaderValue::from_str(value).map_err(|_| ())
-    }
-}
-
-fn rewrite_cookie_path(value: HeaderValue, prefix: &str) -> Result<HeaderValue, ()> {
-    let value = value.to_str().map_err(|_| ())?;
-    let rewritten = value
-        .split(';')
-        .map(|part| {
-            let trimmed = part.trim();
-            if trimmed.eq_ignore_ascii_case("path=/") {
-                format!(" Path={prefix}/")
-            } else if part.starts_with(' ') {
-                format!(" {trimmed}")
-            } else {
-                trimmed.to_owned()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(";");
-    HeaderValue::from_str(&rewritten).map_err(|_| ())
-}
-
 fn websocket_to_tunnel(message: ws::Message) -> TunnelWebSocketMessage {
     match message {
         ws::Message::Text(text) => TunnelWebSocketMessage::Text(text.to_string()),
@@ -823,6 +848,7 @@ mod tests {
                     handle: handle.to_owned(),
                 },
                 slug.to_owned(),
+                format!("{slug}-{handle}"),
                 outbound,
                 replaced,
             )),
@@ -842,7 +868,7 @@ mod tests {
         registry.remove(&old);
 
         assert!(*old_replaced.borrow());
-        assert_eq!(registry.get("paul", "app").unwrap().id, new.id);
+        assert_eq!(registry.get("app-paul").unwrap().id, new.id);
     }
 
     #[tokio::test]
@@ -855,6 +881,7 @@ mod tests {
                 handle: "paul".to_owned(),
             },
             "app".to_owned(),
+            "app-paul".to_owned(),
             outbound,
             replaced,
         ));
@@ -899,38 +926,40 @@ mod tests {
         );
         headers.insert("x-drop", HeaderValue::from_static("secret"));
         headers.insert("x-keep", HeaderValue::from_static("visible"));
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("session=1; brume_plan_access=secret"),
+        );
 
-        let headers = sanitize_request_headers(&headers, "/paul/app", "https");
+        let headers = sanitize_request_headers(&headers, "https");
 
         assert!(!headers.contains_key(header::CONNECTION));
         assert!(!headers.contains_key("x-drop"));
         assert_eq!(headers["x-keep"], "visible");
         assert_eq!(headers["x-forwarded-host"], "tunnel.brume.dev");
-        assert_eq!(headers["x-forwarded-prefix"], "/paul/app");
+        assert!(!headers.contains_key("x-forwarded-prefix"));
+        assert_eq!(headers[header::COOKIE], "session=1");
     }
 
     #[test]
-    fn response_rewrites_root_location_and_cookie_path() {
-        let headers = sanitize_response_headers(
-            vec![
-                TunnelHeader {
-                    name: "location".to_owned(),
-                    value: b"/login".to_vec(),
-                },
-                TunnelHeader {
-                    name: "set-cookie".to_owned(),
-                    value: b"session=1; Path=/; HttpOnly".to_vec(),
-                },
-                TunnelHeader {
-                    name: "set-cookie".to_owned(),
-                    value: b"theme=dark; Path=/; SameSite=Lax".to_vec(),
-                },
-            ],
-            "/paul/app",
-        )
+    fn response_preserves_root_location_and_cookie_path() {
+        let headers = sanitize_response_headers(vec![
+            TunnelHeader {
+                name: "location".to_owned(),
+                value: b"/login".to_vec(),
+            },
+            TunnelHeader {
+                name: "set-cookie".to_owned(),
+                value: b"session=1; Path=/; HttpOnly".to_vec(),
+            },
+            TunnelHeader {
+                name: "set-cookie".to_owned(),
+                value: b"theme=dark; Path=/; SameSite=Lax".to_vec(),
+            },
+        ])
         .unwrap();
 
-        assert_eq!(headers[header::LOCATION], "/paul/app/login");
+        assert_eq!(headers[header::LOCATION], "/login");
         let cookies = headers
             .get_all(header::SET_COOKIE)
             .iter()
@@ -939,8 +968,8 @@ mod tests {
         assert_eq!(
             cookies,
             [
-                "session=1; Path=/paul/app/; HttpOnly",
-                "theme=dark; Path=/paul/app/; SameSite=Lax"
+                "session=1; Path=/; HttpOnly",
+                "theme=dark; Path=/; SameSite=Lax"
             ]
         );
     }

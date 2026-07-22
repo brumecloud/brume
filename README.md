@@ -1,52 +1,97 @@
 # Brume
 
-Brume publie des plans Markdown ou MDX et déploie des sites HTML statiques.
-Le dépôt est un monorepo avec un CLI Rust, un serveur Rust, un serveur MCP et un renderer React/MDX embarqué dans le binaire du CLI.
+Brume permet de partager un plan Markdown ou MDX, de publier un site HTML statique ou d’exposer temporairement un serveur local.
 
-## Structure
+Le CLI couvre ces trois usages:
 
-- `crates/brume-cli` contient la commande `brume`.
-- `crates/brume-server` contient l’API, l’authentification GitHub et les serveurs des plans et déploiements statiques.
-- `crates/brume-mcp` expose les opérations de gestion aux agents via MCP stdio.
-- `crates/brume-core` contient le contrat partagé des plans et des bundles.
-- `crates/brume-api-client` contient le client HTTP utilisé par le CLI et le MCP.
-- `renderer` contient le renderer React 19, MDX 3, Mermaid et Shiki.
-- `migrations` contient le schéma PostgreSQL.
-- `bruno` contient les tests de bout en bout du backend.
+| Commande | Usage |
+| --- | --- |
+| `brume plan` | Prévisualiser, construire, publier et gérer un plan Markdown ou MDX. |
+| `brume deploy` | Publier tel quel le contenu d’un dossier HTML statique. |
+| `brume tunnel` | Donner une URL publique temporaire à un serveur HTTP local. |
 
-## Prérequis
+## Démarrage rapide
 
-- Rust 1.97 avec `rustfmt` et `clippy`.
-- Bun 1.3.14 ou plus récent.
-- Docker pour PostgreSQL local.
-- Bruno CLI pour le test de bout en bout.
-
-## Construire
-
-Le script du CLI compile d’abord le renderer web et le worker Bun autonome, puis incorpore les trois artefacts dans le binaire Rust.
+Les publications, les tunnels et les commandes de gestion nécessitent une connexion.
 
 ```bash
-./scripts/build-cli.sh --release
+brume login
 ```
 
-Le serveur incorpore uniquement le runtime web et la feuille de style.
+La commande ouvre GitHub sur `auth.brume.dev`, puis conserve dans le trousseau système un access token d’une heure et un refresh token rotatif de 90 jours.
+Le CLI renouvelle automatiquement l’access token.
+La prévisualisation et la construction locale d’un plan fonctionnent sans connexion.
+
+Pour afficher toutes les options disponibles:
 
 ```bash
-./scripts/build-server.sh --release
+brume --help
+brume plan --help
+brume deploy --help
+brume tunnel --help
 ```
 
-Pour tout construire:
+## 1. Plans Markdown ou MDX
+
+La commande `brume plan` transforme un dossier de documents en site navigable.
+Le dossier doit contenir une page d’entrée nommée `index.mdx`, `index.md`, `plan.md` ou `README.md`.
+
+### Prévisualiser un plan
 
 ```bash
-./scripts/build-all.sh --release
+brume plan preview ./mon-plan
 ```
 
-Le cross-build du CLI accepte aussi `--target <triple-rust>` pour les cibles macOS, Linux et Windows reconnues par `scripts/build-renderer.sh`.
+La prévisualisation démarre un serveur local et ouvre le plan dans le navigateur.
+Le dossier courant est utilisé si aucun chemin n’est fourni.
 
-## Utiliser le CLI
+```bash
+brume plan preview
+brume plan preview ./mon-plan --port 3000
+brume plan preview ./mon-plan --no-open
+```
 
-Un dossier de plan peut contenir `index.mdx`, `index.md`, `plan.md` ou `README.md`.
-Un fichier `brume.toml` optionnel choisit le titre, le slug, la visibilité et la page d’entrée.
+Sans `--port`, Brume choisit un port disponible.
+L’option `--no-open` empêche l’ouverture automatique du navigateur.
+
+### Construire un plan localement
+
+```bash
+brume plan build ./mon-plan
+```
+
+Par défaut, le résultat est écrit dans `./mon-plan/.brume/dist`.
+Utiliser `--output` pour choisir un autre dossier.
+
+```bash
+brume plan build ./mon-plan --output ./dist
+```
+
+### Publier un plan
+
+```bash
+brume plan deploy ./mon-plan
+```
+
+Un nouveau plan est privé par défaut.
+La visibilité peut être `private`, `unlisted` ou `public`.
+
+```bash
+brume plan deploy ./mon-plan --slug architecture-v2
+brume plan deploy ./mon-plan --visibility public
+brume plan deploy ./mon-plan --visibility unlisted --pin
+```
+
+- `--slug` choisit la dernière partie de l’URL.
+- `--visibility` choisit qui peut lire le plan.
+- `--pin` empêche l’expiration automatique du plan.
+
+Sans `--slug`, Brume utilise le slug défini dans `brume.toml`, puis le nom du dossier en dernier recours.
+Une republication avec le même slug remplace atomiquement la version active.
+
+### Configurer un plan
+
+Un fichier `brume.toml` optionnel placé à la racine du plan évite de répéter les mêmes options.
 
 ```toml
 [plan]
@@ -56,64 +101,102 @@ slug = "brume-v1"
 visibility = "private"
 ```
 
-Construire un plan sans serveur:
+Les options passées dans la commande remplacent les valeurs de `brume.toml`.
+
+### Gérer les plans publiés
+
+Les commandes suivantes utilisent le slug du plan:
 
 ```bash
-brume plan build ./mon-plan
+brume plan list
+brume plan show brume-v1
+brume plan open brume-v1
+brume plan visibility brume-v1 public
+brume plan pin brume-v1
+brume plan unpin brume-v1
+brume plan delete brume-v1
 ```
 
-Prévisualiser localement:
+`plan list` affiche notamment la visibilité, la dernière lecture et la date d’expiration.
+`plan delete` demande une confirmation avant de supprimer définitivement le plan et ses fichiers.
 
-```bash
-brume plan preview ./mon-plan
-```
-
-Se connecter puis publier:
-
-```bash
-brume login
-brume plan deploy ./mon-plan
-```
-
-Les commandes de gestion disponibles sont `plan list`, `plan show`, `plan open`, `plan visibility`, `plan pin`, `plan unpin` et `plan delete`.
 Les plans privés nécessitent la session GitHub du propriétaire.
 Les plans non listés utilisent une URL secrète.
 Les plans publics sont lisibles sans session.
 
-## Déploiements HTML statiques
+## 2. Sites HTML statiques
 
-`brume deploy` publie directement le contenu d’un dossier sans passer par le renderer Markdown ou modifier son HTML.
+La commande `brume deploy` publie directement le contenu d’un dossier sans passer par le renderer Markdown et sans modifier son HTML.
 Le dossier doit contenir un fichier `index.html` à sa racine.
 
 ```bash
 brume deploy ./dist
+```
+
+Le dossier courant est utilisé si aucun chemin n’est fourni.
+Sans `--url`, le serveur génère un identifiant public aléatoire.
+
+```bash
 brume deploy ./dist --url mon-app
 brume deploy ./dist --url mon-spa --spa
 brume deploy ./dist --url documentation --pin
 ```
 
-Sans `--url`, le slug est dérivé du nom du dossier.
-Les déploiements sont publics à l’adresse `https://deploy.brume.dev/<handle>/<slug>/`.
+Avec `--url mon-app`, le déploiement est public à l’adresse `https://mon-app-<handle>.brume.dev/`.
+
+- `--url` choisit le slug utilisé dans l’URL publique.
+- `--spa` active le fallback vers `index.html` pour une application monopage.
+- `--pin` empêche l’expiration automatique du déploiement.
+
 L’option `--spa` sert `index.html` pour les routes GET inexistantes sans extension, tout en conservant une réponse 404 pour les assets inexistants.
 Les chemins de fichiers exacts et les fichiers `index.html` des sous-dossiers sont servis normalement.
 Chaque fichier est limité à 20 MiB, avec une limite de 100 MiB et 5 000 fichiers par déploiement.
 Les liens et les chemins d’assets ne sont pas réécrits.
-Une application utilisant des chemins absolus doit donc être construite avec `/<handle>/<slug>/` comme chemin de base.
+Le site est servi depuis la racine de son propre sous-domaine, donc les chemins absolus comme `/assets/app.js` fonctionnent directement.
 Comme les plans, les déploiements non pin expirent après quinze jours sans lecture et une republication remplace atomiquement la version active.
 
-## Tunnel HTTP local
+## 3. Tunnel vers un serveur local
 
-Après `brume login`, exposer un serveur HTTP local avec une URL publique stable:
+La commande `brume tunnel` rend accessible un serveur qui écoute sur `127.0.0.1`.
+
+Démarrer d’abord le serveur local, puis indiquer son port et le slug public à Brume.
 
 ```bash
 brume tunnel 3000 --url mon-app
 ```
 
-Le tunnel public devient `https://tunnel.brume.dev/<handle>/mon-app` et reste actif tant que la commande tourne.
+`--url` est optionnel.
+Sans cette option, le serveur génère un identifiant public aléatoire.
+
+La commande affiche l’URL publique une fois la connexion établie:
+
+```text
+https://mon-app-<handle>.brume.dev
+```
+
+Le tunnel reste actif tant que la commande tourne.
+Utiliser `Ctrl-C` pour l’arrêter.
 Les requêtes HTTP, les corps en streaming et les WebSockets sont relayés vers `http://127.0.0.1:3000`.
-Le préfixe `/<handle>/mon-app` est retiré avant l'appel local.
-Les applications utilisant des chemins absolus dans leur HTML ou leur JavaScript doivent être configurées pour ce préfixe, car Brume ne réécrit pas le contenu des réponses.
+Le chemin public est transmis tel quel au serveur local, sans préfixe ajouté ou retiré.
 L'URL est publique et ne doit pas exposer un service local contenant des données sensibles.
+
+## Règles communes pour les URLs
+
+Les slugs passés à `--slug` contiennent entre 1 et 80 caractères.
+Pour `--url`, le slug et le handle doivent tenir ensemble dans la limite DNS de 63 caractères du sous-domaine.
+Ils acceptent uniquement les lettres ASCII minuscules, les chiffres et les tirets internes.
+
+Exemples valides: `documentation`, `mon-app` et `api-v2`.
+
+## Autres commandes
+
+```bash
+brume version
+brume mcp config
+```
+
+`brume version` affiche la version du CLI et le commit utilisé pour le construire.
+`brume mcp config` affiche la configuration MCP à copier dans Codex.
 
 ## Renderer MDX sûr
 
@@ -134,6 +217,41 @@ brume mcp config
 ```
 
 Le serveur MCP permet de lister les plans et leur dernière lecture, inspecter un plan, déployer un dossier, changer sa visibilité, le pin, l’unpin et le supprimer avec une confirmation en deux étapes.
+
+## Structure du dépôt
+
+- `crates/brume-cli` contient la commande `brume`.
+- `crates/brume-server` contient l’API, l’authentification GitHub et les serveurs des plans et déploiements statiques.
+- `crates/brume-mcp` expose les opérations de gestion aux agents via MCP stdio.
+- `crates/brume-core` contient le contrat partagé des plans et des bundles.
+- `crates/brume-api-client` contient le client HTTP utilisé par le CLI et le MCP.
+- `renderer` contient le renderer React 19, MDX 3, Mermaid et Shiki.
+- `migrations` contient le schéma PostgreSQL.
+- `bruno` contient les tests de bout en bout du backend.
+
+## Construire le projet
+
+Le développement nécessite Rust 1.97 avec `rustfmt` et `clippy`, Bun 1.3.14 ou plus récent, Docker et Bruno CLI.
+
+Le script du CLI compile le renderer web et le worker Bun autonome, puis incorpore les trois artefacts dans le binaire Rust.
+
+```bash
+./scripts/build-cli.sh --release
+```
+
+Le serveur incorpore uniquement le runtime web et la feuille de style.
+
+```bash
+./scripts/build-server.sh --release
+```
+
+Pour tout construire:
+
+```bash
+./scripts/build-all.sh --release
+```
+
+Le cross-build du CLI accepte aussi `--target <triple-rust>` pour les cibles macOS, Linux et Windows reconnues par `scripts/build-renderer.sh`.
 
 ## Développement backend local
 
@@ -184,9 +302,10 @@ Pour un déploiement statique, une réponse HTML enregistre directement la lectu
 Variables du service web et du Cron:
 
 ```dotenv
-BRUME_PUBLIC_URL=https://plan.brume.dev
-BRUME_TUNNEL_PUBLIC_URL=https://tunnel.brume.dev
-BRUME_DEPLOY_PUBLIC_URL=https://deploy.brume.dev
+BRUME_API_PUBLIC_URL=https://api.brume.dev
+BRUME_AUTH_PUBLIC_URL=https://auth.brume.dev
+BRUME_PLAN_PUBLIC_URL=https://plan.brume.dev
+BRUME_PUBLIC_DOMAIN=brume.dev
 BRUME_DATABASE_URL=${{Postgres.DATABASE_URL}}
 BRUME_STORAGE_BACKEND=s3
 BRUME_GITHUB_CLIENT_ID=...
@@ -199,17 +318,17 @@ Brume accepte les variables Railway natives `ENDPOINT`, `REGION`, `BUCKET`, `ACC
 La valeur `AWS_S3_URL_STYLE=virtual` correspond aux buckets Railway récents.
 Pour un ancien bucket path-style, utiliser `AWS_S3_URL_STYLE=path`.
 
-Créer une GitHub OAuth App avec `https://plan.brume.dev/auth/github/callback` comme callback URL.
+Créer une GitHub OAuth App avec `https://auth.brume.dev/auth/github/callback` comme callback URL.
 Le champ `BRUME_GITHUB_ALLOWED_IDS` est une liste d’identifiants GitHub numériques séparés par des virgules.
 Une liste vide autorise tous les comptes GitHub.
 
-Configurer `api.brume.dev`, `plan.brume.dev`, `deploy.brume.dev` et `tunnel.brume.dev` comme domaines custom du même service web.
-Le CLI utilise `api.brume.dev`, tandis que les plans publiés et l’authentification web utilisent `plan.brume.dev`.
-Les fichiers HTML statiques sont servis depuis `deploy.brume.dev` afin d’isoler leur JavaScript de l’origine authentifiée des plans.
-Les requêtes reçues sur `tunnel.brume.dev` sont dirigées vers les tunnels actifs en mémoire.
+Configurer `api.brume.dev`, `auth.brume.dev`, `plan.brume.dev` et `*.brume.dev` vers le même service web.
+Le CLI et le MCP utilisent `api.brume.dev`, GitHub OAuth utilise `auth.brume.dev`, et les plans utilisent `plan.brume.dev`.
+Tous les autres sous-domaines sont réservés aux tunnels et aux déploiements statiques.
+Les cookies d’authentification restent limités à `auth.brume.dev` ou `plan.brume.dev` et ne sont jamais partagés avec le wildcard.
 Le service doit rester sur une seule réplique tant que le registre des tunnels n’est pas distribué.
 Le domaine `brume.dev` reste réservé au site marketing.
-Les quatre sous-domaines utilisent les routes existantes du serveur sans réécriture.
+Le serveur sélectionne le routeur à partir de l’en-tête `Host`, sans réécriture de chemin par le proxy.
 Le healthcheck Railway est `/health` et vérifie également PostgreSQL.
 
 ## Rétention et remplacement

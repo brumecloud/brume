@@ -1,0 +1,17 @@
+meta {
+  name: Isolate auth host
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{auth_url}}/health
+  body: none
+  auth: none
+}
+
+tests {
+  test("the auth host does not expose API health or public content", function() {
+    expect(res.status).to.equal(404);
+  });
+}

@@ -628,12 +628,12 @@ fn record_from_row(row: &sqlx::postgres::PgRow) -> Result<PlanRecord, ApiError> 
 fn record_url(state: &AppState, record: &PlanRecord) -> String {
     match (&record.visibility, &record.unlisted_token) {
         (Visibility::Unlisted, Some(token)) => format!(
-            "{}/@{}/{}/~{}",
-            state.config.public_url, record.handle, record.slug, token
+            "{}/{}/{}/~{}",
+            state.config.plan_public_url, record.handle, record.slug, token
         ),
         _ => format!(
-            "{}/@{}/{}",
-            state.config.public_url, record.handle, record.slug
+            "{}/{}/{}",
+            state.config.plan_public_url, record.handle, record.slug
         ),
     }
 }

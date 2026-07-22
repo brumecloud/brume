@@ -19,17 +19,17 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/_brume/runtime.js", get(runtime))
         .route("/_brume/theme.css", get(theme))
-        .route("/@{handle}/{slug}/_read", post(read_canonical))
-        .route("/@{handle}/{slug}/_assets/{*path}", get(asset_canonical))
-        .route("/@{handle}/{slug}/~{access}/_read", post(read_shared))
+        .route("/{handle}/{slug}/_read", post(read_canonical))
+        .route("/{handle}/{slug}/_assets/{*path}", get(asset_canonical))
+        .route("/{handle}/{slug}/~{access}/_read", post(read_shared))
         .route(
-            "/@{handle}/{slug}/~{access}/_assets/{*path}",
+            "/{handle}/{slug}/~{access}/_assets/{*path}",
             get(asset_shared),
         )
-        .route("/@{handle}/{slug}", get(page_canonical_root))
-        .route("/@{handle}/{slug}/~{access}", get(page_shared_root))
-        .route("/@{handle}/{slug}/~{access}/{*route}", get(page_shared))
-        .route("/@{handle}/{slug}/{*route}", get(page_canonical))
+        .route("/{handle}/{slug}", get(page_canonical_root))
+        .route("/{handle}/{slug}/~{access}", get(page_shared_root))
+        .route("/{handle}/{slug}/~{access}/{*route}", get(page_shared))
+        .route("/{handle}/{slug}/{*route}", get(page_canonical))
 }
 
 struct WebPlan {
@@ -121,7 +121,8 @@ async fn serve_page(
                 let return_to = request_base(&plan, &access);
                 return Ok::<Response, ApiError>(
                     Redirect::temporary(&format!(
-                        "/auth/github/start?return_to={}",
+                        "{}/auth/github/start?return_to={}",
+                        state.config.auth_public_url,
                         urlencoding::encode(&return_to)
                     ))
                     .into_response(),
@@ -333,8 +334,8 @@ async fn load_plan(state: &AppState, handle: &str, slug: &str) -> Result<WebPlan
 
 fn request_base(plan: &WebPlan, access: &Access<'_>) -> String {
     match access {
-        Access::Canonical => format!("/@{}/{}", plan.handle, plan.slug),
-        Access::Shared(token) => format!("/@{}/{}/~{}", plan.handle, plan.slug, token),
+        Access::Canonical => format!("/{}/{}", plan.handle, plan.slug),
+        Access::Shared(token) => format!("/{}/{}/~{}", plan.handle, plan.slug, token),
     }
 }
 

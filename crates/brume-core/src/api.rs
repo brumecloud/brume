@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -21,8 +22,24 @@ pub struct BeginCliLoginResponse {
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum PollCliLoginResponse {
     Pending,
-    Authorized { token: String, user_handle: String },
+    Authorized {
+        credentials: TokenPair,
+        user_handle: String,
+    },
     Expired,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenPair {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub access_expires_at: DateTime<Utc>,
+    pub refresh_expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefreshTokenRequest {
+    pub refresh_token: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

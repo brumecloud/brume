@@ -1,0 +1,24 @@
+meta {
+  name: Reject refresh from revoked family
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/tokens/refresh
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refresh_token": "{{rotated_refresh_token}}"
+  }
+}
+
+tests {
+  test("the rotated refresh token is rejected after family revocation", function() {
+    expect(res.status).to.equal(401);
+    expect(res.body.code).to.equal("unauthorized");
+  });
+}

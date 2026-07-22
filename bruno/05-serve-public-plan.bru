@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/@e2e/{{plan}}
+  url: {{plan_url}}/e2e/{{plan}}
   body: none
   auth: none
 }
@@ -15,7 +15,7 @@ tests {
     expect(res.status).to.equal(200);
     expect(res.body).to.include("brume-layout");
     expect(res.body).to.include("class=\"mermaid\"");
-    expect(res.body).to.include(`/@e2e/${bru.getEnvVar("plan")}/architecture`);
+    expect(res.body).to.include(`/e2e/${bru.getEnvVar("plan")}/architecture`);
     expect(res.body).to.include("/_brume/runtime.js");
   });
 }

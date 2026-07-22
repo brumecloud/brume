@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use reqwest::Client;
 use sqlx::{PgPool, postgres::PgPoolOptions};
+use tokio::sync::Mutex;
 
 use crate::{config::Config, storage, tunnels::TunnelRegistry};
 
@@ -13,6 +14,7 @@ pub struct AppState {
     pub http: Client,
     pub storage: Arc<dyn storage::ObjectStore>,
     pub tunnels: TunnelRegistry,
+    pub public_endpoints: Arc<Mutex<()>>,
 }
 
 impl AppState {
@@ -32,6 +34,7 @@ impl AppState {
             http,
             storage,
             tunnels: TunnelRegistry::default(),
+            public_endpoints: Arc::new(Mutex::new(())),
         })
     }
 }

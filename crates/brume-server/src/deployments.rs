@@ -7,7 +7,7 @@ use std::{
 use axum::{
     Json, Router,
     body::{Body, Bytes},
-    extract::{DefaultBodyLimit, Path, Query, State},
+    extract::{DefaultBodyLimit, Query, State},
     http::{HeaderMap, HeaderValue, Method, StatusCode, header},
     response::{IntoResponse, Response},
     routing::post,
@@ -21,7 +21,12 @@ use serde::Deserialize;
 use sqlx::{Postgres, Row, Transaction};
 use uuid::Uuid;
 
-use crate::{auth::AuthUser, error::ApiError, state::AppState};
+use crate::{
+    auth::AuthUser,
+    error::ApiError,
+    state::AppState,
+    util::{public_label, random_public_id},
+};
 
 const MAX_ARCHIVE_BYTES: usize = 110 * 1024 * 1024;
 const MAX_EXPANDED_BYTES: usize = 100 * 1024 * 1024;
@@ -29,12 +34,13 @@ const MAX_FILES: usize = 5_000;
 
 pub fn api_router() -> Router<AppState> {
     Router::new()
-        .route("/api/v1/deployments/{slug}", post(deploy))
+        .route("/api/v1/deployments", post(deploy))
         .layer(DefaultBodyLimit::max(MAX_ARCHIVE_BYTES))
 }
 
 #[derive(Deserialize)]
 struct DeployParameters {
+    slug: Option<String>,
     #[serde(default)]
     spa: bool,
     #[serde(default)]
@@ -56,11 +62,41 @@ struct ValidatedDeployment {
 async fn deploy(
     State(state): State<AppState>,
     user: AuthUser,
-    Path(slug): Path<String>,
     Query(parameters): Query<DeployParameters>,
     body: Bytes,
 ) -> Result<Json<DeploySiteResponse>, ApiError> {
-    validate_slug(&slug)?;
+    let requested_slug = parameters.slug;
+    if let Some(slug) = &requested_slug {
+        validate_slug(slug)?;
+    }
+    let _endpoint_guard = state.public_endpoints.lock().await;
+    let generated = requested_slug.is_none();
+    let mut candidate = requested_slug.unwrap_or_else(random_public_id);
+    let (slug, public_label) = loop {
+        let label = public_label(&candidate, &user.handle).ok_or_else(|| {
+            ApiError::bad_request("Deployment URL slug is too long for this user handle")
+        })?;
+        let tunnel_conflict = state.tunnels.contains_label(&label);
+        let label_owner =
+            sqlx::query("SELECT user_id, slug FROM deployments WHERE public_label = $1")
+                .bind(&label)
+                .fetch_optional(&state.database)
+                .await?;
+        let deployment_conflict = label_owner.as_ref().is_some_and(|row| {
+            generated
+                || row.try_get::<Uuid, _>("user_id").ok() != Some(user.id)
+                || row.try_get::<String, _>("slug").ok().as_deref() != Some(candidate.as_str())
+        });
+        if !tunnel_conflict && !deployment_conflict {
+            break (candidate, label);
+        }
+        if !generated {
+            return Err(ApiError::public_url_conflict(
+                "This public URL is already used by another tunnel or deployment",
+            ));
+        }
+        candidate = random_public_id();
+    };
     let deployment = tokio::task::spawn_blocking(move || validate_archive(body, parameters.spa))
         .await
         .map_err(ApiError::internal)??;
@@ -107,12 +143,14 @@ async fn deploy(
         let mut transaction = state.database.begin().await?;
         if existing.is_none() {
             sqlx::query(
-                "INSERT INTO deployments (id, user_id, slug, spa, pinned_at)
-                 VALUES ($1, $2, $3, $4, $5)",
+                "INSERT INTO deployments (
+                    id, user_id, slug, public_label, spa, pinned_at
+                 ) VALUES ($1, $2, $3, $4, $5, $6)",
             )
             .bind(deployment_id)
             .bind(user.id)
             .bind(&slug)
+            .bind(&public_label)
             .bind(parameters.spa)
             .bind(parameters.pinned.then(Utc::now))
             .execute(&mut *transaction)
@@ -172,7 +210,7 @@ async fn deploy(
         cleanup_old_bundle(&state, old_bundle_id).await;
     }
     let row = sqlx::query(
-        "SELECT deployments.id, deployments.slug, deployments.spa,
+        "SELECT deployments.id, deployments.slug, deployments.public_label, deployments.spa,
                 deployments.published_at, deployments.last_read_at,
                 deployments.pinned_at, users.handle
          FROM deployments
@@ -338,31 +376,16 @@ struct PublicDeployment {
 
 pub async fn serve_public(
     state: AppState,
-    handle: String,
-    slug: String,
-    path: Option<String>,
+    public_label: String,
     method: Method,
-    trailing_slash: bool,
     request_uri: axum::http::Uri,
 ) -> Response {
     if !matches!(method, Method::GET | Method::HEAD) {
         return StatusCode::METHOD_NOT_ALLOWED.into_response();
     }
-    if path.is_none() && !trailing_slash {
-        let mut location = format!("/{handle}/{slug}/");
-        if let Some(query) = request_uri.query() {
-            location.push('?');
-            location.push_str(query);
-        }
-        return (
-            StatusCode::PERMANENT_REDIRECT,
-            [(header::LOCATION, location)],
-        )
-            .into_response();
-    }
     let result = async {
-        let deployment = load_public(&state, &handle, &slug).await?;
-        let request_path = path.as_deref().unwrap_or_default().trim_start_matches('/');
+        let deployment = load_public(&state, &public_label).await?;
+        let request_path = request_uri.path().trim_start_matches('/');
         validate_relative_request_path(request_path)?;
         let file = resolve_file(&deployment.manifest, request_path)
             .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "not_found", "File not found"))?;
@@ -432,22 +455,16 @@ fn validate_relative_request_path(path: &str) -> Result<(), ApiError> {
         .map_err(|_| ApiError::new(StatusCode::NOT_FOUND, "not_found", "File not found"))
 }
 
-async fn load_public(
-    state: &AppState,
-    handle: &str,
-    slug: &str,
-) -> Result<PublicDeployment, ApiError> {
+async fn load_public(state: &AppState, public_label: &str) -> Result<PublicDeployment, ApiError> {
     let row = sqlx::query(
         "SELECT deployments.id, deployment_bundles.object_prefix,
                 deployment_bundles.manifest
          FROM deployments
-         JOIN users ON users.id = deployments.user_id
          JOIN deployment_bundles ON deployment_bundles.id = deployments.active_bundle_id
-         WHERE users.handle = $1 AND deployments.slug = $2
+         WHERE deployments.public_label = $1
            AND deployments.status = 'active'",
     )
-    .bind(handle)
-    .bind(slug)
+    .bind(public_label)
     .fetch_optional(&state.database)
     .await?
     .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "not_found", "Deployment not found"))?;
@@ -489,11 +506,12 @@ fn summary(state: &AppState, row: &sqlx::postgres::PgRow) -> Result<DeploymentSu
     let pinned_at: Option<DateTime<Utc>> = row.try_get("pinned_at")?;
     let handle: String = row.try_get("handle")?;
     let slug: String = row.try_get("slug")?;
+    let public_label: String = row.try_get("public_label")?;
     Ok(DeploymentSummary {
         id: row.try_get("id")?,
         owner_handle: handle.clone(),
         slug: slug.clone(),
-        url: format!("{}/{handle}/{slug}/", state.config.deploy_public_url),
+        url: format!("{}/", state.config.public_url(&public_label)),
         spa: row.try_get("spa")?,
         published_at,
         expires_at: pinned_at

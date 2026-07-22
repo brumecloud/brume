@@ -1,0 +1,36 @@
+meta {
+  name: Rotate refresh token
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/tokens/refresh
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refresh_token": "{{refresh_test_token}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("rotated_refresh_token", res.body.refresh_token);
+}
+
+tests {
+  test("refresh returns a rotated credential pair", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.access_token).to.match(/^access_/);
+    expect(res.body.refresh_token).to.match(/^refresh_/);
+    expect(res.body.refresh_token).not.to.equal(bru.getEnvVar("refresh_test_token"));
+    expect(res.body.access_expires_at).to.be.a("string");
+    expect(res.body.refresh_expires_at).to.be.a("string");
+    const accessSeconds = (Date.parse(res.body.access_expires_at) - Date.now()) / 1000;
+    const refreshDays = (Date.parse(res.body.refresh_expires_at) - Date.now()) / 86400000;
+    expect(accessSeconds).to.be.greaterThan(3500).and.lessThanOrEqual(3600);
+    expect(refreshDays).to.be.greaterThan(89).and.lessThanOrEqual(90);
+  });
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Preserve API-shaped wildcard paths
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{tunnel_url}}/api/v1/plans
+  body: none
+  auth: none
+}
+
+tests {
+  test("a tunnel receives API-shaped paths without interception", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.pathname).to.equal("/api/v1/plans");
+    expect(res.body.instance).to.equal("second");
+  });
+}

@@ -3,7 +3,7 @@ use std::time::Duration;
 use brume_core::{
     ApiErrorBody, BeginCliLoginResponse, ConfirmDeletionRequest, CreateDeletionChallengeResponse,
     DeployPlanResponse, DeploySiteResponse, ListPlansResponse, PlanDetails, PlanPatch,
-    PollCliLoginResponse, Visibility,
+    PollCliLoginResponse, RefreshTokenRequest, TokenPair, Visibility,
 };
 use reqwest::{Response, StatusCode};
 use thiserror::Error;
@@ -75,6 +75,16 @@ impl BrumeClient {
         .await
     }
 
+    pub async fn refresh_token(&self, refresh_token: String) -> Result<TokenPair, ClientError> {
+        decode(
+            self.request(reqwest::Method::POST, "api/v1/auth/tokens/refresh")
+                .json(&RefreshTokenRequest { refresh_token })
+                .send()
+                .await?,
+        )
+        .await
+    }
+
     pub async fn deploy(
         &self,
         slug: &str,
@@ -98,15 +108,16 @@ impl BrumeClient {
 
     pub async fn deploy_site(
         &self,
-        slug: &str,
+        slug: Option<&str>,
         spa: bool,
         pinned: bool,
         archive: Vec<u8>,
     ) -> Result<DeploySiteResponse, ClientError> {
-        let path = format!(
-            "api/v1/deployments/{}?spa={spa}&pinned={pinned}",
-            urlencoding::encode(slug)
-        );
+        let mut path = format!("api/v1/deployments?spa={spa}&pinned={pinned}");
+        if let Some(slug) = slug {
+            path.push_str("&slug=");
+            path.push_str(&urlencoding::encode(slug));
+        }
         decode(
             self.request(reqwest::Method::POST, &path)
                 .header(reqwest::header::CONTENT_TYPE, "application/zstd")

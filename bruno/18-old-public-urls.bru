@@ -1,0 +1,17 @@
+meta {
+  name: Reject old tunnel and deployment paths
+  type: http
+  seq: 19
+}
+
+get {
+  url: http://deploy.localhost:18080/e2e/static-e2e/
+  body: none
+  auth: none
+}
+
+tests {
+  test("the old deployment host and username path are cut off", function() {
+    expect(res.status).to.equal(404);
+  });
+}

@@ -1,0 +1,24 @@
+meta {
+  name: Reject reused refresh token
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/tokens/refresh
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refresh_token": "{{refresh_test_token}}"
+  }
+}
+
+tests {
+  test("reusing a consumed refresh token revokes its family", function() {
+    expect(res.status).to.equal(401);
+    expect(res.body.code).to.equal("unauthorized");
+  });
+}

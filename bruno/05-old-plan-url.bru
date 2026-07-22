@@ -1,0 +1,17 @@
+meta {
+  name: Reject old plan URL
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{plan_url}}/@e2e/{{plan}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("the plan URL containing an at sign is cut off", function() {
+    expect(res.status).to.equal(404);
+  });
+}

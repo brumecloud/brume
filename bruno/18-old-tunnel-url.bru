@@ -1,0 +1,17 @@
+meta {
+  name: Reject old tunnel path
+  type: http
+  seq: 20
+}
+
+get {
+  url: http://tunnel.localhost:18080/e2e/tunnel-e2e/inspect
+  body: none
+  auth: none
+}
+
+tests {
+  test("the old tunnel host and username path are cut off", function() {
+    expect(res.status).to.equal(404);
+  });
+}
