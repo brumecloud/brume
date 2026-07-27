@@ -4,6 +4,7 @@ use argon2::{
 };
 use axum::{
     Form, Json, Router,
+    body::Body,
     extract::{Path, Query, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{Html, IntoResponse, Redirect, Response},
@@ -32,6 +33,7 @@ const SESSION_LIFETIME: Duration = Duration::days(1);
 const INVITATION_LIFETIME: Duration = Duration::days(1);
 const TICKET_LIFETIME: Duration = Duration::minutes(2);
 const ACTION_LIFETIME: Duration = Duration::minutes(10);
+const GEIST_FONT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/geist.woff2"));
 
 #[derive(Debug, Clone)]
 pub struct AccessControl {
@@ -81,6 +83,7 @@ impl Subject {
 
 pub fn auth_router() -> Router<AppState> {
     Router::new()
+        .route("/_brume/geist.woff2", get(geist_font))
         .route("/access", get(access_landing))
         .route("/access/token", post(submit_token))
         .route("/access/password", post(submit_password))
@@ -103,6 +106,26 @@ pub fn site_router() -> Router<AppState> {
     Router::new()
         .route("/_brume/access/complete", get(complete_site_auth_handler))
         .route("/_brume/overlay-state", get(overlay_state))
+}
+
+async fn geist_font() -> Response {
+    let mut response = Response::new(Body::from(GEIST_FONT));
+    response
+        .headers_mut()
+        .insert(header::CONTENT_TYPE, HeaderValue::from_static("font/woff2"));
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=31536000, immutable"),
+    );
+    response.headers_mut().insert(
+        header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        HeaderValue::from_static("*"),
+    );
+    response.headers_mut().insert(
+        "cross-origin-resource-policy",
+        HeaderValue::from_static("cross-origin"),
+    );
+    response
 }
 
 pub async fn insert_control(
@@ -313,6 +336,12 @@ pub fn overlay_markup(control_id: Uuid, auth_origin: &str, nonce: Option<&str>) 
         .unwrap_or_default();
     format!(
         r#"<style data-brume-overlay-style>[data-brume-overlay-host]{{all:initial;position:fixed!important;right:16px!important;bottom:16px!important;z-index:2147483647!important;color-scheme:dark!important}}[data-brume-overlay-host][data-side="left"]{{right:auto!important;left:16px!important}}</style><script{nonce} data-brume-overlay-script data-brume-site="{control_id}" data-brume-auth-origin="{auth_origin}">(() => {{
+  const currentUrl = new URL(location.href);
+  if (currentUrl.searchParams.get("_brume_auth_complete") === "1" && window.opener) {{
+    window.opener.postMessage({{ type: "brume-owner-authenticated" }}, location.origin);
+    window.close();
+    return;
+  }}
   const source = document.currentScript;
   if (!source || document.querySelector("[data-brume-overlay-host]")) return;
   const site = source.dataset.brumeSite;
@@ -330,29 +359,43 @@ pub fn overlay_markup(control_id: Uuid, auth_origin: &str, nonce: Option<&str>) 
       const root = host.attachShadow({{ mode: "closed" }});
       root.innerHTML = `<style>
         *{{box-sizing:border-box}}
-        :host{{font:13px/1.35 Inter,ui-sans-serif,system-ui,sans-serif;color:#f5f5f5}}
+        @font-face{{font-family:"Geist Variable";font-style:normal;font-weight:100 900;font-display:swap;src:url("${{authOrigin}}/_brume/geist.woff2") format("woff2")}}
+        :host{{font:13px/1.35 "Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif;color:#f5f5f5}}
         button,a{{font:inherit}}
         button{{border:1px solid #3a3a3a;border-radius:9px;padding:9px 10px;background:#272727;color:#f5f5f5;cursor:pointer}}
         button:hover,a:hover{{background:#333}}
         .launcher{{width:52px;height:52px;padding:0;border:1px solid rgba(255,255,255,.15);border-radius:50%;background:rgba(20,20,20,.94);box-shadow:0 8px 28px rgba(0,0,0,.3);font-size:22px;backdrop-filter:blur(16px)}}
-        .panel{{display:none;width:min(370px,calc(100vw - 32px));padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:rgba(18,18,18,.96);box-shadow:0 20px 70px rgba(0,0,0,.45);backdrop-filter:blur(22px)}}
+        .panel{{display:none;width:min(390px,calc(100vw - 32px));padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:rgba(18,18,18,.96);box-shadow:0 20px 70px rgba(0,0,0,.45);backdrop-filter:blur(22px)}}
         :host([data-open]) .panel{{display:block}}
         :host([data-open]) .launcher{{display:none}}
         header{{display:flex;align-items:center;justify-content:space-between;padding:4px 5px 10px;touch-action:none;cursor:grab}}
-        header strong{{font-size:13px}}
+        header strong{{font-size:13px;font-weight:650}}
+        .header-start{{display:flex;align-items:center;gap:6px}}
+        .back{{display:none;width:28px;height:28px;padding:0;border:0;background:transparent;color:#aaa;font-size:18px}}
+        :host([data-view="management"]) .back{{display:block}}
         .close{{width:28px;height:28px;padding:0;border:0;border-radius:8px;background:#292929;color:#aaa}}
         .actions{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
-        .manage{{display:block;margin-top:7px;padding:9px 10px;border:1px solid #3a3a3a;border-radius:9px;background:#272727;color:#f5f5f5;text-align:center;text-decoration:none}}
+        .manage{{display:block;width:100%;margin-top:7px}}
         .result{{min-height:18px;margin:8px 4px 0;color:#9ee6bc}}
+        .management{{display:none}}
+        :host([data-view="management"]) .primary{{display:none}}
+        :host([data-view="management"]) .management{{display:block}}
+        iframe{{display:block;width:100%;height:min(520px,calc(100vh - 92px));border:0;background:transparent}}
       </style>
       <button class="launcher" type="button" aria-label="Open Brume toolbar">☁️</button>
       <div class="panel">
-        <header><strong>Brume</strong><button class="close" type="button" aria-label="Close">×</button></header>
-        <div class="actions"><button class="share" type="button">Share website</button><button class="copy" type="button">Copy URL</button></div>
-        <a class="manage" target="_blank" rel="noopener">Manage access</a>
-        <p class="result" aria-live="polite"></p>
+        <header><span class="header-start"><button class="back" type="button" aria-label="Back">‹</button><strong>Brume</strong></span><button class="close" type="button" aria-label="Close">×</button></header>
+        <div class="primary">
+          <div class="actions"><button class="share" type="button">Share website</button><button class="copy" type="button">Copy URL</button></div>
+          <button class="manage" type="button">Manage access</button>
+          <p class="result" aria-live="polite"></p>
+        </div>
+        <div class="management"><iframe title="Manage website access" allow="clipboard-write" sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe></div>
       </div>`;
       const result = root.querySelector(".result");
+      const title = root.querySelector("header strong");
+      const management = root.querySelector("iframe");
+      const managementUrl = authOrigin + "/toolbar/" + encodeURIComponent(site) + "?return_to=" + encodeURIComponent(location.href);
       const copy = async () => {{
         await navigator.clipboard.writeText(location.href);
         result.textContent = "Copied";
@@ -363,7 +406,22 @@ pub fn overlay_markup(control_id: Uuid, auth_origin: &str, nonce: Option<&str>) 
       root.querySelector(".share").onclick = () => navigator.share
         ? navigator.share({{ url: location.href }}).catch(() => {{}})
         : copy().catch(() => result.textContent = "Could not copy");
-      root.querySelector(".manage").href = authOrigin + "/toolbar/" + encodeURIComponent(site) + "?return_to=" + encodeURIComponent(location.href);
+      root.querySelector(".manage").onclick = () => {{
+        if (!management.dataset.loaded) {{
+          management.src = managementUrl;
+          management.dataset.loaded = "true";
+        }}
+        host.dataset.view = "management";
+        title.textContent = "Manage access";
+      }};
+      root.querySelector(".back").onclick = () => {{
+        delete host.dataset.view;
+        title.textContent = "Brume";
+      }};
+      addEventListener("message", (event) => {{
+        if (event.origin !== location.origin || event.data?.type !== "brume-owner-authenticated") return;
+        management.src = managementUrl + "&refresh=" + Date.now();
+      }});
       const drag = root.querySelector("header");
       let dragging = false;
       drag.onpointerdown = (event) => {{
@@ -661,7 +719,7 @@ async fn toolbar(
     Query(query): Query<ToolbarQuery>,
 ) -> Result<Response, ApiError> {
     let control = load_control(&state, control_id).await?;
-    validate_return_to(&state, control.id, &query.return_to).await?;
+    let location = validate_return_to(&state, control.id, &query.return_to).await?;
     let owner = auth::browser_user(&state, &cookies)
         .await?
         .filter(|user| user.id == control.owner_user_id);
@@ -693,9 +751,11 @@ async fn toolbar(
         &grants,
         query.notice.as_deref(),
     );
-    let csp = HeaderValue::from_static(
-        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'",
-    );
+    let csp = HeaderValue::from_str(&format!(
+        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; font-src 'self'; frame-ancestors {}",
+        location.origin
+    ))
+    .map_err(ApiError::internal)?;
     Ok((
         [
             (header::CONTENT_SECURITY_POLICY, csp),
@@ -1482,7 +1542,8 @@ fn access_page(state: &AppState, control: &AccessControl, query: &AccessQuery) -
 }
 
 const AUTH_STYLES: &str = r#"<style>
-:root{color-scheme:light dark;font:15px/1.45 Inter,ui-sans-serif,system-ui,sans-serif;background:#fafafa;color:#171717}
+@font-face{font-family:"Geist Variable";font-style:normal;font-weight:100 900;font-display:swap;src:url("/_brume/geist.woff2") format("woff2")}
+:root{color-scheme:light dark;font:15px/1.45 "Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif;background:#fafafa;color:#171717}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}
 main{width:min(100%,380px);padding:28px;border:1px solid #e7e7e7;border-radius:18px;background:rgba(255,255,255,.94);box-shadow:0 18px 55px rgba(0,0,0,.12)}
 .mark{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;background:#111;margin-bottom:18px}
@@ -1544,10 +1605,17 @@ fn toolbar_page(
             },
         )
     } else {
+        let popup_return_to = Url::parse(share_url)
+            .map(|mut url| {
+                url.query_pairs_mut()
+                    .append_pair("_brume_auth_complete", "1");
+                url.to_string()
+            })
+            .unwrap_or_else(|_| share_url.to_owned());
         format!(
-            "<p class=\"muted\">Only the person who deployed this website can change access.</p><a class=\"signin\" target=\"_top\" href=\"/auth/github/start?site={}&site_return_to={}\">Sign in to manage</a>",
+            "<p class=\"muted\">Only the person who deployed this website can change access.</p><a class=\"signin\" target=\"brume-auth\" href=\"/auth/github/start?site={}&site_return_to={}\">Sign in to manage</a>",
             control.id,
-            urlencoding::encode(share_url)
+            urlencoding::encode(&popup_return_to)
         )
     };
     let notice = notice
@@ -1556,7 +1624,8 @@ fn toolbar_page(
     let share_json = serde_json::to_string(share_url).unwrap_or_else(|_| "\"\"".to_owned());
     format!(
         r##"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brume toolbar</title><style>
-*{{box-sizing:border-box}}:root{{color-scheme:dark;font:13px/1.35 Inter,ui-sans-serif,system-ui,sans-serif;color:#f5f5f5}}
+@font-face{{font-family:"Geist Variable";font-style:normal;font-weight:100 900;font-display:swap;src:url("/_brume/geist.woff2") format("woff2")}}
+*{{box-sizing:border-box}}:root{{color-scheme:dark;font:13px/1.35 "Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif;color:#f5f5f5}}
 body{{margin:0;background:transparent;overflow:hidden}}button,input,select{{font:inherit}}
 .launcher{{position:absolute;right:0;bottom:0;width:52px;height:52px;border:1px solid rgba(255,255,255,.15);border-radius:50%;background:rgba(20,20,20,.94);box-shadow:0 8px 28px rgba(0,0,0,.3);cursor:pointer;font-size:22px;backdrop-filter:blur(16px)}}
 .panel{{display:none;position:absolute;right:0;bottom:0;width:370px;max-height:465px;overflow:auto;padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:rgba(18,18,18,.96);box-shadow:0 20px 70px rgba(0,0,0,.45);backdrop-filter:blur(22px)}}
@@ -1567,9 +1636,13 @@ form{{display:grid;gap:7px;margin-top:7px}}input,select{{width:100%;border:1px s
 .muted{{color:#9a9a9a;margin:12px 5px}}.notice{{background:#173c2b;color:#9ee6bc;border-radius:8px;padding:8px}}.result{{color:#9ee6bc;word-break:break-all}}
 .signin{{display:block;margin:8px 5px;color:#ddd}}
 .grant{{display:grid;grid-template-columns:1fr auto;align-items:center}}.grant code{{overflow:hidden;text-overflow:ellipsis;color:#aaa}}.grant button{{padding:6px 8px}}
+body.embedded{{min-height:0;overflow:auto}}body.embedded .launcher,body.embedded header,body.embedded .actions{{display:none}}
+body.embedded .panel{{display:block;position:static;width:100%;max-height:none;overflow:visible;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none}}
+body.embedded section:first-of-type{{margin-top:0;border-top:0;padding-top:2px}}
 @media(prefers-reduced-motion:no-preference){{.panel,.launcher{{transition:opacity .14s ease,transform .14s ease}}}}
 </style></head><body><div id="toolbar"><button class="launcher" aria-label="Open Brume toolbar">☁️</button><div class="panel"><header><strong>Brume</strong><button class="close" aria-label="Close">×</button></header>{notice}<div class="actions"><button type="button" data-share>Share website</button><button type="button" data-copy>Copy URL</button></div>{owner_controls}<p class="result" aria-live="polite"></p></div></div><script>
 const root=document.querySelector("#toolbar");const result=document.querySelector(".result");const shareUrl={share_json};
+if(window.self!==window.top)document.body.classList.add("embedded");
 function setOpen(open){{root.classList.toggle("open",open)}}
 document.querySelector(".launcher").onclick=()=>setOpen(true);document.querySelector(".close").onclick=()=>setOpen(false);setOpen(true);
 async function copy(value){{await navigator.clipboard.writeText(value);result.textContent="Copied"}}

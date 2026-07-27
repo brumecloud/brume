@@ -19,6 +19,7 @@ tests {
     expect(res.body).to.include("data-brume-overlay-style");
     expect(res.body).to.include("data-brume-overlay-script");
     expect(res.body.indexOf("data-brume-overlay-script")).to.be.lessThan(res.body.indexOf("</body>"));
-    expect(res.body).not.to.include("<iframe");
+    expect(res.body).to.include("<iframe title=\"Manage website access\"");
+    expect(res.body).to.include("Geist Variable");
   });
 }

@@ -1,0 +1,20 @@
+meta {
+  name: Serve the toolbar Geist font
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{auth_url}}/_brume/geist.woff2
+  body: none
+  auth: none
+}
+
+tests {
+  test("the toolbar font is self-hosted for every website origin", function() {
+    expect(res.status).to.equal(200);
+    expect(res.headers["content-type"]).to.equal("font/woff2");
+    expect(res.headers["access-control-allow-origin"]).to.equal("*");
+    expect(res.headers["cache-control"]).to.include("immutable");
+  });
+}

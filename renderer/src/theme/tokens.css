@@ -1,9 +1,9 @@
 @font-face {
   font-display: swap;
-  font-family: "Inter Variable";
+  font-family: "Geist Variable";
   font-style: normal;
   font-weight: 100 900;
-  src: url("../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
+  src: url("../../node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2")
     format("woff2");
 }
 
@@ -32,7 +32,7 @@
   --brume-success: #36875b;
   --brume-shadow: 0 1px 2px rgb(25 33 28 / 4%), 0 8px 28px rgb(25 33 28 / 5%);
   --brume-radius: 12px;
-  --brume-font-body: "Inter Variable", Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
+  --brume-font-body: "Geist Variable", Geist, ui-sans-serif, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   --brume-font-heading: Mackinac, "Fraunces Variable", Fraunces, Georgia, serif;
   --brume-font-mono: "Fragment Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;

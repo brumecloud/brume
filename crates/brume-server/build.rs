@@ -17,7 +17,8 @@ fn main() -> Result<()> {
         .unwrap_or_else(|_| manifest_dir.join("../../renderer/dist"));
     let runtime = dist.join("web/runtime.js");
     let theme = dist.join("web/theme.css");
-    for path in [&runtime, &theme] {
+    let geist = dist.join("web/geist.woff2");
+    for path in [&runtime, &theme, &geist] {
         if !path.is_file() {
             bail!(
                 "missing renderer web artifact {}; run the renderer web build first",
@@ -28,5 +29,6 @@ fn main() -> Result<()> {
     }
     fs::copy(runtime, output.join("runtime.js"))?;
     fs::copy(theme, output.join("theme.css"))?;
+    fs::copy(geist, output.join("geist.woff2"))?;
     Ok(())
 }

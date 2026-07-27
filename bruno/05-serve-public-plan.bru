@@ -18,6 +18,7 @@ tests {
     expect(res.body).to.include(`/e2e/${bru.getEnvVar("plan")}/architecture`);
     expect(res.body).to.include("/_brume/runtime.js");
     expect(res.body).to.include("data-brume-overlay-script");
-    expect(res.body).not.to.include("<iframe");
+    expect(res.body).to.include("<iframe title=\"Manage website access\"");
+    expect(res.body).to.include("Geist Variable");
   });
 }

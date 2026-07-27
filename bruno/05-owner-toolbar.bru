@@ -23,6 +23,10 @@ tests {
   test("only the owner receives toolbar management controls", function() {
     expect(res.status).to.equal(200);
     expect(res.body).to.include("Authentication");
+    expect(res.body).to.include("Geist Variable");
+    expect(res.headers["content-security-policy"]).to.include(
+      `frame-ancestors ${bru.getEnvVar("plan_url")}`
+    );
     expect(bru.getVar("toolbar_action")).to.match(/^action_/);
   });
 }

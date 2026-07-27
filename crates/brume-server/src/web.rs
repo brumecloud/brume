@@ -108,7 +108,7 @@ async fn serve_page(
             .replace(BASE_PATH_PLACEHOLDER, &request_base(&plan));
         let read_url = format!("{}/_read", request_base(&plan));
         let nonce = random_token("overlay_");
-        let mut headers = secure_headers(Some(&nonce))?;
+        let mut headers = secure_headers(Some(&nonce), Some(&state.config.auth_public_url))?;
         headers.insert(
             header::CACHE_CONTROL,
             HeaderValue::from_static("private, no-cache"),
@@ -179,7 +179,7 @@ async fn serve_asset(
             .get(&format!("{}/{}", plan.object_prefix, manifest_path))
             .await
             .map_err(ApiError::internal)?;
-        let mut headers = secure_headers(None)?;
+        let mut headers = secure_headers(None, None)?;
         headers.insert(
             header::CONTENT_TYPE,
             HeaderValue::from_str(&asset.content_type).map_err(ApiError::internal)?,
@@ -317,15 +317,20 @@ async fn theme() -> impl IntoResponse {
     (headers, WEB_THEME)
 }
 
-fn secure_headers(script_nonce: Option<&str>) -> Result<HeaderMap, ApiError> {
+fn secure_headers(
+    script_nonce: Option<&str>,
+    overlay_origin: Option<&str>,
+) -> Result<HeaderMap, ApiError> {
     let mut headers = HeaderMap::new();
     let script_source = script_nonce
         .map(|nonce| format!("'self' 'nonce-{nonce}'"))
         .unwrap_or_else(|| "'self'".to_owned());
+    let frame_source = overlay_origin.unwrap_or("'none'");
+    let font_source = overlay_origin.unwrap_or("'none'");
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
         HeaderValue::from_str(&format!(
-            "default-src 'none'; script-src {script_source}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+            "default-src 'none'; script-src {script_source}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; font-src {font_source}; frame-src {frame_source}; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         ))
         .map_err(ApiError::internal)?,
     );

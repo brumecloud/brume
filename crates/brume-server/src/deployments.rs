@@ -1039,7 +1039,8 @@ mod tests {
         let script_index = injected.find("data-brume-overlay-script").unwrap();
         let body_end_index = injected.find("</BODY>").unwrap();
         assert!(script_index < body_end_index);
-        assert!(!injected.contains("<iframe"));
+        assert!(injected.contains(r#"<iframe title="Manage website access""#));
+        assert!(injected.contains(r#"font-family:"Geist Variable""#));
         assert_eq!(deployment.manifest.files[0].size, injected.len() as u64);
     }
 }
