@@ -1,41 +1,76 @@
+@font-face {
+  font-display: swap;
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  src: url("../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "Fraunces Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  src: url("../../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2")
+    format("woff2");
+}
+
 :root {
   color-scheme: light dark;
-  --brume-bg: #f7f7f4;
+  --brume-bg: #fafaf8;
   --brume-surface: #ffffff;
-  --brume-text: #20231f;
-  --brume-muted: #687066;
-  --brume-border: #dfe3dc;
-  --brume-accent: #46715c;
-  --brume-accent-soft: #e4eee8;
-  --brume-code: #f0f2ee;
-  --brume-shadow: 0 16px 50px rgb(31 41 35 / 8%);
+  --brume-text: #1f211e;
+  --brume-muted: #696d66;
+  --brume-border: #e1e3dd;
+  --brume-accent: #416853;
+  --brume-accent-soft: #e7efe9;
+  --brume-code: #f3f4f0;
+  --brume-info: #4f72a6;
+  --brume-warning: #b8781f;
+  --brume-danger: #b94c4c;
+  --brume-success: #36875b;
+  --brume-shadow: 0 1px 2px rgb(25 33 28 / 4%), 0 8px 28px rgb(25 33 28 / 5%);
   --brume-radius: 12px;
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --brume-font-body: "Inter Variable", Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --brume-font-heading: Mackinac, "Fraunces Variable", Fraunces, Georgia, serif;
+  --brume-font-mono: "Fragment Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --brume-header-height: 4rem;
+  --brume-sticky-offset: 1.5rem;
+  font-family: var(--brume-font-body);
 }
 
 :root[data-theme="dark"] {
-  --brume-bg: #111512;
-  --brume-surface: #181e1a;
-  --brume-text: #edf2ed;
-  --brume-muted: #9ca89f;
-  --brume-border: #303a33;
-  --brume-accent: #8fc4a7;
-  --brume-accent-soft: #22362b;
-  --brume-code: #0d120f;
-  --brume-shadow: 0 18px 60px rgb(0 0 0 / 30%);
+  --brume-bg: #121512;
+  --brume-surface: #191d1a;
+  --brume-text: #edf0eb;
+  --brume-muted: #a1a79f;
+  --brume-border: #303630;
+  --brume-accent: #91bea2;
+  --brume-accent-soft: #23352a;
+  --brume-code: #101310;
+  --brume-info: #8baedb;
+  --brume-warning: #d5a052;
+  --brume-danger: #dd8585;
+  --brume-success: #79bd95;
+  --brume-shadow: 0 1px 2px rgb(0 0 0 / 16%), 0 12px 36px rgb(0 0 0 / 22%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brume-bg: #111512;
-    --brume-surface: #181e1a;
-    --brume-text: #edf2ed;
-    --brume-muted: #9ca89f;
-    --brume-border: #303a33;
-    --brume-accent: #8fc4a7;
-    --brume-accent-soft: #22362b;
-    --brume-code: #0d120f;
-    --brume-shadow: 0 18px 60px rgb(0 0 0 / 30%);
+    --brume-bg: #121512;
+    --brume-surface: #191d1a;
+    --brume-text: #edf0eb;
+    --brume-muted: #a1a79f;
+    --brume-border: #303630;
+    --brume-accent: #91bea2;
+    --brume-accent-soft: #23352a;
+    --brume-code: #101310;
+    --brume-info: #8baedb;
+    --brume-warning: #d5a052;
+    --brume-danger: #dd8585;
+    --brume-success: #79bd95;
+    --brume-shadow: 0 1px 2px rgb(0 0 0 / 16%), 0 12px 36px rgb(0 0 0 / 22%);
   }
 }
-

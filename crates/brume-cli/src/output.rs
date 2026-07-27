@@ -1,7 +1,9 @@
 use std::{env, io::IsTerminal};
 
 use anyhow::Result;
-use brume_core::{ListPlansResponse, PlanSummary, Visibility};
+use brume_core::{
+    AuthMode, DeploymentSummary, ListDeploymentsResponse, ListPlansResponse, PlanSummary,
+};
 use chrono::{DateTime, Utc};
 use clap::ValueEnum;
 use serde::Serialize;
@@ -38,18 +40,52 @@ pub fn plans(response: &ListPlansResponse) -> Result<()> {
     Ok(())
 }
 
+pub fn deployments(response: &ListDeploymentsResponse) -> Result<()> {
+    if !std::io::stdout().is_terminal() {
+        print_plain_deployments(&response.deployments);
+        return Ok(());
+    }
+
+    print!(
+        "{}",
+        render_deployment_table(&response.deployments, &TerminalStyle::detect())
+    );
+    Ok(())
+}
+
 fn print_plain_plans(plans: &[PlanSummary]) {
-    println!("SLUG\tTITLE\tVISIBILITY\tPUBLISHED\tLAST READ\tEXPIRES\tURL");
+    println!("SLUG\tTITLE\tAUTH\tPUBLISHED\tLAST READ\tEXPIRES\tURL");
     for plan in plans {
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}",
             plan.slug,
             single_line(&plan.title),
-            plan.visibility,
+            plan.auth,
             plan.published_at.to_rfc3339(),
             optional_timestamp(plan.last_read_at.as_ref(), "never"),
             optional_timestamp(plan.expires_at.as_ref(), "pinned"),
             plan.url,
+        );
+    }
+}
+
+fn print_plain_deployments(deployments: &[DeploymentSummary]) {
+    println!("ID\tSLUG\tTYPE\tAUTH\tOVERLAY\tPUBLISHED\tEXPIRES\tURL");
+    for deployment in deployments {
+        println!(
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            deployment.id,
+            deployment.slug,
+            if deployment.spa { "spa" } else { "static" },
+            deployment.auth,
+            if deployment.overlay_enabled {
+                "enabled"
+            } else {
+                "disabled"
+            },
+            deployment.published_at.to_rfc3339(),
+            optional_timestamp(deployment.expires_at.as_ref(), "pinned"),
+            deployment.url,
         );
     }
 }
@@ -128,18 +164,18 @@ fn render_plan_table(plans: &[PlanSummary], style: &TerminalStyle) -> String {
                 .unwrap_or_else(|| "no expiry".to_owned())
         };
         let title = truncate(&single_line(&plan.title), widths[0]);
-        let visibility = plan.visibility.to_string();
+        let auth = plan.auth.to_string();
         let cells = [
             title.as_str(),
-            visibility.as_str(),
+            auth.as_str(),
             published.as_str(),
             last_read.as_str(),
             retention.as_str(),
         ];
-        rendered.push_str(&table_row_with_visibility(
+        rendered.push_str(&table_row_with_auth(
             &cells,
             &widths,
-            plan.visibility,
+            plan.auth,
             style.color,
         ));
         rendered.push('\n');
@@ -172,6 +208,115 @@ fn render_plan_table(plans: &[PlanSummary], style: &TerminalStyle) -> String {
     rendered
 }
 
+fn render_deployment_table(deployments: &[DeploymentSummary], style: &TerminalStyle) -> String {
+    if deployments.is_empty() {
+        return format!(
+            "{}\n",
+            styled("No deployments found.", "\u{1b}[2m", style.color)
+        );
+    }
+
+    let now = Utc::now();
+    let widths = [28, 8, 10, 9, 12, 12];
+    let top = border('┌', '┬', '┐', '─', &widths);
+    let header_separator = border('├', '┼', '┤', '─', &widths);
+    let row_separator = border('├', '┬', '┤', '─', &widths);
+    let bottom = border('└', '─', '┘', '─', &[widths.iter().sum::<usize>() + 15]);
+    let inner_width = widths.iter().sum::<usize>() + 15;
+    let mut rendered = String::new();
+
+    rendered.push_str(&top);
+    rendered.push('\n');
+    rendered.push_str(&table_row(
+        &[
+            "DEPLOYMENT",
+            "TYPE",
+            "ACCESS",
+            "OVERLAY",
+            "PUBLISHED",
+            "RETENTION",
+        ],
+        &widths,
+        Some("\u{1b}[1;2m"),
+        style.color,
+    ));
+    rendered.push('\n');
+    rendered.push_str(&header_separator);
+    rendered.push('\n');
+
+    for (index, deployment) in deployments.iter().enumerate() {
+        let published = relative_time(deployment.published_at, now);
+        let retention = if deployment.pinned {
+            "pinned".to_owned()
+        } else {
+            deployment
+                .expires_at
+                .map(|value| {
+                    if value <= now {
+                        "expired".to_owned()
+                    } else {
+                        relative_time(value, now)
+                    }
+                })
+                .unwrap_or_else(|| "no expiry".to_owned())
+        };
+        let slug = truncate(&deployment.slug, widths[0]);
+        let deployment_type = if deployment.spa { "spa" } else { "static" };
+        let auth = deployment.auth.to_string();
+        let overlay = if deployment.overlay_enabled {
+            "enabled"
+        } else {
+            "disabled"
+        };
+        let cells = [
+            slug.as_str(),
+            deployment_type,
+            auth.as_str(),
+            overlay,
+            published.as_str(),
+            retention.as_str(),
+        ];
+        rendered.push_str(&table_row_with_colored_auth(
+            &cells,
+            &widths,
+            deployment.auth,
+            2,
+            style.color,
+        ));
+        rendered.push('\n');
+
+        let id = styled(&format!("id {}", deployment.id), "\u{1b}[2m", style.color);
+        rendered.push_str(&full_width_row(&id, inner_width));
+        rendered.push('\n');
+        let url = hyperlink(&deployment.url, style.hyperlinks);
+        rendered.push_str(&full_width_row(&url, inner_width));
+        rendered.push('\n');
+
+        if index + 1 < deployments.len() {
+            rendered.push_str(&row_separator);
+            rendered.push('\n');
+        }
+    }
+
+    rendered.push_str(&bottom);
+    rendered.push('\n');
+    rendered.push_str(&styled(
+        &format!(
+            "{} {}",
+            deployments.len(),
+            if deployments.len() == 1 {
+                "deployment"
+            } else {
+                "deployments"
+            }
+        ),
+        "\u{1b}[2m",
+        style.color,
+    ));
+    rendered.push('\n');
+    rendered
+}
+
 fn border(left: char, middle: char, right: char, fill: char, widths: &[usize]) -> String {
     let segments = widths
         .iter()
@@ -191,10 +336,15 @@ fn table_row(cells: &[&str], widths: &[usize], style: Option<&str>, color: bool)
     format!("│ {cells} │")
 }
 
-fn table_row_with_visibility(
+fn table_row_with_auth(cells: &[&str], widths: &[usize], auth: AuthMode, color: bool) -> String {
+    table_row_with_colored_auth(cells, widths, auth, 1, color)
+}
+
+fn table_row_with_colored_auth(
     cells: &[&str],
     widths: &[usize],
-    visibility: Visibility,
+    auth: AuthMode,
+    auth_column: usize,
     color: bool,
 ) -> String {
     let mut rendered = cells
@@ -202,12 +352,12 @@ fn table_row_with_visibility(
         .zip(widths)
         .map(|(cell, width)| pad(cell, *width))
         .collect::<Vec<_>>();
-    rendered[1] = styled(
-        &rendered[1],
-        match visibility {
-            Visibility::Private => "\u{1b}[33m",
-            Visibility::Unlisted => "\u{1b}[35m",
-            Visibility::Public => "\u{1b}[32m",
+    rendered[auth_column] = styled(
+        &rendered[auth_column],
+        match auth {
+            AuthMode::Token => "\u{1b}[35m",
+            AuthMode::Password => "\u{1b}[33m",
+            AuthMode::None => "\u{1b}[32m",
         },
         color,
     );
@@ -340,10 +490,26 @@ mod tests {
             owner_handle: "planchon".to_owned(),
             slug: "example-plan".to_owned(),
             title: "Example plan".to_owned(),
-            visibility: Visibility::Private,
+            auth: AuthMode::Token,
+            overlay_enabled: true,
             url: "https://plan.brume.dev/planchon/example-plan".to_owned(),
             published_at: Utc.with_ymd_and_hms(2026, 7, 22, 12, 0, 0).unwrap(),
             last_read_at: None,
+            expires_at: Some(Utc.with_ymd_and_hms(2026, 8, 6, 12, 0, 0).unwrap()),
+            pinned: false,
+        }
+    }
+
+    fn deployment() -> DeploymentSummary {
+        DeploymentSummary {
+            id: Uuid::nil(),
+            owner_handle: "planchon".to_owned(),
+            slug: "example-site".to_owned(),
+            url: "https://example-site-planchon.brume.dev/".to_owned(),
+            spa: true,
+            auth: AuthMode::Password,
+            overlay_enabled: false,
+            published_at: Utc.with_ymd_and_hms(2026, 7, 22, 12, 0, 0).unwrap(),
             expires_at: Some(Utc.with_ymd_and_hms(2026, 8, 6, 12, 0, 0).unwrap()),
             pinned: false,
         }
@@ -362,7 +528,7 @@ mod tests {
         assert!(rendered.contains("PLAN"));
         assert!(rendered.contains("Example plan"));
         assert!(rendered.contains("example-plan"));
-        assert!(rendered.contains("private"));
+        assert!(rendered.contains("token"));
         assert!(rendered.contains("never"));
         assert!(rendered.contains("https://plan.brume.dev/planchon/example-plan"));
         assert!(rendered.contains("1 plan"));
@@ -384,6 +550,32 @@ mod tests {
             format!("\u{1b}]8;;{url}\u{1b}\\{url}\u{1b}]8;;\u{1b}\\")
         );
         assert_eq!(visible_length(&rendered), url.chars().count());
+    }
+
+    #[test]
+    fn deployment_table_contains_selector_metadata_and_url() {
+        let rendered = render_deployment_table(
+            &[deployment()],
+            &TerminalStyle {
+                color: false,
+                hyperlinks: false,
+            },
+        );
+
+        assert!(rendered.contains("DEPLOYMENT"));
+        assert!(rendered.contains("example-site"));
+        assert!(rendered.contains("spa"));
+        assert!(rendered.contains("password"));
+        assert!(rendered.contains("disabled"));
+        assert!(rendered.contains(&Uuid::nil().to_string()));
+        assert!(rendered.contains("https://example-site-planchon.brume.dev/"));
+        assert!(rendered.contains("1 deployment"));
+        let table_lines = rendered.lines().take(7).collect::<Vec<_>>();
+        assert!(
+            table_lines
+                .windows(2)
+                .all(|lines| visible_length(lines[0]) == visible_length(lines[1]))
+        );
     }
 
     #[test]

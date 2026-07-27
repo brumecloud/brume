@@ -1,9 +1,11 @@
 use std::time::Duration;
 
 use brume_core::{
-    ApiErrorBody, BeginCliLoginResponse, ConfirmDeletionRequest, CreateDeletionChallengeResponse,
-    DeployPlanResponse, DeploySiteResponse, ListPlansResponse, PlanDetails, PlanPatch,
-    PollCliLoginResponse, RefreshTokenRequest, TokenPair, Visibility,
+    ApiErrorBody, AuthMode, BeginCliLoginResponse, ConfirmDeletionRequest,
+    CreateDeletionChallengeResponse, CreateDeploymentDeletionChallengeResponse, DeployPlanResponse,
+    DeploySiteResponse, DeploymentPatch, DeploymentSummary, ListDeploymentsResponse,
+    ListPlansResponse, PlanDetails, PlanPatch, PollCliLoginResponse, RefreshTokenRequest,
+    TokenPair,
 };
 use reqwest::{Response, StatusCode};
 use thiserror::Error;
@@ -14,6 +16,16 @@ pub struct BrumeClient {
     base_url: Url,
     http: reqwest::Client,
     token: Option<String>,
+}
+
+pub struct DeploySiteOptions<'a> {
+    pub slug: Option<&'a str>,
+    pub spa: bool,
+    pub auth: AuthMode,
+    pub password: Option<&'a str>,
+    pub overlay_enabled: bool,
+    pub pinned: bool,
+    pub archive: Vec<u8>,
 }
 
 impl BrumeClient {
@@ -88,44 +100,110 @@ impl BrumeClient {
     pub async fn deploy(
         &self,
         slug: &str,
-        visibility: Visibility,
+        auth: AuthMode,
+        password: Option<&str>,
+        overlay_enabled: bool,
         pinned: bool,
         archive: Vec<u8>,
     ) -> Result<DeployPlanResponse, ClientError> {
         let path = format!(
-            "api/v1/plans/{}/deploy?visibility={visibility}&pinned={pinned}",
-            urlencoding::encode(slug)
+            "api/v1/plans/{}/deploy?auth={auth}&overlay={overlay_enabled}&pinned={pinned}",
+            urlencoding::encode(slug),
         );
+        let mut request = self
+            .request(reqwest::Method::POST, &path)
+            .header(reqwest::header::CONTENT_TYPE, "application/zstd");
+        if let Some(password) = password {
+            request = request.header("x-brume-password", password);
+        }
+        decode(request.body(archive).send().await?).await
+    }
+
+    pub async fn deploy_site(
+        &self,
+        options: DeploySiteOptions<'_>,
+    ) -> Result<DeploySiteResponse, ClientError> {
+        let DeploySiteOptions {
+            slug,
+            spa,
+            auth,
+            password,
+            overlay_enabled,
+            pinned,
+            archive,
+        } = options;
+        let mut path = format!(
+            "api/v1/deployments?spa={spa}&auth={auth}&overlay={overlay_enabled}&pinned={pinned}"
+        );
+        if let Some(slug) = slug {
+            path.push_str("&slug=");
+            path.push_str(&urlencoding::encode(slug));
+        }
+        let mut request = self
+            .request(reqwest::Method::POST, &path)
+            .header(reqwest::header::CONTENT_TYPE, "application/zstd");
+        if let Some(password) = password {
+            request = request.header("x-brume-password", password);
+        }
+        decode(request.body(archive).send().await?).await
+    }
+
+    pub async fn list_deployments(&self) -> Result<ListDeploymentsResponse, ClientError> {
         decode(
-            self.request(reqwest::Method::POST, &path)
-                .header(reqwest::header::CONTENT_TYPE, "application/zstd")
-                .body(archive)
+            self.request(reqwest::Method::GET, "api/v1/deployments")
                 .send()
                 .await?,
         )
         .await
     }
 
-    pub async fn deploy_site(
+    pub async fn get_deployment(&self, selector: &str) -> Result<DeploymentSummary, ClientError> {
+        let path = format!("api/v1/deployments/{}", urlencoding::encode(selector));
+        decode(self.request(reqwest::Method::GET, &path).send().await?).await
+    }
+
+    pub async fn patch_deployment(
         &self,
-        slug: Option<&str>,
-        spa: bool,
-        pinned: bool,
-        archive: Vec<u8>,
-    ) -> Result<DeploySiteResponse, ClientError> {
-        let mut path = format!("api/v1/deployments?spa={spa}&pinned={pinned}");
-        if let Some(slug) = slug {
-            path.push_str("&slug=");
-            path.push_str(&urlencoding::encode(slug));
-        }
+        selector: &str,
+        patch: &DeploymentPatch,
+    ) -> Result<DeploymentSummary, ClientError> {
+        let path = format!("api/v1/deployments/{}", urlencoding::encode(selector));
         decode(
-            self.request(reqwest::Method::POST, &path)
-                .header(reqwest::header::CONTENT_TYPE, "application/zstd")
-                .body(archive)
+            self.request(reqwest::Method::PATCH, &path)
+                .json(patch)
                 .send()
                 .await?,
         )
         .await
+    }
+
+    pub async fn create_deployment_deletion_challenge(
+        &self,
+        selector: &str,
+    ) -> Result<CreateDeploymentDeletionChallengeResponse, ClientError> {
+        let path = format!(
+            "api/v1/deployments/{}/deletion-challenges",
+            urlencoding::encode(selector)
+        );
+        decode(self.request(reqwest::Method::POST, &path).send().await?).await
+    }
+
+    pub async fn confirm_deployment_deletion(
+        &self,
+        selector: &str,
+        challenge: String,
+    ) -> Result<(), ClientError> {
+        let path = format!("api/v1/deployments/{}", urlencoding::encode(selector));
+        let response = self
+            .request(reqwest::Method::DELETE, &path)
+            .json(&ConfirmDeletionRequest { challenge })
+            .send()
+            .await?;
+        if response.status() == StatusCode::NO_CONTENT {
+            Ok(())
+        } else {
+            Err(decode_error(response).await)
+        }
     }
 
     pub async fn list_plans(&self) -> Result<ListPlansResponse, ClientError> {

@@ -11,10 +11,12 @@ export function Callout({
   children,
 }: CalloutProps) {
   return (
-    <aside className={`brume-callout brume-callout-${type}`}>
-      {title ? <strong className="brume-callout-title">{title}</strong> : null}
-      <div>{children}</div>
+    <aside className={`brume-callout brume-callout-${type}`} data-brume-animate>
+      <span aria-hidden="true" className="brume-callout-rail" />
+      <div className="brume-callout-content">
+        {title ? <strong className="brume-callout-title">{title}</strong> : null}
+        <div>{children}</div>
+      </div>
     </aside>
   );
 }
-

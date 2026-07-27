@@ -73,19 +73,25 @@ brume plan build ./mon-plan --destination ./dist
 brume plan deploy ./mon-plan
 ```
 
-Un nouveau plan est privé par défaut.
-La visibilité peut être `private`, `unlisted` ou `public`.
+Un nouveau plan utilise l’authentification `token` par défaut.
+Les modes disponibles sont `token`, `password` et `none`.
 
 ```bash
 brume plan deploy ./mon-plan --slug architecture-v2
-brume plan deploy ./mon-plan --visibility public
-brume plan deploy ./mon-plan --visibility unlisted --pin
+brume plan deploy ./mon-plan --auth none
+brume plan deploy ./mon-plan --auth password
+printf '%s' "$SITE_PASSWORD" | brume plan deploy ./mon-plan --auth password --password-stdin
+brume plan deploy ./mon-plan --auth token --no-overlay --pin
 ```
 
 - `--slug` choisit la dernière partie de l’URL.
-- `--visibility` choisit qui peut lire le plan.
+- `--auth` choisit le mode d’authentification.
+- `--password-stdin` lit le mot de passe depuis l’entrée standard dans un contexte non interactif.
+- `--no-overlay` désactive la toolbar Brume.
 - `--pin` empêche l’expiration automatique du plan.
 
+Avec `--auth password`, le CLI demande et confirme le mot de passe sans l’afficher.
+Le mot de passe ne peut pas être passé dans un argument, le fichier de configuration ou une variable d’environnement.
 Sans `--slug`, Brume utilise le slug défini dans `brume.toml`, puis le nom du dossier en dernier recours.
 Une republication avec le même slug remplace atomiquement la version active.
 
@@ -98,7 +104,8 @@ Un fichier `brume.toml` optionnel placé à la racine du plan évite de répéte
 title = "Plan Brume"
 entry = "index.mdx"
 slug = "brume-v1"
-visibility = "private"
+auth = "token"
+overlay = true
 ```
 
 Les options passées dans la commande remplacent les valeurs de `brume.toml`.
@@ -111,13 +118,15 @@ Les commandes suivantes utilisent le slug du plan:
 brume plan list
 brume plan show brume-v1
 brume plan open brume-v1
-brume plan visibility brume-v1 public
+brume plan auth brume-v1 none
+brume plan auth brume-v1 password
+printf '%s' "$SITE_PASSWORD" | brume plan auth brume-v1 password --password-stdin
 brume plan pin brume-v1
 brume plan unpin brume-v1
 brume plan delete brume-v1
 ```
 
-`plan list` affiche notamment la visibilité, la dernière lecture et la date d’expiration.
+`plan list` affiche notamment le mode d’authentification, la dernière lecture et la date d’expiration.
 Dans un terminal interactif, les dates sont raccourcies et les URL complètes des plans sont cliquables.
 `plan delete` demande une confirmation avant de supprimer définitivement le plan et ses fichiers.
 
@@ -130,18 +139,46 @@ Elle peut être placée avant ou après les sous-commandes.
 brume plan list --output json
 brume plan show brume-v1 --output json
 brume deploy ./dist --output json
+brume deploy list --output json
 ```
 
 Les commandes longues comme `plan preview` et `tunnel` produisent un objet JSON par événement, séparé par une nouvelle ligne.
 Les diagnostics et les confirmations interactives restent sur la sortie d'erreur afin de ne pas corrompre la sortie JSON.
 
-Les plans privés nécessitent la session GitHub du propriétaire.
-Les plans non listés utilisent une URL secrète.
-Les plans publics sont lisibles sans session.
+### Authentification et partage
+
+Le mode `token` utilise un token Bearer stable par destinataire.
+Un destinataire n’a pas besoin de compte Brume.
+Son token possède un identifiant public et peut recevoir une permission de lecture sur plusieurs plans ou déploiements.
+Les permissions restent sur le serveur et une révocation prend effet immédiatement.
+
+Le propriétaire peut créer depuis la toolbar une invitation à usage unique valable un jour.
+Le destinataire peut associer l’invitation à son token existant ou laisser Brume créer un nouveau token.
+Un nouveau token est affiché une seule fois et ne peut pas être récupéré.
+Le même token peut être collé sur un autre navigateur ou envoyé directement dans l’en-tête `Authorization: Bearer`.
+
+Le mode `password` affiche l’écran Brume avant de charger le site.
+Une authentification réussie crée une session d’un jour limitée à ce site.
+Le mode `none` rend le site accessible sans authentification.
+Un changement de mode ou de mot de passe invalide immédiatement les sessions et invitations du site.
+
+Brume conserve le token principal uniquement sur `auth.brume.dev`.
+Chaque domaine reçoit une session distincte d’un jour, afin que le JavaScript d’un site déployé ne puisse jamais lire le token principal.
+
+### Toolbar des sites hébergés
+
+Brume ajoute par défaut un bouton rond `☁️` en bas à droite de chaque plan ou site statique hébergé.
+Il ouvre une toolbar compacte inspirée de l’interaction de la Vercel Toolbar.
+Elle permet de copier ou partager l’URL, de créer des invitations, de gérer les destinataires et de changer l’authentification.
+Seule l’identité GitHub ayant déployé le site voit les contrôles de gestion.
+La toolbar peut être déplacée à gauche ou à droite et mémorise sa position dans le navigateur.
+`--no-overlay` ou `overlay = false` la désactive.
+La prévisualisation et les builds locaux ne contiennent jamais cette toolbar.
 
 ## 2. Sites HTML statiques
 
-La commande `brume deploy` publie directement le contenu d’un dossier sans passer par le renderer Markdown et sans modifier son HTML.
+La commande `brume deploy` publie directement le contenu d’un dossier sans passer par le renderer Markdown.
+Le bundle stocké reste inchangé et le serveur ajoute la toolbar au moment de servir une réponse HTML.
 Le dossier doit contenir un fichier `index.html` à sa racine.
 
 ```bash
@@ -154,13 +191,15 @@ Sans `--url`, le serveur génère un identifiant public aléatoire.
 ```bash
 brume deploy ./dist --url mon-app
 brume deploy ./dist --url mon-spa --spa
-brume deploy ./dist --url documentation --pin
+brume deploy ./dist --url documentation --auth none --pin
+brume deploy ./dist --url demo --auth password
 ```
 
-Avec `--url mon-app`, le déploiement est public à l’adresse `https://mon-app-<handle>.brume.dev/`.
+Avec `--url mon-app`, le déploiement est disponible à l’adresse `https://mon-app-<handle>.brume.dev/`.
 
 - `--url` choisit le slug utilisé dans l’URL publique.
 - `--spa` active le fallback vers `index.html` pour une application monopage.
+- `--auth`, `--password-stdin` et `--no-overlay` suivent les mêmes règles que `plan deploy`.
 - `--pin` empêche l’expiration automatique du déploiement.
 
 L’option `--spa` sert `index.html` pour les routes GET inexistantes sans extension, tout en conservant une réponse 404 pour les assets inexistants.
@@ -169,6 +208,30 @@ Chaque fichier est limité à 20 MiB, avec une limite de 100 MiB et 5 000 fichie
 Les liens et les chemins d’assets ne sont pas réécrits.
 Le site est servi depuis la racine de son propre sous-domaine, donc les chemins absolus comme `/assets/app.js` fonctionnent directement.
 Comme les plans, les déploiements non pin expirent après quinze jours sans lecture et une republication remplace atomiquement la version active.
+
+Lister les déploiements actifs:
+
+```bash
+brume deploy list
+brume deploy show mon-app
+brume deploy auth mon-app none
+brume deploy auth mon-app password
+```
+
+La liste contient le slug, l’identifiant UUID, le type de site, le mode d’accès, la rétention et l’URL publique.
+Un déploiement peut être supprimé avec son slug ou son UUID:
+
+```bash
+brume deploy delete mon-app
+brume deploy delete 019f0000-0000-7000-8000-000000000000
+```
+
+La suppression demande une confirmation avant de supprimer définitivement le déploiement et tous ses fichiers.
+L’option `--yes` désactive la confirmation interactive pour les scripts:
+
+```bash
+brume deploy delete mon-app --yes
+```
 
 ## 3. Tunnel vers un serveur local
 
@@ -215,7 +278,7 @@ brume mcp config
 
 ## Renderer MDX sûr
 
-Le renderer accepte Markdown, GFM, Mermaid et un ensemble fermé de composants MDX: `Callout`, `Card`, `CardGrid`, `CodeGroup`, `Decision`, `FileTree`, `Mermaid`, `Risk`, `Step`, `Steps`, `Tab` et `Tabs`.
+Le renderer accepte Markdown, GFM, Mermaid et un ensemble fermé de composants MDX: `Accordion`, `Accordions`, `Callout`, `Card`, `CardGrid`, `CodeGroup`, `Decision`, `FileTree`, `Mermaid`, `Risk`, `Step`, `Steps`, `Tab` et `Tabs`.
 Les imports, exports, expressions JavaScript et spread props MDX sont refusés.
 Le serveur assainit une seconde fois le HTML avant de le stocker.
 
@@ -231,7 +294,7 @@ Après `brume login`, la commande suivante affiche la configuration MCP à copie
 brume mcp config
 ```
 
-Le serveur MCP permet de lister les plans et leur dernière lecture, inspecter un plan, déployer un dossier, changer sa visibilité, le pin, l’unpin et le supprimer avec une confirmation en deux étapes.
+Le serveur MCP permet de lister les plans et leur dernière lecture, inspecter un plan, déployer un dossier, changer son authentification, le pin, l’unpin et le supprimer avec une confirmation en deux étapes.
 
 ## Structure du dépôt
 
@@ -344,7 +407,8 @@ Une liste vide autorise tous les comptes GitHub.
 Configurer `api.brume.dev`, `auth.brume.dev`, `plan.brume.dev` et `*.brume.dev` vers le même service web.
 Le CLI et le MCP utilisent `api.brume.dev`, GitHub OAuth utilise `auth.brume.dev`, et les plans utilisent `plan.brume.dev`.
 Tous les autres sous-domaines sont réservés aux tunnels et aux déploiements statiques.
-Les cookies d’authentification restent limités à `auth.brume.dev` ou `plan.brume.dev` et ne sont jamais partagés avec le wildcard.
+Le token principal et la session GitHub restent limités à `auth.brume.dev`.
+Les plans et les sous-domaines wildcard reçoivent uniquement des sessions de site limitées à leur chemin ou leur hôte.
 Le service doit rester sur une seule réplique tant que le registre des tunnels n’est pas distribué.
 Le domaine `brume.dev` reste réservé au site marketing.
 Le serveur sélectionne le routeur à partir de l’en-tête `Host`, sans réécriture de chemin par le proxy.

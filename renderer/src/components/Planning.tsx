@@ -5,7 +5,7 @@ export function Decision({
   children,
 }: PropsWithChildren<{ status?: "proposed" | "accepted" | "rejected" }>) {
   return (
-    <aside className={`brume-decision brume-decision-${status}`}>
+    <aside className={`brume-decision brume-decision-${status}`} data-brume-animate>
       <strong>Decision: {status}</strong>
       <div>{children}</div>
     </aside>
@@ -17,7 +17,7 @@ export function Risk({
   children,
 }: PropsWithChildren<{ severity?: "low" | "medium" | "high" }>) {
   return (
-    <aside className={`brume-risk brume-risk-${severity}`}>
+    <aside className={`brume-risk brume-risk-${severity}`} data-brume-animate>
       <strong>Risk: {severity}</strong>
       <div>{children}</div>
     </aside>
@@ -40,11 +40,13 @@ export function Card({
     </>
   );
   return href ? (
-    <a className="brume-card" href={href}>
+    <a className="brume-card" data-brume-animate href={href}>
       {content}
     </a>
   ) : (
-    <article className="brume-card">{content}</article>
+    <article className="brume-card" data-brume-animate>
+      {content}
+    </article>
   );
 }
 
@@ -59,4 +61,3 @@ export function CodeGroup({ children }: PropsWithChildren) {
 export function Mermaid({ children }: PropsWithChildren) {
   return <div className="mermaid">{children}</div>;
 }
-

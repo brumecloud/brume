@@ -1,0 +1,22 @@
+meta {
+  name: List deployments after deletion
+  type: http
+  seq: 25
+}
+
+get {
+  url: {{base_url}}/api/v1/deployments
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("deleted deployments are absent from the active list", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.deployments.some((item) => item.slug === bru.getEnvVar("deployment"))).to.equal(false);
+  });
+}

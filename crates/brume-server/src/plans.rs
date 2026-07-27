@@ -8,12 +8,12 @@ use axum::{
     Json, Router,
     body::Bytes,
     extract::{DefaultBodyLimit, Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     routing::{get, post},
 };
 use brume_core::{
-    BundleManifest, CreateDeletionChallengeResponse, DeployPlanResponse, ListPlansResponse,
-    PlanDetails, PlanPatch, PlanSummary, Visibility, validate_relative_path,
+    AuthMode, BundleManifest, CreateDeletionChallengeResponse, DeployPlanResponse,
+    ListPlansResponse, PlanDetails, PlanPatch, PlanSummary, validate_relative_path,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
@@ -22,6 +22,7 @@ use sqlx::{Postgres, Row, Transaction};
 use uuid::Uuid;
 
 use crate::{
+    access,
     auth::AuthUser,
     error::ApiError,
     state::AppState,
@@ -49,9 +50,16 @@ pub fn router() -> Router<AppState> {
 
 #[derive(Deserialize)]
 struct DeployParameters {
-    visibility: Visibility,
+    #[serde(default)]
+    auth: AuthMode,
     #[serde(default)]
     pinned: bool,
+    #[serde(default = "default_true")]
+    overlay: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 struct BundleFile {
@@ -69,6 +77,7 @@ async fn deploy_plan(
     user: AuthUser,
     Path(slug): Path<String>,
     Query(parameters): Query<DeployParameters>,
+    headers: HeaderMap,
     body: Bytes,
 ) -> Result<Json<DeployPlanResponse>, ApiError> {
     validate_slug(&slug)?;
@@ -76,7 +85,7 @@ async fn deploy_plan(
         .await
         .map_err(ApiError::internal)??;
     let existing = sqlx::query(
-        "SELECT id, active_bundle_id, unlisted_token
+        "SELECT id, active_bundle_id, access_control_id
          FROM plans WHERE user_id = $1 AND slug = $2",
     )
     .bind(user.id)
@@ -93,16 +102,14 @@ async fn deploy_plan(
         .map(|row| row.try_get("active_bundle_id"))
         .transpose()?
         .flatten();
-    let previous_unlisted_token: Option<String> = existing
+    let existing_control_id: Option<Uuid> = existing
         .as_ref()
-        .map(|row| row.try_get("unlisted_token"))
+        .map(|row| row.try_get("access_control_id"))
         .transpose()?
         .flatten();
-    let unlisted_token = if parameters.visibility == Visibility::Unlisted {
-        Some(previous_unlisted_token.unwrap_or_else(|| random_token("share_")))
-    } else {
-        None
-    };
+    let password = headers
+        .get("x-brume-password")
+        .and_then(|value| value.to_str().ok());
     let bundle_id = Uuid::now_v7();
     let prefix = format!("users/{}/plans/{plan_id}/bundles/{bundle_id}", user.id);
 
@@ -123,20 +130,38 @@ async fn deploy_plan(
 
     let database_result: Result<(), ApiError> = async {
         let mut transaction = state.database.begin().await?;
+        let access_control_id = if let Some(control_id) = existing_control_id {
+            access::update_control(
+                &mut transaction,
+                control_id,
+                user.id,
+                parameters.auth,
+                password,
+                parameters.overlay,
+            )
+            .await?;
+            control_id
+        } else {
+            access::insert_control(
+                &mut transaction,
+                user.id,
+                parameters.auth,
+                password,
+                parameters.overlay,
+            )
+            .await?
+        };
         if existing.is_none() {
             sqlx::query(
                 "INSERT INTO plans (
-                    id, user_id, slug, title, visibility, unlisted_token,
-                    unlisted_token_hash, pinned_at
-                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                    id, user_id, slug, title, access_control_id, pinned_at
+                 ) VALUES ($1, $2, $3, $4, $5, $6)",
             )
             .bind(plan_id)
             .bind(user.id)
             .bind(&slug)
             .bind(&bundle.manifest.title)
-            .bind(parameters.visibility.to_string())
-            .bind(&unlisted_token)
-            .bind(unlisted_token.as_deref().map(hash_secret))
+            .bind(access_control_id)
             .bind(parameters.pinned.then(Utc::now))
             .execute(&mut *transaction)
             .await?;
@@ -144,21 +169,15 @@ async fn deploy_plan(
             sqlx::query(
                 "UPDATE plans SET
                     title = $1,
-                    visibility = $2,
-                    unlisted_token = $3,
-                    unlisted_token_hash = $4,
-                    pinned_at = CASE WHEN $5 THEN COALESCE(pinned_at, now()) ELSE NULL END,
+                    pinned_at = CASE WHEN $2 THEN COALESCE(pinned_at, now()) ELSE NULL END,
                     published_at = now(),
                     last_read_at = NULL,
                     deletion_attempted_at = NULL,
                     updated_at = now(),
                     status = 'active'
-                 WHERE id = $6",
+                 WHERE id = $3",
             )
             .bind(&bundle.manifest.title)
-            .bind(parameters.visibility.to_string())
-            .bind(&unlisted_token)
-            .bind(unlisted_token.as_deref().map(hash_secret))
             .bind(parameters.pinned)
             .bind(plan_id)
             .execute(&mut *transaction)
@@ -205,9 +224,7 @@ async fn deploy_plan(
     }
     let record = find_owned_plan(&state, &user, &slug).await?;
     let plan = details(&state, &record)?;
-    let unlisted_url =
-        (parameters.visibility == Visibility::Unlisted).then(|| record_url(&state, &record));
-    Ok(Json(DeployPlanResponse { plan, unlisted_url }))
+    Ok(Json(DeployPlanResponse { plan }))
 }
 
 async fn cleanup_old_bundle(state: &AppState, bundle_id: Uuid) {
@@ -238,10 +255,12 @@ async fn list_plans(
 ) -> Result<Json<ListPlansResponse>, ApiError> {
     let rows = sqlx::query(
         "SELECT plans.*, users.handle, plan_bundles.manifest,
+                access_controls.auth_mode, access_controls.overlay_enabled,
                 plan_bundles.renderer_version, plan_bundles.html_contract_version
          FROM plans
          JOIN users ON users.id = plans.user_id
          JOIN plan_bundles ON plan_bundles.id = plans.active_bundle_id
+         JOIN access_controls ON access_controls.id = plans.access_control_id
          WHERE plans.user_id = $1 AND plans.status = 'active'
          ORDER BY plans.updated_at DESC",
     )
@@ -271,30 +290,22 @@ async fn patch_plan(
     Json(patch): Json<PlanPatch>,
 ) -> Result<Json<PlanDetails>, ApiError> {
     let current = find_owned_plan(&state, &user, &selector).await?;
-    let visibility = patch.visibility.unwrap_or(current.visibility);
     let pinned = patch.pinned.unwrap_or(current.pinned_at.is_some());
-    let token = if visibility == Visibility::Unlisted {
-        Some(
-            current
-                .unlisted_token
-                .clone()
-                .unwrap_or_else(|| random_token("share_")),
-        )
-    } else {
-        None
-    };
+    access::patch_control(
+        &state,
+        current.access_control_id,
+        user.id,
+        patch.auth,
+        patch.password.as_deref(),
+        patch.overlay_enabled,
+    )
+    .await?;
     sqlx::query(
         "UPDATE plans SET
-            visibility = $1,
-            unlisted_token = $2,
-            unlisted_token_hash = $3,
-            pinned_at = CASE WHEN $4 THEN COALESCE(pinned_at, now()) ELSE NULL END,
+            pinned_at = CASE WHEN $1 THEN COALESCE(pinned_at, now()) ELSE NULL END,
             updated_at = now()
-         WHERE id = $5",
+         WHERE id = $2",
     )
-    .bind(visibility.to_string())
-    .bind(&token)
-    .bind(token.as_deref().map(hash_secret))
     .bind(pinned)
     .bind(current.id)
     .execute(&state.database)
@@ -375,10 +386,23 @@ pub async fn delete_plan_objects_and_row(
         .delete_prefix(&format!("users/{user_id}/plans/{plan_id}"))
         .await
         .map_err(ApiError::internal)?;
+    let mut transaction = state.database.begin().await?;
+    let control_id: Option<Uuid> =
+        sqlx::query_scalar("SELECT access_control_id FROM plans WHERE id = $1")
+            .bind(plan_id)
+            .fetch_optional(&mut *transaction)
+            .await?;
     sqlx::query("DELETE FROM plans WHERE id = $1")
         .bind(plan_id)
-        .execute(&state.database)
+        .execute(&mut *transaction)
         .await?;
+    if let Some(control_id) = control_id {
+        sqlx::query("DELETE FROM access_controls WHERE id = $1")
+            .bind(control_id)
+            .execute(&mut *transaction)
+            .await?;
+    }
+    transaction.commit().await?;
     Ok(())
 }
 
@@ -568,11 +592,12 @@ fn asset_content_type(path: &str) -> Option<&'static str> {
 
 struct PlanRecord {
     id: Uuid,
+    access_control_id: Uuid,
     handle: String,
     slug: String,
     title: String,
-    visibility: Visibility,
-    unlisted_token: Option<String>,
+    auth: AuthMode,
+    overlay_enabled: bool,
     published_at: DateTime<Utc>,
     last_read_at: Option<DateTime<Utc>>,
     pinned_at: Option<DateTime<Utc>>,
@@ -588,10 +613,12 @@ async fn find_owned_plan(
 ) -> Result<PlanRecord, ApiError> {
     let row = sqlx::query(
         "SELECT plans.*, users.handle, plan_bundles.manifest,
+                access_controls.auth_mode, access_controls.overlay_enabled,
                 plan_bundles.renderer_version, plan_bundles.html_contract_version
          FROM plans
          JOIN users ON users.id = plans.user_id
          JOIN plan_bundles ON plan_bundles.id = plans.active_bundle_id
+         JOIN access_controls ON access_controls.id = plans.access_control_id
          WHERE plans.user_id = $1 AND plans.status = 'active'
            AND (plans.id::text = $2 OR plans.slug = $2)",
     )
@@ -604,18 +631,19 @@ async fn find_owned_plan(
 }
 
 fn record_from_row(row: &sqlx::postgres::PgRow) -> Result<PlanRecord, ApiError> {
-    let visibility = row
-        .try_get::<String, _>("visibility")?
+    let auth = row
+        .try_get::<String, _>("auth_mode")?
         .parse()
         .map_err(ApiError::internal)?;
     let manifest = serde_json::from_value(row.try_get("manifest")?).map_err(ApiError::internal)?;
     Ok(PlanRecord {
         id: row.try_get("id")?,
+        access_control_id: row.try_get("access_control_id")?,
         handle: row.try_get("handle")?,
         slug: row.try_get("slug")?,
         title: row.try_get("title")?,
-        visibility,
-        unlisted_token: row.try_get("unlisted_token")?,
+        auth,
+        overlay_enabled: row.try_get("overlay_enabled")?,
         published_at: row.try_get("published_at")?,
         last_read_at: row.try_get("last_read_at")?,
         pinned_at: row.try_get("pinned_at")?,
@@ -626,16 +654,10 @@ fn record_from_row(row: &sqlx::postgres::PgRow) -> Result<PlanRecord, ApiError> 
 }
 
 fn record_url(state: &AppState, record: &PlanRecord) -> String {
-    match (&record.visibility, &record.unlisted_token) {
-        (Visibility::Unlisted, Some(token)) => format!(
-            "{}/{}/{}/~{}",
-            state.config.plan_public_url, record.handle, record.slug, token
-        ),
-        _ => format!(
-            "{}/{}/{}",
-            state.config.plan_public_url, record.handle, record.slug
-        ),
-    }
+    format!(
+        "{}/{}/{}",
+        state.config.plan_public_url, record.handle, record.slug
+    )
 }
 
 fn summary(state: &AppState, record: &PlanRecord) -> Result<PlanSummary, ApiError> {
@@ -644,7 +666,8 @@ fn summary(state: &AppState, record: &PlanRecord) -> Result<PlanSummary, ApiErro
         owner_handle: record.handle.clone(),
         slug: record.slug.clone(),
         title: record.title.clone(),
-        visibility: record.visibility,
+        auth: record.auth,
+        overlay_enabled: record.overlay_enabled,
         url: record_url(state, record),
         published_at: record.published_at,
         last_read_at: record.last_read_at,

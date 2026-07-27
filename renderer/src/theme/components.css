@@ -1,33 +1,796 @@
-.brume-shell { min-height: 100vh; }
-.brume-topbar { align-items: center; border-bottom: 1px solid var(--brume-border); display: flex; height: 3.5rem; justify-content: space-between; padding: 0 1.25rem; position: sticky; top: 0; z-index: 10; backdrop-filter: blur(14px); background: color-mix(in srgb, var(--brume-bg) 84%, transparent); }
-.brume-topbar a { color: var(--brume-text); font-weight: 700; text-decoration: none; }
-.brume-theme-toggle { background: var(--brume-surface); border: 1px solid var(--brume-border); border-radius: 999px; color: var(--brume-text); cursor: pointer; padding: 0.4rem 0.75rem; }
-.brume-layout { display: grid; gap: 2.5rem; grid-template-columns: minmax(10rem, 14rem) minmax(0, 50rem) minmax(9rem, 13rem); justify-content: center; margin: 0 auto; max-width: 92rem; padding: 3.5rem 2rem 6rem; }
-.brume-document { min-width: 0; }
-.brume-sidebar, .brume-toc { align-self: start; position: sticky; top: 5.5rem; }
-.brume-sidebar ul, .brume-toc ul { list-style: none; margin: 0.8rem 0; padding: 0; }
-.brume-sidebar a, .brume-toc a { border-radius: 6px; color: var(--brume-muted); display: block; font-size: 0.9rem; padding: 0.35rem 0.55rem; text-decoration: none; }
-.brume-sidebar a[aria-current="page"], .brume-sidebar a:hover, .brume-toc a:hover { background: var(--brume-accent-soft); color: var(--brume-accent); }
-.brume-toc-depth-3 { padding-left: 0.75rem; }
-.brume-callout, .brume-decision, .brume-risk { background: var(--brume-surface); border: 1px solid var(--brume-border); border-left: 4px solid var(--brume-accent); border-radius: var(--brume-radius); box-shadow: var(--brume-shadow); margin: 1.5rem 0; padding: 1rem 1.15rem; }
-.brume-callout-warning, .brume-risk-medium { border-left-color: #d18a25; }
-.brume-callout-danger, .brume-risk-high { border-left-color: #c65353; }
-.brume-callout-success, .brume-decision-accepted { border-left-color: #3b8f62; }
-.brume-callout-title { display: block; margin-bottom: 0.35rem; }
-.brume-steps { counter-reset: step; list-style: none; padding: 0; }
-.brume-step { border-left: 2px solid var(--brume-border); margin-left: 1rem; padding: 0 0 1.5rem 2rem; position: relative; }
-.brume-step::before { align-items: center; background: var(--brume-accent); border-radius: 50%; color: var(--brume-bg); content: counter(step); counter-increment: step; display: flex; font-size: 0.8rem; font-weight: 700; height: 1.7rem; justify-content: center; left: -0.9rem; position: absolute; width: 1.7rem; }
-.brume-tabs { border: 1px solid var(--brume-border); border-radius: var(--brume-radius); margin: 1.5rem 0; overflow: hidden; }
-.brume-tab-list { background: var(--brume-code); border-bottom: 1px solid var(--brume-border); display: flex; gap: 0.25rem; padding: 0.4rem; }
-.brume-tab-button { background: transparent; border: 0; border-radius: 7px; color: var(--brume-muted); cursor: pointer; padding: 0.5rem 0.75rem; }
-.brume-tab-button[aria-selected="true"] { background: var(--brume-surface); color: var(--brume-text); }
-.brume-tab-panel { padding: 1rem; }
-.brume-card-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin: 1.5rem 0; }
-.brume-card { background: var(--brume-surface); border: 1px solid var(--brume-border); border-radius: var(--brume-radius); color: var(--brume-text); padding: 1rem; text-decoration: none; }
-.brume-card:hover { border-color: var(--brume-accent); }
-.brume-file-tree { white-space: pre-wrap; }
-.brume-copy-code { background: var(--brume-surface); border: 1px solid var(--brume-border); border-radius: 6px; color: var(--brume-muted); cursor: pointer; font-size: 0.75rem; position: absolute; right: 0.65rem; top: 0.65rem; }
-.mermaid { background: var(--brume-surface); border: 1px solid var(--brume-border); border-radius: var(--brume-radius); margin: 1.5rem 0; overflow-x: auto; padding: 1rem; text-align: center; }
-@media (max-width: 1050px) { .brume-layout { grid-template-columns: minmax(10rem, 13rem) minmax(0, 50rem); } .brume-toc { display: none; } }
-@media (max-width: 760px) { .brume-layout { display: block; padding: 2rem 1.1rem 4rem; } .brume-sidebar { margin-bottom: 2rem; position: static; } }
+.brume-shell,
+.brume-page {
+  min-height: 100vh;
+}
 
+.brume-page {
+  --brume-sticky-offset: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.brume-page.brume-has-header {
+  --brume-sticky-offset: calc(var(--brume-header-height) + 1.5rem);
+}
+
+.brume-visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.brume-header {
+  align-items: center;
+  backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--brume-bg) 88%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--brume-border) 78%, transparent);
+  display: flex;
+  gap: 1rem;
+  height: var(--brume-header-height);
+  justify-content: space-between;
+  padding: 0 clamp(1rem, 3vw, 2rem);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.brume-header-title {
+  color: var(--brume-text);
+  font-family: var(--brume-font-heading);
+  font-size: 1.02rem;
+  font-weight: 500;
+  letter-spacing: -0.018em;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brume-theme-toggle {
+  align-items: center;
+  background: var(--brume-surface);
+  border: 1px solid var(--brume-border);
+  border-radius: 999px;
+  color: var(--brume-text);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 2.15rem;
+  justify-content: center;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+  width: 2.15rem;
+}
+
+.brume-theme-toggle:hover {
+  background: var(--brume-accent-soft);
+  border-color: var(--brume-accent);
+  transform: translateY(-1px);
+}
+
+.brume-theme-toggle:focus-visible,
+.brume-copy-code:focus-visible,
+.brume-tab-button:focus-visible,
+.brume-accordion > summary:focus-visible,
+.brume-mobile-tools summary:focus-visible {
+  outline: 2px solid var(--brume-accent);
+  outline-offset: 2px;
+}
+
+.brume-theme-icon {
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  display: block;
+  height: 0.9rem;
+  overflow: hidden;
+  position: relative;
+  width: 0.9rem;
+}
+
+.brume-theme-icon::after {
+  background: currentColor;
+  content: "";
+  inset: -1px 50% -1px -1px;
+  position: absolute;
+}
+
+.brume-layout {
+  align-items: start;
+  display: grid;
+  gap: 3rem;
+  grid-template-areas: "main";
+  grid-template-columns: minmax(0, 50rem);
+  justify-content: center;
+  margin: 0 auto;
+  max-width: 96rem;
+  padding: clamp(2.5rem, 6vw, 5rem) clamp(1.15rem, 3vw, 2.5rem) 6rem;
+  width: 100%;
+}
+
+.brume-has-sidebar.brume-has-toc .brume-layout {
+  grid-template-areas: "sidebar main toc";
+  grid-template-columns: minmax(12rem, 15rem) minmax(0, 50rem) minmax(12rem, 15rem);
+}
+
+.brume-has-sidebar:not(.brume-has-toc) .brume-layout {
+  grid-template-areas: "sidebar main";
+  grid-template-columns: minmax(12rem, 15rem) minmax(0, 50rem);
+}
+
+.brume-has-toc:not(.brume-has-sidebar) .brume-layout {
+  grid-template-areas: "main toc";
+  grid-template-columns: minmax(0, 50rem) minmax(12rem, 15rem);
+}
+
+.brume-document {
+  grid-area: main;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.brume-sidebar {
+  grid-area: sidebar;
+}
+
+.brume-sidebar,
+.brume-toc {
+  align-self: start;
+  max-height: calc(100vh - var(--brume-sticky-offset) - 1rem);
+  overflow-y: auto;
+  position: sticky;
+  top: var(--brume-sticky-offset);
+}
+
+.brume-sidebar-title {
+  color: var(--brume-text);
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  overflow-wrap: anywhere;
+  padding: 0 0.65rem;
+}
+
+.brume-sidebar ul,
+.brume-toc ul,
+.brume-mobile-tools ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.brume-sidebar a,
+.brume-toc a,
+.brume-mobile-tools nav a {
+  border-radius: 7px;
+  color: var(--brume-muted);
+  display: block;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  padding: 0.42rem 0.65rem;
+  position: relative;
+  text-decoration: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.brume-sidebar a:hover,
+.brume-sidebar a[aria-current="page"],
+.brume-toc a:hover,
+.brume-toc a[aria-current="location"],
+.brume-mobile-tools nav a:hover,
+.brume-mobile-tools nav a[aria-current] {
+  background: var(--brume-accent-soft);
+  color: var(--brume-accent);
+}
+
+.brume-sidebar a[aria-current="page"]::before {
+  background: var(--brume-accent);
+  border-radius: 999px;
+  content: "";
+  inset-block: 0.65rem;
+  inset-inline-start: 0.25rem;
+  position: absolute;
+  width: 2px;
+}
+
+.brume-toc {
+  grid-area: toc;
+}
+
+.brume-toc > strong {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.75rem;
+  padding: 0 0.65rem;
+  text-transform: uppercase;
+}
+
+.brume-toc-depth-3 {
+  padding-left: 0.75rem;
+}
+
+.brume-mobile-tools {
+  display: none;
+  grid-area: tools;
+}
+
+.brume-mobile-tools details {
+  background: var(--brume-surface);
+  border: 1px solid var(--brume-border);
+  border-radius: var(--brume-radius);
+  overflow: hidden;
+}
+
+.brume-mobile-tools details + details {
+  margin-top: 0.65rem;
+}
+
+.brume-mobile-tools summary {
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  list-style: none;
+  padding: 0.75rem 0.9rem;
+}
+
+.brume-mobile-tools summary::-webkit-details-marker {
+  display: none;
+}
+
+.brume-mobile-tools nav {
+  border-top: 1px solid var(--brume-border);
+  max-height: min(50vh, 24rem);
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.brume-footer {
+  align-items: center;
+  border-top: 1px solid var(--brume-border);
+  color: var(--brume-muted);
+  display: flex;
+  font-size: 0.78rem;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-top: auto;
+  min-height: 4.5rem;
+  padding: 1rem clamp(1.15rem, 3vw, 2.5rem);
+}
+
+.brume-footer strong {
+  color: var(--brume-text);
+  font-weight: 600;
+}
+
+.brume-callout,
+.brume-decision,
+.brume-risk {
+  background: var(--brume-surface);
+  border: 1px solid var(--brume-border);
+  border-radius: var(--brume-radius);
+  box-shadow: var(--brume-shadow);
+  margin: 1.5rem 0;
+  padding: 0.9rem 1rem;
+}
+
+.brume-callout {
+  --brume-callout-color: var(--brume-info);
+  display: flex;
+  gap: 0.85rem;
+  padding-inline-start: 0.65rem;
+}
+
+.brume-callout-warning {
+  --brume-callout-color: var(--brume-warning);
+}
+
+.brume-callout-danger {
+  --brume-callout-color: var(--brume-danger);
+}
+
+.brume-callout-success {
+  --brume-callout-color: var(--brume-success);
+}
+
+.brume-callout-rail {
+  background: color-mix(in srgb, var(--brume-callout-color) 65%, transparent);
+  border-radius: 999px;
+  flex: 0 0 3px;
+}
+
+.brume-callout-content {
+  min-width: 0;
+}
+
+.brume-callout-content > div > :first-child,
+.brume-decision > div > :first-child,
+.brume-risk > div > :first-child {
+  margin-top: 0.35rem;
+}
+
+.brume-callout-content > div > :last-child,
+.brume-decision > div > :last-child,
+.brume-risk > div > :last-child {
+  margin-bottom: 0;
+}
+
+.brume-callout-title {
+  color: var(--brume-text);
+  display: block;
+  font-size: 0.92rem;
+}
+
+.brume-decision {
+  border-left: 3px solid var(--brume-info);
+}
+
+.brume-decision-accepted {
+  border-left-color: var(--brume-success);
+}
+
+.brume-decision-rejected,
+.brume-risk-high {
+  border-left: 3px solid var(--brume-danger);
+}
+
+.brume-risk-low {
+  border-left: 3px solid var(--brume-success);
+}
+
+.brume-risk-medium {
+  border-left: 3px solid var(--brume-warning);
+}
+
+.brume-accordions {
+  background: var(--brume-surface);
+  border: 1px solid var(--brume-border);
+  border-radius: var(--brume-radius);
+  margin: 1.5rem 0;
+  overflow: hidden;
+}
+
+.brume-accordion + .brume-accordion {
+  border-top: 1px solid var(--brume-border);
+}
+
+.brume-accordion > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font-size: 0.94rem;
+  font-weight: 600;
+  gap: 1rem;
+  justify-content: space-between;
+  list-style: none;
+  padding: 0.9rem 1rem;
+  transition: background-color 150ms ease;
+}
+
+.brume-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+.brume-accordion > summary:hover {
+  background: var(--brume-accent-soft);
+}
+
+.brume-accordion-chevron {
+  border-bottom: 1.5px solid currentColor;
+  border-right: 1.5px solid currentColor;
+  flex: 0 0 auto;
+  height: 0.48rem;
+  transform: rotate(45deg);
+  transition: transform 180ms ease;
+  width: 0.48rem;
+}
+
+.brume-accordion[open] .brume-accordion-chevron {
+  transform: rotate(225deg);
+}
+
+.brume-accordion-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 200ms ease,
+    opacity 180ms ease;
+}
+
+.brume-accordion[open] .brume-accordion-content {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.brume-accordion-content > div {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 1rem;
+}
+
+.brume-accordion[open] .brume-accordion-content > div {
+  padding-bottom: 0.85rem;
+}
+
+.brume-accordion-content > div > :first-child {
+  margin-top: 0;
+}
+
+.brume-accordion-content > div > :last-child {
+  margin-bottom: 0;
+}
+
+.brume-code-block {
+  background: var(--brume-code);
+  border: 1px solid var(--brume-border);
+  border-radius: var(--brume-radius);
+  box-shadow: var(--brume-shadow);
+  margin: 1.5rem 0;
+  overflow: hidden;
+}
+
+.brume-code-toolbar {
+  align-items: center;
+  background: color-mix(in srgb, var(--brume-surface) 78%, transparent);
+  border-bottom: 1px solid var(--brume-border);
+  color: var(--brume-muted);
+  display: flex;
+  font-family: var(--brume-font-mono);
+  font-size: 0.72rem;
+  gap: 1rem;
+  justify-content: space-between;
+  min-height: 2.45rem;
+  padding: 0.35rem 0.45rem 0.35rem 0.9rem;
+  text-transform: uppercase;
+}
+
+.brume-copy-code {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--brume-muted);
+  cursor: pointer;
+  font-family: var(--brume-font-body);
+  font-size: 0.75rem;
+  padding: 0.38rem 0.55rem;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.brume-copy-code:hover,
+.brume-copy-code[data-copied="true"] {
+  background: var(--brume-accent-soft);
+  color: var(--brume-accent);
+}
+
+.brume-code-viewport {
+  max-height: 38rem;
+  overflow: auto;
+}
+
+.brume-code-viewport:focus-visible {
+  outline: 2px solid var(--brume-accent);
+  outline-offset: -2px;
+}
+
+.brume-tabs {
+  background: var(--brume-surface);
+  border: 1px solid var(--brume-border);
+  border-radius: var(--brume-radius);
+  margin: 1.5rem 0;
+  overflow: hidden;
+}
+
+.brume-tab-list {
+  border-bottom: 1px solid var(--brume-border);
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding: 0 0.65rem;
+}
+
+.brume-tab-button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--brume-muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-family: var(--brume-font-body);
+  font-size: 0.86rem;
+  font-weight: 550;
+  margin-bottom: -1px;
+  padding: 0.75rem 0.6rem 0.65rem;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.brume-tab-button:hover {
+  color: var(--brume-text);
+}
+
+.brume-tab-button[aria-selected="true"] {
+  border-bottom-color: var(--brume-accent);
+  color: var(--brume-accent);
+}
+
+.brume-tab-panel {
+  animation: brume-tab-in 180ms ease both;
+  padding: 1rem;
+}
+
+.brume-tab-panel > :first-child {
+  margin-top: 0;
+}
+
+.brume-tab-panel > :last-child {
+  margin-bottom: 0;
+}
+
+.brume-steps {
+  counter-reset: step;
+  list-style: none;
+  margin: 1.75rem 0;
+  padding: 0;
+}
+
+.brume-step {
+  border-left: 1px solid var(--brume-border);
+  margin: 0 0 0 1rem;
+  padding: 0 0 2rem 2rem;
+  position: relative;
+}
+
+.brume-step:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+
+.brume-step::before {
+  align-items: center;
+  background: var(--brume-surface);
+  border: 1px solid var(--brume-border);
+  border-radius: 50%;
+  color: var(--brume-accent);
+  content: counter(step);
+  counter-increment: step;
+  display: flex;
+  font-size: 0.75rem;
+  font-weight: 650;
+  height: 1.75rem;
+  justify-content: center;
+  left: -0.9rem;
+  position: absolute;
+  top: -0.15rem;
+  width: 1.75rem;
+}
+
+.brume-step > h3 {
+  font-family: var(--brume-font-body);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.5rem;
+}
+
+.brume-card-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 1.5rem 0;
+}
+
+.brume-card {
+  background: var(--brume-surface);
+  border: 1px solid var(--brume-border);
+  border-radius: var(--brume-radius);
+  color: var(--brume-text);
+  display: block;
+  min-width: 0;
+  padding: 1rem;
+  text-decoration: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 180ms ease;
+}
+
+.brume-card:hover {
+  background: var(--brume-accent-soft);
+  border-color: color-mix(in srgb, var(--brume-accent) 55%, var(--brume-border));
+  transform: translateY(-2px);
+}
+
+.brume-card > strong {
+  display: block;
+  font-size: 0.92rem;
+  margin-bottom: 0.25rem;
+}
+
+.brume-card > div {
+  color: var(--brume-muted);
+  font-size: 0.88rem;
+}
+
+.brume-card > div > :first-child {
+  margin-top: 0;
+}
+
+.brume-card > div > :last-child {
+  margin-bottom: 0;
+}
+
+.brume-file-tree {
+  background: var(--brume-code);
+  border: 1px solid var(--brume-border);
+  border-radius: var(--brume-radius);
+  margin: 1.5rem 0;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: pre;
+  width: 100%;
+}
+
+.brume-code-group {
+  margin: 1.5rem 0;
+}
+
+.brume-code-group > .brume-code-block {
+  border-radius: 0;
+  margin: -1px 0 0;
+}
+
+.brume-code-group > .brume-code-block:first-child {
+  border-radius: var(--brume-radius) var(--brume-radius) 0 0;
+  margin-top: 0;
+}
+
+.brume-code-group > .brume-code-block:last-child {
+  border-radius: 0 0 var(--brume-radius) var(--brume-radius);
+}
+
+.mermaid {
+  background: var(--brume-surface);
+  border: 1px solid var(--brume-border);
+  border-radius: var(--brume-radius);
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  padding: 1rem;
+  text-align: center;
+}
+
+.brume-motion-ready [data-brume-animate] {
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 320ms ease,
+    transform 320ms ease;
+}
+
+.brume-motion-ready [data-brume-animate][data-brume-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes brume-tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1180px) {
+  .brume-has-sidebar.brume-has-toc .brume-layout {
+    grid-template-areas:
+      "sidebar tools"
+      "sidebar main";
+    grid-template-columns: minmax(12rem, 15rem) minmax(0, 50rem);
+  }
+
+  .brume-has-sidebar:not(.brume-has-toc) .brume-layout {
+    grid-template-areas: "sidebar main";
+    grid-template-columns: minmax(12rem, 15rem) minmax(0, 50rem);
+  }
+
+  .brume-has-toc:not(.brume-has-sidebar) .brume-layout {
+    grid-template-areas:
+      "tools"
+      "main";
+    grid-template-columns: minmax(0, 50rem);
+  }
+
+  .brume-toc {
+    display: none;
+  }
+
+  .brume-has-toc .brume-mobile-tools {
+    display: block;
+  }
+
+  .brume-mobile-navigation {
+    display: none;
+  }
+}
+
+@media (max-width: 780px) {
+  .brume-has-sidebar .brume-layout,
+  .brume-has-toc .brume-layout {
+    display: grid;
+    gap: 2rem;
+    grid-template-areas:
+      "tools"
+      "main";
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 2rem;
+  }
+
+  .brume-page:not(.brume-has-sidebar):not(.brume-has-toc) .brume-layout {
+    grid-template-areas: "main";
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 2rem;
+  }
+
+  .brume-sidebar {
+    display: none;
+  }
+
+  .brume-mobile-tools {
+    display: block;
+  }
+
+  .brume-mobile-navigation {
+    display: block;
+  }
+
+  .brume-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .brume-header {
+    padding-inline: 0.9rem;
+  }
+
+  .brume-layout {
+    padding-inline: 1rem;
+  }
+
+  .brume-tab-panel {
+    padding: 0.85rem;
+  }
+
+  .brume-footer {
+    min-height: 4rem;
+    padding-inline: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

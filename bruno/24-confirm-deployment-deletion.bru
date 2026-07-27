@@ -1,0 +1,27 @@
+meta {
+  name: Confirm deployment deletion
+  type: http
+  seq: 24
+}
+
+delete {
+  url: {{base_url}}/api/v1/deployments/{{deployment_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "challenge": "{{deployment_delete_challenge}}"
+  }
+}
+
+tests {
+  test("a deployment can be permanently deleted by UUID", function() {
+    expect(res.status).to.equal(204);
+  });
+}

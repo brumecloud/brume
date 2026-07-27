@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{PlanDetails, PlanSummary, Visibility};
+use crate::{PlanDetails, PlanSummary};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiErrorBody {
@@ -45,7 +45,6 @@ pub struct RefreshTokenRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeployPlanResponse {
     pub plan: PlanDetails,
-    pub unlisted_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,7 +65,14 @@ pub struct ConfirmDeletionRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeployQuery {
-    pub visibility: Visibility,
-    pub pinned: bool,
+pub struct AccessIdentityResponse {
+    pub public_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateInvitationResponse {
+    pub url: String,
+    pub expires_at: DateTime<Utc>,
 }

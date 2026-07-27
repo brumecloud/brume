@@ -1,0 +1,34 @@
+meta {
+  name: List deployments
+  type: http
+  seq: 22
+}
+
+get {
+  url: {{base_url}}/api/v1/deployments
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  const deployments = Array.isArray(res.body?.deployments) ? res.body.deployments : [];
+  const deployment = deployments.find((item) => item.slug === bru.getEnvVar("deployment"));
+  if (deployment) {
+    bru.setVar("deployment_id", deployment.id);
+  }
+}
+
+tests {
+  test("authenticated users can list their active deployments", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.deployments).to.be.an("array");
+    const deployment = res.body.deployments.find((item) => item.slug === bru.getEnvVar("deployment"));
+    expect(deployment).to.be.an("object");
+    expect(deployment.url).to.equal(bru.getEnvVar("deployment_url") + "/");
+    expect(deployment.spa).to.equal(true);
+  });
+}

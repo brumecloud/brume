@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   build: {
+    assetsInlineLimit: Number.MAX_SAFE_INTEGER,
     emptyOutDir: false,
     lib: {
       entry: "src/client/runtime.ts",

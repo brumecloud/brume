@@ -7,12 +7,16 @@ import {
   type ReactNode,
 } from "react";
 import type { MDXComponents } from "mdx/types";
+import { Accordion, Accordions } from "./Accordion";
 import { Callout } from "./Callout";
+import { CodeBlock } from "./CodeBlock";
 import { Card, CardGrid, CodeGroup, Decision, FileTree, Mermaid, Risk } from "./Planning";
 import { Step, Steps } from "./Steps";
 import { Tab, Tabs } from "./Tabs";
 
 export const componentNames = new Set([
+  "Accordion",
+  "Accordions",
   "Callout",
   "Card",
   "CardGrid",
@@ -75,7 +79,7 @@ function Pre({ children }: { children?: ReactNode }) {
       return <div className="mermaid">{code.props.children}</div>;
     }
   }
-  return <pre>{children}</pre>;
+  return <CodeBlock>{children}</CodeBlock>;
 }
 
 function textContent(value: ReactNode): string {
@@ -132,6 +136,8 @@ export function createComponents(sourcePath: string): MDXComponents {
     h6: heading(6),
     img: Image,
     pre: Pre,
+    Accordion,
+    Accordions,
     Callout,
     Card,
     CardGrid,

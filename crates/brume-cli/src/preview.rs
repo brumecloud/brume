@@ -137,7 +137,7 @@ async fn theme() -> impl IntoResponse {
 fn shell(title: &str, fragment: &str) -> String {
     let title = escape_html(title);
     format!(
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{title}</title><link rel=\"stylesheet\" href=\"/_brume/theme.css\"><script type=\"module\" src=\"/_brume/runtime.js\"></script></head><body><div class=\"brume-shell\"><header class=\"brume-topbar\"><a href=\"/\">Brume</a><button class=\"brume-theme-toggle\" data-brume-theme-toggle type=\"button\">Theme</button></header>{fragment}</div></body></html>"
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{title}</title><link rel=\"stylesheet\" href=\"/_brume/theme.css\"><script type=\"module\" src=\"/_brume/runtime.js\"></script></head><body><div class=\"brume-shell\">{fragment}</div></body></html>"
     )
 }
 

@@ -19,6 +19,7 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::{
+    access,
     error::ApiError,
     state::AppState,
     util::{github_handle, hash_secret, random_token},
@@ -199,6 +200,8 @@ async fn refresh_cli_token(
 struct GithubStartQuery {
     cli_session: Option<Uuid>,
     return_to: Option<String>,
+    site: Option<Uuid>,
+    site_return_to: Option<String>,
 }
 
 async fn github_start(
@@ -223,7 +226,28 @@ async fn github_start(
         }
     }
     let return_to = sanitize_return_to(query.return_to);
+    let site = match (query.site, query.site_return_to.as_deref()) {
+        (Some(site), Some(return_to)) => {
+            access::load_control(&state, site).await?;
+            Some((site, return_to.to_owned()))
+        }
+        (None, None) => None,
+        _ => {
+            return Err(ApiError::bad_request(
+                "Website and website return URL must be provided together",
+            ));
+        }
+    };
     if query.cli_session.is_none()
+        && let Some((site, site_return_to)) = &site
+        && let Some(user) = browser_user(&state, &cookies).await?
+    {
+        return Ok(access::owner_ticket(&state, user.id, *site, site_return_to)
+            .await?
+            .into_response());
+    }
+    if query.cli_session.is_none()
+        && site.is_none()
         && let (Some(return_to), Some(refresh)) =
             (return_to.as_deref(), cookies.get(AUTH_REFRESH_COOKIE))
     {
@@ -244,13 +268,17 @@ async fn github_start(
     }
     let oauth_state = random_token("state_");
     sqlx::query(
-        "INSERT INTO oauth_states (id, state_hash, cli_session_id, return_to, expires_at)
-         VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO oauth_states (
+            id, state_hash, cli_session_id, return_to,
+            site_access_control_id, site_return_to, expires_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
     )
     .bind(Uuid::now_v7())
     .bind(hash_secret(&oauth_state))
     .bind(query.cli_session)
     .bind(return_to)
+    .bind(site.as_ref().map(|(site, _)| *site))
+    .bind(site.as_ref().map(|(_, return_to)| return_to))
     .bind(Utc::now() + Duration::minutes(10))
     .execute(&state.database)
     .await?;
@@ -294,7 +322,8 @@ async fn github_callback(
     let oauth = sqlx::query(
         "DELETE FROM oauth_states
          WHERE state_hash = $1 AND expires_at > now()
-         RETURNING cli_session_id, return_to",
+         RETURNING cli_session_id, return_to,
+                   site_access_control_id, site_return_to",
     )
     .bind(hash_secret(&query.state))
     .fetch_optional(&state.database)
@@ -363,6 +392,13 @@ async fn github_callback(
     set_refresh_cookie(&state, &cookies, &browser.pair);
 
     let return_to: Option<String> = oauth.try_get("return_to")?;
+    let site_access_control_id: Option<Uuid> = oauth.try_get("site_access_control_id")?;
+    let site_return_to: Option<String> = oauth.try_get("site_return_to")?;
+    if let (Some(site), Some(site_return_to)) = (site_access_control_id, site_return_to) {
+        return Ok(access::owner_ticket(&state, user.id, site, &site_return_to)
+            .await?
+            .into_response());
+    }
     if let Some(return_to) = return_to {
         Ok(
             create_auth_ticket(&state, user.id, browser.family_id, &return_to)
@@ -441,9 +477,10 @@ fn sanitize_return_to(value: Option<String>) -> Option<String> {
 
 fn set_refresh_cookie(state: &AppState, cookies: &Cookies, pair: &TokenPair) {
     let max_age = (pair.refresh_expires_at - Utc::now()).num_seconds().max(0);
+    cookies.remove(Cookie::build(AUTH_REFRESH_COOKIE).path("/auth").build());
     cookies.add(
         Cookie::build((AUTH_REFRESH_COOKIE, pair.refresh_token.clone()))
-            .path("/auth")
+            .path("/")
             .http_only(true)
             .same_site(SameSite::Lax)
             .secure(state.config.auth_public_url.starts_with("https://"))
@@ -454,6 +491,7 @@ fn set_refresh_cookie(state: &AppState, cookies: &Cookies, pair: &TokenPair) {
 
 fn remove_refresh_cookie(cookies: &Cookies) {
     cookies.remove(Cookie::build(AUTH_REFRESH_COOKIE).path("/auth").build());
+    cookies.remove(Cookie::build(AUTH_REFRESH_COOKIE).path("/").build());
 }
 
 fn set_plan_access_cookie(
@@ -483,6 +521,37 @@ pub async fn web_user(state: &AppState, cookies: &Cookies) -> Result<Option<Auth
         Err(error) if error.status() == axum::http::StatusCode::UNAUTHORIZED => Ok(None),
         Err(error) => Err(error),
     }
+}
+
+pub async fn browser_user(
+    state: &AppState,
+    cookies: &Cookies,
+) -> Result<Option<AuthUser>, ApiError> {
+    let Some(refresh) = cookies.get(AUTH_REFRESH_COOKIE) else {
+        return Ok(None);
+    };
+    let row = sqlx::query(
+        "SELECT users.id, users.handle
+         FROM refresh_tokens
+         JOIN token_families ON token_families.id = refresh_tokens.family_id
+         JOIN users ON users.id = token_families.user_id
+         WHERE refresh_tokens.token_hash = $1
+           AND refresh_tokens.expires_at > now()
+           AND refresh_tokens.consumed_at IS NULL
+           AND token_families.expires_at > now()
+           AND token_families.revoked_at IS NULL",
+    )
+    .bind(hash_secret(refresh.value()))
+    .fetch_optional(&state.database)
+    .await?;
+    let Some(row) = row else {
+        remove_refresh_cookie(cookies);
+        return Ok(None);
+    };
+    Ok(Some(AuthUser {
+        id: row.try_get("id")?,
+        handle: row.try_get("handle")?,
+    }))
 }
 
 struct IssuedFamily {

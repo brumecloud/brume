@@ -1,0 +1,35 @@
+meta {
+  name: Accountless user claims invitation
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{invitation_url}}/claim
+  body: formUrlEncoded
+  auth: none
+}
+
+headers {
+  Origin: {{auth_url}}
+}
+
+body:form-urlencoded {
+  return_to: {{token_return_to}}
+}
+
+script:post-response {
+  const token = res.body.match(/value="(brume_user_[^"]+)"/);
+  const publicId = res.body.match(/recipient ID is <strong>([^<]+)<\/strong>/);
+  bru.setVar("recipient_token", token?.[1]);
+  bru.setVar("recipient_public_id", publicId?.[1]);
+}
+
+tests {
+  test("claim creates one accountless identity and reveals its token once", function() {
+    expect(res.status).to.equal(200);
+    expect(bru.getVar("recipient_token")).to.match(/^brume_user_/);
+    expect(bru.getVar("recipient_public_id")).to.match(/^brume_/);
+    expect(String(res.headers["set-cookie"])).to.include("brume_identity=");
+  });
+}

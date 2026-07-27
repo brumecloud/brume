@@ -7,25 +7,28 @@ use std::{
 use axum::{
     Json, Router,
     body::{Body, Bytes},
-    extract::{DefaultBodyLimit, Query, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, HeaderValue, Method, StatusCode, header},
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
 };
 use brume_core::{
+    AuthMode, ConfirmDeletionRequest, CreateDeploymentDeletionChallengeResponse,
     DEPLOYMENT_MAX_FILE_BYTES, DeploySiteResponse, DeploymentFile, DeploymentManifest,
-    DeploymentSummary, validate_relative_path,
+    DeploymentPatch, DeploymentSummary, ListDeploymentsResponse, validate_relative_path,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
 use sqlx::{Postgres, Row, Transaction};
+use tower_cookies::Cookies;
 use uuid::Uuid;
 
 use crate::{
+    access,
     auth::AuthUser,
     error::ApiError,
     state::AppState,
-    util::{public_label, random_public_id},
+    util::{hash_secret, public_label, random_public_id, random_token},
 };
 
 const MAX_ARCHIVE_BYTES: usize = 110 * 1024 * 1024;
@@ -34,7 +37,17 @@ const MAX_FILES: usize = 5_000;
 
 pub fn api_router() -> Router<AppState> {
     Router::new()
-        .route("/api/v1/deployments", post(deploy))
+        .route("/api/v1/deployments", get(list_deployments).post(deploy))
+        .route(
+            "/api/v1/deployments/{selector}",
+            get(get_deployment)
+                .patch(patch_deployment)
+                .delete(confirm_deletion),
+        )
+        .route(
+            "/api/v1/deployments/{selector}/deletion-challenges",
+            post(create_deletion_challenge),
+        )
         .layer(DefaultBodyLimit::max(MAX_ARCHIVE_BYTES))
 }
 
@@ -45,6 +58,14 @@ struct DeployParameters {
     spa: bool,
     #[serde(default)]
     pinned: bool,
+    #[serde(default)]
+    auth: AuthMode,
+    #[serde(default = "default_true")]
+    overlay: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug)]
@@ -63,6 +84,7 @@ async fn deploy(
     State(state): State<AppState>,
     user: AuthUser,
     Query(parameters): Query<DeployParameters>,
+    headers: HeaderMap,
     body: Bytes,
 ) -> Result<Json<DeploySiteResponse>, ApiError> {
     let requested_slug = parameters.slug;
@@ -101,7 +123,7 @@ async fn deploy(
         .await
         .map_err(ApiError::internal)??;
     let existing = sqlx::query(
-        "SELECT id, active_bundle_id
+        "SELECT id, active_bundle_id, access_control_id
          FROM deployments WHERE user_id = $1 AND slug = $2",
     )
     .bind(user.id)
@@ -118,6 +140,14 @@ async fn deploy(
         .map(|row| row.try_get("active_bundle_id"))
         .transpose()?
         .flatten();
+    let existing_control_id: Option<Uuid> = existing
+        .as_ref()
+        .map(|row| row.try_get("access_control_id"))
+        .transpose()?
+        .flatten();
+    let password = headers
+        .get("x-brume-password")
+        .and_then(|value| value.to_str().ok());
     let bundle_id = Uuid::now_v7();
     let prefix = format!(
         "users/{}/deployments/{deployment_id}/bundles/{bundle_id}",
@@ -141,17 +171,39 @@ async fn deploy(
 
     let database_result: Result<(), ApiError> = async {
         let mut transaction = state.database.begin().await?;
+        let access_control_id = if let Some(control_id) = existing_control_id {
+            access::update_control(
+                &mut transaction,
+                control_id,
+                user.id,
+                parameters.auth,
+                password,
+                parameters.overlay,
+            )
+            .await?;
+            control_id
+        } else {
+            access::insert_control(
+                &mut transaction,
+                user.id,
+                parameters.auth,
+                password,
+                parameters.overlay,
+            )
+            .await?
+        };
         if existing.is_none() {
             sqlx::query(
                 "INSERT INTO deployments (
-                    id, user_id, slug, public_label, spa, pinned_at
-                 ) VALUES ($1, $2, $3, $4, $5, $6)",
+                    id, user_id, slug, public_label, spa, access_control_id, pinned_at
+                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
             )
             .bind(deployment_id)
             .bind(user.id)
             .bind(&slug)
             .bind(&public_label)
             .bind(parameters.spa)
+            .bind(access_control_id)
             .bind(parameters.pinned.then(Utc::now))
             .execute(&mut *transaction)
             .await?;
@@ -212,9 +264,11 @@ async fn deploy(
     let row = sqlx::query(
         "SELECT deployments.id, deployments.slug, deployments.public_label, deployments.spa,
                 deployments.published_at, deployments.last_read_at,
-                deployments.pinned_at, users.handle
+                deployments.pinned_at, users.handle,
+                access_controls.auth_mode, access_controls.overlay_enabled
          FROM deployments
          JOIN users ON users.id = deployments.user_id
+         JOIN access_controls ON access_controls.id = deployments.access_control_id
          WHERE deployments.id = $1",
     )
     .bind(deployment_id)
@@ -223,6 +277,129 @@ async fn deploy(
     Ok(Json(DeploySiteResponse {
         deployment: summary(&state, &row)?,
     }))
+}
+
+async fn list_deployments(
+    State(state): State<AppState>,
+    user: AuthUser,
+) -> Result<Json<ListDeploymentsResponse>, ApiError> {
+    let rows = sqlx::query(
+        "SELECT deployments.id, deployments.slug, deployments.public_label, deployments.spa,
+                deployments.published_at, deployments.last_read_at,
+                deployments.pinned_at, users.handle,
+                access_controls.auth_mode, access_controls.overlay_enabled
+         FROM deployments
+         JOIN users ON users.id = deployments.user_id
+         JOIN access_controls ON access_controls.id = deployments.access_control_id
+         WHERE deployments.user_id = $1 AND deployments.status = 'active'
+         ORDER BY deployments.updated_at DESC",
+    )
+    .bind(user.id)
+    .fetch_all(&state.database)
+    .await?;
+    let deployments = rows
+        .iter()
+        .map(|row| summary(&state, row))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Json(ListDeploymentsResponse { deployments }))
+}
+
+async fn get_deployment(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(selector): Path<String>,
+) -> Result<Json<DeploymentSummary>, ApiError> {
+    Ok(Json(
+        find_owned_deployment(&state, &user, &selector)
+            .await?
+            .summary,
+    ))
+}
+
+async fn patch_deployment(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(selector): Path<String>,
+    Json(patch): Json<DeploymentPatch>,
+) -> Result<Json<DeploymentSummary>, ApiError> {
+    let deployment = find_owned_deployment(&state, &user, &selector).await?;
+    access::patch_control(
+        &state,
+        deployment.access_control_id,
+        user.id,
+        patch.auth,
+        patch.password.as_deref(),
+        patch.overlay_enabled,
+    )
+    .await?;
+    Ok(Json(
+        find_owned_deployment(&state, &user, &selector)
+            .await?
+            .summary,
+    ))
+}
+
+async fn create_deletion_challenge(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(selector): Path<String>,
+) -> Result<Json<CreateDeploymentDeletionChallengeResponse>, ApiError> {
+    let deployment = find_owned_deployment(&state, &user, &selector).await?;
+    let challenge = random_token("delete_");
+    sqlx::query(
+        "INSERT INTO deployment_deletion_challenges (
+            id, deployment_id, user_id, challenge_hash, expires_at
+         ) VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(Uuid::now_v7())
+    .bind(deployment.id)
+    .bind(user.id)
+    .bind(hash_secret(&challenge))
+    .bind(Utc::now() + Duration::minutes(5))
+    .execute(&state.database)
+    .await?;
+    Ok(Json(CreateDeploymentDeletionChallengeResponse {
+        challenge,
+        expires_in_seconds: 300,
+        deployment: deployment.summary,
+    }))
+}
+
+async fn confirm_deletion(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(selector): Path<String>,
+    Json(request): Json<ConfirmDeletionRequest>,
+) -> Result<StatusCode, ApiError> {
+    let deployment = find_owned_deployment(&state, &user, &selector).await?;
+    let mut transaction = state.database.begin().await?;
+    let deleted = sqlx::query(
+        "DELETE FROM deployment_deletion_challenges
+         WHERE deployment_id = $1 AND user_id = $2
+           AND challenge_hash = $3 AND expires_at > now()
+         RETURNING id",
+    )
+    .bind(deployment.id)
+    .bind(user.id)
+    .bind(hash_secret(&request.challenge))
+    .fetch_optional(&mut *transaction)
+    .await?;
+    if deleted.is_none() {
+        return Err(ApiError::bad_request(
+            "Deletion challenge is invalid or expired",
+        ));
+    }
+    sqlx::query(
+        "UPDATE deployments
+         SET status = 'deleting', deletion_attempted_at = now()
+         WHERE id = $1",
+    )
+    .bind(deployment.id)
+    .execute(&mut *transaction)
+    .await?;
+    transaction.commit().await?;
+    delete_objects_and_row(&state, user.id, deployment.id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn cleanup_old_bundle(state: &AppState, bundle_id: Uuid) {
@@ -370,12 +547,15 @@ fn content_type_for(path: &str) -> String {
 
 struct PublicDeployment {
     id: Uuid,
+    access: access::AccessControl,
     object_prefix: String,
     manifest: DeploymentManifest,
 }
 
 pub async fn serve_public(
     state: AppState,
+    cookies: Cookies,
+    bearer_token: Option<String>,
     public_label: String,
     method: Method,
     request_uri: axum::http::Uri,
@@ -385,6 +565,31 @@ pub async fn serve_public(
     }
     let result = async {
         let deployment = load_public(&state, &public_label).await?;
+        let return_to = format!(
+            "{}{}",
+            state.config.public_url(&public_label),
+            request_uri
+                .path_and_query()
+                .map(|value| value.as_str())
+                .unwrap_or("/")
+        );
+        match access::authorize_request(
+            &state,
+            &cookies,
+            &deployment.access,
+            &return_to,
+            false,
+            bearer_token.as_deref(),
+        )
+        .await?
+        {
+            access::RequestAuthorization::Allowed => {}
+            access::RequestAuthorization::Redirect(url) => {
+                return Ok::<_, ApiError>(
+                    axum::response::Redirect::temporary(&url).into_response(),
+                );
+            }
+        }
         let request_path = request_uri.path().trim_start_matches('/');
         validate_relative_request_path(request_path)?;
         let file = resolve_file(&deployment.manifest, request_path)
@@ -409,13 +614,20 @@ pub async fn serve_public(
             header::CONTENT_TYPE,
             HeaderValue::from_str(&file.content_type).map_err(ApiError::internal)?,
         );
+        let mut response_bytes = object.bytes.to_vec();
+        if method == Method::GET && file.content_type.starts_with("text/html") {
+            response_bytes
+                .extend_from_slice(access::overlay_script_tag(&deployment.access).as_bytes());
+        }
         headers.insert(
             header::CONTENT_LENGTH,
-            HeaderValue::from_str(&file.size.to_string()).map_err(ApiError::internal)?,
+            HeaderValue::from_str(&response_bytes.len().to_string()).map_err(ApiError::internal)?,
         );
         headers.insert(
             header::CACHE_CONTROL,
-            if file.content_type.starts_with("text/html") {
+            if deployment.access.auth_mode != AuthMode::None {
+                HeaderValue::from_static("private, no-cache")
+            } else if file.content_type.starts_with("text/html") {
                 HeaderValue::from_static("public, no-cache")
             } else {
                 HeaderValue::from_static("public, max-age=3600")
@@ -432,7 +644,7 @@ pub async fn serve_public(
         let body = if method == Method::HEAD {
             Body::empty()
         } else {
-            Body::from(object.bytes)
+            Body::from(response_bytes)
         };
         Ok::<_, ApiError>((headers, body).into_response())
     }
@@ -457,7 +669,8 @@ fn validate_relative_request_path(path: &str) -> Result<(), ApiError> {
 
 async fn load_public(state: &AppState, public_label: &str) -> Result<PublicDeployment, ApiError> {
     let row = sqlx::query(
-        "SELECT deployments.id, deployment_bundles.object_prefix,
+        "SELECT deployments.id, deployments.access_control_id,
+                deployment_bundles.object_prefix,
                 deployment_bundles.manifest
          FROM deployments
          JOIN deployment_bundles ON deployment_bundles.id = deployments.active_bundle_id
@@ -468,8 +681,10 @@ async fn load_public(state: &AppState, public_label: &str) -> Result<PublicDeplo
     .fetch_optional(&state.database)
     .await?
     .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "not_found", "Deployment not found"))?;
+    let control_id: Uuid = row.try_get("access_control_id")?;
     Ok(PublicDeployment {
         id: row.try_get("id")?,
+        access: access::load_control(state, control_id).await?,
         object_prefix: row.try_get("object_prefix")?,
         manifest: serde_json::from_value(row.try_get("manifest")?).map_err(ApiError::internal)?,
     })
@@ -500,6 +715,40 @@ fn find_file<'a>(manifest: &'a DeploymentManifest, path: &str) -> Option<&'a Dep
     manifest.files.iter().find(|file| file.path == path)
 }
 
+struct OwnedDeployment {
+    id: Uuid,
+    access_control_id: Uuid,
+    summary: DeploymentSummary,
+}
+
+async fn find_owned_deployment(
+    state: &AppState,
+    user: &AuthUser,
+    selector: &str,
+) -> Result<OwnedDeployment, ApiError> {
+    let row = sqlx::query(
+        "SELECT deployments.id, deployments.slug, deployments.public_label, deployments.spa,
+                deployments.access_control_id, deployments.published_at, deployments.last_read_at,
+                deployments.pinned_at, users.handle,
+                access_controls.auth_mode, access_controls.overlay_enabled
+         FROM deployments
+         JOIN users ON users.id = deployments.user_id
+         JOIN access_controls ON access_controls.id = deployments.access_control_id
+         WHERE deployments.user_id = $1 AND deployments.status = 'active'
+           AND (deployments.id::text = $2 OR deployments.slug = $2)",
+    )
+    .bind(user.id)
+    .bind(selector)
+    .fetch_optional(&state.database)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+    Ok(OwnedDeployment {
+        id: row.try_get("id")?,
+        access_control_id: row.try_get("access_control_id")?,
+        summary: summary(state, &row)?,
+    })
+}
+
 fn summary(state: &AppState, row: &sqlx::postgres::PgRow) -> Result<DeploymentSummary, ApiError> {
     let published_at: DateTime<Utc> = row.try_get("published_at")?;
     let last_read_at: Option<DateTime<Utc>> = row.try_get("last_read_at")?;
@@ -513,6 +762,11 @@ fn summary(state: &AppState, row: &sqlx::postgres::PgRow) -> Result<DeploymentSu
         slug: slug.clone(),
         url: format!("{}/", state.config.public_url(&public_label)),
         spa: row.try_get("spa")?,
+        auth: row
+            .try_get::<String, _>("auth_mode")?
+            .parse()
+            .map_err(ApiError::internal)?,
+        overlay_enabled: row.try_get("overlay_enabled")?,
         published_at,
         expires_at: pinned_at
             .is_none()
@@ -572,11 +826,26 @@ pub async fn delete_objects_and_row(
             .await
             .map_err(ApiError::internal)?;
     }
+    let mut transaction = state.database.begin().await?;
+    let control_id: Option<Uuid> = sqlx::query_scalar(
+        "SELECT access_control_id FROM deployments WHERE id = $1 AND user_id = $2",
+    )
+    .bind(deployment_id)
+    .bind(user_id)
+    .fetch_optional(&mut *transaction)
+    .await?;
     sqlx::query("DELETE FROM deployments WHERE id = $1 AND user_id = $2")
         .bind(deployment_id)
         .bind(user_id)
-        .execute(&state.database)
+        .execute(&mut *transaction)
         .await?;
+    if let Some(control_id) = control_id {
+        sqlx::query("DELETE FROM access_controls WHERE id = $1")
+            .bind(control_id)
+            .execute(&mut *transaction)
+            .await?;
+    }
+    transaction.commit().await?;
     Ok(())
 }
 

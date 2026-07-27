@@ -2,7 +2,7 @@ use std::{future::Future, pin::Pin, process::Stdio, sync::Arc};
 
 use anyhow::Result;
 use brume_api_client::BrumeClient;
-use brume_core::{PlanPatch, Visibility};
+use brume_core::{AuthMode, PlanPatch};
 use rmcp::{
     ServerHandler, ServiceExt,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -11,6 +11,7 @@ use rmcp::{
     transport::stdio,
 };
 use serde::Deserialize;
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -20,11 +21,13 @@ struct PlanSelector {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-struct VisibilityRequest {
+struct AuthRequest {
     /// A plan UUID or slug owned by the authenticated user.
     plan: String,
-    /// One of private, unlisted, or public.
-    visibility: String,
+    /// One of token, password, or none.
+    auth: String,
+    /// Required when switching to password authentication.
+    password: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -49,8 +52,10 @@ struct DeployRequest {
     directory: String,
     /// Stable lowercase URL slug.
     slug: Option<String>,
-    /// One of private, unlisted, or public. Defaults to the project configuration.
-    visibility: Option<String>,
+    /// One of token, password, or none. Defaults to the project configuration or token.
+    auth: Option<String>,
+    /// Required when auth is password. It is passed to the CLI through stdin.
+    password: Option<String>,
     /// True prevents automatic deletion after 15 days without a read.
     #[serde(default)]
     pinned: bool,
@@ -94,7 +99,7 @@ impl BrumeMcp {
     }
 
     #[tool(
-        description = "List Brume plans with visibility, last read time, expiry, pin state, and URL"
+        description = "List Brume plans with authentication, last read time, expiry, pin state, and URL"
     )]
     async fn plans_list(&self) -> String {
         let client = match self.client().await {
@@ -131,13 +136,17 @@ impl BrumeMcp {
         if let Some(slug) = request.slug {
             command.arg("--slug").arg(slug);
         }
-        if let Some(visibility) = request.visibility {
-            command.arg("--visibility").arg(visibility);
+        if let Some(auth) = request.auth {
+            command.arg("--auth").arg(auth);
+        }
+        if request.password.is_some() {
+            command.arg("--password-stdin");
+            command.stdin(Stdio::piped());
         }
         if request.pinned {
             command.arg("--pin");
         }
-        match command.output().await {
+        match command_output(command, request.password).await {
             Ok(output) if output.status.success() => {
                 String::from_utf8_lossy(&output.stdout).trim().to_owned()
             }
@@ -149,12 +158,9 @@ impl BrumeMcp {
         }
     }
 
-    #[tool(description = "Change a Brume plan visibility to private, unlisted, or public")]
-    async fn plan_set_visibility(
-        &self,
-        Parameters(request): Parameters<VisibilityRequest>,
-    ) -> String {
-        let visibility = match request.visibility.parse::<Visibility>() {
+    #[tool(description = "Change a Brume plan authentication mode to token, password, or none")]
+    async fn plan_set_auth(&self, Parameters(request): Parameters<AuthRequest>) -> String {
+        let auth = match request.auth.parse::<AuthMode>() {
             Ok(value) => value,
             Err(error) => return tool_error(error),
         };
@@ -166,7 +172,9 @@ impl BrumeMcp {
             .patch_plan(
                 &request.plan,
                 &PlanPatch {
-                    visibility: Some(visibility),
+                    auth: Some(auth),
+                    password: request.password,
+                    overlay_enabled: None,
                     pinned: None,
                 },
             )
@@ -189,7 +197,9 @@ impl BrumeMcp {
             .patch_plan(
                 &request.plan,
                 &PlanPatch {
-                    visibility: None,
+                    auth: None,
+                    password: None,
+                    overlay_enabled: None,
                     pinned: Some(request.pinned),
                 },
             )
@@ -232,6 +242,21 @@ impl BrumeMcp {
             Ok(()) => format!("Deleted {}", request.plan),
             Err(error) => tool_error(error),
         }
+    }
+}
+
+async fn command_output(
+    mut command: Command,
+    password: Option<String>,
+) -> std::io::Result<std::process::Output> {
+    if let Some(password) = password {
+        let mut child = command.spawn()?;
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(password.as_bytes()).await?;
+        }
+        child.wait_with_output().await
+    } else {
+        command.output().await
     }
 }
 

@@ -10,6 +10,15 @@ This fixture proves that regular Markdown and safe MDX components render togethe
 The page was generated before it was uploaded to Brume.
 </Callout>
 
+<Accordions type="single">
+  <Accordion title="What gets published?" id="published-content">
+    Markdown pages, supported MDX components and local image assets are rendered into a static site.
+  </Accordion>
+  <Accordion title="What stays local?" id="local-content">
+    Files outside the supported document and asset formats are not included.
+  </Accordion>
+</Accordions>
+
 ## Delivery flow
 
 <Steps>
@@ -32,4 +41,3 @@ fn main() {
 ```
 
 Read the [architecture page](./architecture.md).
-

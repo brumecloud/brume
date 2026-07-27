@@ -1,0 +1,23 @@
+meta {
+  name: Complete token website session
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{token_ticket_url}}
+  body: none
+  auth: none
+}
+
+settings {
+  followRedirects: false
+}
+
+tests {
+  test("token callback sets a scoped website session", function() {
+    expect(res.status).to.equal(303);
+    expect(res.headers.location).to.equal(bru.getVar("token_return_to"));
+    expect(String(res.headers["set-cookie"])).to.include("brume_site_");
+  });
+}

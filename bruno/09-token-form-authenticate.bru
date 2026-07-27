@@ -1,0 +1,36 @@
+meta {
+  name: Recipient submits access token
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{auth_url}}/access/token
+  body: formUrlEncoded
+  auth: none
+}
+
+headers {
+  Origin: {{auth_url}}
+}
+
+body:form-urlencoded {
+  site: {{token_site}}
+  return_to: {{token_return_to}}
+  token: {{recipient_token}}
+}
+
+settings {
+  followRedirects: false
+}
+
+script:post-response {
+  bru.setVar("token_ticket_url", res.headers.location);
+}
+
+tests {
+  test("recipient token creates a one-time site ticket", function() {
+    expect(res.status).to.equal(303);
+    expect(res.headers.location).to.include("/_brume/access/complete?ticket=site_ticket_");
+  });
+}

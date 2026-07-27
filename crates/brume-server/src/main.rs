@@ -1,3 +1,4 @@
+mod access;
 mod auth;
 mod config;
 mod deployments;
@@ -115,6 +116,7 @@ async fn dispatch_by_host(State(state): State<AppState>, request: Request) -> Re
     }
     if host_matches(request.headers(), &state.config.auth_public_host) {
         return auth::browser_router()
+            .merge(access::auth_router())
             .with_state(state)
             .oneshot(request)
             .await
@@ -123,6 +125,7 @@ async fn dispatch_by_host(State(state): State<AppState>, request: Request) -> Re
     if host_matches(request.headers(), &state.config.plan_public_host) {
         return Router::new()
             .merge(auth::plan_router())
+            .merge(access::site_router())
             .merge(web::router())
             .with_state(state)
             .oneshot(request)

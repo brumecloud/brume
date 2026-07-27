@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 use brume_api_client::BrumeClient;
-use brume_core::{TokenPair, Visibility};
+use brume_core::{AuthMode, TokenPair};
 use chrono::{Duration, Utc};
 use directories::ProjectDirs;
 use fs2::FileExt;
@@ -24,7 +24,8 @@ pub struct PlanConfig {
     pub title: Option<String>,
     pub entry: Option<String>,
     pub slug: Option<String>,
-    pub visibility: Option<Visibility>,
+    pub auth: Option<AuthMode>,
+    pub overlay: Option<bool>,
 }
 
 pub fn load_project(directory: &Path) -> Result<ProjectFile> {
@@ -90,6 +91,7 @@ pub async fn load_access_token(base_url: &str) -> Result<String> {
         .create(true)
         .read(true)
         .write(true)
+        .truncate(false)
         .open(&lock_path)
         .context("opening the Brume credentials lock")?;
     lock.lock_exclusive()

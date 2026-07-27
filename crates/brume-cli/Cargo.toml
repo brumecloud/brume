@@ -28,6 +28,7 @@ keyring.workspace = true
 mime_guess.workspace = true
 open.workspace = true
 reqwest.workspace = true
+rpassword.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

@@ -2,5 +2,5 @@
 title = "Brume Example Plan"
 entry = "index.mdx"
 slug = "example-plan"
-visibility = "private"
-
+auth = "token"
+overlay = true

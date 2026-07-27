@@ -1,0 +1,23 @@
+meta {
+  name: Bearer token reads granted plan
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{plan_url}}/e2e/{{plan}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{recipient_token}}
+}
+
+tests {
+  test("the accountless bearer token grants the scoped website", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.include("brume-layout");
+    expect(res.body).to.include("/_brume/overlay.js");
+  });
+}

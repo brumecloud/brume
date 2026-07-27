@@ -1,12 +1,49 @@
-use axum::{extract::Request, response::Response};
+use axum::{
+    Router,
+    extract::{FromRequestParts, Request},
+    http::header,
+    response::{IntoResponse, Response},
+};
+use tower::ServiceExt;
+use tower_cookies::Cookies;
 
-use crate::{deployments, state::AppState, tunnels};
+use crate::{access, deployments, state::AppState, tunnels};
 
 pub async fn serve(state: AppState, public_label: String, request: Request) -> Response {
     if state.tunnels.contains_label(&public_label) {
         return tunnels::relay_request(state, public_label, request).await;
     }
-    let method = request.method().clone();
-    let request_uri = request.uri().clone();
-    deployments::serve_public(state, public_label, method, request_uri).await
+    if matches!(
+        request.uri().path(),
+        "/_brume/access/complete" | "/_brume/overlay.js"
+    ) {
+        return Router::new()
+            .merge(access::site_router())
+            .with_state(state)
+            .oneshot(request)
+            .await
+            .expect("website access router is infallible");
+    }
+    let bearer_token = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(str::to_owned);
+    let (mut parts, _) = request.into_parts();
+    let cookies = match Cookies::from_request_parts(&mut parts, &state).await {
+        Ok(cookies) => cookies,
+        Err(error) => return error.into_response(),
+    };
+    let method = parts.method;
+    let request_uri = parts.uri;
+    deployments::serve_public(
+        state,
+        cookies,
+        bearer_token,
+        public_label,
+        method,
+        request_uri,
+    )
+    .await
 }

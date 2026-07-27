@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from "react";
 
 export function Steps({ children }: PropsWithChildren) {
-  return <ol className="brume-steps">{children}</ol>;
+  return <ol className="brume-steps" data-brume-animate>{children}</ol>;
 }
 
 export function Step({
@@ -15,4 +15,3 @@ export function Step({
     </li>
   );
 }
-

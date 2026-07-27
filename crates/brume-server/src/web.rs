@@ -5,12 +5,12 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
 };
-use brume_core::{BASE_PATH_PLACEHOLDER, BundleManifest, Visibility, validate_relative_path};
+use brume_core::{BASE_PATH_PLACEHOLDER, BundleManifest, validate_relative_path};
 use sqlx::Row;
 use tower_cookies::Cookies;
 use uuid::Uuid;
 
-use crate::{auth::web_user, error::ApiError, state::AppState, util::hash_secret};
+use crate::{access, auth::web_user, error::ApiError, state::AppState};
 
 const WEB_RUNTIME: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/runtime.js"));
 const WEB_THEME: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/theme.css"));
@@ -21,14 +21,7 @@ pub fn router() -> Router<AppState> {
         .route("/_brume/theme.css", get(theme))
         .route("/{handle}/{slug}/_read", post(read_canonical))
         .route("/{handle}/{slug}/_assets/{*path}", get(asset_canonical))
-        .route("/{handle}/{slug}/~{access}/_read", post(read_shared))
-        .route(
-            "/{handle}/{slug}/~{access}/_assets/{*path}",
-            get(asset_shared),
-        )
         .route("/{handle}/{slug}", get(page_canonical_root))
-        .route("/{handle}/{slug}/~{access}", get(page_shared_root))
-        .route("/{handle}/{slug}/~{access}/{*route}", get(page_shared))
         .route("/{handle}/{slug}/{*route}", get(page_canonical))
 }
 
@@ -38,68 +31,40 @@ struct WebPlan {
     title: String,
     handle: String,
     slug: String,
-    visibility: Visibility,
-    unlisted_token_hash: Option<Vec<u8>>,
+    access: access::AccessControl,
     object_prefix: String,
     manifest: BundleManifest,
-}
-
-enum Access<'a> {
-    Canonical,
-    Shared(&'a str),
 }
 
 async fn page_canonical_root(
     State(state): State<AppState>,
     cookies: Cookies,
+    headers: HeaderMap,
     Path((handle, slug)): Path<(String, String)>,
 ) -> Response {
-    serve_page(&state, &cookies, &handle, &slug, Access::Canonical, "/").await
-}
-
-async fn page_canonical(
-    State(state): State<AppState>,
-    cookies: Cookies,
-    Path((handle, slug, route)): Path<(String, String, String)>,
-) -> Response {
     serve_page(
         &state,
         &cookies,
+        bearer_token(&headers),
         &handle,
         &slug,
-        Access::Canonical,
-        &format!("/{}", route.trim_end_matches('/')),
-    )
-    .await
-}
-
-async fn page_shared_root(
-    State(state): State<AppState>,
-    cookies: Cookies,
-    Path((handle, slug, access)): Path<(String, String, String)>,
-) -> Response {
-    serve_page(
-        &state,
-        &cookies,
-        &handle,
-        &slug,
-        Access::Shared(&access),
         "/",
     )
     .await
 }
 
-async fn page_shared(
+async fn page_canonical(
     State(state): State<AppState>,
     cookies: Cookies,
-    Path((handle, slug, access, route)): Path<(String, String, String, String)>,
+    headers: HeaderMap,
+    Path((handle, slug, route)): Path<(String, String, String)>,
 ) -> Response {
     serve_page(
         &state,
         &cookies,
+        bearer_token(&headers),
         &handle,
         &slug,
-        Access::Shared(&access),
         &format!("/{}", route.trim_end_matches('/')),
     )
     .await
@@ -108,27 +73,24 @@ async fn page_shared(
 async fn serve_page(
     state: &AppState,
     cookies: &Cookies,
+    bearer_token: Option<&str>,
     handle: &str,
     slug: &str,
-    access: Access<'_>,
     route: &str,
 ) -> Response {
     let result = async {
         let plan = load_plan(state, handle, slug).await?;
-        match authorize(state, cookies, &plan, &access).await? {
-            Authorization::Allowed => {}
-            Authorization::LoginRequired => {
-                let return_to = request_base(&plan, &access);
-                return Ok::<Response, ApiError>(
-                    Redirect::temporary(&format!(
-                        "{}/auth/github/start?return_to={}",
-                        state.config.auth_public_url,
-                        urlencoding::encode(&return_to)
-                    ))
-                    .into_response(),
-                );
+        let return_to = format!(
+            "{}{}{}",
+            state.config.plan_public_url,
+            request_base(&plan),
+            if route == "/" { "" } else { route }
+        );
+        match authorize(state, cookies, &plan, &return_to, bearer_token).await? {
+            access::RequestAuthorization::Allowed => {}
+            access::RequestAuthorization::Redirect(url) => {
+                return Ok::<Response, ApiError>(Redirect::temporary(&url).into_response());
             }
-            Authorization::Hidden => return Err(ApiError::not_found()),
         }
         let page = plan
             .manifest
@@ -143,14 +105,23 @@ async fn serve_page(
             .map_err(ApiError::internal)?;
         let fragment = std::str::from_utf8(&object.bytes)
             .map_err(ApiError::internal)?
-            .replace(BASE_PATH_PLACEHOLDER, &request_base(&plan, &access));
-        let read_url = format!("{}/_read", request_base(&plan, &access));
-        let mut headers = secure_headers();
+            .replace(BASE_PATH_PLACEHOLDER, &request_base(&plan));
+        let read_url = format!("{}/_read", request_base(&plan));
+        let mut headers = secure_headers(state)?;
         headers.insert(
             header::CACHE_CONTROL,
             HeaderValue::from_static("private, no-cache"),
         );
-        Ok((headers, Html(shell(&plan.title, &read_url, &fragment))).into_response())
+        Ok((
+            headers,
+            Html(shell(
+                &plan.title,
+                &read_url,
+                &fragment,
+                &access::overlay_script_tag(&plan.access),
+            )),
+        )
+            .into_response())
     }
     .await;
     result.unwrap_or_else(IntoResponse::into_response)
@@ -159,22 +130,15 @@ async fn serve_page(
 async fn asset_canonical(
     State(state): State<AppState>,
     cookies: Cookies,
+    headers: HeaderMap,
     Path((handle, slug, path)): Path<(String, String, String)>,
-) -> Response {
-    serve_asset(&state, &cookies, &handle, &slug, Access::Canonical, &path).await
-}
-
-async fn asset_shared(
-    State(state): State<AppState>,
-    cookies: Cookies,
-    Path((handle, slug, access, path)): Path<(String, String, String, String)>,
 ) -> Response {
     serve_asset(
         &state,
         &cookies,
+        bearer_token(&headers),
         &handle,
         &slug,
-        Access::Shared(&access),
         &path,
     )
     .await
@@ -183,17 +147,18 @@ async fn asset_shared(
 async fn serve_asset(
     state: &AppState,
     cookies: &Cookies,
+    bearer_token: Option<&str>,
     handle: &str,
     slug: &str,
-    access: Access<'_>,
     path: &str,
 ) -> Response {
     let result = async {
         validate_relative_path(path).map_err(|_| ApiError::not_found())?;
         let plan = load_plan(state, handle, slug).await?;
+        let return_to = format!("{}{}", state.config.plan_public_url, request_base(&plan));
         if !matches!(
-            authorize(state, cookies, &plan, &access).await?,
-            Authorization::Allowed
+            authorize(state, cookies, &plan, &return_to, bearer_token).await?,
+            access::RequestAuthorization::Allowed
         ) {
             return Err(ApiError::not_found());
         }
@@ -209,7 +174,7 @@ async fn serve_asset(
             .get(&format!("{}/{}", plan.object_prefix, manifest_path))
             .await
             .map_err(ApiError::internal)?;
-        let mut headers = secure_headers();
+        let mut headers = secure_headers(state)?;
         headers.insert(
             header::CONTENT_TYPE,
             HeaderValue::from_str(&asset.content_type).map_err(ApiError::internal)?,
@@ -227,31 +192,25 @@ async fn serve_asset(
 async fn read_canonical(
     State(state): State<AppState>,
     cookies: Cookies,
+    headers: HeaderMap,
     Path((handle, slug)): Path<(String, String)>,
 ) -> Response {
-    record_read(&state, &cookies, &handle, &slug, Access::Canonical).await
-}
-
-async fn read_shared(
-    State(state): State<AppState>,
-    cookies: Cookies,
-    Path((handle, slug, access)): Path<(String, String, String)>,
-) -> Response {
-    record_read(&state, &cookies, &handle, &slug, Access::Shared(&access)).await
+    record_read(&state, &cookies, bearer_token(&headers), &handle, &slug).await
 }
 
 async fn record_read(
     state: &AppState,
     cookies: &Cookies,
+    bearer_token: Option<&str>,
     handle: &str,
     slug: &str,
-    access: Access<'_>,
 ) -> Response {
     let result = async {
         let plan = load_plan(state, handle, slug).await?;
+        let return_to = format!("{}{}", state.config.plan_public_url, request_base(&plan));
         if !matches!(
-            authorize(state, cookies, &plan, &access).await?,
-            Authorization::Allowed
+            authorize(state, cookies, &plan, &return_to, bearer_token).await?,
+            access::RequestAuthorization::Allowed
         ) {
             return Err(ApiError::not_found());
         }
@@ -269,42 +228,29 @@ async fn record_read(
     result.unwrap_or_else(IntoResponse::into_response)
 }
 
-enum Authorization {
-    Allowed,
-    LoginRequired,
-    Hidden,
-}
-
 async fn authorize(
     state: &AppState,
     cookies: &Cookies,
     plan: &WebPlan,
-    access: &Access<'_>,
-) -> Result<Authorization, ApiError> {
+    return_to: &str,
+    bearer_token: Option<&str>,
+) -> Result<access::RequestAuthorization, ApiError> {
     let user = web_user(state, cookies).await?;
-    if user.as_ref().is_some_and(|user| user.id == plan.user_id) {
-        return Ok(Authorization::Allowed);
-    }
-    match plan.visibility {
-        Visibility::Public => Ok(Authorization::Allowed),
-        Visibility::Private => Ok(if user.is_some() {
-            Authorization::Hidden
-        } else {
-            Authorization::LoginRequired
-        }),
-        Visibility::Unlisted => match (access, &plan.unlisted_token_hash) {
-            (Access::Shared(token), Some(expected)) if hash_secret(token) == *expected => {
-                Ok(Authorization::Allowed)
-            }
-            _ => Ok(Authorization::Hidden),
-        },
-    }
+    access::authorize_request(
+        state,
+        cookies,
+        &plan.access,
+        return_to,
+        user.is_some_and(|user| user.id == plan.user_id),
+        bearer_token,
+    )
+    .await
 }
 
 async fn load_plan(state: &AppState, handle: &str, slug: &str) -> Result<WebPlan, ApiError> {
     let row = sqlx::query(
-        "SELECT plans.id, plans.user_id, plans.title, plans.slug, plans.visibility,
-                plans.unlisted_token_hash, users.handle, plan_bundles.object_prefix,
+        "SELECT plans.id, plans.user_id, plans.title, plans.slug,
+                plans.access_control_id, users.handle, plan_bundles.object_prefix,
                 plan_bundles.manifest
          FROM plans
          JOIN users ON users.id = plans.user_id
@@ -316,31 +262,32 @@ async fn load_plan(state: &AppState, handle: &str, slug: &str) -> Result<WebPlan
     .fetch_optional(&state.database)
     .await?
     .ok_or_else(ApiError::not_found)?;
+    let access_control_id: Uuid = row.try_get("access_control_id")?;
     Ok(WebPlan {
         id: row.try_get("id")?,
         user_id: row.try_get("user_id")?,
         title: row.try_get("title")?,
         handle: row.try_get("handle")?,
         slug: row.try_get("slug")?,
-        visibility: row
-            .try_get::<String, _>("visibility")?
-            .parse()
-            .map_err(ApiError::internal)?,
-        unlisted_token_hash: row.try_get("unlisted_token_hash")?,
+        access: access::load_control(state, access_control_id).await?,
         object_prefix: row.try_get("object_prefix")?,
         manifest: serde_json::from_value(row.try_get("manifest")?).map_err(ApiError::internal)?,
     })
 }
 
-fn request_base(plan: &WebPlan, access: &Access<'_>) -> String {
-    match access {
-        Access::Canonical => format!("/{}/{}", plan.handle, plan.slug),
-        Access::Shared(token) => format!("/{}/{}/~{}", plan.handle, plan.slug, token),
-    }
+fn request_base(plan: &WebPlan) -> String {
+    format!("/{}/{}", plan.handle, plan.slug)
+}
+
+fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
 }
 
 async fn runtime() -> impl IntoResponse {
-    let mut headers = secure_headers();
+    let mut headers = HeaderMap::new();
     headers.insert(
         header::CONTENT_TYPE,
         HeaderValue::from_static("text/javascript; charset=utf-8"),
@@ -353,7 +300,7 @@ async fn runtime() -> impl IntoResponse {
 }
 
 async fn theme() -> impl IntoResponse {
-    let mut headers = secure_headers();
+    let mut headers = HeaderMap::new();
     headers.insert(
         header::CONTENT_TYPE,
         HeaderValue::from_static("text/css; charset=utf-8"),
@@ -365,13 +312,15 @@ async fn theme() -> impl IntoResponse {
     (headers, WEB_THEME)
 }
 
-fn secure_headers() -> HeaderMap {
+fn secure_headers(state: &AppState) -> Result<HeaderMap, ApiError> {
     let mut headers = HeaderMap::new();
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
-        HeaderValue::from_static(
-            "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
-        ),
+        HeaderValue::from_str(&format!(
+            "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; frame-src {}; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+            state.config.auth_public_url
+        ))
+        .map_err(ApiError::internal)?,
     );
     headers.insert(
         header::REFERRER_POLICY,
@@ -381,14 +330,14 @@ fn secure_headers() -> HeaderMap {
         header::X_CONTENT_TYPE_OPTIONS,
         HeaderValue::from_static("nosniff"),
     );
-    headers
+    Ok(headers)
 }
 
-fn shell(title: &str, read_url: &str, fragment: &str) -> String {
+fn shell(title: &str, read_url: &str, fragment: &str, overlay: &str) -> String {
     let title = escape_html(title);
     let read_url = escape_html(read_url);
     format!(
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"brume-read-url\" content=\"{read_url}\"><title>{title}</title><link rel=\"stylesheet\" href=\"/_brume/theme.css\"><script type=\"module\" src=\"/_brume/runtime.js\"></script></head><body><div class=\"brume-shell\"><header class=\"brume-topbar\"><a href=\"/\">Brume</a><button class=\"brume-theme-toggle\" data-brume-theme-toggle type=\"button\">Theme</button></header>{fragment}</div></body></html>"
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"brume-read-url\" content=\"{read_url}\"><title>{title}</title><link rel=\"stylesheet\" href=\"/_brume/theme.css\"><script type=\"module\" src=\"/_brume/runtime.js\"></script></head><body><div class=\"brume-shell\">{fragment}</div>{overlay}</body></html>"
     )
 }
 

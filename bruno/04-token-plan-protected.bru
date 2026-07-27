@@ -1,0 +1,35 @@
+meta {
+  name: Token plan redirects before loading
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{plan_url}}/e2e/{{plan}}
+  body: none
+  auth: none
+}
+
+settings {
+  followRedirects: false
+}
+
+script:post-response {
+  const location = res.headers.location;
+  const query = location.split("?")[1] || "";
+  const params = {};
+  query.split("&").forEach(function(part) {
+    const pair = part.split("=");
+    params[decodeURIComponent(pair[0])] = decodeURIComponent(pair.slice(1).join("="));
+  });
+  bru.setVar("token_site", params.site);
+  bru.setVar("token_return_to", params.return_to);
+}
+
+tests {
+  test("protected content redirects to the trusted auth domain", function() {
+    expect(res.status).to.equal(307);
+    expect(res.headers.location).to.include(`${bru.getEnvVar("auth_url")}/access`);
+    expect(res.headers.location).to.not.include("brume-layout");
+  });
+}

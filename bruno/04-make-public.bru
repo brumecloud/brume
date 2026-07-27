@@ -1,7 +1,7 @@
 meta {
-  name: Make plan public
+  name: Remove plan authentication
   type: http
-  seq: 4
+  seq: 12
 }
 
 patch {
@@ -16,14 +16,13 @@ auth:bearer {
 
 body:json {
   {
-    "visibility": "public"
+    "auth": "none"
   }
 }
 
 tests {
-  test("visibility is public", function() {
+  test("authentication is disabled", function() {
     expect(res.status).to.equal(200);
-    expect(res.body.visibility).to.equal("public");
+    expect(res.body.auth).to.equal("none");
   });
 }
-

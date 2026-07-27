@@ -46,6 +46,7 @@ type Document = {
   relativePath: string;
   route: string;
   title: string;
+  headerTitle?: string;
   body: string;
   headings: Heading[];
 };
@@ -176,6 +177,7 @@ async function renderDocument(
   const html = renderToStaticMarkup(
     <PageLayout
       currentRoute={document.route}
+      headerTitle={document.headerTitle}
       headings={document.headings}
       navigation={navigation}
       title={siteTitle}
@@ -224,14 +226,25 @@ export async function renderSite(request: RenderRequest): Promise<RenderSuccess>
     const source = await readFile(absolutePath, "utf8");
     const parsed = matter(source);
     const headings = headingsFrom(parsed.content);
-    const title =
-      typeof parsed.data.title === "string"
-        ? parsed.data.title
-        : headings.find((heading) => heading.depth === 1)?.title ?? basename(relativePath, extname(relativePath));
+    const frontmatterTitle =
+      typeof parsed.data.title === "string" && parsed.data.title.trim()
+        ? parsed.data.title.trim()
+        : undefined;
+    const headingTitle = headings.find((heading) => heading.depth === 1)?.title;
+    const headerTitle = frontmatterTitle ?? headingTitle;
+    const title = headerTitle ?? basename(relativePath, extname(relativePath));
     const route = routeFor(relativePath, entry);
     if (routeSet.has(route)) throw new Error(`Multiple documents resolve to route \`${route}\``);
     routeSet.add(route);
-    documents.push({ absolutePath, body: parsed.content, headings, relativePath, route, title });
+    documents.push({
+      absolutePath,
+      body: parsed.content,
+      headerTitle,
+      headings,
+      relativePath,
+      route,
+      title,
+    });
   }
 
   documents.sort((left, right) => {

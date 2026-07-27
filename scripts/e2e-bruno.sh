@@ -11,9 +11,9 @@ export BRUME_API_PUBLIC_URL="http://api.localhost:18080"
 export BRUME_AUTH_PUBLIC_URL="http://auth.localhost:18080"
 export BRUME_PLAN_PUBLIC_URL="http://plan.localhost:18080"
 export BRUME_PUBLIC_DOMAIN="localhost"
-export BRUME_DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/brume"
+export BRUME_DATABASE_URL="${BRUME_E2E_DATABASE_URL:-postgres://postgres:postgres@127.0.0.1:5432/brume}"
 export BRUME_STORAGE_BACKEND="filesystem"
-export BRUME_STORAGE_PATH="${ROOT_DIR}/.brume/e2e-storage"
+export BRUME_STORAGE_PATH="${BRUME_E2E_STORAGE_PATH:-${ROOT_DIR}/.brume/e2e-storage}"
 export BRUME_GITHUB_CLIENT_ID="e2e-client"
 export BRUME_GITHUB_CLIENT_SECRET="e2e-secret"
 
@@ -60,16 +60,25 @@ BRUME_TOKEN="${TOKEN}" "${ROOT_DIR}/target/debug/brume" \
   --base-url "${BRUME_API_PUBLIC_URL}" \
   plan deploy "${ROOT_DIR}/fixtures/example-plan" \
   --slug e2e-plan \
-  --visibility private
+  --auth token
 BRUME_TOKEN="${TOKEN}" "${ROOT_DIR}/target/debug/brume" \
   --base-url "${BRUME_API_PUBLIC_URL}" \
   deploy "${ROOT_DIR}/fixtures/example-deployment" \
   --url static-e2e \
-  --spa
+  --spa \
+  --auth none
+
+printf '%s' "e2e-password" | BRUME_TOKEN="${TOKEN}" "${ROOT_DIR}/target/debug/brume" \
+  --base-url "${BRUME_API_PUBLIC_URL}" \
+  deploy "${ROOT_DIR}/fixtures/example-deployment" \
+  --url password-e2e \
+  --auth password \
+  --password-stdin
 
 GENERATED_DEPLOYMENT_OUTPUT="$(BRUME_TOKEN="${TOKEN}" "${ROOT_DIR}/target/debug/brume" \
   --base-url "${BRUME_API_PUBLIC_URL}" \
-  deploy "${ROOT_DIR}/fixtures/example-deployment")"
+  deploy "${ROOT_DIR}/fixtures/example-deployment" \
+  --auth none)"
 GENERATED_DEPLOYMENT_URL="${GENERATED_DEPLOYMENT_OUTPUT#Deployed }"
 GENERATED_DEPLOYMENT_URL="${GENERATED_DEPLOYMENT_URL%/}"
 
@@ -201,6 +210,8 @@ done
     --env-var "failed_tunnel_url=http://tunnel-failure-e2e.localhost:18080" \
     --env-var "offline_url=http://not-running-e2e.localhost:18080" \
     --env-var "deployment_url=http://static-e2e-e2e.localhost:18080" \
+    --env-var "password_deployment_url=http://password-e2e-e2e.localhost:18080" \
+    --env-var "deployment=static-e2e" \
     --env-var "generated_deployment_url=${GENERATED_DEPLOYMENT_URL}" \
     --env-var "generated_tunnel_url=${GENERATED_TUNNEL_URL}" \
     --env-var "plan=e2e-plan" \
