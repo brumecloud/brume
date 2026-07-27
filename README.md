@@ -18,7 +18,7 @@ Les publications, les tunnels et les commandes de gestion nécessitent une conne
 brume login
 ```
 
-La commande ouvre GitHub sur `auth.brume.dev`, puis conserve dans le trousseau système un access token d’une heure et un refresh token rotatif de 90 jours.
+La commande ouvre GitHub sur `auth.brume.dev`, puis conserve en clair dans `~/.brume/credentials.json` un access token d’une heure et un refresh token rotatif de 90 jours.
 Le CLI renouvelle automatiquement l’access token.
 La prévisualisation et la construction locale d’un plan fonctionnent sans connexion.
 

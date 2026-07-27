@@ -32,7 +32,6 @@ fs2 = "0.4"
 futures = "0.3"
 hex = "0.4"
 http = "1"
-keyring = { version = "3", features = ["apple-native", "sync-secret-service", "vendored", "windows-native"] }
 mime_guess = "2"
 moka = { version = "0.12", features = ["future"] }
 open = "5"

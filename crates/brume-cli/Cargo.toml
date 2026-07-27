@@ -24,7 +24,6 @@ fs2.workspace = true
 futures.workspace = true
 hex.workspace = true
 http.workspace = true
-keyring.workspace = true
 mime_guess.workspace = true
 open.workspace = true
 reqwest.workspace = true
