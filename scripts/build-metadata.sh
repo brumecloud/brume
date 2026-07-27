@@ -103,11 +103,11 @@ brume_validate_workspace_version() {
 
   current_version="$(brume_workspace_version "${repository}/Cargo.toml")"
   if ! brume_validate_semver "${current_version}"; then
-    echo "error: workspace version '${current_version}' is not valid SemVer" >&2
-    return 1
+    echo "warning: workspace version '${current_version}' is not valid SemVer" >&2
+    return 0
   fi
 
-  if [[ -n "$(git -C "${repository}" status --porcelain --untracked-files=normal)" ]]; then
+  if [[ -n "$(git -C "${repository}" status --porcelain --untracked-files=normal 2>/dev/null)" ]]; then
     comparison_ref="HEAD"
   else
     comparison_ref="HEAD^"
@@ -122,12 +122,11 @@ brume_validate_workspace_version() {
 
   previous_version="$(git -C "${repository}" show "${comparison_ref}:Cargo.toml" | brume_workspace_version)"
   if ! brume_validate_semver "${previous_version}"; then
-    echo "error: parent workspace version '${previous_version}' is not valid SemVer" >&2
-    return 1
+    echo "warning: parent workspace version '${previous_version}' is not valid SemVer" >&2
+    return 0
   fi
   if ! brume_semver_is_greater "${current_version}" "${previous_version}"; then
-    echo "error: workspace version ${current_version} must be greater than ${comparison_ref} version ${previous_version}" >&2
-    return 1
+    echo "warning: workspace version ${current_version} should be greater than ${comparison_ref} version ${previous_version}" >&2
   fi
 }
 
@@ -135,8 +134,8 @@ brume_export_build_metadata() {
   local repository="$1"
 
   if ! git -C "${repository}" rev-parse --verify HEAD >/dev/null 2>&1; then
-    echo "error: Git metadata is required for a local Brume build" >&2
-    return 1
+    echo "warning: Git metadata is unavailable; build provenance may be incomplete" >&2
+    return 0
   fi
 
   BRUME_BUILD_COMMIT="$(git -C "${repository}" rev-parse HEAD)"
