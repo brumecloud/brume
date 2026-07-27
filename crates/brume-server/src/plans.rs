@@ -144,6 +144,7 @@ async fn deploy_plan(
         } else {
             access::insert_control(
                 &mut transaction,
+                Uuid::now_v7(),
                 user.id,
                 parameters.auth,
                 password,

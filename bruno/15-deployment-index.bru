@@ -16,6 +16,9 @@ tests {
     expect(res.headers["content-type"]).to.include("text/html");
     expect(res.body).to.include("Brume static deployment fixture");
     expect(res.body).not.to.include("brume-layout");
-    expect(res.body).to.include("/_brume/overlay.js");
+    expect(res.body).to.include("data-brume-overlay-style");
+    expect(res.body).to.include("data-brume-overlay-script");
+    expect(res.body.indexOf("data-brume-overlay-script")).to.be.lessThan(res.body.indexOf("</body>"));
+    expect(res.body).not.to.include("<iframe");
   });
 }

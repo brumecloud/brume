@@ -169,8 +169,9 @@ Chaque domaine reçoit une session distincte d’un jour, afin que le JavaScript
 
 Brume ajoute par défaut un bouton rond `☁️` en bas à droite de chaque plan ou site statique hébergé.
 Il ouvre une toolbar compacte inspirée de l’interaction de la Vercel Toolbar.
-Elle permet de copier ou partager l’URL, de créer des invitations, de gérer les destinataires et de changer l’authentification.
-Seule l’identité GitHub ayant déployé le site voit les contrôles de gestion.
+Elle permet de copier ou partager l’URL.
+La gestion des invitations, des destinataires et de l’authentification s’ouvre sur le domaine d’authentification Brume.
+Seule l’identité GitHub ayant déployé le site peut utiliser ces contrôles de gestion.
 La toolbar peut être déplacée à gauche ou à droite et mémorise sa position dans le navigateur.
 `--no-overlay` ou `overlay = false` la désactive.
 La prévisualisation et les builds locaux ne contiennent jamais cette toolbar.
@@ -178,7 +179,8 @@ La prévisualisation et les builds locaux ne contiennent jamais cette toolbar.
 ## 2. Sites HTML statiques
 
 La commande `brume deploy` publie directement le contenu d’un dossier sans passer par le renderer Markdown.
-Le bundle stocké reste inchangé et le serveur ajoute la toolbar au moment de servir une réponse HTML.
+Le serveur injecte le CSS et le JavaScript de la toolbar dans chaque document HTML pendant le déploiement.
+La toolbar est donc servie directement avec le bundle, sans iframe ni réécriture à la lecture.
 Le dossier doit contenir un fichier `index.html` à sa racine.
 
 ```bash

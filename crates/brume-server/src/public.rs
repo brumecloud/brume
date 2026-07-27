@@ -15,7 +15,7 @@ pub async fn serve(state: AppState, public_label: String, request: Request) -> R
     }
     if matches!(
         request.uri().path(),
-        "/_brume/access/complete" | "/_brume/overlay.js"
+        "/_brume/access/complete" | "/_brume/overlay-state"
     ) {
         return Router::new()
             .merge(access::site_router())

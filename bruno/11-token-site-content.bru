@@ -14,6 +14,7 @@ tests {
   test("scoped token session loads the hosted website", function() {
     expect(res.status).to.equal(200);
     expect(res.body).to.include("brume-layout");
-    expect(res.body).to.include("/_brume/overlay.js");
+    expect(res.body).to.include("data-brume-overlay-script");
+    expect(res.body).not.to.include("<iframe");
   });
 }

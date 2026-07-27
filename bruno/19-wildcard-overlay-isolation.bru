@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{tunnel_url}}/_brume/overlay.js
+  url: {{tunnel_url}}/_brume/overlay-state
   body: none
   auth: none
 }
@@ -13,7 +13,7 @@ get {
 tests {
   test("a tunnel receives toolbar-shaped paths without interception", function() {
     expect(res.status).to.equal(200);
-    expect(res.body.pathname).to.equal("/_brume/overlay.js");
+    expect(res.body.pathname).to.equal("/_brume/overlay-state");
     expect(res.body.instance).to.equal("second");
   });
 }

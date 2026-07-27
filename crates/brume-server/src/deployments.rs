@@ -119,9 +119,10 @@ async fn deploy(
         }
         candidate = random_public_id();
     };
-    let deployment = tokio::task::spawn_blocking(move || validate_archive(body, parameters.spa))
-        .await
-        .map_err(ApiError::internal)??;
+    let mut deployment =
+        tokio::task::spawn_blocking(move || validate_archive(body, parameters.spa))
+            .await
+            .map_err(ApiError::internal)??;
     let existing = sqlx::query(
         "SELECT id, active_bundle_id, access_control_id
          FROM deployments WHERE user_id = $1 AND slug = $2",
@@ -145,6 +146,12 @@ async fn deploy(
         .map(|row| row.try_get("access_control_id"))
         .transpose()?
         .flatten();
+    let access_control_id = existing_control_id.unwrap_or_else(Uuid::now_v7);
+    inject_overlay(
+        &mut deployment,
+        access_control_id,
+        &state.config.auth_public_url,
+    )?;
     let password = headers
         .get("x-brume-password")
         .and_then(|value| value.to_str().ok());
@@ -171,27 +178,27 @@ async fn deploy(
 
     let database_result: Result<(), ApiError> = async {
         let mut transaction = state.database.begin().await?;
-        let access_control_id = if let Some(control_id) = existing_control_id {
+        if existing_control_id.is_some() {
             access::update_control(
                 &mut transaction,
-                control_id,
+                access_control_id,
                 user.id,
                 parameters.auth,
                 password,
                 parameters.overlay,
             )
             .await?;
-            control_id
         } else {
             access::insert_control(
                 &mut transaction,
+                access_control_id,
                 user.id,
                 parameters.auth,
                 password,
                 parameters.overlay,
             )
-            .await?
-        };
+            .await?;
+        }
         if existing.is_none() {
             sqlx::query(
                 "INSERT INTO deployments (
@@ -526,6 +533,61 @@ fn validate_archive(body: Bytes, spa: bool) -> Result<ValidatedDeployment, ApiEr
     })
 }
 
+fn inject_overlay(
+    deployment: &mut ValidatedDeployment,
+    control_id: Uuid,
+    auth_origin: &str,
+) -> Result<(), ApiError> {
+    let markup = access::overlay_markup(control_id, auth_origin, None);
+    let mut total_size = 0_usize;
+    for (path, file) in &mut deployment.files {
+        if file.content_type.starts_with("text/html") {
+            let html = std::str::from_utf8(&file.bytes).map_err(|_| {
+                ApiError::bad_request(format!("Deployment HTML `{path}` is not valid UTF-8"))
+            })?;
+            let insertion_index = find_html_insertion_index(html);
+            let mut injected = String::with_capacity(html.len() + markup.len());
+            injected.push_str(&html[..insertion_index]);
+            injected.push_str(&markup);
+            injected.push_str(&html[insertion_index..]);
+            if injected.len() as u64 > DEPLOYMENT_MAX_FILE_BYTES {
+                return Err(ApiError::bad_request(format!(
+                    "Deployment object `{path}` exceeds 20 MiB after adding the Brume toolbar"
+                )));
+            }
+            file.bytes = Bytes::from(injected);
+        }
+        total_size = total_size.saturating_add(file.bytes.len());
+        if total_size > MAX_EXPANDED_BYTES {
+            return Err(ApiError::bad_request(
+                "Expanded deployment exceeds 100 MiB after adding the Brume toolbar",
+            ));
+        }
+    }
+    for manifest_file in &mut deployment.manifest.files {
+        let file = deployment.files.get(&manifest_file.path).ok_or_else(|| {
+            ApiError::internal(format!(
+                "deployment manifest references missing file `{}`",
+                manifest_file.path
+            ))
+        })?;
+        manifest_file.size = file.bytes.len() as u64;
+    }
+    Ok(())
+}
+
+fn find_html_insertion_index(html: &str) -> usize {
+    rfind_ascii_case_insensitive(html.as_bytes(), b"</body>")
+        .or_else(|| rfind_ascii_case_insensitive(html.as_bytes(), b"</html>"))
+        .unwrap_or(html.len())
+}
+
+fn rfind_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .rposition(|window| window.eq_ignore_ascii_case(needle))
+}
+
 fn content_type_for(path: &str) -> String {
     match FilePath::new(path)
         .extension()
@@ -614,11 +676,7 @@ pub async fn serve_public(
             header::CONTENT_TYPE,
             HeaderValue::from_str(&file.content_type).map_err(ApiError::internal)?,
         );
-        let mut response_bytes = object.bytes.to_vec();
-        if method == Method::GET && file.content_type.starts_with("text/html") {
-            response_bytes
-                .extend_from_slice(access::overlay_script_tag(&deployment.access).as_bytes());
-        }
+        let response_bytes = object.bytes.to_vec();
         headers.insert(
             header::CONTENT_LENGTH,
             HeaderValue::from_str(&response_bytes.len().to_string()).map_err(ApiError::internal)?,
@@ -959,5 +1017,29 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.to_string().contains("exceeds 20 MiB"));
+    }
+
+    #[test]
+    fn deployment_injects_toolbar_inside_each_html_document() {
+        let html = "<!doctype html><html><body><main>Site</main></BODY></html>";
+        let mut deployment = ValidatedDeployment {
+            manifest: manifest(false, &["index.html"]),
+            files: HashMap::from([(
+                "index.html".to_owned(),
+                DeploymentObject {
+                    bytes: Bytes::from_static(html.as_bytes()),
+                    content_type: content_type_for("index.html"),
+                },
+            )]),
+        };
+
+        inject_overlay(&mut deployment, Uuid::nil(), "https://auth.example.com").unwrap();
+
+        let injected = std::str::from_utf8(&deployment.files["index.html"].bytes).unwrap();
+        let script_index = injected.find("data-brume-overlay-script").unwrap();
+        let body_end_index = injected.find("</BODY>").unwrap();
+        assert!(script_index < body_end_index);
+        assert!(!injected.contains("<iframe"));
+        assert_eq!(deployment.manifest.files[0].size, injected.len() as u64);
     }
 }

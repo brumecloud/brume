@@ -10,7 +10,7 @@ use sqlx::Row;
 use tower_cookies::Cookies;
 use uuid::Uuid;
 
-use crate::{access, auth::web_user, error::ApiError, state::AppState};
+use crate::{access, auth::web_user, error::ApiError, state::AppState, util::random_token};
 
 const WEB_RUNTIME: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/runtime.js"));
 const WEB_THEME: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/theme.css"));
@@ -107,7 +107,8 @@ async fn serve_page(
             .map_err(ApiError::internal)?
             .replace(BASE_PATH_PLACEHOLDER, &request_base(&plan));
         let read_url = format!("{}/_read", request_base(&plan));
-        let mut headers = secure_headers(state)?;
+        let nonce = random_token("overlay_");
+        let mut headers = secure_headers(Some(&nonce))?;
         headers.insert(
             header::CACHE_CONTROL,
             HeaderValue::from_static("private, no-cache"),
@@ -118,7 +119,11 @@ async fn serve_page(
                 &plan.title,
                 &read_url,
                 &fragment,
-                &access::overlay_script_tag(&plan.access),
+                &access::overlay_markup(
+                    plan.access.id,
+                    &state.config.auth_public_url,
+                    Some(&nonce),
+                ),
             )),
         )
             .into_response())
@@ -174,7 +179,7 @@ async fn serve_asset(
             .get(&format!("{}/{}", plan.object_prefix, manifest_path))
             .await
             .map_err(ApiError::internal)?;
-        let mut headers = secure_headers(state)?;
+        let mut headers = secure_headers(None)?;
         headers.insert(
             header::CONTENT_TYPE,
             HeaderValue::from_str(&asset.content_type).map_err(ApiError::internal)?,
@@ -312,13 +317,15 @@ async fn theme() -> impl IntoResponse {
     (headers, WEB_THEME)
 }
 
-fn secure_headers(state: &AppState) -> Result<HeaderMap, ApiError> {
+fn secure_headers(script_nonce: Option<&str>) -> Result<HeaderMap, ApiError> {
     let mut headers = HeaderMap::new();
+    let script_source = script_nonce
+        .map(|nonce| format!("'self' 'nonce-{nonce}'"))
+        .unwrap_or_else(|| "'self'".to_owned());
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
         HeaderValue::from_str(&format!(
-            "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; frame-src {}; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
-            state.config.auth_public_url
+            "default-src 'none'; script-src {script_source}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         ))
         .map_err(ApiError::internal)?,
     );

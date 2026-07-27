@@ -17,6 +17,7 @@ tests {
     expect(res.body).to.include("class=\"mermaid\"");
     expect(res.body).to.include(`/e2e/${bru.getEnvVar("plan")}/architecture`);
     expect(res.body).to.include("/_brume/runtime.js");
-    expect(res.body).to.include("/_brume/overlay.js");
+    expect(res.body).to.include("data-brume-overlay-script");
+    expect(res.body).not.to.include("<iframe");
   });
 }

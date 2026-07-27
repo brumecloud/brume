@@ -1,0 +1,19 @@
+meta {
+  name: Read inline overlay state
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{plan_url}}/_brume/overlay-state?site={{token_site}}&return_to={{token_return_to}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("the injected toolbar reads its current server-side state", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.enabled).to.equal(true);
+    expect(res.headers["cache-control"]).to.equal("private, no-store");
+  });
+}

@@ -11,7 +11,7 @@ use axum::{
 };
 use brume_core::{AuthMode, CreateInvitationResponse};
 use chrono::{Duration, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Row, Transaction};
 use tower_cookies::{
     Cookies,
@@ -102,18 +102,18 @@ pub fn auth_router() -> Router<AppState> {
 pub fn site_router() -> Router<AppState> {
     Router::new()
         .route("/_brume/access/complete", get(complete_site_auth_handler))
-        .route("/_brume/overlay.js", get(overlay_script))
+        .route("/_brume/overlay-state", get(overlay_state))
 }
 
 pub async fn insert_control(
     transaction: &mut Transaction<'_, Postgres>,
+    id: Uuid,
     owner_user_id: Uuid,
     auth_mode: AuthMode,
     password: Option<&str>,
     overlay_enabled: bool,
 ) -> Result<Uuid, ApiError> {
     validate_password_input(auth_mode, password)?;
-    let id = Uuid::now_v7();
     let password_hash = match password {
         Some(password) => Some(hash_password(password.to_owned()).await?),
         None => None,
@@ -307,65 +307,111 @@ pub async fn authorize_request(
     )))
 }
 
-pub fn overlay_script_tag(control: &AccessControl) -> String {
-    if !control.overlay_enabled {
-        return String::new();
-    }
+pub fn overlay_markup(control_id: Uuid, auth_origin: &str, nonce: Option<&str>) -> String {
+    let nonce = nonce
+        .map(|value| format!(" nonce=\"{}\"", escape_html(value)))
+        .unwrap_or_default();
     format!(
-        "<script defer src=\"/_brume/overlay.js\" data-brume-site=\"{}\"></script>",
-        control.id
+        r#"<style data-brume-overlay-style>[data-brume-overlay-host]{{all:initial;position:fixed!important;right:16px!important;bottom:16px!important;z-index:2147483647!important;color-scheme:dark!important}}[data-brume-overlay-host][data-side="left"]{{right:auto!important;left:16px!important}}</style><script{nonce} data-brume-overlay-script data-brume-site="{control_id}" data-brume-auth-origin="{auth_origin}">(() => {{
+  const source = document.currentScript;
+  if (!source || document.querySelector("[data-brume-overlay-host]")) return;
+  const site = source.dataset.brumeSite;
+  const authOrigin = source.dataset.brumeAuthOrigin;
+  const stateUrl = "/_brume/overlay-state?site=" + encodeURIComponent(site) + "&return_to=" + encodeURIComponent(location.href);
+  fetch(stateUrl, {{ credentials: "same-origin" }})
+    .then((response) => response.ok ? response.json() : Promise.reject())
+    .then((state) => {{
+      if (!state.enabled || document.querySelector("[data-brume-overlay-host]")) return;
+      const host = document.createElement("div");
+      host.dataset.brumeOverlayHost = "";
+      let savedSide = "right";
+      try {{ savedSide = localStorage.getItem("brume-toolbar-side") === "left" ? "left" : "right"; }} catch {{}}
+      host.dataset.side = savedSide;
+      const root = host.attachShadow({{ mode: "closed" }});
+      root.innerHTML = `<style>
+        *{{box-sizing:border-box}}
+        :host{{font:13px/1.35 Inter,ui-sans-serif,system-ui,sans-serif;color:#f5f5f5}}
+        button,a{{font:inherit}}
+        button{{border:1px solid #3a3a3a;border-radius:9px;padding:9px 10px;background:#272727;color:#f5f5f5;cursor:pointer}}
+        button:hover,a:hover{{background:#333}}
+        .launcher{{width:52px;height:52px;padding:0;border:1px solid rgba(255,255,255,.15);border-radius:50%;background:rgba(20,20,20,.94);box-shadow:0 8px 28px rgba(0,0,0,.3);font-size:22px;backdrop-filter:blur(16px)}}
+        .panel{{display:none;width:min(370px,calc(100vw - 32px));padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:rgba(18,18,18,.96);box-shadow:0 20px 70px rgba(0,0,0,.45);backdrop-filter:blur(22px)}}
+        :host([data-open]) .panel{{display:block}}
+        :host([data-open]) .launcher{{display:none}}
+        header{{display:flex;align-items:center;justify-content:space-between;padding:4px 5px 10px;touch-action:none;cursor:grab}}
+        header strong{{font-size:13px}}
+        .close{{width:28px;height:28px;padding:0;border:0;border-radius:8px;background:#292929;color:#aaa}}
+        .actions{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
+        .manage{{display:block;margin-top:7px;padding:9px 10px;border:1px solid #3a3a3a;border-radius:9px;background:#272727;color:#f5f5f5;text-align:center;text-decoration:none}}
+        .result{{min-height:18px;margin:8px 4px 0;color:#9ee6bc}}
+      </style>
+      <button class="launcher" type="button" aria-label="Open Brume toolbar">☁️</button>
+      <div class="panel">
+        <header><strong>Brume</strong><button class="close" type="button" aria-label="Close">×</button></header>
+        <div class="actions"><button class="share" type="button">Share website</button><button class="copy" type="button">Copy URL</button></div>
+        <a class="manage" target="_blank" rel="noopener">Manage access</a>
+        <p class="result" aria-live="polite"></p>
+      </div>`;
+      const result = root.querySelector(".result");
+      const copy = async () => {{
+        await navigator.clipboard.writeText(location.href);
+        result.textContent = "Copied";
+      }};
+      root.querySelector(".launcher").onclick = () => host.dataset.open = "";
+      root.querySelector(".close").onclick = () => delete host.dataset.open;
+      root.querySelector(".copy").onclick = () => copy().catch(() => result.textContent = "Could not copy");
+      root.querySelector(".share").onclick = () => navigator.share
+        ? navigator.share({{ url: location.href }}).catch(() => {{}})
+        : copy().catch(() => result.textContent = "Could not copy");
+      root.querySelector(".manage").href = authOrigin + "/toolbar/" + encodeURIComponent(site) + "?return_to=" + encodeURIComponent(location.href);
+      const drag = root.querySelector("header");
+      let dragging = false;
+      drag.onpointerdown = (event) => {{
+        if (event.target.closest("button")) return;
+        dragging = true;
+        drag.setPointerCapture(event.pointerId);
+      }};
+      drag.onpointerup = (event) => {{
+        if (!dragging) return;
+        dragging = false;
+        const side = event.clientX < innerWidth / 2 ? "left" : "right";
+        host.dataset.side = side;
+        try {{ localStorage.setItem("brume-toolbar-side", side); }} catch {{}}
+      }};
+      document.documentElement.append(host);
+    }})
+    .catch(() => {{}});
+}})();</script>"#,
+        auth_origin = escape_html(auth_origin),
     )
 }
 
-pub async fn overlay_script(State(state): State<AppState>) -> Response {
-    let auth_origin =
-        serde_json::to_string(&state.config.auth_public_url).unwrap_or_else(|_| "\"\"".to_owned());
-    let script = format!(
-        r#"(() => {{
-  const source = document.currentScript;
-  const site = source?.dataset.brumeSite;
-  if (!site || document.querySelector("[data-brume-overlay-frame]")) return;
-  const frame = document.createElement("iframe");
-  frame.dataset.brumeOverlayFrame = "";
-  frame.title = "Brume website controls";
-  frame.src = {auth_origin} + "/toolbar/" + encodeURIComponent(site) + "?return_to=" + encodeURIComponent(location.href);
-  Object.assign(frame.style, {{
-    position: "fixed", right: "16px", bottom: "16px", width: "64px", height: "64px",
-    border: "0", background: "transparent", zIndex: "2147483647", colorScheme: "light dark"
-  }});
-  const savedSide = localStorage.getItem("brume-toolbar-side");
-  if (savedSide === "left") {{ frame.style.left = "16px"; frame.style.right = "auto"; }}
-  frame.setAttribute("allow", "clipboard-write");
-  document.documentElement.append(frame);
-  addEventListener("message", (event) => {{
-    if (event.origin !== {auth_origin} || event.source !== frame.contentWindow) return;
-    if (event.data?.type === "brume-toolbar-size") {{
-      frame.style.width = event.data.expanded ? Math.min(390, Math.max(64, innerWidth - 16)) + "px" : "64px";
-      frame.style.height = event.data.expanded ? Math.min(480, Math.max(64, innerHeight - 16)) + "px" : "64px";
-    }}
-    if (event.data?.type === "brume-toolbar-position") {{
-      const side = event.data.side === "left" ? "left" : "right";
-      frame.style.left = side === "left" ? "16px" : "auto";
-      frame.style.right = side === "right" ? "16px" : "auto";
-      localStorage.setItem("brume-toolbar-side", side);
-    }}
-  }});
-}})();"#,
+#[derive(Deserialize)]
+struct OverlayStateQuery {
+    site: Uuid,
+    return_to: String,
+}
+
+#[derive(Serialize)]
+struct OverlayState {
+    enabled: bool,
+}
+
+async fn overlay_state(
+    State(state): State<AppState>,
+    Query(query): Query<OverlayStateQuery>,
+) -> Result<Response, ApiError> {
+    let control = load_control(&state, query.site).await?;
+    validate_return_to(&state, control.id, &query.return_to).await?;
+    let mut response = Json(OverlayState {
+        enabled: control.overlay_enabled,
+    })
+    .into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
     );
-    (
-        [
-            (
-                header::CONTENT_TYPE,
-                HeaderValue::from_static("text/javascript; charset=utf-8"),
-            ),
-            (
-                header::CACHE_CONTROL,
-                HeaderValue::from_static("public, max-age=3600"),
-            ),
-        ],
-        script,
-    )
-        .into_response()
+    Ok(response)
 }
 
 #[derive(Deserialize)]
@@ -647,12 +693,9 @@ async fn toolbar(
         &grants,
         query.notice.as_deref(),
     );
-    let wildcard_origin = state.config.public_url("*");
-    let csp = HeaderValue::from_str(&format!(
-        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors {} {}",
-        state.config.plan_public_url, wildcard_origin
-    ))
-    .map_err(ApiError::internal)?;
+    let csp = HeaderValue::from_static(
+        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'",
+    );
     Ok((
         [
             (header::CONTENT_SECURITY_POLICY, csp),
@@ -1525,14 +1568,13 @@ form{{display:grid;gap:7px;margin-top:7px}}input,select{{width:100%;border:1px s
 .signin{{display:block;margin:8px 5px;color:#ddd}}
 .grant{{display:grid;grid-template-columns:1fr auto;align-items:center}}.grant code{{overflow:hidden;text-overflow:ellipsis;color:#aaa}}.grant button{{padding:6px 8px}}
 @media(prefers-reduced-motion:no-preference){{.panel,.launcher{{transition:opacity .14s ease,transform .14s ease}}}}
-</style></head><body><div id="toolbar"><button class="launcher" aria-label="Open Brume toolbar">☁️</button><div class="panel"><header data-drag><strong>Brume</strong><button class="close" aria-label="Close">×</button></header>{notice}<div class="actions"><button type="button" data-share>Share website</button><button type="button" data-copy>Copy URL</button></div>{owner_controls}<p class="result" aria-live="polite"></p></div></div><script>
+</style></head><body><div id="toolbar"><button class="launcher" aria-label="Open Brume toolbar">☁️</button><div class="panel"><header><strong>Brume</strong><button class="close" aria-label="Close">×</button></header>{notice}<div class="actions"><button type="button" data-share>Share website</button><button type="button" data-copy>Copy URL</button></div>{owner_controls}<p class="result" aria-live="polite"></p></div></div><script>
 const root=document.querySelector("#toolbar");const result=document.querySelector(".result");const shareUrl={share_json};
-function setOpen(open){{root.classList.toggle("open",open);parent.postMessage({{type:"brume-toolbar-size",expanded:open}},"*")}}
-document.querySelector(".launcher").onclick=()=>setOpen(true);document.querySelector(".close").onclick=()=>setOpen(false);
+function setOpen(open){{root.classList.toggle("open",open)}}
+document.querySelector(".launcher").onclick=()=>setOpen(true);document.querySelector(".close").onclick=()=>setOpen(false);setOpen(true);
 async function copy(value){{await navigator.clipboard.writeText(value);result.textContent="Copied"}}
 document.querySelector("[data-copy]").onclick=()=>copy(shareUrl);
 document.querySelector("[data-share]").onclick=()=>navigator.share?navigator.share({{url:shareUrl}}):copy(shareUrl);
-const drag=document.querySelector("[data-drag]");let dragging=false;drag.onpointerdown=(event)=>{{if(event.target.closest("button"))return;dragging=true;drag.setPointerCapture(event.pointerId)}};drag.onpointerup=(event)=>{{if(!dragging)return;dragging=false;parent.postMessage({{type:"brume-toolbar-position",side:event.screenX<screen.width/2?"left":"right"}},"*")}};
 const invite=document.querySelector("[data-invite]");if(invite)invite.onclick=async()=>{{const body=new URLSearchParams({{action_token:invite.dataset.token,return_to:shareUrl}});const response=await fetch(invite.dataset.action,{{method:"POST",body}});const data=await response.json();if(response.ok){{await copy(data.url);result.textContent="Invite copied. It expires in one day."}}else result.textContent=data.message??"Could not create invite"}};
 const authSelect=document.querySelector("[data-auth-select]");const password=document.querySelector("[data-password]");if(authSelect&&password){{const updatePassword=()=>password.required=authSelect.value==="password"&&{password_required};authSelect.onchange=updatePassword;updatePassword()}}
 </script></body></html>"##,
