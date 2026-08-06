@@ -68,6 +68,26 @@ BRUME_TOKEN="${TOKEN}" "${ROOT_DIR}/target/debug/brume" \
   --spa \
   --auth none
 
+# Deploy the review plan twice with --review so round 1 is superseded by round 2.
+BRUME_TOKEN="${TOKEN}" "${ROOT_DIR}/target/debug/brume" \
+  --base-url "${BRUME_API_PUBLIC_URL}" \
+  plan deploy "${ROOT_DIR}/fixtures/example-plan" \
+  --slug review-e2e \
+  --auth none \
+  --review
+BRUME_TOKEN="${TOKEN}" "${ROOT_DIR}/target/debug/brume" \
+  --base-url "${BRUME_API_PUBLIC_URL}" \
+  plan deploy "${ROOT_DIR}/fixtures/example-plan" \
+  --slug review-e2e \
+  --auth none \
+  --review
+BRUME_TOKEN="${TOKEN}" "${ROOT_DIR}/target/debug/brume" \
+  --base-url "${BRUME_API_PUBLIC_URL}" \
+  deploy "${ROOT_DIR}/fixtures/example-deployment" \
+  --url review-site-e2e \
+  --auth none \
+  --review
+
 printf '%s' "e2e-password" | BRUME_TOKEN="${TOKEN}" "${ROOT_DIR}/target/debug/brume" \
   --base-url "${BRUME_API_PUBLIC_URL}" \
   deploy "${ROOT_DIR}/fixtures/example-deployment" \
@@ -215,6 +235,9 @@ done
     --env-var "generated_deployment_url=${GENERATED_DEPLOYMENT_URL}" \
     --env-var "generated_tunnel_url=${GENERATED_TUNNEL_URL}" \
     --env-var "plan=e2e-plan" \
+    --env-var "review_plan=review-e2e" \
+    --env-var "review_deployment=review-site-e2e" \
+    --env-var "review_deployment_url=http://review-site-e2e-e2e.localhost:18080" \
     --bail
 )
 

@@ -1,0 +1,25 @@
+meta {
+  name: Agent reads the deployment review status
+  type: http
+  seq: 53
+}
+
+get {
+  url: {{base_url}}/api/v1/deployments/{{review_deployment}}/review
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("the deployment review round tracks the element comment", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.round.status).to.equal("open");
+    expect(res.body.round.number).to.equal(1);
+    expect(res.body.round.thread_count).to.equal(1);
+    expect(res.body.round.comment_count).to.equal(1);
+  });
+}

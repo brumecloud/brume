@@ -1,0 +1,18 @@
+meta {
+  name: Overlay script is served on the wildcard host
+  type: http
+  seq: 51
+}
+
+get {
+  url: {{review_deployment_url}}/_brume/overlay.js
+  body: none
+  auth: none
+}
+
+tests {
+  test("wildcard hosts serve the shared overlay artifact", function() {
+    expect(res.status).to.equal(200);
+    expect(res.headers["content-type"]).to.include("text/javascript");
+  });
+}

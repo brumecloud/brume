@@ -1,0 +1,26 @@
+meta {
+  name: Review deployment page loads the overlay loader
+  type: http
+  seq: 50
+}
+
+get {
+  url: {{review_deployment_url}}/
+  body: none
+  auth: none
+}
+
+script:post-response {
+  const match = String(res.body).match(/data-brume-site="([0-9a-f-]+)"/);
+  bru.setVar("review_deployment_site", match ? match[1] : "");
+  bru.setVar("review_deployment_return_to", `${bru.getEnvVar("review_deployment_url")}/`);
+}
+
+tests {
+  test("the review deployment serves the overlay loader script", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.include("data-brume-overlay-script");
+    expect(res.body).to.include("/_brume/overlay.js");
+    expect(String(bru.getVar("review_deployment_site"))).to.have.length.greaterThan(0);
+  });
+}

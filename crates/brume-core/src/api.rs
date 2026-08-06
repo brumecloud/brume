@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{PlanDetails, PlanSummary};
+use crate::{PlanDetails, PlanSummary, ReviewRoundSummary};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiErrorBody {
@@ -45,6 +45,8 @@ pub struct RefreshTokenRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeployPlanResponse {
     pub plan: PlanDetails,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_round: Option<ReviewRoundSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

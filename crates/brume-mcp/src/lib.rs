@@ -1,7 +1,7 @@
 use std::{future::Future, pin::Pin, process::Stdio, sync::Arc};
 
 use anyhow::Result;
-use brume_api_client::BrumeClient;
+use brume_api_client::{BrumeClient, ReviewTarget};
 use brume_core::{AuthMode, PlanPatch};
 use rmcp::{
     ServerHandler, ServiceExt,
@@ -59,6 +59,37 @@ struct DeployRequest {
     /// True prevents automatic deletion after 15 days without a read.
     #[serde(default)]
     pinned: bool,
+    /// True starts a review round so reviewers can comment on the deployed plan.
+    #[serde(default)]
+    review: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct ReviewSelector {
+    /// A plan or deployment UUID or slug owned by the authenticated user.
+    slug: String,
+    /// True targets a static deployment instead of a plan.
+    #[serde(default)]
+    site: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct ReviewCommentsRequest {
+    /// A plan or deployment UUID or slug owned by the authenticated user.
+    slug: String,
+    /// True targets a static deployment instead of a plan.
+    #[serde(default)]
+    site: bool,
+    /// A specific review round number. Defaults to the latest round.
+    round: Option<i32>,
+}
+
+fn review_target(site: bool) -> ReviewTarget {
+    if site {
+        ReviewTarget::Deployment
+    } else {
+        ReviewTarget::Plan
+    }
 }
 
 #[derive(Clone)]
@@ -146,6 +177,9 @@ impl BrumeMcp {
         if request.pinned {
             command.arg("--pin");
         }
+        if request.review {
+            command.arg("--review");
+        }
         match command_output(command, request.password).await {
             Ok(output) if output.status.success() => {
                 String::from_utf8_lossy(&output.stdout).trim().to_owned()
@@ -206,6 +240,43 @@ impl BrumeMcp {
             .await
         {
             Ok(plan) => json(&plan),
+            Err(error) => tool_error(error),
+        }
+    }
+
+    #[tool(
+        description = "Get the review status of a plan or static deployment. Poll this until status is `finished`, then call review_comments to fetch the reviewer feedback"
+    )]
+    async fn review_status(&self, Parameters(request): Parameters<ReviewSelector>) -> String {
+        let client = match self.client().await {
+            Ok(client) => client,
+            Err(error) => return tool_error(error),
+        };
+        match client
+            .review_status(review_target(request.site), &request.slug)
+            .await
+        {
+            Ok(status) => json(&status),
+            Err(error) => tool_error(error),
+        }
+    }
+
+    #[tool(
+        description = "Fetch the threaded reviewer comments of a plan or static deployment review round, including the highlighted text or element each thread is anchored to"
+    )]
+    async fn review_comments(
+        &self,
+        Parameters(request): Parameters<ReviewCommentsRequest>,
+    ) -> String {
+        let client = match self.client().await {
+            Ok(client) => client,
+            Err(error) => return tool_error(error),
+        };
+        match client
+            .review_comments(review_target(request.site), &request.slug, request.round)
+            .await
+        {
+            Ok(comments) => json(&comments),
             Err(error) => tool_error(error),
         }
     }

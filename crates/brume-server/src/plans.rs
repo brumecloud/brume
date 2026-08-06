@@ -56,6 +56,8 @@ struct DeployParameters {
     pinned: bool,
     #[serde(default = "default_true")]
     overlay: bool,
+    #[serde(default)]
+    review: bool,
 }
 
 fn default_true() -> bool {
@@ -152,6 +154,10 @@ async fn deploy_plan(
             )
             .await?
         };
+        crate::review::supersede_open_round(&mut transaction, access_control_id).await?;
+        if parameters.review {
+            crate::review::start_round(&mut transaction, access_control_id).await?;
+        }
         if existing.is_none() {
             sqlx::query(
                 "INSERT INTO plans (
@@ -225,7 +231,12 @@ async fn deploy_plan(
     }
     let record = find_owned_plan(&state, &user, &slug).await?;
     let plan = details(&state, &record)?;
-    Ok(Json(DeployPlanResponse { plan }))
+    let review_round = if parameters.review {
+        crate::review::latest_round(&state, record.access_control_id).await?
+    } else {
+        None
+    };
+    Ok(Json(DeployPlanResponse { plan, review_round }))
 }
 
 async fn cleanup_old_bundle(state: &AppState, bundle_id: Uuid) {

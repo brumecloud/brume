@@ -3,6 +3,7 @@ use std::{env, io::IsTerminal};
 use anyhow::Result;
 use brume_core::{
     AuthMode, DeploymentSummary, ListDeploymentsResponse, ListPlansResponse, PlanSummary,
+    ReviewComment, ReviewCommentsResponse, ReviewRoundSummary,
 };
 use chrono::{DateTime, Utc};
 use clap::ValueEnum;
@@ -90,6 +91,73 @@ fn print_plain_deployments(deployments: &[DeploymentSummary]) {
     }
 }
 
+pub fn review_status(slug: &str, round: Option<&ReviewRoundSummary>) {
+    match round {
+        Some(round) => println!(
+            "Review round #{} of `{slug}` is {} with {} comment{} in {} thread{}",
+            round.number,
+            round.status,
+            round.comment_count,
+            plural(round.comment_count),
+            round.thread_count,
+            plural(round.thread_count),
+        ),
+        None => println!("`{slug}` has no review round"),
+    }
+}
+
+pub fn review_comments(response: &ReviewCommentsResponse) {
+    let round = &response.round;
+    println!(
+        "Review round #{} ({}) - {} comment{} in {} thread{}",
+        round.number,
+        round.status,
+        round.comment_count,
+        plural(round.comment_count),
+        round.thread_count,
+        plural(round.thread_count),
+    );
+    let now = Utc::now();
+    for thread in &response.threads {
+        println!();
+        let quote = thread
+            .anchor
+            .as_object()
+            .and_then(|anchor| {
+                anchor
+                    .get("exact")
+                    .or_else(|| anchor.get("text_digest"))
+                    .or_else(|| anchor.get("css"))
+            })
+            .and_then(|value| value.as_str())
+            .unwrap_or("(no anchor)");
+        println!("{} > {}", thread.page_path, single_line(quote));
+        for comment in &thread.comments {
+            println!(
+                "  [{} · {}] {}",
+                review_author(comment),
+                relative_time(comment.created_at, now),
+                single_line(&comment.body),
+            );
+        }
+    }
+}
+
+fn review_author(comment: &ReviewComment) -> String {
+    if comment.author_is_owner {
+        return "owner".to_owned();
+    }
+    comment
+        .author_display_name
+        .clone()
+        .or_else(|| comment.author_public_id.clone())
+        .unwrap_or_else(|| "anonymous".to_owned())
+}
+
+fn plural(count: i64) -> &'static str {
+    if count == 1 { "" } else { "s" }
+}
+
 fn optional_timestamp(value: Option<&DateTime<Utc>>, empty: &str) -> String {
     value
         .map(DateTime::to_rfc3339)
@@ -127,6 +195,7 @@ fn render_plan_table(plans: &[PlanSummary], style: &TerminalStyle) -> String {
     let widths = [28, 10, 12, 12, 12];
     let top = border('┌', '┬', '┐', '─', &widths);
     let header_separator = border('├', '┼', '┤', '─', &widths);
+    let metadata_separator = border('├', '┴', '┤', '─', &widths);
     let row_separator = border('├', '┬', '┤', '─', &widths);
     let bottom = border('└', '─', '┘', '─', &[widths.iter().sum::<usize>() + 12]);
     let inner_width = widths.iter().sum::<usize>() + 12;
@@ -180,6 +249,8 @@ fn render_plan_table(plans: &[PlanSummary], style: &TerminalStyle) -> String {
         ));
         rendered.push('\n');
 
+        rendered.push_str(&metadata_separator);
+        rendered.push('\n');
         let slug = styled(&plan.slug, "\u{1b}[2m", style.color);
         rendered.push_str(&full_width_row(&slug, inner_width));
         rendered.push('\n');
@@ -220,6 +291,7 @@ fn render_deployment_table(deployments: &[DeploymentSummary], style: &TerminalSt
     let widths = [28, 8, 10, 9, 12, 12];
     let top = border('┌', '┬', '┐', '─', &widths);
     let header_separator = border('├', '┼', '┤', '─', &widths);
+    let metadata_separator = border('├', '┴', '┤', '─', &widths);
     let row_separator = border('├', '┬', '┤', '─', &widths);
     let bottom = border('└', '─', '┘', '─', &[widths.iter().sum::<usize>() + 15]);
     let inner_width = widths.iter().sum::<usize>() + 15;
@@ -285,6 +357,8 @@ fn render_deployment_table(deployments: &[DeploymentSummary], style: &TerminalSt
         ));
         rendered.push('\n');
 
+        rendered.push_str(&metadata_separator);
+        rendered.push('\n');
         let id = styled(&format!("id {}", deployment.id), "\u{1b}[2m", style.color);
         rendered.push_str(&full_width_row(&id, inner_width));
         rendered.push('\n');
@@ -532,11 +606,15 @@ mod tests {
         assert!(rendered.contains("never"));
         assert!(rendered.contains("https://plan.brume.dev/planchon/example-plan"));
         assert!(rendered.contains("1 plan"));
-        let table_lines = rendered.lines().take(7).collect::<Vec<_>>();
+        let table_lines = rendered.lines().take(8).collect::<Vec<_>>();
         assert!(
             table_lines
                 .windows(2)
                 .all(|lines| visible_length(lines[0]) == visible_length(lines[1]))
+        );
+        assert_eq!(
+            table_lines[4],
+            "├──────────────────────────────┴────────────┴──────────────┴──────────────┴──────────────┤"
         );
     }
 
@@ -570,11 +648,15 @@ mod tests {
         assert!(rendered.contains(&Uuid::nil().to_string()));
         assert!(rendered.contains("https://example-site-planchon.brume.dev/"));
         assert!(rendered.contains("1 deployment"));
-        let table_lines = rendered.lines().take(7).collect::<Vec<_>>();
+        let table_lines = rendered.lines().take(8).collect::<Vec<_>>();
         assert!(
             table_lines
                 .windows(2)
                 .all(|lines| visible_length(lines[0]) == visible_length(lines[1]))
+        );
+        assert_eq!(
+            table_lines[4],
+            "├──────────────────────────────┴──────────┴────────────┴───────────┴──────────────┴──────────────┤"
         );
     }
 

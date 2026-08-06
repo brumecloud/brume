@@ -1,0 +1,25 @@
+meta {
+  name: Reviewer replies in a thread
+  type: http
+  seq: 44
+}
+
+post {
+  url: {{plan_url}}/_brume/review/threads/{{review_thread_id}}/comments?site={{review_site}}&return_to={{review_return_to}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "body": "and here is a reply",
+    "display_name": "Paul"
+  }
+}
+
+tests {
+  test("threads accept replies while the round is open", function() {
+    expect(res.status).to.equal(201);
+    expect(res.body.comment_id).to.be.a("string");
+  });
+}

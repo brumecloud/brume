@@ -18,7 +18,8 @@ fn main() -> Result<()> {
     let runtime = dist.join("web/runtime.js");
     let theme = dist.join("web/theme.css");
     let geist = dist.join("web/geist.woff2");
-    for path in [&runtime, &theme, &geist] {
+    let overlay = dist.join("web/overlay.js");
+    for path in [&runtime, &theme, &geist, &overlay] {
         if !path.is_file() {
             bail!(
                 "missing renderer web artifact {}; run the renderer web build first",
@@ -30,5 +31,6 @@ fn main() -> Result<()> {
     fs::copy(runtime, output.join("runtime.js"))?;
     fs::copy(theme, output.join("theme.css"))?;
     fs::copy(geist, output.join("geist.woff2"))?;
+    fs::copy(overlay, output.join("overlay.js"))?;
     Ok(())
 }

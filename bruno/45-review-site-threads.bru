@@ -1,0 +1,28 @@
+meta {
+  name: Overlay fetches review threads
+  type: http
+  seq: 45
+}
+
+get {
+  url: {{plan_url}}/_brume/review/threads?site={{review_site}}&return_to={{review_return_to}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("the overlay reads the threaded comments", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.round.status).to.equal("open");
+    expect(res.body.round.thread_count).to.equal(1);
+    expect(res.body.round.comment_count).to.equal(2);
+    const thread = res.body.threads[0];
+    expect(thread.page_path).to.equal(`/e2e/${bru.getEnvVar("review_plan")}`);
+    expect(thread.anchor.exact).to.equal("suis du texte");
+    expect(thread.comments).to.have.length(2);
+    expect(thread.comments[0].author_display_name).to.equal("Paul");
+    expect(thread.comments[0].author_is_owner).to.equal(false);
+    expect(thread.comments[0].body).to.equal("yes je suis un comment");
+    expect(thread.comments[1].body).to.equal("and here is a reply");
+  });
+}

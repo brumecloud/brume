@@ -34,6 +34,7 @@ const INVITATION_LIFETIME: Duration = Duration::days(1);
 const TICKET_LIFETIME: Duration = Duration::minutes(2);
 const ACTION_LIFETIME: Duration = Duration::minutes(10);
 const GEIST_FONT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/geist.woff2"));
+const OVERLAY_SCRIPT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/overlay.js"));
 
 #[derive(Debug, Clone)]
 pub struct AccessControl {
@@ -51,8 +52,8 @@ pub enum RequestAuthorization {
 }
 
 #[derive(Clone)]
-struct SiteLocation {
-    origin: String,
+pub struct SiteLocation {
+    pub origin: String,
     base_url: String,
     cookie_path: String,
 }
@@ -94,6 +95,10 @@ pub fn auth_router() -> Router<AppState> {
             "/toolbar/{control_id}/settings",
             post(update_toolbar_settings),
         )
+        .route(
+            "/toolbar/{control_id}/owner-state",
+            get(toolbar_owner_state),
+        )
         .route("/toolbar/{control_id}/invitations", post(create_invitation))
         .route("/toolbar/{control_id}/grants", post(grant_public_id))
         .route(
@@ -106,6 +111,31 @@ pub fn site_router() -> Router<AppState> {
     Router::new()
         .route("/_brume/access/complete", get(complete_site_auth_handler))
         .route("/_brume/overlay-state", get(overlay_state))
+        .route("/_brume/overlay.js", get(overlay_script))
+}
+
+async fn overlay_script(headers: HeaderMap) -> Response {
+    let etag = format!("\"{}\"", crate::build_metadata::COMMIT_SHA);
+    if headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value == etag)
+    {
+        return StatusCode::NOT_MODIFIED.into_response();
+    }
+    let mut response = Response::new(Body::from(OVERLAY_SCRIPT));
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/javascript; charset=utf-8"),
+    );
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=300"),
+    );
+    if let Ok(value) = HeaderValue::from_str(&etag) {
+        response.headers_mut().insert(header::ETAG, value);
+    }
+    response
 }
 
 async fn geist_font() -> Response {
@@ -330,116 +360,37 @@ pub async fn authorize_request(
     )))
 }
 
+pub async fn site_session_is_owner(
+    state: &AppState,
+    cookies: &Cookies,
+    control: &AccessControl,
+) -> Result<bool, ApiError> {
+    let Some(cookie) = cookies.get(&site_cookie_name(control.id)) else {
+        return Ok(false);
+    };
+    Ok(sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM site_sessions
+            WHERE access_control_id = $1
+              AND session_hash = $2
+              AND access_version = $3
+              AND subject_kind = 'owner'
+              AND expires_at > now()
+        )",
+    )
+    .bind(control.id)
+    .bind(hash_secret(cookie.value()))
+    .bind(control.access_version)
+    .fetch_one(&state.database)
+    .await?)
+}
+
 pub fn overlay_markup(control_id: Uuid, auth_origin: &str, nonce: Option<&str>) -> String {
     let nonce = nonce
         .map(|value| format!(" nonce=\"{}\"", escape_html(value)))
         .unwrap_or_default();
     format!(
-        r#"<style data-brume-overlay-style>[data-brume-overlay-host]{{all:initial;position:fixed!important;right:16px!important;bottom:16px!important;z-index:2147483647!important;color-scheme:dark!important}}[data-brume-overlay-host][data-side="left"]{{right:auto!important;left:16px!important}}</style><script{nonce} data-brume-overlay-script data-brume-site="{control_id}" data-brume-auth-origin="{auth_origin}">(() => {{
-  const currentUrl = new URL(location.href);
-  if (currentUrl.searchParams.get("_brume_auth_complete") === "1" && window.opener) {{
-    window.opener.postMessage({{ type: "brume-owner-authenticated" }}, location.origin);
-    window.close();
-    return;
-  }}
-  const source = document.currentScript;
-  if (!source || document.querySelector("[data-brume-overlay-host]")) return;
-  const site = source.dataset.brumeSite;
-  const authOrigin = source.dataset.brumeAuthOrigin;
-  const stateUrl = "/_brume/overlay-state?site=" + encodeURIComponent(site) + "&return_to=" + encodeURIComponent(location.href);
-  fetch(stateUrl, {{ credentials: "same-origin" }})
-    .then((response) => response.ok ? response.json() : Promise.reject())
-    .then((state) => {{
-      if (!state.enabled || document.querySelector("[data-brume-overlay-host]")) return;
-      const host = document.createElement("div");
-      host.dataset.brumeOverlayHost = "";
-      let savedSide = "right";
-      try {{ savedSide = localStorage.getItem("brume-toolbar-side") === "left" ? "left" : "right"; }} catch {{}}
-      host.dataset.side = savedSide;
-      const root = host.attachShadow({{ mode: "closed" }});
-      root.innerHTML = `<style>
-        *{{box-sizing:border-box}}
-        @font-face{{font-family:"Geist Variable";font-style:normal;font-weight:100 900;font-display:swap;src:url("${{authOrigin}}/_brume/geist.woff2") format("woff2")}}
-        :host{{font:13px/1.35 "Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif;color:#f5f5f5}}
-        button,a{{font:inherit}}
-        button{{border:1px solid #3a3a3a;border-radius:9px;padding:9px 10px;background:#272727;color:#f5f5f5;cursor:pointer}}
-        button:hover,a:hover{{background:#333}}
-        .launcher{{width:52px;height:52px;padding:0;border:1px solid rgba(255,255,255,.15);border-radius:50%;background:rgba(20,20,20,.94);box-shadow:0 8px 28px rgba(0,0,0,.3);font-size:22px;backdrop-filter:blur(16px)}}
-        .panel{{display:none;width:min(390px,calc(100vw - 32px));padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:rgba(18,18,18,.96);box-shadow:0 20px 70px rgba(0,0,0,.45);backdrop-filter:blur(22px)}}
-        :host([data-open]) .panel{{display:block}}
-        :host([data-open]) .launcher{{display:none}}
-        header{{display:flex;align-items:center;justify-content:space-between;padding:4px 5px 10px;touch-action:none;cursor:grab}}
-        header strong{{font-size:13px;font-weight:650}}
-        .header-start{{display:flex;align-items:center;gap:6px}}
-        .back{{display:none;width:28px;height:28px;padding:0;border:0;background:transparent;color:#aaa;font-size:18px}}
-        :host([data-view="management"]) .back{{display:block}}
-        .close{{width:28px;height:28px;padding:0;border:0;border-radius:8px;background:#292929;color:#aaa}}
-        .actions{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
-        .manage{{display:block;width:100%;margin-top:7px}}
-        .result{{min-height:18px;margin:8px 4px 0;color:#9ee6bc}}
-        .management{{display:none}}
-        :host([data-view="management"]) .primary{{display:none}}
-        :host([data-view="management"]) .management{{display:block}}
-        iframe{{display:block;width:100%;height:min(520px,calc(100vh - 92px));border:0;background:transparent}}
-      </style>
-      <button class="launcher" type="button" aria-label="Open Brume toolbar">☁️</button>
-      <div class="panel">
-        <header><span class="header-start"><button class="back" type="button" aria-label="Back">‹</button><strong>Brume</strong></span><button class="close" type="button" aria-label="Close">×</button></header>
-        <div class="primary">
-          <div class="actions"><button class="share" type="button">Share website</button><button class="copy" type="button">Copy URL</button></div>
-          <button class="manage" type="button">Manage access</button>
-          <p class="result" aria-live="polite"></p>
-        </div>
-        <div class="management"><iframe title="Manage website access" allow="clipboard-write" sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe></div>
-      </div>`;
-      const result = root.querySelector(".result");
-      const title = root.querySelector("header strong");
-      const management = root.querySelector("iframe");
-      const managementUrl = authOrigin + "/toolbar/" + encodeURIComponent(site) + "?return_to=" + encodeURIComponent(location.href);
-      const copy = async () => {{
-        await navigator.clipboard.writeText(location.href);
-        result.textContent = "Copied";
-      }};
-      root.querySelector(".launcher").onclick = () => host.dataset.open = "";
-      root.querySelector(".close").onclick = () => delete host.dataset.open;
-      root.querySelector(".copy").onclick = () => copy().catch(() => result.textContent = "Could not copy");
-      root.querySelector(".share").onclick = () => navigator.share
-        ? navigator.share({{ url: location.href }}).catch(() => {{}})
-        : copy().catch(() => result.textContent = "Could not copy");
-      root.querySelector(".manage").onclick = () => {{
-        if (!management.dataset.loaded) {{
-          management.src = managementUrl;
-          management.dataset.loaded = "true";
-        }}
-        host.dataset.view = "management";
-        title.textContent = "Manage access";
-      }};
-      root.querySelector(".back").onclick = () => {{
-        delete host.dataset.view;
-        title.textContent = "Brume";
-      }};
-      addEventListener("message", (event) => {{
-        if (event.origin !== location.origin || event.data?.type !== "brume-owner-authenticated") return;
-        management.src = managementUrl + "&refresh=" + Date.now();
-      }});
-      const drag = root.querySelector("header");
-      let dragging = false;
-      drag.onpointerdown = (event) => {{
-        if (event.target.closest("button")) return;
-        dragging = true;
-        drag.setPointerCapture(event.pointerId);
-      }};
-      drag.onpointerup = (event) => {{
-        if (!dragging) return;
-        dragging = false;
-        const side = event.clientX < innerWidth / 2 ? "left" : "right";
-        host.dataset.side = side;
-        try {{ localStorage.setItem("brume-toolbar-side", side); }} catch {{}}
-      }};
-      document.documentElement.append(host);
-    }})
-    .catch(() => {{}});
-}})();</script>"#,
+        r#"<style data-brume-overlay-style>@font-face{{font-family:"Geist Variable";font-style:normal;font-weight:100 900;font-display:swap;src:url("{auth_origin}/_brume/geist.woff2") format("woff2")}}[data-brume-overlay-host]{{all:initial;position:fixed!important;right:16px!important;bottom:16px!important;z-index:2147483647!important;color-scheme:dark!important}}[data-brume-overlay-host][data-side="left"]{{right:auto!important;left:16px!important}}[data-brume-review-host]{{all:initial;position:absolute!important;top:0!important;left:0!important;width:0!important;height:0!important;overflow:visible!important;z-index:2147483646!important;color-scheme:dark!important}}</style><script src="/_brume/overlay.js" defer{nonce} data-brume-overlay-script data-brume-site="{control_id}" data-brume-auth-origin="{auth_origin}"></script>"#,
         auth_origin = escape_html(auth_origin),
     )
 }
@@ -453,22 +404,76 @@ struct OverlayStateQuery {
 #[derive(Serialize)]
 struct OverlayState {
     enabled: bool,
+    owner: bool,
+    identified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    review: Option<crate::review::ReviewOverlayState>,
 }
 
 async fn overlay_state(
     State(state): State<AppState>,
+    cookies: Cookies,
     Query(query): Query<OverlayStateQuery>,
 ) -> Result<Response, ApiError> {
     let control = load_control(&state, query.site).await?;
     validate_return_to(&state, control.id, &query.return_to).await?;
+    let owner = site_session_is_owner(&state, &cookies, &control).await?
+        || auth::web_user(&state, &cookies)
+            .await?
+            .is_some_and(|user| user.id == control.owner_user_id);
+    let identified = identity_from_cookie(&state, &cookies).await?.is_some();
+    let review = crate::review::overlay_review_state(&state, control.id).await?;
     let mut response = Json(OverlayState {
         enabled: control.overlay_enabled,
+        owner,
+        identified,
+        review,
     })
     .into_response();
     response.headers_mut().insert(
         header::CACHE_CONTROL,
         HeaderValue::from_static("private, no-store"),
     );
+    Ok(response)
+}
+
+#[derive(Deserialize)]
+struct ToolbarOwnerStateQuery {
+    return_to: String,
+}
+
+#[derive(Serialize)]
+struct ToolbarOwnerState {
+    owner: bool,
+}
+
+async fn toolbar_owner_state(
+    State(state): State<AppState>,
+    cookies: Cookies,
+    Path(control_id): Path<Uuid>,
+    Query(query): Query<ToolbarOwnerStateQuery>,
+) -> Result<Response, ApiError> {
+    let control = load_control(&state, control_id).await?;
+    let location = validate_return_to(&state, control.id, &query.return_to).await?;
+    let owner = auth::browser_user(&state, &cookies)
+        .await?
+        .is_some_and(|user| user.id == control.owner_user_id);
+    let mut response = Json(ToolbarOwnerState { owner }).into_response();
+    response.headers_mut().insert(
+        header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        HeaderValue::from_str(&location.origin).map_err(ApiError::internal)?,
+    );
+    response.headers_mut().insert(
+        header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+        HeaderValue::from_static("true"),
+    );
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    response
+        .headers_mut()
+        .insert(header::VARY, HeaderValue::from_static("Origin"));
     Ok(response)
 }
 
@@ -728,27 +733,11 @@ async fn toolbar(
     } else {
         None
     };
-    let grants = if owner.is_some() {
-        sqlx::query_scalar::<_, String>(
-            "SELECT access_identities.public_id
-             FROM access_grants
-             JOIN access_identities ON access_identities.id = access_grants.identity_id
-             WHERE access_grants.access_control_id = $1
-               AND access_identities.revoked_at IS NULL
-             ORDER BY access_grants.created_at",
-        )
-        .bind(control.id)
-        .fetch_all(&state.database)
-        .await?
-    } else {
-        Vec::new()
-    };
     let html = toolbar_page(
         &control,
         &query.return_to,
         owner.is_some(),
         action_token.as_deref(),
-        &grants,
         query.notice.as_deref(),
     );
     let csp = HeaderValue::from_str(&format!(
@@ -779,7 +768,6 @@ struct SettingsForm {
     return_to: String,
     auth: AuthMode,
     password: Option<String>,
-    overlay_enabled: Option<String>,
 }
 
 async fn update_toolbar_settings(
@@ -796,7 +784,7 @@ async fn update_toolbar_settings(
         user.id,
         Some(form.auth),
         form.password.as_deref().filter(|value| !value.is_empty()),
-        Some(form.overlay_enabled.is_some()),
+        None,
     )
     .await?;
     Ok(toolbar_redirect(
@@ -1032,12 +1020,12 @@ async fn claim_invitation(
     )))
 }
 
-struct Identity {
-    id: Uuid,
-    public_id: String,
+pub struct Identity {
+    pub id: Uuid,
+    pub public_id: String,
 }
 
-async fn identity_from_cookie(
+pub async fn identity_from_cookie(
     state: &AppState,
     cookies: &Cookies,
 ) -> Result<Option<Identity>, ApiError> {
@@ -1227,7 +1215,7 @@ async fn site_location(state: &AppState, control_id: Uuid) -> Result<SiteLocatio
     Err(ApiError::not_found())
 }
 
-async fn validate_return_to(
+pub async fn validate_return_to(
     state: &AppState,
     control_id: Uuid,
     return_to: &str,
@@ -1543,8 +1531,8 @@ fn access_page(state: &AppState, control: &AccessControl, query: &AccessQuery) -
 
 const AUTH_STYLES: &str = r#"<style>
 @font-face{font-family:"Geist Variable";font-style:normal;font-weight:100 900;font-display:swap;src:url("/_brume/geist.woff2") format("woff2")}
-:root{color-scheme:light dark;font:15px/1.45 "Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif;background:#fafafa;color:#171717}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}
+:root{color-scheme:light dark;font-family:"Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif;background:#fafafa;color:#171717}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font:15px/1.45 "Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif}button,input,select,a{font:inherit}
 main{width:min(100%,380px);padding:28px;border:1px solid #e7e7e7;border-radius:18px;background:rgba(255,255,255,.94);box-shadow:0 18px 55px rgba(0,0,0,.12)}
 .mark{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;background:#111;margin-bottom:18px}
 h1{font-size:21px;margin:0 0 6px}p{margin:0 0 20px;color:#666}label{display:grid;gap:7px;font-weight:600}
@@ -1559,7 +1547,6 @@ fn toolbar_page(
     share_url: &str,
     owner: bool,
     action_token: Option<&str>,
-    grants: &[String],
     notice: Option<&str>,
 ) -> String {
     let owner_controls = if owner {
@@ -1571,37 +1558,25 @@ fn toolbar_page(
                 ""
             }
         };
-        let grant_rows = grants
-            .iter()
-            .map(|public_id| {
-                format!(
-                    r#"<form class="grant" method="post" action="/toolbar/{id}/grants/revoke"><input type="hidden" name="action_token" value="{token}"><input type="hidden" name="return_to" value="{return_to}"><input type="hidden" name="public_id" value="{public_id}"><code>{public_id}</code><button type="submit">Revoke</button></form>"#,
-                    id = control.id,
-                    return_to = escape_html(share_url),
-                    public_id = escape_html(public_id),
-                )
-            })
-            .collect::<String>();
-        let token_sharing = if control.auth_mode == AuthMode::Token {
+        let copy_link = if control.auth_mode == AuthMode::Token {
             format!(
-                r#"<section><h2>Token sharing</h2><button type="button" data-invite data-action="/toolbar/{id}/invitations" data-token="{token}">Create one-day invite</button><form method="post" action="/toolbar/{id}/grants"><input type="hidden" name="action_token" value="{token}"><input type="hidden" name="return_to" value="{return_to}"><input name="public_id" placeholder="Recipient public ID" required><button type="submit">Grant access</button></form>{grant_rows}</section>"#,
+                r#"<button class="copy-link" type="button" data-invite data-action="/toolbar/{id}/invitations" data-token="{token}">Copy link</button>"#,
                 id = control.id,
-                return_to = escape_html(share_url),
             )
         } else {
             String::new()
         };
         format!(
-            r#"<section><h2>Authentication</h2><form method="post" action="/toolbar/{id}/settings"><input type="hidden" name="action_token" value="{token}"><input type="hidden" name="return_to" value="{return_to}"><select name="auth" data-auth-select><option value="token" {token_selected}>Token</option><option value="password" {password_selected}>Password</option><option value="none" {none_selected}>None</option></select><input name="password" data-password type="password" minlength="8" placeholder="New password when needed"><label class="check"><input type="checkbox" name="overlay_enabled" {checked}>Show cloud toolbar</label><button type="submit">Save</button></form></section>{token_sharing}"#,
+            r#"<section><h2>Authentication</h2><form method="post" action="/toolbar/{id}/settings"><input type="hidden" name="action_token" value="{token}"><input type="hidden" name="return_to" value="{return_to}"><select name="auth" data-auth-select><option value="token" {token_selected}>Token</option><option value="password" {password_selected}>Password</option><option value="none" {none_selected}>Public</option></select><div class="password-row" data-password-row {password_hidden}><input name="password" data-password type="password" minlength="8" maxlength="256" autocomplete="new-password" placeholder="New password"><button class="secondary" type="button" data-generate-password>Generate</button></div><button class="save" type="submit">Save</button></form>{copy_link}</section>"#,
             id = control.id,
             return_to = escape_html(share_url),
             token_selected = selected(AuthMode::Token),
             password_selected = selected(AuthMode::Password),
             none_selected = selected(AuthMode::None),
-            checked = if control.overlay_enabled {
-                "checked"
-            } else {
+            password_hidden = if control.auth_mode == AuthMode::Password {
                 ""
+            } else {
+                "hidden"
             },
         )
     } else {
@@ -1625,21 +1600,27 @@ fn toolbar_page(
     format!(
         r##"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brume toolbar</title><style>
 @font-face{{font-family:"Geist Variable";font-style:normal;font-weight:100 900;font-display:swap;src:url("/_brume/geist.woff2") format("woff2")}}
-*{{box-sizing:border-box}}:root{{color-scheme:dark;font:13px/1.35 "Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif;color:#f5f5f5}}
-body{{margin:0;background:transparent;overflow:hidden}}button,input,select{{font:inherit}}
-.launcher{{position:absolute;right:0;bottom:0;width:52px;height:52px;border:1px solid rgba(255,255,255,.15);border-radius:50%;background:rgba(20,20,20,.94);box-shadow:0 8px 28px rgba(0,0,0,.3);cursor:pointer;font-size:22px;backdrop-filter:blur(16px)}}
-.panel{{display:none;position:absolute;right:0;bottom:0;width:370px;max-height:465px;overflow:auto;padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:rgba(18,18,18,.96);box-shadow:0 20px 70px rgba(0,0,0,.45);backdrop-filter:blur(22px)}}
-.open .panel{{display:block}}.open .launcher{{display:none}}header{{display:flex;align-items:center;justify-content:space-between;padding:4px 5px 10px}}header strong{{font-size:13px}}.close{{width:28px;height:28px;border:0;border-radius:8px;background:#292929;color:#aaa;cursor:pointer}}
-.actions{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}button{{border:1px solid #3a3a3a;border-radius:9px;padding:9px 10px;background:#272727;color:#f5f5f5;cursor:pointer}}button:hover{{background:#333}}
-section{{border-top:1px solid #303030;margin-top:10px;padding:10px 4px 2px}}h2{{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:0 0 8px}}
-form{{display:grid;gap:7px;margin-top:7px}}input,select{{width:100%;border:1px solid #3a3a3a;border-radius:8px;background:#202020;color:#eee;padding:8px}}.check{{display:flex;gap:7px;align-items:center;color:#bbb}}.check input{{width:auto}}
-.muted{{color:#9a9a9a;margin:12px 5px}}.notice{{background:#173c2b;color:#9ee6bc;border-radius:8px;padding:8px}}.result{{color:#9ee6bc;word-break:break-all}}
+*{{box-sizing:border-box}}:root{{color-scheme:dark;font-family:"Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif;color:#f5f5f5}}
+body{{margin:0;background:transparent;overflow:hidden;font:13px/1.35 "Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif}}button,input,select,a{{font:inherit}}
+button{{border:1px solid #3a3a3a;border-radius:10px;padding:9px 10px;background:#272727;color:#f5f5f5;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}}
+button:hover{{background:#333;border-color:#484848}}button:active{{transform:scale(.98)}}button:disabled{{cursor:wait;opacity:.65}}button:focus-visible,input:focus-visible,select:focus-visible{{outline:2px solid #8ab4f8;outline-offset:2px}}
+.launcher{{position:absolute;right:0;bottom:0;width:52px;height:52px;padding:0;border:1px solid rgba(255,255,255,.15);border-radius:50%;background:rgba(20,20,20,.94);box-shadow:0 8px 28px rgba(0,0,0,.3);font-size:22px;backdrop-filter:blur(16px);animation:toolbar-in .28s cubic-bezier(.2,.8,.2,1) both}}
+.launcher:hover{{transform:translateY(-2px) scale(1.03);box-shadow:0 12px 34px rgba(0,0,0,.38)}}
+.panel{{position:absolute;right:0;bottom:0;width:370px;max-height:465px;overflow:auto;padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:rgba(18,18,18,.96);box-shadow:0 20px 70px rgba(0,0,0,.45);backdrop-filter:blur(22px);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(10px) scale(.97);transform-origin:bottom right;transition:opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s linear .24s}}
+.open .panel{{opacity:1;visibility:visible;pointer-events:auto;transform:none;transition-delay:0s}}.open .launcher{{opacity:0;visibility:hidden;pointer-events:none;transform:scale(.84)}}header{{display:flex;align-items:center;justify-content:space-between;padding:4px 5px 10px}}header strong{{font-size:14px;font-weight:620;letter-spacing:-.01em}}.close{{width:28px;height:28px;padding:0;border:0;border-radius:8px;background:#292929;color:#aaa}}
+.actions{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
+section{{margin-top:10px;padding:10px 4px 2px;border-top:1px solid #303030}}h2{{font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:0 0 8px}}
+form{{display:grid;gap:8px}}input,select{{width:100%;border:1px solid #3a3a3a;border-radius:9px;background:#202020;color:#eee;padding:9px 10px;transition:border-color .16s ease,background .16s ease}}input:hover,select:hover{{border-color:#4a4a4a}}select{{cursor:pointer}}
+.password-row{{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;animation:field-in .18s ease both}}.password-row[hidden]{{display:none}}.password-row .secondary{{min-width:82px}}
+.save{{width:100%;border-color:#e7e7e7;background:#ededed;color:#171717;font-weight:620}}.save:hover{{border-color:#fff;background:#fff}}
+.copy-link{{width:100%;margin-top:8px;background:#272727}}
+.muted{{color:#9a9a9a;margin:12px 5px}}.notice{{background:#173c2b;color:#9ee6bc;border-radius:9px;padding:9px 10px}}.result{{margin:9px 4px 0;color:#9ee6bc;word-break:break-word}}.result:empty{{display:none}}
 .signin{{display:block;margin:8px 5px;color:#ddd}}
-.grant{{display:grid;grid-template-columns:1fr auto;align-items:center}}.grant code{{overflow:hidden;text-overflow:ellipsis;color:#aaa}}.grant button{{padding:6px 8px}}
 body.embedded{{min-height:0;overflow:auto}}body.embedded .launcher,body.embedded header,body.embedded .actions{{display:none}}
-body.embedded .panel{{display:block;position:static;width:100%;max-height:none;overflow:visible;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none}}
+body.embedded .panel{{position:static;width:100%;max-height:none;overflow:visible;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;opacity:1;visibility:visible;pointer-events:auto;transform:none}}
 body.embedded section:first-of-type{{margin-top:0;border-top:0;padding-top:2px}}
-@media(prefers-reduced-motion:no-preference){{.panel,.launcher{{transition:opacity .14s ease,transform .14s ease}}}}
+@keyframes toolbar-in{{from{{opacity:0;transform:translateY(8px) scale(.82)}}to{{opacity:1;transform:none}}}}@keyframes field-in{{from{{opacity:0;transform:translateY(-4px)}}to{{opacity:1;transform:none}}}}
+@media(prefers-reduced-motion:reduce){{*,*::before,*::after{{animation-duration:.01ms!important;transition-duration:.01ms!important}}}}
 </style></head><body><div id="toolbar"><button class="launcher" aria-label="Open Brume toolbar">☁️</button><div class="panel"><header><strong>Brume</strong><button class="close" aria-label="Close">×</button></header>{notice}<div class="actions"><button type="button" data-share>Share website</button><button type="button" data-copy>Copy URL</button></div>{owner_controls}<p class="result" aria-live="polite"></p></div></div><script>
 const root=document.querySelector("#toolbar");const result=document.querySelector(".result");const shareUrl={share_json};
 if(window.self!==window.top)document.body.classList.add("embedded");
@@ -1648,8 +1629,9 @@ document.querySelector(".launcher").onclick=()=>setOpen(true);document.querySele
 async function copy(value){{await navigator.clipboard.writeText(value);result.textContent="Copied"}}
 document.querySelector("[data-copy]").onclick=()=>copy(shareUrl);
 document.querySelector("[data-share]").onclick=()=>navigator.share?navigator.share({{url:shareUrl}}):copy(shareUrl);
-const invite=document.querySelector("[data-invite]");if(invite)invite.onclick=async()=>{{const body=new URLSearchParams({{action_token:invite.dataset.token,return_to:shareUrl}});const response=await fetch(invite.dataset.action,{{method:"POST",body}});const data=await response.json();if(response.ok){{await copy(data.url);result.textContent="Invite copied. It expires in one day."}}else result.textContent=data.message??"Could not create invite"}};
-const authSelect=document.querySelector("[data-auth-select]");const password=document.querySelector("[data-password]");if(authSelect&&password){{const updatePassword=()=>password.required=authSelect.value==="password"&&{password_required};authSelect.onchange=updatePassword;updatePassword()}}
+const invite=document.querySelector("[data-invite]");if(invite)invite.onclick=async()=>{{invite.disabled=true;const label=invite.textContent;invite.textContent="Copying…";const body=new URLSearchParams({{action_token:invite.dataset.token,return_to:shareUrl}});try{{const response=await fetch(invite.dataset.action,{{method:"POST",body}});const data=await response.json();if(response.ok){{await navigator.clipboard.writeText(data.url);result.textContent="Link copied. It expires in 24 hours."}}else result.textContent=data.message??"Could not copy link"}}catch{{result.textContent="Could not copy link"}}finally{{invite.disabled=false;invite.textContent=label}}}};
+const authSelect=document.querySelector("[data-auth-select]");const passwordRow=document.querySelector("[data-password-row]");const password=document.querySelector("[data-password]");if(authSelect&&passwordRow&&password){{const updatePassword=()=>{{const enabled=authSelect.value==="password";passwordRow.hidden=!enabled;passwordRow.setAttribute("aria-hidden",String(!enabled));password.required=enabled&&{password_required};if(!enabled){{password.value="";password.type="password"}}}};authSelect.onchange=updatePassword;updatePassword()}}
+const generate=document.querySelector("[data-generate-password]");if(generate&&password)generate.onclick=()=>{{const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";const values=crypto.getRandomValues(new Uint32Array(20));password.value=Array.from(values,value=>alphabet[value%alphabet.length]).join("");password.type="text";password.focus();password.select();result.textContent="Password generated."}};
 </script></body></html>"##,
         password_required = control.auth_mode != AuthMode::Password,
     )
@@ -1684,4 +1666,88 @@ fn claimed_invitation_page(public_id: &str, token: Option<&str>, return_to: &str
         r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brume access granted</title>{AUTH_STYLES}</head><body><main><div class="mark">☁️</div><h1>Access granted</h1><p>Your public recipient ID is <strong>{public_id}</strong>.</p>{secret}{destination}</main></body></html>"#,
         public_id = escape_html(public_id),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn control(auth_mode: AuthMode) -> AccessControl {
+        AccessControl {
+            id: Uuid::nil(),
+            owner_user_id: Uuid::nil(),
+            auth_mode,
+            password_hash: (auth_mode == AuthMode::Password).then(|| "hash".to_owned()),
+            access_version: 1,
+            overlay_enabled: true,
+        }
+    }
+
+    #[test]
+    fn token_toolbar_keeps_only_the_compact_copy_link_action() {
+        let html = toolbar_page(
+            &control(AuthMode::Token),
+            "https://demo.example.com/",
+            true,
+            Some("action_token"),
+            None,
+        );
+
+        assert!(html.contains(">Copy link</button>"));
+        assert!(html.contains(r#"data-password-row hidden"#));
+        assert!(!html.contains("Create one-day invite"));
+        assert!(!html.contains("Recipient public ID"));
+        assert!(!html.contains("Show cloud toolbar"));
+    }
+
+    #[test]
+    fn password_toolbar_shows_password_and_generator_side_by_side() {
+        let html = toolbar_page(
+            &control(AuthMode::Password),
+            "https://demo.example.com/",
+            true,
+            Some("action_token"),
+            None,
+        );
+
+        assert!(html.contains(r#"data-password-row >"#));
+        assert!(html.contains(r#"data-generate-password>Generate</button>"#));
+        assert!(!html.contains(">Copy link</button>"));
+    }
+
+    #[test]
+    fn public_toolbar_hides_password_controls() {
+        let html = toolbar_page(
+            &control(AuthMode::None),
+            "https://demo.example.com/",
+            true,
+            Some("action_token"),
+            None,
+        );
+
+        assert!(html.contains(r#"<option value="none" selected>Public</option>"#));
+        assert!(html.contains(r#"data-password-row hidden"#));
+    }
+
+    #[test]
+    fn injected_toolbar_registers_geist_outside_the_shadow_tree_and_loads_the_overlay() {
+        let html = overlay_markup(Uuid::nil(), "https://auth.example.com", Some("nonce-value"));
+
+        let style_end = html.find("</style>").unwrap();
+        let font_face = html.find("@font-face").unwrap();
+        assert!(font_face < style_end);
+        assert!(html.contains(r#"src="/_brume/overlay.js""#));
+        assert!(html.contains(r#" nonce="nonce-value""#));
+        assert!(html.contains("data-brume-overlay-script"));
+        assert!(html.contains(r#"data-brume-auth-origin="https://auth.example.com""#));
+        assert!(html.contains("[data-brume-review-host]"));
+    }
+
+    #[test]
+    fn injected_toolbar_omits_the_nonce_attribute_when_absent() {
+        let html = overlay_markup(Uuid::nil(), "https://auth.example.com", None);
+
+        assert!(!html.contains("nonce"));
+        assert!(html.contains(r#"src="/_brume/overlay.js" defer"#));
+    }
 }

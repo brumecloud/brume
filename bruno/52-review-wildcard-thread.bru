@@ -1,0 +1,32 @@
+meta {
+  name: Reviewer comments an element on a wildcard host
+  type: http
+  seq: 52
+}
+
+post {
+  url: {{review_deployment_url}}/_brume/review/threads?site={{review_deployment_site}}&return_to={{review_deployment_return_to}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "page_path": "/",
+    "anchor": {
+      "type": "element",
+      "css": "html > body:nth-of-type(1) > main:nth-of-type(1)",
+      "tag": "main",
+      "text_digest": "Brume static deployment fixture"
+    },
+    "body": "please change this block",
+    "display_name": "Paul"
+  }
+}
+
+tests {
+  test("wildcard hosts accept review POST requests", function() {
+    expect(res.status).to.equal(201);
+    expect(res.body.thread_id).to.be.a("string");
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Reviewer finishes the review
+  type: http
+  seq: 47
+}
+
+post {
+  url: {{plan_url}}/_brume/review/finish?site={{review_site}}&return_to={{review_return_to}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {}
+}
+
+tests {
+  test("finishing closes the open round", function() {
+    expect(res.status).to.equal(204);
+  });
+}

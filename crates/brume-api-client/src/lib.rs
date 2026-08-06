@@ -5,7 +5,7 @@ use brume_core::{
     CreateDeletionChallengeResponse, CreateDeploymentDeletionChallengeResponse, DeployPlanResponse,
     DeploySiteResponse, DeploymentPatch, DeploymentSummary, ListDeploymentsResponse,
     ListPlansResponse, PlanDetails, PlanPatch, PollCliLoginResponse, RefreshTokenRequest,
-    TokenPair,
+    ReviewCommentsResponse, ReviewRoundsResponse, ReviewStatusResponse, TokenPair,
 };
 use reqwest::{Response, StatusCode};
 use thiserror::Error;
@@ -25,7 +25,27 @@ pub struct DeploySiteOptions<'a> {
     pub password: Option<&'a str>,
     pub overlay_enabled: bool,
     pub pinned: bool,
+    pub review: bool,
     pub archive: Vec<u8>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReviewTarget {
+    Plan,
+    Deployment,
+}
+
+impl ReviewTarget {
+    fn base_path(self, selector: &str) -> String {
+        let collection = match self {
+            Self::Plan => "plans",
+            Self::Deployment => "deployments",
+        };
+        format!(
+            "api/v1/{collection}/{}/review",
+            urlencoding::encode(selector)
+        )
+    }
 }
 
 impl BrumeClient {
@@ -97,6 +117,7 @@ impl BrumeClient {
         .await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn deploy(
         &self,
         slug: &str,
@@ -104,10 +125,11 @@ impl BrumeClient {
         password: Option<&str>,
         overlay_enabled: bool,
         pinned: bool,
+        review: bool,
         archive: Vec<u8>,
     ) -> Result<DeployPlanResponse, ClientError> {
         let path = format!(
-            "api/v1/plans/{}/deploy?auth={auth}&overlay={overlay_enabled}&pinned={pinned}",
+            "api/v1/plans/{}/deploy?auth={auth}&overlay={overlay_enabled}&pinned={pinned}&review={review}",
             urlencoding::encode(slug),
         );
         let mut request = self
@@ -130,10 +152,11 @@ impl BrumeClient {
             password,
             overlay_enabled,
             pinned,
+            review,
             archive,
         } = options;
         let mut path = format!(
-            "api/v1/deployments?spa={spa}&auth={auth}&overlay={overlay_enabled}&pinned={pinned}"
+            "api/v1/deployments?spa={spa}&auth={auth}&overlay={overlay_enabled}&pinned={pinned}&review={review}"
         );
         if let Some(slug) = slug {
             path.push_str("&slug=");
@@ -262,6 +285,37 @@ impl BrumeClient {
         } else {
             Err(decode_error(response).await)
         }
+    }
+
+    pub async fn review_status(
+        &self,
+        target: ReviewTarget,
+        selector: &str,
+    ) -> Result<ReviewStatusResponse, ClientError> {
+        let path = target.base_path(selector);
+        decode(self.request(reqwest::Method::GET, &path).send().await?).await
+    }
+
+    pub async fn review_comments(
+        &self,
+        target: ReviewTarget,
+        selector: &str,
+        round: Option<i32>,
+    ) -> Result<ReviewCommentsResponse, ClientError> {
+        let mut path = format!("{}/comments", target.base_path(selector));
+        if let Some(round) = round {
+            path.push_str(&format!("?round={round}"));
+        }
+        decode(self.request(reqwest::Method::GET, &path).send().await?).await
+    }
+
+    pub async fn review_rounds(
+        &self,
+        target: ReviewTarget,
+        selector: &str,
+    ) -> Result<ReviewRoundsResponse, ClientError> {
+        let path = format!("{}/rounds", target.base_path(selector));
+        decode(self.request(reqwest::Method::GET, &path).send().await?).await
     }
 }
 

@@ -62,6 +62,8 @@ struct DeployParameters {
     auth: AuthMode,
     #[serde(default = "default_true")]
     overlay: bool,
+    #[serde(default)]
+    review: bool,
 }
 
 fn default_true() -> bool {
@@ -199,6 +201,10 @@ async fn deploy(
             )
             .await?;
         }
+        crate::review::supersede_open_round(&mut transaction, access_control_id).await?;
+        if parameters.review {
+            crate::review::start_round(&mut transaction, access_control_id).await?;
+        }
         if existing.is_none() {
             sqlx::query(
                 "INSERT INTO deployments (
@@ -281,8 +287,14 @@ async fn deploy(
     .bind(deployment_id)
     .fetch_one(&state.database)
     .await?;
+    let review_round = if parameters.review {
+        crate::review::latest_round(&state, access_control_id).await?
+    } else {
+        None
+    };
     Ok(Json(DeploySiteResponse {
         deployment: summary(&state, &row)?,
+        review_round,
     }))
 }
 
@@ -1039,7 +1051,7 @@ mod tests {
         let script_index = injected.find("data-brume-overlay-script").unwrap();
         let body_end_index = injected.find("</BODY>").unwrap();
         assert!(script_index < body_end_index);
-        assert!(injected.contains(r#"<iframe title="Manage website access""#));
+        assert!(injected.contains(r#"src="/_brume/overlay.js""#));
         assert!(injected.contains(r#"font-family:"Geist Variable""#));
         assert_eq!(deployment.manifest.files[0].size, injected.len() as u64);
     }

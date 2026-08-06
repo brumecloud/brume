@@ -20,8 +20,8 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
-use brume_api_client::{BrumeClient, DeploySiteOptions};
-use brume_core::{AuthMode, DeploymentPatch, PlanPatch, PollCliLoginResponse};
+use brume_api_client::{BrumeClient, DeploySiteOptions, ReviewTarget};
+use brume_core::{AuthMode, DeploymentPatch, PlanPatch, PollCliLoginResponse, ReviewStatus};
 use clap::{Parser, Subcommand};
 use output::OutputFormat;
 use serde_json::json;
@@ -70,6 +70,8 @@ enum Command {
         password_stdin: bool,
         #[arg(long)]
         no_overlay: bool,
+        #[arg(long)]
+        review: bool,
     },
     Tunnel {
         port: u16,
@@ -80,9 +82,38 @@ enum Command {
         #[command(subcommand)]
         command: PlanCommand,
     },
+    Review {
+        #[command(subcommand)]
+        command: ReviewCommand,
+    },
     Mcp {
         #[command(subcommand)]
         command: McpCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum ReviewCommand {
+    Status {
+        slug: String,
+        #[arg(long, help = "Target a static deployment instead of a plan")]
+        site: bool,
+    },
+    Comments {
+        slug: String,
+        #[arg(long, help = "Target a static deployment instead of a plan")]
+        site: bool,
+        #[arg(long, help = "Fetch a specific review round instead of the latest")]
+        round: Option<i32>,
+    },
+    Wait {
+        slug: String,
+        #[arg(long, help = "Target a static deployment instead of a plan")]
+        site: bool,
+        #[arg(long, default_value_t = 5, help = "Polling interval in seconds")]
+        interval: u64,
+        #[arg(long, help = "Give up after this many seconds")]
+        timeout: Option<u64>,
     },
 }
 
@@ -142,6 +173,8 @@ enum PlanCommand {
         password_stdin: bool,
         #[arg(long)]
         no_overlay: bool,
+        #[arg(long)]
+        review: bool,
     },
     List,
     Show {
@@ -214,6 +247,7 @@ async fn main() -> Result<()> {
             auth,
             password_stdin,
             no_overlay,
+            review,
         } => match command {
             Some(command) => deploy_command(&cli.base_url, command, cli.output).await,
             None => {
@@ -227,6 +261,7 @@ async fn main() -> Result<()> {
                         auth,
                         password_stdin,
                         overlay_enabled: !no_overlay,
+                        review,
                     },
                     cli.output,
                 )
@@ -241,6 +276,106 @@ async fn main() -> Result<()> {
         }
         Command::Mcp { command } => mcp(&cli.base_url, command, cli.output).await,
         Command::Plan { command } => plan(&cli.base_url, command, cli.output).await,
+        Command::Review { command } => review(&cli.base_url, command, cli.output).await,
+    }
+}
+
+fn review_target(site: bool) -> ReviewTarget {
+    if site {
+        ReviewTarget::Deployment
+    } else {
+        ReviewTarget::Plan
+    }
+}
+
+async fn review(
+    base_url: &str,
+    command: ReviewCommand,
+    output_format: OutputFormat,
+) -> Result<()> {
+    match command {
+        ReviewCommand::Status { slug, site } => {
+            let mut progress = progress::Progress::start(2, "Authenticating");
+            let client = authenticated_client(base_url).await?;
+            progress.advance(format!("Loading review status for {slug}"));
+            let response = client.review_status(review_target(site), &slug).await?;
+            progress.finish();
+            if output_format.is_json() {
+                output::json(&response)?;
+            } else {
+                output::review_status(&slug, response.round.as_ref());
+            }
+            Ok(())
+        }
+        ReviewCommand::Comments { slug, site, round } => {
+            let mut progress = progress::Progress::start(2, "Authenticating");
+            let client = authenticated_client(base_url).await?;
+            progress.advance(format!("Loading review comments for {slug}"));
+            let response = client
+                .review_comments(review_target(site), &slug, round)
+                .await?;
+            progress.finish();
+            if output_format.is_json() {
+                output::json(&response)?;
+            } else {
+                output::review_comments(&response);
+            }
+            Ok(())
+        }
+        ReviewCommand::Wait {
+            slug,
+            site,
+            interval,
+            timeout,
+        } => {
+            let target = review_target(site);
+            let client = authenticated_client(base_url).await?;
+            let started = Instant::now();
+            let interval = Duration::from_secs(interval.max(1));
+            let mut reported_comments = None;
+            loop {
+                let status = client.review_status(target, &slug).await?;
+                let Some(round) = status.round else {
+                    bail!("`{slug}` has no review round; deploy it with --review first");
+                };
+                match round.status {
+                    ReviewStatus::Open => {
+                        if reported_comments != Some(round.comment_count) {
+                            reported_comments = Some(round.comment_count);
+                            eprintln!(
+                                "Waiting for review round #{} to finish ({} comment{} so far)",
+                                round.number,
+                                round.comment_count,
+                                if round.comment_count == 1 { "" } else { "s" },
+                            );
+                        }
+                    }
+                    ReviewStatus::Finished => {
+                        let response = client
+                            .review_comments(target, &slug, Some(round.number))
+                            .await?;
+                        if output_format.is_json() {
+                            output::json(&response)?;
+                        } else {
+                            output::review_comments(&response);
+                        }
+                        return Ok(());
+                    }
+                    ReviewStatus::Superseded => {
+                        bail!(
+                            "Review round #{} was superseded by a newer deployment",
+                            round.number
+                        );
+                    }
+                }
+                if let Some(timeout) = timeout
+                    && started.elapsed() >= Duration::from_secs(timeout)
+                {
+                    bail!("Timed out waiting for the review of `{slug}` to finish");
+                }
+                tokio::time::sleep(interval).await;
+            }
+        }
     }
 }
 
@@ -313,6 +448,7 @@ struct DeployOptions<'a> {
     auth: AuthMode,
     password_stdin: bool,
     overlay_enabled: bool,
+    review: bool,
 }
 
 async fn deploy(
@@ -328,6 +464,7 @@ async fn deploy(
         auth,
         password_stdin,
         overlay_enabled,
+        review,
     } = options;
     let mut progress = progress::Progress::start(4, "Authenticating");
     let token = config::load_access_token(base_url).await?;
@@ -351,6 +488,7 @@ async fn deploy(
             password: password.as_deref(),
             overlay_enabled,
             pinned,
+            review,
             archive,
         })
         .await?;
@@ -359,6 +497,12 @@ async fn deploy(
         output::json(&deployed)?;
     } else {
         println!("Deployed {}", deployed.deployment.url);
+        if let Some(round) = &deployed.review_round {
+            println!(
+                "Review round #{} started - waiting for comments at {}",
+                round.number, deployed.deployment.url
+            );
+        }
     }
     Ok(())
 }
@@ -567,6 +711,7 @@ async fn plan(base_url: &str, command: PlanCommand, output_format: OutputFormat)
             pin,
             password_stdin,
             no_overlay,
+            review,
         } => {
             let mut progress = progress::Progress::start(5, "Authenticating");
             let token = config::load_access_token(base_url).await?;
@@ -607,6 +752,7 @@ async fn plan(base_url: &str, command: PlanCommand, output_format: OutputFormat)
                     password.as_deref(),
                     overlay_enabled,
                     pin,
+                    review,
                     archive,
                 )
                 .await?;
@@ -615,6 +761,12 @@ async fn plan(base_url: &str, command: PlanCommand, output_format: OutputFormat)
                 output::json(&deployed)?;
             } else {
                 println!("Deployed {}", deployed.plan.summary.url);
+                if let Some(round) = &deployed.review_round {
+                    println!(
+                        "Review round #{} started - waiting for comments at {}",
+                        round.number, deployed.plan.summary.url
+                    );
+                }
             }
             Ok(())
         }

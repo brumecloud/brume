@@ -260,6 +260,36 @@ Les requêtes HTTP, les corps en streaming et les WebSockets sont relayés vers 
 Le chemin public est transmis tel quel au serveur local, sans préfixe ajouté ou retiré.
 L'URL est publique et ne doit pas exposer un service local contenant des données sensibles.
 
+## Revue et commentaires
+
+L'option `--review` de `brume plan deploy` et `brume deploy` ouvre un round de revue sur le site publié.
+Chaque visiteur autorisé peut surligner du texte ou cibler un élément de la page pour ouvrir un fil de commentaires, comme dans Notion.
+Les fils acceptent des réponses et un visiteur anonyme peut indiquer son nom.
+Le panneau Brume affiche le nombre de commentaires et le bouton `Finish review` termine la revue.
+La revue passe par le JavaScript injecté de la toolbar, donc `--no-overlay` désactive aussi les commentaires.
+
+```bash
+brume plan deploy ./mon-plan --review
+brume deploy ./dist --review
+```
+
+Chaque déploiement remplace le round ouvert, et `--review` en ouvre un nouveau.
+Les rounds précédents restent stockés avec le statut `superseded` et leurs commentaires restent accessibles par numéro de round.
+
+L'agent qui a publié le site suit la revue avec les commandes suivantes:
+
+```bash
+brume review status mon-plan
+brume review comments mon-plan --round 2
+brume review wait mon-plan --interval 5 --timeout 3600
+brume review status mon-app --site
+```
+
+`--site` cible un déploiement statique au lieu d'un plan.
+`brume review wait` interroge le serveur jusqu'à la fin de la revue puis affiche les commentaires.
+Toutes ces commandes acceptent `--output json`.
+Les outils MCP `review_status` et `review_comments` exposent le même cycle aux agents.
+
 ## Règles communes pour les URLs
 
 Les slugs passés à `--slug` contiennent entre 1 et 80 caractères.

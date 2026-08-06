@@ -1,0 +1,36 @@
+meta {
+  name: Reviewer creates a comment thread
+  type: http
+  seq: 43
+}
+
+post {
+  url: {{plan_url}}/_brume/review/threads?site={{review_site}}&return_to={{review_return_to}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "page_path": "/e2e/{{review_plan}}",
+    "anchor": {
+      "type": "text",
+      "exact": "suis du texte",
+      "prefix": "je "
+    },
+    "body": "yes je suis un comment",
+    "display_name": "Paul"
+  }
+}
+
+script:post-response {
+  bru.setVar("review_thread_id", res.body.thread_id);
+}
+
+tests {
+  test("a highlighted selection starts a comment thread", function() {
+    expect(res.status).to.equal(201);
+    expect(res.body.thread_id).to.be.a("string");
+    expect(res.body.comment_id).to.be.a("string");
+  });
+}

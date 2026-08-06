@@ -1,0 +1,22 @@
+meta {
+  name: Finishing twice is rejected
+  type: http
+  seq: 49
+}
+
+post {
+  url: {{plan_url}}/_brume/review/finish?site={{review_site}}&return_to={{review_return_to}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {}
+}
+
+tests {
+  test("a finished round cannot be finished again", function() {
+    expect(res.status).to.equal(409);
+    expect(res.body.code).to.equal("no_open_review");
+  });
+}

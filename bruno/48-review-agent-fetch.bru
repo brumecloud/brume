@@ -1,0 +1,26 @@
+meta {
+  name: Agent fetches the finished review
+  type: http
+  seq: 48
+}
+
+get {
+  url: {{base_url}}/api/v1/plans/{{review_plan}}/review/comments
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("the owner reads the finished review over the API", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.round.status).to.equal("finished");
+    expect(res.body.round.number).to.equal(2);
+    expect(res.body.threads).to.have.length(1);
+    expect(res.body.threads[0].comments).to.have.length(2);
+    expect(res.body.threads[0].anchor.type).to.equal("text");
+  });
+}

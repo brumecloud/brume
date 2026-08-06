@@ -6,6 +6,7 @@ mod error;
 mod gc;
 mod plans;
 mod public;
+mod review;
 mod state;
 mod storage;
 mod tunnels;
@@ -108,6 +109,7 @@ async fn dispatch_by_host(State(state): State<AppState>, request: Request) -> Re
             .merge(auth::api_router())
             .merge(deployments::api_router())
             .merge(plans::router())
+            .merge(review::api_router())
             .merge(tunnels::router())
             .with_state(state)
             .oneshot(request)
@@ -126,6 +128,7 @@ async fn dispatch_by_host(State(state): State<AppState>, request: Request) -> Re
         return Router::new()
             .merge(auth::plan_router())
             .merge(access::site_router())
+            .merge(review::site_router())
             .merge(web::router())
             .with_state(state)
             .oneshot(request)

@@ -7,7 +7,7 @@ use axum::{
 use tower::ServiceExt;
 use tower_cookies::Cookies;
 
-use crate::{access, deployments, state::AppState, tunnels};
+use crate::{access, deployments, review, state::AppState, tunnels};
 
 pub async fn serve(state: AppState, public_label: String, request: Request) -> Response {
     if state.tunnels.contains_label(&public_label) {
@@ -15,10 +15,12 @@ pub async fn serve(state: AppState, public_label: String, request: Request) -> R
     }
     if matches!(
         request.uri().path(),
-        "/_brume/access/complete" | "/_brume/overlay-state"
-    ) {
+        "/_brume/access/complete" | "/_brume/overlay-state" | "/_brume/overlay.js"
+    ) || request.uri().path().starts_with("/_brume/review/")
+    {
         return Router::new()
             .merge(access::site_router())
+            .merge(review::site_router())
             .with_state(state)
             .oneshot(request)
             .await

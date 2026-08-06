@@ -1,0 +1,26 @@
+meta {
+  name: Review rounds record the superseded history
+  type: http
+  seq: 46
+}
+
+get {
+  url: {{base_url}}/api/v1/plans/{{review_plan}}/review/rounds
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("redeploying with --review superseded the first round", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.rounds).to.have.length(2);
+    expect(res.body.rounds[0].number).to.equal(2);
+    expect(res.body.rounds[0].status).to.equal("open");
+    expect(res.body.rounds[1].number).to.equal(1);
+    expect(res.body.rounds[1].status).to.equal("superseded");
+  });
+}

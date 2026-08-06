@@ -1,0 +1,21 @@
+meta {
+  name: Overlay script is served on the plan host
+  type: http
+  seq: 42
+}
+
+get {
+  url: {{plan_url}}/_brume/overlay.js
+  body: none
+  auth: none
+}
+
+tests {
+  test("the overlay artifact is served with caching headers", function() {
+    expect(res.status).to.equal(200);
+    expect(res.headers["content-type"]).to.include("text/javascript");
+    expect(res.headers["cache-control"]).to.equal("public, max-age=300");
+    expect(res.headers.etag).to.be.a("string");
+    expect(res.body).to.include("/_brume/review/threads");
+  });
+}
