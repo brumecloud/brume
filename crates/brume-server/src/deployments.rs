@@ -121,10 +121,9 @@ async fn deploy(
         }
         candidate = random_public_id();
     };
-    let mut deployment =
-        tokio::task::spawn_blocking(move || validate_archive(body, parameters.spa))
-            .await
-            .map_err(ApiError::internal)??;
+    let deployment = tokio::task::spawn_blocking(move || validate_archive(body, parameters.spa))
+        .await
+        .map_err(ApiError::internal)??;
     let existing = sqlx::query(
         "SELECT id, active_bundle_id, access_control_id
          FROM deployments WHERE user_id = $1 AND slug = $2",
@@ -149,11 +148,6 @@ async fn deploy(
         .transpose()?
         .flatten();
     let access_control_id = existing_control_id.unwrap_or_else(Uuid::now_v7);
-    inject_overlay(
-        &mut deployment,
-        access_control_id,
-        &state.config.auth_public_url,
-    )?;
     let password = headers
         .get("x-brume-password")
         .and_then(|value| value.to_str().ok());
@@ -507,6 +501,15 @@ fn validate_archive(body: Bytes, spa: bool) -> Result<ValidatedDeployment, ApiEr
             return Err(ApiError::bad_request("Expanded deployment exceeds 100 MiB"));
         }
         let content_type = content_type_for(&path);
+        // The overlay is injected into HTML as text when the document is
+        // served, so a document that is not UTF-8 could never receive it.
+        // Rejecting here keeps that failure at deploy time, where it names the
+        // offending file, rather than silently dropping the toolbar later.
+        if content_type.starts_with("text/html") && std::str::from_utf8(&bytes).is_err() {
+            return Err(ApiError::bad_request(format!(
+                "Deployment HTML `{path}` is not valid UTF-8"
+            )));
+        }
         if files
             .insert(
                 path.clone(),
@@ -545,47 +548,72 @@ fn validate_archive(body: Bytes, spa: bool) -> Result<ValidatedDeployment, ApiEr
     })
 }
 
-fn inject_overlay(
-    deployment: &mut ValidatedDeployment,
-    control_id: Uuid,
-    auth_origin: &str,
-) -> Result<(), ApiError> {
+/// Adds the Brume overlay to an HTML document on its way out.
+///
+/// Injection happens per request rather than once at upload so that a change to
+/// the overlay bootstrap reaches every deployed site without redeploying any of
+/// them, and so `auth_public_url` is never frozen into stored bytes.
+fn inject_overlay(html: &str, control_id: Uuid, auth_origin: &str) -> String {
+    let html = strip_overlay_markup(html);
     let markup = access::overlay_markup(control_id, auth_origin, None);
-    let mut total_size = 0_usize;
-    for (path, file) in &mut deployment.files {
-        if file.content_type.starts_with("text/html") {
-            let html = std::str::from_utf8(&file.bytes).map_err(|_| {
-                ApiError::bad_request(format!("Deployment HTML `{path}` is not valid UTF-8"))
-            })?;
-            let insertion_index = find_html_insertion_index(html);
-            let mut injected = String::with_capacity(html.len() + markup.len());
-            injected.push_str(&html[..insertion_index]);
-            injected.push_str(&markup);
-            injected.push_str(&html[insertion_index..]);
-            if injected.len() as u64 > DEPLOYMENT_MAX_FILE_BYTES {
-                return Err(ApiError::bad_request(format!(
-                    "Deployment object `{path}` exceeds 20 MiB after adding the Brume toolbar"
-                )));
-            }
-            file.bytes = Bytes::from(injected);
-        }
-        total_size = total_size.saturating_add(file.bytes.len());
-        if total_size > MAX_EXPANDED_BYTES {
-            return Err(ApiError::bad_request(
-                "Expanded deployment exceeds 100 MiB after adding the Brume toolbar",
-            ));
-        }
+    let insertion_index = find_html_insertion_index(&html);
+    let mut injected = String::with_capacity(html.len() + markup.len());
+    injected.push_str(&html[..insertion_index]);
+    injected.push_str(&markup);
+    injected.push_str(&html[insertion_index..]);
+    injected
+}
+
+/// Overlay elements as (open tag, marker attribute, close tag).
+const OVERLAY_ELEMENTS: [(&str, &str, &str); 2] = [
+    ("<style", "data-brume-overlay-style", "</style>"),
+    ("<script", "data-brume-overlay-script", "</script>"),
+];
+
+/// Drops overlay markup a document already carries.
+///
+/// Sites deployed while injection still happened at upload have the markup
+/// baked into their stored HTML. Removing it before injecting keeps those pages
+/// from mounting a second toolbar, and retires the stale `auth_public_url` the
+/// baked copy captured, so no bundle has to be migrated.
+fn strip_overlay_markup(html: &str) -> std::borrow::Cow<'_, str> {
+    if !html.contains("data-brume-overlay-") {
+        return std::borrow::Cow::Borrowed(html);
     }
-    for manifest_file in &mut deployment.manifest.files {
-        let file = deployment.files.get(&manifest_file.path).ok_or_else(|| {
-            ApiError::internal(format!(
-                "deployment manifest references missing file `{}`",
-                manifest_file.path
-            ))
-        })?;
-        manifest_file.size = file.bytes.len() as u64;
+    let bytes = html.as_bytes();
+    let mut kept = String::with_capacity(html.len());
+    let mut cursor = 0;
+    while cursor < html.len() {
+        let Some((start, marker, close)) = OVERLAY_ELEMENTS
+            .iter()
+            .filter_map(|(open, marker, close)| {
+                find_ascii_case_insensitive(bytes, open.as_bytes(), cursor)
+                    .map(|start| (start, *marker, *close))
+            })
+            .min_by_key(|(start, ..)| *start)
+        else {
+            break;
+        };
+        // An unterminated element is left alone: better a duplicate toolbar
+        // than truncating the rest of someone's page.
+        let Some(open_end) = find_ascii_case_insensitive(bytes, b">", start) else {
+            break;
+        };
+        let Some(close_end) = find_ascii_case_insensitive(bytes, close.as_bytes(), open_end)
+            .map(|at| at + close.len())
+        else {
+            break;
+        };
+        let keep_from = if html[start..=open_end].contains(marker) {
+            start
+        } else {
+            close_end
+        };
+        kept.push_str(&html[cursor..keep_from]);
+        cursor = close_end;
     }
-    Ok(())
+    kept.push_str(&html[cursor..]);
+    std::borrow::Cow::Owned(kept)
 }
 
 fn find_html_insertion_index(html: &str) -> usize {
@@ -598,6 +626,14 @@ fn rfind_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize>
     haystack
         .windows(needle.len())
         .rposition(|window| window.eq_ignore_ascii_case(needle))
+}
+
+fn find_ascii_case_insensitive(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
+    haystack
+        .get(from..)?
+        .windows(needle.len())
+        .position(|window| window.eq_ignore_ascii_case(needle))
+        .map(|at| at + from)
 }
 
 fn content_type_for(path: &str) -> String {
@@ -688,7 +724,18 @@ pub async fn serve_public(
             header::CONTENT_TYPE,
             HeaderValue::from_str(&file.content_type).map_err(ApiError::internal)?,
         );
-        let response_bytes = object.bytes.to_vec();
+        // Deploys reject non-UTF-8 HTML, so the fallback only covers bundles
+        // stored before that check existed; those serve unchanged.
+        let response_bytes = if file.content_type.starts_with("text/html") {
+            std::str::from_utf8(&object.bytes)
+                .map(|html| {
+                    inject_overlay(html, deployment.access.id, &state.config.auth_public_url)
+                        .into_bytes()
+                })
+                .unwrap_or_else(|_| object.bytes.to_vec())
+        } else {
+            object.bytes.to_vec()
+        };
         headers.insert(
             header::CONTENT_LENGTH,
             HeaderValue::from_str(&response_bytes.len().to_string()).map_err(ApiError::internal)?,
@@ -964,6 +1011,22 @@ mod tests {
         Bytes::from(encoder.finish().unwrap())
     }
 
+    fn archive_with(entries: &[(&str, Vec<u8>)]) -> Bytes {
+        let encoder = zstd::Encoder::new(Vec::new(), 1).unwrap();
+        let mut archive = tar::Builder::new(encoder);
+        for (path, bytes) in entries {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(bytes.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            archive
+                .append_data(&mut header, path, bytes.as_slice())
+                .unwrap();
+        }
+        let encoder = archive.into_inner().unwrap();
+        Bytes::from(encoder.finish().unwrap())
+    }
+
     fn manifest(spa: bool, paths: &[&str]) -> DeploymentManifest {
         DeploymentManifest {
             spa,
@@ -1032,27 +1095,65 @@ mod tests {
     }
 
     #[test]
-    fn deployment_injects_toolbar_inside_each_html_document() {
+    fn serving_injects_the_toolbar_before_the_closing_body_tag() {
         let html = "<!doctype html><html><body><main>Site</main></BODY></html>";
-        let mut deployment = ValidatedDeployment {
-            manifest: manifest(false, &["index.html"]),
-            files: HashMap::from([(
-                "index.html".to_owned(),
-                DeploymentObject {
-                    bytes: Bytes::from_static(html.as_bytes()),
-                    content_type: content_type_for("index.html"),
-                },
-            )]),
-        };
 
-        inject_overlay(&mut deployment, Uuid::nil(), "https://auth.example.com").unwrap();
+        let injected = inject_overlay(html, Uuid::nil(), "https://auth.example.com");
 
-        let injected = std::str::from_utf8(&deployment.files["index.html"].bytes).unwrap();
         let script_index = injected.find("data-brume-overlay-script").unwrap();
         let body_end_index = injected.find("</BODY>").unwrap();
         assert!(script_index < body_end_index);
         assert!(injected.contains(r#"src="/_brume/overlay.js""#));
         assert!(injected.contains(r#"font-family:"Geist Variable""#));
-        assert_eq!(deployment.manifest.files[0].size, injected.len() as u64);
+        assert!(injected.contains("<main>Site</main>"));
+    }
+
+    #[test]
+    fn serving_replaces_markup_baked_in_by_an_older_deploy() {
+        // What a bundle deployed before serve-time injection has in storage,
+        // including the auth origin that was current when it was uploaded.
+        let baked = inject_overlay(
+            "<!doctype html><html><body><main>Site</main></body></html>",
+            Uuid::nil(),
+            "https://old-auth.example.com",
+        );
+
+        let served = inject_overlay(&baked, Uuid::nil(), "https://new-auth.example.com");
+
+        assert_eq!(served.matches("data-brume-overlay-script").count(), 1);
+        assert_eq!(served.matches("data-brume-overlay-style").count(), 1);
+        assert!(!served.contains("old-auth.example.com"));
+        assert!(served.contains("new-auth.example.com"));
+        assert!(served.contains("<main>Site</main>"));
+        // Re-serving is stable rather than growing the document each time.
+        assert_eq!(
+            inject_overlay(&served, Uuid::nil(), "https://new-auth.example.com"),
+            served
+        );
+    }
+
+    #[test]
+    fn stripping_overlay_markup_leaves_the_pages_own_styles_and_scripts() {
+        let html = concat!(
+            "<html><head><style>body{color:red}</style>",
+            r#"<script src="/app.js"></script></head>"#,
+            "<body><main>Site</main></body></html>"
+        );
+
+        let served = inject_overlay(html, Uuid::nil(), "https://auth.example.com");
+
+        assert!(served.contains("<style>body{color:red}</style>"));
+        assert!(served.contains(r#"<script src="/app.js"></script>"#));
+        assert_eq!(served.matches("data-brume-overlay-script").count(), 1);
+    }
+
+    #[test]
+    fn deployment_rejects_html_that_is_not_utf8() {
+        let error = validate_archive(
+            archive_with(&[("index.html", vec![0xff, 0xfe, 0x00])]),
+            false,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("not valid UTF-8"));
     }
 }

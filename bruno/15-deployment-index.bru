@@ -22,4 +22,12 @@ tests {
     expect(res.body).to.include("/_brume/overlay.js");
     expect(res.body).to.include("Geist Variable");
   });
+
+  test("the overlay is injected once per response, not stacked", function() {
+    // The overlay is added when the page is served rather than when it is
+    // uploaded, so a bundle deployed before that change must have its baked-in
+    // markup replaced instead of gaining a second toolbar.
+    expect(res.body.split("data-brume-overlay-script").length - 1).to.equal(1);
+    expect(res.body.split("data-brume-overlay-style").length - 1).to.equal(1);
+  });
 }
