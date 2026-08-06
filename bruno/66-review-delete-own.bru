@@ -1,0 +1,21 @@
+meta {
+  name: Owner deletes their own comment
+  type: http
+  seq: 66
+}
+
+delete {
+  url: {{review_deployment_url}}/_brume/review/comments/{{review_owner_comment_id}}?site={{review_deployment_site}}&return_to={{review_deployment_return_to}}
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: brume_plan_access={{token}}
+}
+
+tests {
+  test("the author can delete their comment while the round is open", function() {
+    expect(res.status).to.equal(204);
+  });
+}

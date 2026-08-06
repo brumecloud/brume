@@ -39,8 +39,19 @@
   --highlight: oklch(0.82 0.166 84.4);
   --success: oklch(0.87 0.12 155);
   --radius: 10px;
+}
 
-  font-family: var(--font-sans);
+/* Typography lives on the mount wrapper, not :host: the page-injected
+ * `all:initial` on the host element outranks shadow-tree :host declarations
+ * for normal properties (outer tree wins the cascade for the host), so
+ * anything inheritable declared on :host gets reset. Custom properties are
+ * exempt from `all`, which is why the tokens above can stay on :host. */
+.dark {
+  /* Literal stack, not var(--font-sans): Tailwind only emits theme variables
+   * that generated utilities reference, so the var may not exist at runtime.
+   * "Geist" is the Google Fonts CDN family; "Geist Variable" the self-hosted
+   * fallback served from the auth origin. */
+  font-family: Geist, "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   font-size: 13px;
   line-height: 1.45;
   color: var(--foreground);
@@ -68,10 +79,12 @@
   --text-base--line-height: 1.45;
   --text-lg: 16px;
   --text-lg--line-height: 1.4;
-  --font-sans: "Geist Variable", Geist, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: Geist, "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   /* Stronger curves than the CSS built-ins; ease-out is the house default. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Mild overshoot, reserved for the launcher entrance and badge pop. */
+  --ease-pop: cubic-bezier(0.34, 1.35, 0.64, 1);
 }
 
 @theme inline {
@@ -127,18 +140,45 @@
    * other people's sites.
    */
 
-  /* Launcher: enters once per page load, hides while the panel is open. */
+  /* Launcher: enters once per page load with a soft pop, hides while open. */
   .brume-launcher {
     opacity: 1;
     transform: none;
     transition:
-      opacity 140ms var(--ease-out),
-      transform 180ms var(--ease-out),
-      box-shadow 180ms var(--ease-out),
+      opacity 200ms var(--ease-out),
+      transform 320ms var(--ease-pop),
+      box-shadow 200ms var(--ease-out),
       visibility 0s;
     @starting-style {
       opacity: 0;
-      transform: translateY(8px) scale(0.9);
+      transform: translateY(10px) scale(0.85);
+    }
+  }
+
+  /* The mist lines of the logo drift in just after the launcher lands. */
+  .brume-launcher .brume-logo-mist {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 400ms var(--ease-out),
+      transform 400ms var(--ease-out);
+    @starting-style {
+      opacity: 0;
+      transform: translateX(-4px);
+    }
+  }
+  .brume-launcher .brume-logo-mist-1 {
+    transition-delay: 120ms;
+  }
+  .brume-launcher .brume-logo-mist-2 {
+    transition-delay: 200ms;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .brume-launcher:hover .brume-logo-mist-1 {
+      transform: translateX(1.5px);
+    }
+    .brume-launcher:hover .brume-logo-mist-2 {
+      transform: translateX(-1.5px);
     }
   }
   [data-open] .brume-launcher {
@@ -181,6 +221,34 @@
       opacity 220ms var(--ease-panel),
       transform 220ms var(--ease-panel),
       visibility 0s;
+  }
+
+  /* Panel sections cascade in shortly after the surface arrives. */
+  .brume-panel .brume-stagger {
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+      opacity 160ms var(--ease-out),
+      transform 160ms var(--ease-out);
+  }
+  [data-open] .brume-panel .brume-stagger {
+    opacity: 1;
+    transform: none;
+    transition-duration: 280ms;
+    transition-delay: var(--stagger, 0ms);
+  }
+
+  /* Comment-count badge pops onto the launcher. */
+  .brume-badge-pop {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 200ms var(--ease-out),
+      transform 260ms var(--ease-pop);
+    @starting-style {
+      opacity: 0;
+      transform: scale(0.5);
+    }
   }
 
   /* Panel view switch (primary <-> management): fade + short slide on unhide. */
@@ -229,12 +297,17 @@
     [data-open] .brume-launcher,
     .brume-panel,
     [data-open] .brume-panel,
+    .brume-panel .brume-stagger,
+    .brume-launcher .brume-logo-mist,
+    .brume-badge-pop,
     .brume-view,
     .brume-pop-in,
     .brume-chip-in {
       transform: none;
     }
     .brume-launcher,
+    .brume-launcher .brume-logo-mist,
+    .brume-badge-pop,
     .brume-view,
     .brume-pop-in,
     .brume-chip-in {

@@ -69,6 +69,7 @@ pub struct ReviewComment {
     pub author_is_owner: bool,
     pub body: String,
     pub created_at: DateTime<Utc>,
+    pub edited_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

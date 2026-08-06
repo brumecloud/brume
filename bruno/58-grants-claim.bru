@@ -1,0 +1,37 @@
+meta {
+  name: A recipient claims the review site invitation
+  type: http
+  seq: 58
+}
+
+post {
+  url: {{grant_invitation_url}}/claim
+  body: formUrlEncoded
+  auth: none
+}
+
+headers {
+  Origin: {{auth_url}}
+  Cookie: brume_identity=invalid
+}
+
+body:form-urlencoded {
+}
+
+script:pre-request {
+  const jar = bru.cookies.jar();
+  await jar.setCookie(bru.getEnvVar("auth_url"), "brume_identity", "invalid");
+}
+
+script:post-response {
+  const publicId = res.body.match(/recipient ID is <strong>([^<]+)<\/strong>/);
+  bru.setVar("grant_public_id", publicId?.[1]);
+}
+
+tests {
+  test("the claim creates a fresh identity distinct from the first recipient", function() {
+    expect(res.status).to.equal(200);
+    expect(bru.getVar("grant_public_id")).to.match(/^brume_/);
+    expect(bru.getVar("grant_public_id")).to.not.equal(bru.getVar("recipient_public_id"));
+  });
+}

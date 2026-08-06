@@ -1,0 +1,27 @@
+meta {
+  name: Toolbar settings preflight succeeds
+  type: http
+  seq: 5
+}
+
+options {
+  url: {{auth_url}}/toolbar/{{token_site}}/settings
+  body: none
+  auth: none
+}
+
+headers {
+  Origin: {{plan_url}}
+  Access-Control-Request-Method: POST
+  Access-Control-Request-Headers: content-type
+}
+
+tests {
+  test("preflight allows credentialed JSON posts from the site origin", function() {
+    expect(res.status).to.equal(204);
+    expect(res.headers["access-control-allow-origin"]).to.equal(bru.getEnvVar("plan_url"));
+    expect(res.headers["access-control-allow-credentials"]).to.equal("true");
+    expect(res.headers["access-control-allow-methods"]).to.include("POST");
+    expect(res.headers["access-control-allow-headers"]).to.include("content-type");
+  });
+}

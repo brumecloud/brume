@@ -1,0 +1,35 @@
+meta {
+  name: Owner switches the review site to private access
+  type: http
+  seq: 56
+}
+
+post {
+  url: {{auth_url}}/toolbar/{{review_site}}/settings
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: brume_auth_refresh={{refresh_token}}
+  Origin: {{plan_url}}
+}
+
+body:json {
+  {
+    "auth": "token"
+  }
+}
+
+script:pre-request {
+  const jar = bru.cookies.jar();
+  await jar.setCookie(bru.getEnvVar("auth_url"), "brume_auth_refresh", bru.getEnvVar("refresh_token"));
+}
+
+tests {
+  test("switching modes clears the stored password", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.auth_mode).to.equal("token");
+    expect(res.body.has_password).to.equal(false);
+  });
+}

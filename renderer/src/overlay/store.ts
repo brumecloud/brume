@@ -1,4 +1,4 @@
-import type { ReviewApi, ReviewRoundState, ReviewThread } from "./api";
+import type { ReviewApi, ReviewComment, ReviewRoundState, ReviewThread } from "./api";
 import {
   type Anchor,
   anchorPreview,
@@ -56,7 +56,9 @@ function eventInsideOverlay(event: Event): boolean {
 
 export class ReviewStore {
   round: ReviewRoundState;
+  name: string;
   threads: ReviewThread[] = [];
+  viewerPublicId: string | null = null;
   placements: ReadonlyMap<string, Placement | null> = new Map();
   popover: PopoverState | null = null;
   selection: PendingSelection | null = null;
@@ -73,6 +75,7 @@ export class ReviewStore {
     readonly owner: boolean,
   ) {
     this.round = initialRound;
+    this.name = this.storedName();
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -97,7 +100,13 @@ export class ReviewStore {
     return !this.identified && !this.owner;
   }
 
-  storedName(): string {
+  setName(name: string): void {
+    this.name = name;
+    this.rememberName(name);
+    this.notify();
+  }
+
+  private storedName(): string {
     try {
       return localStorage.getItem(NAME_STORAGE_KEY) ?? "";
     } catch {
@@ -105,7 +114,7 @@ export class ReviewStore {
     }
   }
 
-  rememberName(name: string): void {
+  private rememberName(name: string): void {
     try {
       localStorage.setItem(NAME_STORAGE_KEY, name);
     } catch {
@@ -116,8 +125,31 @@ export class ReviewStore {
   async refresh(): Promise<void> {
     const response = await this.api.threads();
     if (response.round) this.round = response.round;
+    this.viewerPublicId = response.viewer_public_id;
     this.threads = response.threads;
     this.relayout();
+  }
+
+  /** Whether the viewer authored this comment and may edit it. */
+  ownComment(comment: ReviewComment): boolean {
+    if (this.owner && comment.author_is_owner) return true;
+    return (
+      this.viewerPublicId !== null &&
+      comment.author_public_id === this.viewerPublicId
+    );
+  }
+
+  /** The author may delete their comment; the site owner may delete any. */
+  canDeleteComment(comment: ReviewComment): boolean {
+    return this.isOpen() && (this.owner || this.ownComment(comment));
+  }
+
+  /** The site owner may remove any thread; authors may remove their own. */
+  canDeleteThread(thread: ReviewThread): boolean {
+    if (!this.isOpen()) return false;
+    if (this.owner) return true;
+    const root = thread.comments[0];
+    return root !== undefined && this.ownComment(root);
   }
 
   relayout(): void {
@@ -198,18 +230,48 @@ export class ReviewStore {
     this.notify();
   }
 
-  async createThread(anchor: Anchor, body: string, name?: string): Promise<void> {
-    if (name) this.rememberName(name);
-    await this.api.createThread(pagePath(), anchor, body, name);
+  async createThread(anchor: Anchor, body: string): Promise<void> {
+    await this.api.createThread(pagePath(), anchor, body, this.displayName());
     this.popover = null;
     this.notify();
     await this.refresh();
   }
 
-  async reply(threadId: string, body: string, name?: string): Promise<void> {
-    if (name) this.rememberName(name);
-    await this.api.reply(threadId, body, name);
+  async reply(threadId: string, body: string): Promise<void> {
+    await this.api.reply(threadId, body, this.displayName());
     await this.refresh();
+  }
+
+  async editComment(commentId: string, body: string): Promise<void> {
+    await this.api.editComment(commentId, body);
+    await this.refresh();
+  }
+
+  async deleteComment(commentId: string): Promise<void> {
+    await this.api.deleteComment(commentId);
+    await this.refresh();
+    this.closePopoverIfThreadGone();
+  }
+
+  async deleteThread(threadId: string): Promise<void> {
+    await this.api.deleteThread(threadId);
+    await this.refresh();
+    this.closePopoverIfThreadGone();
+  }
+
+  private closePopoverIfThreadGone(): void {
+    const popover = this.popover;
+    if (
+      popover?.mode === "thread" &&
+      !this.threads.some((thread) => thread.id === popover.threadId)
+    ) {
+      this.closePopover();
+    }
+  }
+
+  private displayName(): string | undefined {
+    if (!this.needsName()) return undefined;
+    return this.name.trim() || undefined;
   }
 
   async finish(): Promise<void> {

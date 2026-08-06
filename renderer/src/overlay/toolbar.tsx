@@ -1,26 +1,48 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   CheckCheck,
   ChevronLeft,
-  Cloud,
   Link as LinkIcon,
   MessageCircle,
   MousePointerClick,
   Share2,
   X,
 } from "lucide-react";
+import type { AuthMode, ToolbarApi } from "./api";
 import type { ReviewStore } from "./store";
+import { ACCESS_COPY } from "./access-copy";
+import { ManagementView } from "./management";
 import { useStore } from "./hooks/use-store";
+import { BrumeLogo } from "./brume-logo";
 import { Badge } from "@/overlay/ui/badge";
 import { Button } from "@/overlay/ui/button";
+import { Input } from "@/overlay/ui/input";
 import { Separator } from "@/overlay/ui/separator";
 
 interface ToolbarProps {
-  site: string;
-  authOrigin: string;
+  api: ToolbarApi;
   owner: boolean;
+  authMode: AuthMode | null;
   store: ReviewStore | null;
   host: HTMLElement;
+}
+
+function AccessState({ authMode }: { authMode: AuthMode }) {
+  const access = ACCESS_COPY[authMode];
+  const Icon = access.icon;
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg bg-muted p-2">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent text-foreground">
+        <Icon className="size-4" aria-hidden />
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="text-sm leading-tight font-medium">{access.label}</span>
+        <span className="truncate text-xs leading-tight text-muted-foreground">
+          {access.description}
+        </span>
+      </span>
+    </div>
+  );
 }
 
 function ReviewSection({ store, onNavigate }: { store: ReviewStore; onNavigate: () => void }) {
@@ -34,12 +56,18 @@ function ReviewSection({ store, onNavigate }: { store: ReviewStore; onNavigate: 
   };
   return (
     <div className="flex flex-col gap-2">
-      <p className="m-0 px-1 text-sm" aria-live="polite">
+      <p className="m-0 flex items-center gap-1.5 px-1 text-xs" aria-live="polite">
         {open ? (
-          <span className="text-muted-foreground">
-            Review round #{round.number} -{" "}
-            {round.comment_count === 1 ? "1 comment" : `${round.comment_count} comments`}
-          </span>
+          <>
+            <span className="relative flex size-1.5">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-highlight/60 motion-reduce:animate-none" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-highlight" />
+            </span>
+            <span className="text-muted-foreground">
+              Review round #{round.number} ·{" "}
+              {round.comment_count === 1 ? "1 comment" : `${round.comment_count} comments`}
+            </span>
+          </>
         ) : (
           <span className="flex items-center gap-1.5 text-success">
             <CheckCheck className="size-3.5" aria-hidden />
@@ -47,6 +75,16 @@ function ReviewSection({ store, onNavigate }: { store: ReviewStore; onNavigate: 
           </span>
         )}
       </p>
+      {open && store.needsName() && (
+        <Input
+          type="text"
+          placeholder="Your name"
+          maxLength={64}
+          value={store.name}
+          className="bg-input/20"
+          onChange={(event) => store.setName(event.currentTarget.value)}
+        />
+      )}
       {open && (
         <div className="grid grid-cols-2 gap-2">
           <Button
@@ -80,49 +118,29 @@ function ReviewSection({ store, onNavigate }: { store: ReviewStore; onNavigate: 
               }}
             >
               <MessageCircle data-icon="inline-start" className="text-highlight" aria-hidden />
-              <span className="truncate text-muted-foreground">
+              <span className="truncate font-normal text-muted-foreground">
                 {orphan.comments} · {orphan.preview}
               </span>
             </Button>
           ))}
         </div>
       )}
-      <p className="m-0 min-h-4 px-1 text-xs text-destructive" aria-live="polite">
-        {error}
-      </p>
+      <div aria-live="polite">
+        {error && <p className="m-0 px-1 text-xs text-destructive">{error}</p>}
+      </div>
     </div>
   );
 }
 
-export function Toolbar({ site, authOrigin, owner, store, host }: ToolbarProps) {
+export function Toolbar({ api, owner, authMode: initialAuthMode, store, host }: ToolbarProps) {
   useStore(store);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"primary" | "management">("primary");
   const [result, setResult] = useState("");
-  const [managementUrl, setManagementUrl] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState(initialAuthMode);
   const dragging = useRef(false);
-  const baseManagementUrl =
-    authOrigin +
-    "/toolbar/" +
-    encodeURIComponent(site) +
-    "?return_to=" +
-    encodeURIComponent(location.href);
   const round = store?.round;
   const showBadge = round?.status === "open" && round.comment_count > 0;
-
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      if (
-        event.origin !== location.origin ||
-        (event.data as { type?: string } | null)?.type !== "brume-owner-authenticated"
-      ) {
-        return;
-      }
-      setManagementUrl(baseManagementUrl + "&refresh=" + Date.now());
-    };
-    addEventListener("message", onMessage);
-    return () => removeEventListener("message", onMessage);
-  }, [baseManagementUrl]);
 
   const copy = () =>
     navigator.clipboard
@@ -131,10 +149,6 @@ export function Toolbar({ site, authOrigin, owner, store, host }: ToolbarProps) 
       .catch(() => setResult("Could not copy"));
   const share = () =>
     navigator.share ? navigator.share({ url: location.href }).catch(() => {}) : copy();
-  const openManagement = () => {
-    if (!managementUrl) setManagementUrl(baseManagementUrl);
-    setView("management");
-  };
   const onDragDown = (event: React.PointerEvent<HTMLElement>) => {
     if ((event.target as Element | null)?.closest("button")) return;
     dragging.current = true;
@@ -164,20 +178,20 @@ export function Toolbar({ site, authOrigin, owner, store, host }: ToolbarProps) 
         aria-label="Open Brume toolbar"
         onClick={() => setOpen(true)}
       >
-        <Cloud className="mx-auto size-5.5" aria-hidden />
+        <BrumeLogo className="size-6" />
         {showBadge && (
-          <Badge className="absolute -top-1 -right-1 h-4.5 min-w-4.5 px-1 text-[10.5px] tabular-nums">
+          <Badge className="brume-badge-pop absolute -top-1 -right-1 h-4.5 min-w-4.5 px-1 text-[10.5px] tabular-nums">
             {round?.comment_count}
           </Badge>
         )}
       </button>
-      <div className="brume-panel glass-thick w-[min(390px,calc(100vw-32px))] rounded-2xl border border-border bg-card p-2.5 text-card-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_20px_70px_rgba(0,0,0,0.45)]">
+      <div className="brume-panel glass-thick w-[min(390px,calc(100vw-32px))] rounded-2xl border border-border bg-card p-3 text-card-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_20px_70px_rgba(0,0,0,0.45)]">
         <header
-          className="flex cursor-grab touch-none items-center justify-between px-1 pt-0.5 pb-2.5 active:cursor-grabbing"
+          className="brume-stagger flex cursor-grab touch-none items-center justify-between px-1 pb-2.5 active:cursor-grabbing"
           onPointerDown={onDragDown}
           onPointerUp={onDragUp}
         >
-          <span className="flex items-center gap-1">
+          <span className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
               variant="ghost"
@@ -188,7 +202,8 @@ export function Toolbar({ site, authOrigin, owner, store, host }: ToolbarProps) 
             >
               <ChevronLeft aria-hidden />
             </Button>
-            <strong className="text-base font-semibold tracking-[-0.01em]">
+            <BrumeLogo className="size-4.5 shrink-0 group-data-[view=management]:hidden" />
+            <strong className="truncate text-base font-semibold tracking-[-0.01em]">
               {view === "management" ? "Manage access" : "Brume"}
             </strong>
           </span>
@@ -204,7 +219,8 @@ export function Toolbar({ site, authOrigin, owner, store, host }: ToolbarProps) 
         </header>
         <div className="brume-view group-data-[view=management]:hidden">
           {owner && (
-            <div className="flex flex-col gap-2">
+            <div className="brume-stagger flex flex-col gap-2" style={{ "--stagger": "50ms" } as React.CSSProperties}>
+              {authMode && <AccessState authMode={authMode} />}
               <div className="grid grid-cols-2 gap-2">
                 <Button type="button" variant="secondary" onClick={share}>
                   <Share2 data-icon="inline-start" aria-hidden />
@@ -215,28 +231,36 @@ export function Toolbar({ site, authOrigin, owner, store, host }: ToolbarProps) 
                   Copy URL
                 </Button>
               </div>
-              <Button type="button" variant="secondary" className="w-full" onClick={openManagement}>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                onClick={() => setView("management")}
+              >
                 Manage access
               </Button>
+              <div aria-live="polite">
+                {result && <p className="m-0 px-1 text-xs text-success">{result}</p>}
+              </div>
             </div>
           )}
           {owner && store && <Separator className="my-2.5" />}
-          {store && <ReviewSection store={store} onNavigate={() => setOpen(false)} />}
-          <p className="m-0 mt-2 min-h-4 px-1 text-xs text-success" aria-live="polite">
-            {result}
-          </p>
+          {store && (
+            <div
+              className="brume-stagger"
+              style={{ "--stagger": owner ? "100ms" : "50ms" } as React.CSSProperties}
+            >
+              <ReviewSection store={store} onNavigate={() => setOpen(false)} />
+            </div>
+          )}
         </div>
         {owner && (
-          <div className="brume-view hidden group-data-[view=management]:block">
-            {managementUrl && (
-              <iframe
-                title="Manage website access"
-                allow="clipboard-write"
-                sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-                src={managementUrl}
-                className="block h-[min(520px,calc(100vh-92px))] w-full rounded-lg border-0 bg-transparent"
-              />
-            )}
+          <div className="brume-view hidden max-h-[min(520px,calc(100vh-92px))] overflow-y-auto group-data-[view=management]:block">
+            <ManagementView
+              api={api}
+              active={view === "management"}
+              onAuthModeChange={setAuthMode}
+            />
           </div>
         )}
       </div>

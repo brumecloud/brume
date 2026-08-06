@@ -1,8 +1,8 @@
 import { createRoot } from "react-dom/client";
-import { ReviewApi, fetchOverlayState } from "./api";
+import { ReviewApi, ToolbarApi, fetchOverlayState } from "./api";
 import { ReviewLayer } from "./review-layer";
 import { ReviewStore } from "./store";
-import { applyOverlayStyles } from "./styles";
+import { applyOverlayStyles, ensureGeistFont } from "./styles";
 import { Toolbar } from "./toolbar";
 
 function mountHost(dataset: "brumeOverlayHost" | "brumeReviewHost"): {
@@ -36,20 +36,15 @@ function mountHost(dataset: "brumeOverlayHost" | "brumeReviewHost"): {
   const site = source.dataset.brumeSite;
   const authOrigin = source.dataset.brumeAuthOrigin;
   if (!site || !authOrigin) return;
+  ensureGeistFont(authOrigin);
+  const toolbarApi = new ToolbarApi(site, authOrigin);
   fetchOverlayState(site)
     .then(async (state) => {
       if (!state.enabled || document.querySelector("[data-brume-overlay-host]")) return;
       let owner = state.owner === true;
       if (!owner) {
-        const ownerStateUrl =
-          authOrigin +
-          "/toolbar/" +
-          encodeURIComponent(site) +
-          "/owner-state?return_to=" +
-          encodeURIComponent(location.href);
         try {
-          const response = await fetch(ownerStateUrl, { credentials: "include" });
-          owner = response.ok && ((await response.json()) as { owner?: boolean }).owner === true;
+          owner = (await toolbarApi.ownerState()).owner === true;
         } catch {
           /* cross-origin owner check is best-effort */
         }
@@ -82,7 +77,13 @@ function mountHost(dataset: "brumeOverlayHost" | "brumeReviewHost"): {
       }
       host.dataset.side = savedSide;
       createRoot(mount).render(
-        <Toolbar site={site} authOrigin={authOrigin} owner={owner} store={store} host={host} />,
+        <Toolbar
+          api={toolbarApi}
+          owner={owner}
+          authMode={state.auth_mode ?? null}
+          store={store}
+          host={host}
+        />,
       );
     })
     .catch(() => {

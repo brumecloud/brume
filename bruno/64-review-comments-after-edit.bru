@@ -1,0 +1,29 @@
+meta {
+  name: The edited comment carries its new body
+  type: http
+  seq: 64
+}
+
+get {
+  url: {{review_deployment_url}}/_brume/review/threads?site={{review_deployment_site}}&return_to={{review_deployment_return_to}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("the threads response reflects the edit", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.round.comment_count).to.equal(2);
+    const thread = res.body.threads.find((thread) => thread.id === bru.getVar("review_deployment_thread_id"));
+    const comment = thread.comments.find((comment) => comment.id === bru.getVar("review_owner_comment_id"));
+    expect(comment.body).to.equal("on it, fixed in the next deploy");
+    expect(comment.author_is_owner).to.equal(true);
+    expect(Date.parse(comment.edited_at)).to.be.a("number").and.not.NaN;
+    const original = thread.comments.find((comment) => comment.id !== bru.getVar("review_owner_comment_id"));
+    expect(original.edited_at).to.equal(null);
+  });
+
+  test("anonymous viewers have no identity in the response", function() {
+    expect(res.body.viewer_public_id).to.equal(null);
+  });
+}

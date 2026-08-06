@@ -3,7 +3,7 @@ use axum::{
     extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use brume_core::{
     ReviewComment, ReviewCommentsResponse, ReviewRoundSummary, ReviewRoundsResponse, ReviewStatus,
@@ -36,6 +36,14 @@ pub fn site_router() -> Router<AppState> {
         .route(
             "/_brume/review/threads/{thread_id}/comments",
             post(site_reply),
+        )
+        .route(
+            "/_brume/review/threads/{thread_id}",
+            delete(site_delete_thread),
+        )
+        .route(
+            "/_brume/review/comments/{comment_id}",
+            delete(site_delete_comment).patch(site_edit_comment),
         )
         .route("/_brume/review/finish", post(site_finish))
         .layer(DefaultBodyLimit::max(MAX_REQUEST_BYTES))
@@ -219,7 +227,7 @@ async fn round_threads(state: &AppState, round_id: Uuid) -> Result<Vec<ReviewThr
     let comment_rows = sqlx::query(
         "SELECT review_comments.id, review_comments.thread_id, review_comments.author_public_id,
                 review_comments.author_display_name, review_comments.author_is_owner,
-                review_comments.body, review_comments.created_at
+                review_comments.body, review_comments.created_at, review_comments.edited_at
          FROM review_comments
          JOIN review_threads ON review_threads.id = review_comments.thread_id
          WHERE review_threads.round_id = $1
@@ -237,6 +245,7 @@ async fn round_threads(state: &AppState, round_id: Uuid) -> Result<Vec<ReviewThr
             author_is_owner: row.try_get("author_is_owner")?,
             body: row.try_get("body")?,
             created_at: row.try_get("created_at")?,
+            edited_at: row.try_get("edited_at")?,
         };
         if let Some(thread) = threads.iter_mut().find(|thread| thread.id == thread_id) {
             thread.comments.push(comment);
@@ -407,16 +416,22 @@ async fn site_threads(
 ) -> Result<Response, ApiError> {
     let viewer = authorize_site_viewer(&state, &cookies, &headers, query.site, &query.return_to)
         .await?;
+    let viewer_public_id = viewer
+        .identity
+        .as_ref()
+        .map(|identity| identity.public_id.clone());
     let response = match visible_round(&state, viewer.control.id).await? {
         Some(round) => {
             let threads = round_threads(&state, round.id).await?;
             SiteThreadsResponse {
                 round: Some(round),
+                viewer_public_id,
                 threads,
             }
         }
         None => SiteThreadsResponse {
             round: None,
+            viewer_public_id,
             threads: Vec::new(),
         },
     };
@@ -426,6 +441,7 @@ async fn site_threads(
 #[derive(Serialize)]
 struct SiteThreadsResponse {
     round: Option<ReviewRoundSummary>,
+    viewer_public_id: Option<String>,
     threads: Vec<ReviewThread>,
 }
 
@@ -612,6 +628,177 @@ async fn site_reply(
     Ok(no_store(
         (StatusCode::CREATED, Json(ReplyResponse { comment_id })).into_response(),
     ))
+}
+
+#[derive(Deserialize)]
+struct EditCommentRequest {
+    body: String,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum CommentAction {
+    /// Only the author may rewrite a comment.
+    Edit,
+    /// The author may delete their comment; the site owner may delete any.
+    Delete,
+}
+
+/// Locks the comment (and its thread, so replies and deletions serialize),
+/// verifies it belongs to an open round of this site, and checks that the
+/// viewer may perform the action. Anonymous authors have no identity, so
+/// their comments can only ever be deleted by the owner, never edited.
+async fn own_comment_for_update(
+    transaction: &mut Transaction<'_, Postgres>,
+    viewer: &SiteViewer,
+    comment_id: Uuid,
+    action: CommentAction,
+) -> Result<Uuid, ApiError> {
+    let row = sqlx::query(
+        "SELECT review_comments.thread_id, review_comments.author_identity_id,
+                review_comments.author_is_owner
+         FROM review_comments
+         JOIN review_threads ON review_threads.id = review_comments.thread_id
+         JOIN review_rounds ON review_rounds.id = review_threads.round_id
+         WHERE review_comments.id = $1
+           AND review_rounds.access_control_id = $2
+           AND review_rounds.status = 'open'
+         FOR UPDATE OF review_comments, review_threads",
+    )
+    .bind(comment_id)
+    .bind(viewer.control.id)
+    .fetch_optional(&mut **transaction)
+    .await?
+    .ok_or_else(|| {
+        ApiError::new(
+            StatusCode::CONFLICT,
+            "no_open_review",
+            "This comment does not belong to an open review round",
+        )
+    })?;
+    let author_identity_id: Option<Uuid> = row.try_get("author_identity_id")?;
+    let author_is_owner: bool = row.try_get("author_is_owner")?;
+    let authored = (viewer.owner && author_is_owner)
+        || viewer
+            .identity
+            .as_ref()
+            .is_some_and(|identity| author_identity_id == Some(identity.id));
+    let allowed = authored || (action == CommentAction::Delete && viewer.owner);
+    if !allowed {
+        return Err(ApiError::forbidden(
+            "Only the comment author can change this comment",
+        ));
+    }
+    Ok(row.try_get("thread_id")?)
+}
+
+async fn site_edit_comment(
+    State(state): State<AppState>,
+    cookies: Cookies,
+    headers: HeaderMap,
+    Path(comment_id): Path<Uuid>,
+    Query(query): Query<SiteQuery>,
+    Json(request): Json<EditCommentRequest>,
+) -> Result<Response, ApiError> {
+    let viewer = authorize_site_viewer(&state, &cookies, &headers, query.site, &query.return_to)
+        .await?;
+    let body = validate_body_text(&request.body)?;
+    let mut transaction = state.database.begin().await?;
+    own_comment_for_update(&mut transaction, &viewer, comment_id, CommentAction::Edit).await?;
+    sqlx::query("UPDATE review_comments SET body = $2, edited_at = now() WHERE id = $1")
+        .bind(comment_id)
+        .bind(body)
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+    Ok(no_store(StatusCode::NO_CONTENT.into_response()))
+}
+
+/// Deletes a whole thread with its comments. Allowed for the site owner, or
+/// for the identified author of the thread's opening comment.
+async fn site_delete_thread(
+    State(state): State<AppState>,
+    cookies: Cookies,
+    headers: HeaderMap,
+    Path(thread_id): Path<Uuid>,
+    Query(query): Query<SiteQuery>,
+) -> Result<Response, ApiError> {
+    let viewer = authorize_site_viewer(&state, &cookies, &headers, query.site, &query.return_to)
+        .await?;
+    let mut transaction = state.database.begin().await?;
+    let known_thread: Option<Uuid> = sqlx::query_scalar(
+        "SELECT review_threads.id FROM review_threads
+         JOIN review_rounds ON review_rounds.id = review_threads.round_id
+         WHERE review_threads.id = $1
+           AND review_rounds.access_control_id = $2
+           AND review_rounds.status = 'open'
+         FOR UPDATE OF review_threads",
+    )
+    .bind(thread_id)
+    .bind(viewer.control.id)
+    .fetch_optional(&mut *transaction)
+    .await?;
+    if known_thread.is_none() {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "no_open_review",
+            "This comment thread does not belong to an open review round",
+        ));
+    }
+    if !viewer.owner {
+        let root_author: Option<Option<Uuid>> = sqlx::query_scalar(
+            "SELECT author_identity_id FROM review_comments
+             WHERE thread_id = $1 ORDER BY created_at LIMIT 1",
+        )
+        .bind(thread_id)
+        .fetch_optional(&mut *transaction)
+        .await?;
+        let authored = viewer.identity.as_ref().is_some_and(|identity| {
+            root_author.flatten() == Some(identity.id)
+        });
+        if !authored {
+            return Err(ApiError::forbidden(
+                "Only the thread author or the website owner can delete this thread",
+            ));
+        }
+    }
+    sqlx::query("DELETE FROM review_threads WHERE id = $1")
+        .bind(thread_id)
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+    Ok(no_store(StatusCode::NO_CONTENT.into_response()))
+}
+
+async fn site_delete_comment(
+    State(state): State<AppState>,
+    cookies: Cookies,
+    headers: HeaderMap,
+    Path(comment_id): Path<Uuid>,
+    Query(query): Query<SiteQuery>,
+) -> Result<Response, ApiError> {
+    let viewer = authorize_site_viewer(&state, &cookies, &headers, query.site, &query.return_to)
+        .await?;
+    let mut transaction = state.database.begin().await?;
+    let thread_id =
+        own_comment_for_update(&mut transaction, &viewer, comment_id, CommentAction::Delete)
+            .await?;
+    sqlx::query("DELETE FROM review_comments WHERE id = $1")
+        .bind(comment_id)
+        .execute(&mut *transaction)
+        .await?;
+    let remaining: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM review_comments WHERE thread_id = $1")
+            .bind(thread_id)
+            .fetch_one(&mut *transaction)
+            .await?;
+    if remaining == 0 {
+        sqlx::query("DELETE FROM review_threads WHERE id = $1")
+            .bind(thread_id)
+            .execute(&mut *transaction)
+            .await?;
+    }
+    transaction.commit().await?;
+    Ok(no_store(StatusCode::NO_CONTENT.into_response()))
 }
 
 async fn site_finish(

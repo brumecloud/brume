@@ -24,6 +24,11 @@ body:json {
   }
 }
 
+script:post-response {
+  bru.setVar("review_deployment_thread_id", res.body.thread_id);
+  bru.setVar("review_anonymous_comment_id", res.body.comment_id);
+}
+
 tests {
   test("wildcard hosts accept review POST requests", function() {
     expect(res.status).to.equal(201);

@@ -1,11 +1,11 @@
 meta {
-  name: Owner creates token invitation
+  name: Owner invites a recipient to the review site
   type: http
-  seq: 6
+  seq: 57
 }
 
 post {
-  url: {{auth_url}}/toolbar/{{token_site}}/invitations
+  url: {{auth_url}}/toolbar/{{review_site}}/invitations
   body: json
   auth: none
 }
@@ -16,17 +16,20 @@ headers {
 }
 
 body:json {
-  {
-    "return_to": "{{token_return_to}}"
-  }
+  {}
 }
 
 script:post-response {
-  bru.setVar("invitation_url", res.body.url);
+  bru.setVar("grant_invitation_url", res.body.url);
+}
+
+script:pre-request {
+  const jar = bru.cookies.jar();
+  await jar.setCookie(bru.getEnvVar("auth_url"), "brume_auth_refresh", bru.getEnvVar("refresh_token"));
 }
 
 tests {
-  test("invitation is single-site and expires in one day", function() {
+  test("an invitation without return_to falls back to the site base URL", function() {
     expect(res.status).to.equal(200);
     expect(res.body.url).to.match(/\/invitations\/invite_/);
     const lifetimeHours = (Date.parse(res.body.expires_at) - Date.now()) / 3600000;

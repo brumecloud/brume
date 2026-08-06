@@ -1,0 +1,35 @@
+meta {
+  name: Owner revokes the review site recipient
+  type: http
+  seq: 60
+}
+
+post {
+  url: {{auth_url}}/toolbar/{{review_site}}/grants/revoke
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: brume_auth_refresh={{refresh_token}}
+  Origin: {{plan_url}}
+}
+
+body:json {
+  {
+    "public_id": "{{grant_public_id}}"
+  }
+}
+
+script:pre-request {
+  const jar = bru.cookies.jar();
+  await jar.setCookie(bru.getEnvVar("auth_url"), "brume_auth_refresh", bru.getEnvVar("refresh_token"));
+}
+
+tests {
+  test("the revoked recipient disappears from the grants list", function() {
+    expect(res.status).to.equal(200);
+    const ids = res.body.grants.map((grant) => grant.public_id);
+    expect(ids).to.not.include(bru.getVar("grant_public_id"));
+  });
+}

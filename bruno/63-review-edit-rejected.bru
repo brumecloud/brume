@@ -1,0 +1,28 @@
+meta {
+  name: A stranger cannot edit the owner comment
+  type: http
+  seq: 63
+}
+
+patch {
+  url: {{review_deployment_url}}/_brume/review/comments/{{review_owner_comment_id}}?site={{review_deployment_site}}&return_to={{review_deployment_return_to}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "body": "hacked"
+  }
+}
+
+script:pre-request {
+  const jar = bru.cookies.jar();
+  await jar.deleteCookies(bru.getEnvVar("review_deployment_url"));
+}
+
+tests {
+  test("editing someone else's comment is forbidden", function() {
+    expect(res.status).to.equal(403);
+  });
+}

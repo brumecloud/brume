@@ -1,0 +1,37 @@
+meta {
+  name: Owner opens a thread of their own
+  type: http
+  seq: 69
+}
+
+post {
+  url: {{review_deployment_url}}/_brume/review/threads?site={{review_deployment_site}}&return_to={{review_deployment_return_to}}
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: brume_plan_access={{token}}
+}
+
+body:json {
+  {
+    "page_path": "/",
+    "anchor": {
+      "type": "text",
+      "exact": "static deployment"
+    },
+    "body": "note to self: rename this"
+  }
+}
+
+script:post-response {
+  bru.setVar("review_owner_thread_id", res.body.thread_id);
+}
+
+tests {
+  test("the owner can start a thread", function() {
+    expect(res.status).to.equal(201);
+    expect(res.body.thread_id).to.be.a("string");
+  });
+}

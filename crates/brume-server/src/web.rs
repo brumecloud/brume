@@ -325,12 +325,20 @@ fn secure_headers(
     let script_source = script_nonce
         .map(|nonce| format!("'self' 'nonce-{nonce}'"))
         .unwrap_or_else(|| "'self'".to_owned());
-    let frame_source = overlay_origin.unwrap_or("'none'");
-    let font_source = overlay_origin.unwrap_or("'none'");
+    // The overlay loads Geist from the Google Fonts CDN, with the self-hosted
+    // copy on the overlay origin as fallback.
+    let font_source = overlay_origin
+        .map(|origin| format!("{origin} https://fonts.gstatic.com"))
+        .unwrap_or_else(|| "'none'".to_owned());
+    // The overlay manages site access through credentialed JSON requests to
+    // the auth origin, so it must be reachable from connect-src.
+    let connect_source = overlay_origin
+        .map(|origin| format!("'self' {origin}"))
+        .unwrap_or_else(|| "'self'".to_owned());
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
         HeaderValue::from_str(&format!(
-            "default-src 'none'; script-src {script_source}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; font-src {font_source}; frame-src {frame_source}; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+            "default-src 'none'; script-src {script_source}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src {connect_source}; font-src {font_source}; frame-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         ))
         .map_err(ApiError::internal)?,
     );

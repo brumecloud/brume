@@ -1,0 +1,23 @@
+meta {
+  name: Toolbar rejects foreign origins
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{auth_url}}/toolbar/{{token_site}}/access
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: brume_auth_refresh={{refresh_token}}
+  Origin: https://evil.example.com
+}
+
+tests {
+  test("requests from any other origin are refused before auth runs", function() {
+    expect(res.status).to.equal(403);
+    expect(res.headers["access-control-allow-origin"]).to.equal(undefined);
+  });
+}

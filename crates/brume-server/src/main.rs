@@ -118,7 +118,7 @@ async fn dispatch_by_host(State(state): State<AppState>, request: Request) -> Re
     }
     if host_matches(request.headers(), &state.config.auth_public_host) {
         return auth::browser_router()
-            .merge(access::auth_router())
+            .merge(access::auth_router(state.clone()))
             .with_state(state)
             .oneshot(request)
             .await

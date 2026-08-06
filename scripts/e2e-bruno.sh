@@ -6,10 +6,11 @@ source "${ROOT_DIR}/scripts/build-metadata.sh"
 brume_prepare_build "${ROOT_DIR}"
 
 export BUN_BIN="${BUN_BIN:-$(command -v bun || true)}"
-export BRUME_BIND="127.0.0.1:18080"
-export BRUME_API_PUBLIC_URL="http://api.localhost:18080"
-export BRUME_AUTH_PUBLIC_URL="http://auth.localhost:18080"
-export BRUME_PLAN_PUBLIC_URL="http://plan.localhost:18080"
+E2E_PORT="${BRUME_E2E_PORT:-18080}"
+export BRUME_BIND="127.0.0.1:${E2E_PORT}"
+export BRUME_API_PUBLIC_URL="http://api.localhost:${E2E_PORT}"
+export BRUME_AUTH_PUBLIC_URL="http://auth.localhost:${E2E_PORT}"
+export BRUME_PLAN_PUBLIC_URL="http://plan.localhost:${E2E_PORT}"
 export BRUME_PUBLIC_DOMAIN="localhost"
 export BRUME_DATABASE_URL="${BRUME_E2E_DATABASE_URL:-postgres://postgres:postgres@127.0.0.1:5432/brume}"
 export BRUME_STORAGE_BACKEND="filesystem"
@@ -141,7 +142,7 @@ FIRST_TUNNEL_PID=$!
 PIDS+=("${FIRST_TUNNEL_PID}")
 
 for _ in {1..60}; do
-  BODY="$(curl --silent "http://tunnel-e2e-e2e.localhost:18080/inspect" || true)"
+  BODY="$(curl --silent "http://tunnel-e2e-e2e.localhost:${E2E_PORT}/inspect" || true)"
   if [[ "${BODY}" == *'"instance":"first"'* ]]; then
     break
   fi
@@ -157,7 +158,7 @@ SECOND_TUNNEL_PID=$!
 PIDS+=("${SECOND_TUNNEL_PID}")
 
 for _ in {1..60}; do
-  BODY="$(curl --silent "http://tunnel-e2e-e2e.localhost:18080/inspect" || true)"
+  BODY="$(curl --silent "http://tunnel-e2e-e2e.localhost:${E2E_PORT}/inspect" || true)"
   if [[ "${BODY}" == *'"instance":"second"'* ]]; then
     break
   fi
@@ -189,7 +190,7 @@ for _ in {1..60}; do
   fi
   sleep 0.25
 done
-[[ "${GENERATED_TUNNEL_URL}" =~ ^http://[a-z2-7]{16}-e2e\.localhost:18080$ ]]
+[[ "${GENERATED_TUNNEL_URL}" =~ ^http://[a-z2-7]{16}-e2e\.localhost:${E2E_PORT}$ ]]
 
 if BRUME_TOKEN="${TOKEN}" "${ROOT_DIR}/target/debug/brume" \
   --base-url "${BRUME_API_PUBLIC_URL}" \
@@ -208,7 +209,7 @@ PIDS+=("${FAILED_TUNNEL_PID}")
 
 for _ in {1..60}; do
   STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' \
-    "http://tunnel-failure-e2e.localhost:18080/inspect")"
+    "http://tunnel-failure-e2e.localhost:${E2E_PORT}/inspect")"
   if [[ "${STATUS}" == "502" ]]; then
     break
   fi
@@ -226,29 +227,30 @@ done
     --env-var "base_url=${BRUME_API_PUBLIC_URL}" \
     --env-var "auth_url=${BRUME_AUTH_PUBLIC_URL}" \
     --env-var "plan_url=${BRUME_PLAN_PUBLIC_URL}" \
-    --env-var "tunnel_url=http://tunnel-e2e-e2e.localhost:18080" \
-    --env-var "failed_tunnel_url=http://tunnel-failure-e2e.localhost:18080" \
-    --env-var "offline_url=http://not-running-e2e.localhost:18080" \
-    --env-var "deployment_url=http://static-e2e-e2e.localhost:18080" \
-    --env-var "password_deployment_url=http://password-e2e-e2e.localhost:18080" \
+    --env-var "tunnel_url=http://tunnel-e2e-e2e.localhost:${E2E_PORT}" \
+    --env-var "failed_tunnel_url=http://tunnel-failure-e2e.localhost:${E2E_PORT}" \
+    --env-var "offline_url=http://not-running-e2e.localhost:${E2E_PORT}" \
+    --env-var "deployment_url=http://static-e2e-e2e.localhost:${E2E_PORT}" \
+    --env-var "password_deployment_url=http://password-e2e-e2e.localhost:${E2E_PORT}" \
     --env-var "deployment=static-e2e" \
     --env-var "generated_deployment_url=${GENERATED_DEPLOYMENT_URL}" \
     --env-var "generated_tunnel_url=${GENERATED_TUNNEL_URL}" \
     --env-var "plan=e2e-plan" \
     --env-var "review_plan=review-e2e" \
     --env-var "review_deployment=review-site-e2e" \
-    --env-var "review_deployment_url=http://review-site-e2e-e2e.localhost:18080" \
+    --env-var "review_deployment_url=http://review-site-e2e-e2e.localhost:${E2E_PORT}" \
+    --env-var "public_port=${E2E_PORT}" \
     --bail
 )
 
 "${BUN_BIN}" "${ROOT_DIR}/scripts/check-tunnel-websocket.ts" \
-  "ws://tunnel-e2e-e2e.localhost:18080/ws"
+  "ws://tunnel-e2e-e2e.localhost:${E2E_PORT}/ws"
 
 kill "${SECOND_TUNNEL_PID}" 2>/dev/null || true
 wait "${SECOND_TUNNEL_PID}" 2>/dev/null || true
 for _ in {1..60}; do
   STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' \
-    "http://tunnel-e2e-e2e.localhost:18080/inspect")"
+    "http://tunnel-e2e-e2e.localhost:${E2E_PORT}/inspect")"
   if [[ "${STATUS}" == "404" ]]; then
     break
   fi

@@ -3,15 +3,16 @@ use argon2::{
     password_hash::{SaltString, rand_core::OsRng},
 };
 use axum::{
-    Form, Json, Router,
+    Extension, Form, Json, Router,
     body::Body,
-    extract::{Path, Query, State},
-    http::{HeaderMap, HeaderValue, StatusCode, header},
+    extract::{Path, Query, Request, State},
+    http::{HeaderMap, HeaderValue, Method, StatusCode, header},
+    middleware::{self, Next},
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
 };
 use brume_core::{AuthMode, CreateInvitationResponse};
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Row, Transaction};
 use tower_cookies::{
@@ -32,7 +33,6 @@ const IDENTITY_COOKIE: &str = "brume_identity";
 const SESSION_LIFETIME: Duration = Duration::days(1);
 const INVITATION_LIFETIME: Duration = Duration::days(1);
 const TICKET_LIFETIME: Duration = Duration::minutes(2);
-const ACTION_LIFETIME: Duration = Duration::minutes(10);
 const GEIST_FONT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/geist.woff2"));
 const OVERLAY_SCRIPT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/overlay.js"));
 
@@ -82,7 +82,7 @@ impl Subject {
     }
 }
 
-pub fn auth_router() -> Router<AppState> {
+pub fn auth_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/_brume/geist.woff2", get(geist_font))
         .route("/access", get(access_landing))
@@ -90,21 +90,17 @@ pub fn auth_router() -> Router<AppState> {
         .route("/access/password", post(submit_password))
         .route("/invitations/{invitation}", get(invitation_landing))
         .route("/invitations/{invitation}/claim", post(claim_invitation))
-        .route("/toolbar/{control_id}", get(toolbar))
-        .route(
-            "/toolbar/{control_id}/settings",
-            post(update_toolbar_settings),
-        )
-        .route(
-            "/toolbar/{control_id}/owner-state",
-            get(toolbar_owner_state),
-        )
-        .route("/toolbar/{control_id}/invitations", post(create_invitation))
-        .route("/toolbar/{control_id}/grants", post(grant_public_id))
-        .route(
-            "/toolbar/{control_id}/grants/revoke",
-            post(revoke_public_id),
-        )
+        .nest("/toolbar/{control_id}", toolbar_router(state))
+}
+
+fn toolbar_router(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/owner-state", get(toolbar_owner_state))
+        .route("/access", get(toolbar_access))
+        .route("/settings", post(update_toolbar_settings))
+        .route("/invitations", post(create_invitation))
+        .route("/grants/revoke", post(revoke_grant))
+        .layer(middleware::from_fn_with_state(state, toolbar_cors))
 }
 
 pub fn site_router() -> Router<AppState> {
@@ -115,7 +111,13 @@ pub fn site_router() -> Router<AppState> {
 }
 
 async fn overlay_script(headers: HeaderMap) -> Response {
-    let etag = format!("\"{}\"", crate::build_metadata::COMMIT_SHA);
+    // Content hash, not the commit SHA: dirty-tree rebuilds keep the same
+    // commit, and a stable ETag would let browsers 304 into a stale bundle.
+    static OVERLAY_ETAG: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+        use sha2::{Digest, Sha256};
+        format!("\"{}\"", hex::encode(Sha256::digest(OVERLAY_SCRIPT)))
+    });
+    let etag = OVERLAY_ETAG.clone();
     if headers
         .get(header::IF_NONE_MATCH)
         .and_then(|value| value.to_str().ok())
@@ -406,6 +408,9 @@ struct OverlayState {
     enabled: bool,
     owner: bool,
     identified: bool,
+    /// Present only for the owner: how the site is currently shared.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    auth_mode: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     review: Option<crate::review::ReviewOverlayState>,
 }
@@ -427,6 +432,7 @@ async fn overlay_state(
         enabled: control.overlay_enabled,
         owner,
         identified,
+        auth_mode: owner.then(|| control.auth_mode.to_string()),
         review,
     })
     .into_response();
@@ -437,9 +443,64 @@ async fn overlay_state(
     Ok(response)
 }
 
-#[derive(Deserialize)]
-struct ToolbarOwnerStateQuery {
-    return_to: String,
+/// CORS gate for every `/toolbar/{control_id}` endpoint. The overlay calls
+/// these cross-origin from the site it is injected into, so the request
+/// `Origin` must match the control's own canonical site origin, derived
+/// server-side. That origin check doubles as CSRF protection: same-site
+/// cookies are attached automatically, but no other Brume-hosted site can
+/// forge a matching `Origin` header for someone else's control.
+async fn toolbar_cors(
+    State(state): State<AppState>,
+    Path(control_id): Path<Uuid>,
+    mut request: Request,
+    next: Next,
+) -> Result<Response, ApiError> {
+    let location = site_location(&state, control_id).await?;
+    let origin = request
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok());
+    if origin != Some(location.origin.as_str()) {
+        return Err(ApiError::forbidden("Invalid management request origin"));
+    }
+    let allow_origin = HeaderValue::from_str(&location.origin).map_err(ApiError::internal)?;
+    if request.method() == Method::OPTIONS {
+        let mut response = StatusCode::NO_CONTENT.into_response();
+        let headers = response.headers_mut();
+        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, allow_origin);
+        headers.insert(
+            header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+            HeaderValue::from_static("true"),
+        );
+        headers.insert(
+            header::ACCESS_CONTROL_ALLOW_METHODS,
+            HeaderValue::from_static("GET, POST, OPTIONS"),
+        );
+        headers.insert(
+            header::ACCESS_CONTROL_ALLOW_HEADERS,
+            HeaderValue::from_static("content-type"),
+        );
+        headers.insert(
+            header::ACCESS_CONTROL_MAX_AGE,
+            HeaderValue::from_static("600"),
+        );
+        headers.insert(header::VARY, HeaderValue::from_static("Origin"));
+        return Ok(response);
+    }
+    request.extensions_mut().insert(location);
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+    headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, allow_origin);
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+        HeaderValue::from_static("true"),
+    );
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    headers.insert(header::VARY, HeaderValue::from_static("Origin"));
+    Ok(response)
 }
 
 #[derive(Serialize)]
@@ -451,30 +512,82 @@ async fn toolbar_owner_state(
     State(state): State<AppState>,
     cookies: Cookies,
     Path(control_id): Path<Uuid>,
-    Query(query): Query<ToolbarOwnerStateQuery>,
-) -> Result<Response, ApiError> {
+) -> Result<Json<ToolbarOwnerState>, ApiError> {
     let control = load_control(&state, control_id).await?;
-    let location = validate_return_to(&state, control.id, &query.return_to).await?;
     let owner = auth::browser_user(&state, &cookies)
         .await?
         .is_some_and(|user| user.id == control.owner_user_id);
-    let mut response = Json(ToolbarOwnerState { owner }).into_response();
-    response.headers_mut().insert(
-        header::ACCESS_CONTROL_ALLOW_ORIGIN,
-        HeaderValue::from_str(&location.origin).map_err(ApiError::internal)?,
-    );
-    response.headers_mut().insert(
-        header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
-        HeaderValue::from_static("true"),
-    );
-    response.headers_mut().insert(
-        header::CACHE_CONTROL,
-        HeaderValue::from_static("private, no-store"),
-    );
-    response
-        .headers_mut()
-        .insert(header::VARY, HeaderValue::from_static("Origin"));
-    Ok(response)
+    Ok(Json(ToolbarOwnerState { owner }))
+}
+
+#[derive(Serialize)]
+struct GrantSummary {
+    public_id: String,
+    display_name: Option<String>,
+    granted_at: DateTime<Utc>,
+    last_used_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize)]
+struct ToolbarAccess {
+    auth_mode: String,
+    has_password: bool,
+    grants: Vec<GrantSummary>,
+}
+
+async fn list_grants(state: &AppState, control_id: Uuid) -> Result<Vec<GrantSummary>, ApiError> {
+    let rows = sqlx::query(
+        "SELECT access_identities.public_id,
+                access_grants.created_at AS granted_at,
+                access_identities.last_used_at,
+                (SELECT review_comments.author_display_name
+                 FROM review_comments
+                 JOIN review_threads ON review_threads.id = review_comments.thread_id
+                 JOIN review_rounds ON review_rounds.id = review_threads.round_id
+                 WHERE review_comments.author_identity_id = access_identities.id
+                   AND review_rounds.access_control_id = access_grants.access_control_id
+                   AND review_comments.author_display_name IS NOT NULL
+                 ORDER BY review_comments.created_at DESC
+                 LIMIT 1) AS display_name
+         FROM access_grants
+         JOIN access_identities ON access_identities.id = access_grants.identity_id
+         WHERE access_grants.access_control_id = $1
+           AND access_identities.revoked_at IS NULL
+         ORDER BY access_grants.created_at DESC",
+    )
+    .bind(control_id)
+    .fetch_all(&state.database)
+    .await?;
+    rows.iter()
+        .map(|row| {
+            Ok(GrantSummary {
+                public_id: row.try_get("public_id")?,
+                display_name: row.try_get("display_name")?,
+                granted_at: row.try_get("granted_at")?,
+                last_used_at: row.try_get("last_used_at")?,
+            })
+        })
+        .collect()
+}
+
+async fn toolbar_access_payload(
+    state: &AppState,
+    control: &AccessControl,
+) -> Result<ToolbarAccess, ApiError> {
+    Ok(ToolbarAccess {
+        auth_mode: control.auth_mode.to_string(),
+        has_password: control.password_hash.is_some(),
+        grants: list_grants(state, control.id).await?,
+    })
+}
+
+async fn toolbar_access(
+    State(state): State<AppState>,
+    cookies: Cookies,
+    Path(control_id): Path<Uuid>,
+) -> Result<Json<ToolbarAccess>, ApiError> {
+    let (_, control) = require_toolbar_owner(&state, &cookies, control_id).await?;
+    Ok(Json(toolbar_access_payload(&state, &control).await?))
 }
 
 #[derive(Deserialize)]
@@ -712,60 +825,7 @@ async fn complete_site_auth_handler(
 }
 
 #[derive(Deserialize)]
-struct ToolbarQuery {
-    return_to: String,
-    notice: Option<String>,
-}
-
-async fn toolbar(
-    State(state): State<AppState>,
-    cookies: Cookies,
-    Path(control_id): Path<Uuid>,
-    Query(query): Query<ToolbarQuery>,
-) -> Result<Response, ApiError> {
-    let control = load_control(&state, control_id).await?;
-    let location = validate_return_to(&state, control.id, &query.return_to).await?;
-    let owner = auth::browser_user(&state, &cookies)
-        .await?
-        .filter(|user| user.id == control.owner_user_id);
-    let action_token = if let Some(owner) = &owner {
-        Some(create_action_token(&state, control.id, owner.id).await?)
-    } else {
-        None
-    };
-    let html = toolbar_page(
-        &control,
-        &query.return_to,
-        owner.is_some(),
-        action_token.as_deref(),
-        query.notice.as_deref(),
-    );
-    let csp = HeaderValue::from_str(&format!(
-        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; font-src 'self'; frame-ancestors {}",
-        location.origin
-    ))
-    .map_err(ApiError::internal)?;
-    Ok((
-        [
-            (header::CONTENT_SECURITY_POLICY, csp),
-            (
-                header::REFERRER_POLICY,
-                HeaderValue::from_static("no-referrer"),
-            ),
-            (
-                header::X_CONTENT_TYPE_OPTIONS,
-                HeaderValue::from_static("nosniff"),
-            ),
-        ],
-        Html(html),
-    )
-        .into_response())
-}
-
-#[derive(Deserialize)]
-struct SettingsForm {
-    action_token: String,
-    return_to: String,
+struct SettingsRequest {
     auth: AuthMode,
     password: Option<String>,
 }
@@ -774,42 +834,41 @@ async fn update_toolbar_settings(
     State(state): State<AppState>,
     cookies: Cookies,
     Path(control_id): Path<Uuid>,
-    Form(form): Form<SettingsForm>,
-) -> Result<Response, ApiError> {
-    let user = require_toolbar_owner(&state, &cookies, control_id, &form.action_token).await?;
-    validate_return_to(&state, control_id, &form.return_to).await?;
-    patch_control(
+    Json(body): Json<SettingsRequest>,
+) -> Result<Json<ToolbarAccess>, ApiError> {
+    let (user, _) = require_toolbar_owner(&state, &cookies, control_id).await?;
+    let control = patch_control(
         &state,
         control_id,
         user.id,
-        Some(form.auth),
-        form.password.as_deref().filter(|value| !value.is_empty()),
+        Some(body.auth),
+        body.password.as_deref().filter(|value| !value.is_empty()),
         None,
     )
     .await?;
-    Ok(toolbar_redirect(
-        &state,
-        control_id,
-        &form.return_to,
-        "Authentication updated",
-    ))
+    Ok(Json(toolbar_access_payload(&state, &control).await?))
 }
 
 #[derive(Deserialize)]
-struct ToolbarActionForm {
-    action_token: String,
-    return_to: String,
-    public_id: Option<String>,
+struct InvitationRequest {
+    return_to: Option<String>,
 }
 
 async fn create_invitation(
     State(state): State<AppState>,
     cookies: Cookies,
     Path(control_id): Path<Uuid>,
-    Form(form): Form<ToolbarActionForm>,
+    Extension(location): Extension<SiteLocation>,
+    Json(body): Json<InvitationRequest>,
 ) -> Result<Json<CreateInvitationResponse>, ApiError> {
-    require_toolbar_owner(&state, &cookies, control_id, &form.action_token).await?;
-    validate_return_to(&state, control_id, &form.return_to).await?;
+    require_toolbar_owner(&state, &cookies, control_id).await?;
+    let return_to = match body.return_to {
+        Some(value) => {
+            validate_return_to(&state, control_id, &value).await?;
+            value
+        }
+        None => location.base_url.clone(),
+    };
     let invitation = random_token("invite_");
     let expires_at = Utc::now() + INVITATION_LIFETIME;
     sqlx::query(
@@ -820,7 +879,7 @@ async fn create_invitation(
     .bind(Uuid::now_v7())
     .bind(control_id)
     .bind(hash_secret(&invitation))
-    .bind(&form.return_to)
+    .bind(&return_to)
     .bind(expires_at)
     .execute(&state.database)
     .await?;
@@ -833,54 +892,28 @@ async fn create_invitation(
     }))
 }
 
-async fn grant_public_id(
-    State(state): State<AppState>,
-    cookies: Cookies,
-    Path(control_id): Path<Uuid>,
-    Form(form): Form<ToolbarActionForm>,
-) -> Result<Response, ApiError> {
-    require_toolbar_owner(&state, &cookies, control_id, &form.action_token).await?;
-    validate_return_to(&state, control_id, &form.return_to).await?;
-    let public_id = form.public_id.unwrap_or_default();
-    let identity_id: Uuid = sqlx::query_scalar(
-        "SELECT id FROM access_identities
-         WHERE public_id = $1 AND revoked_at IS NULL",
-    )
-    .bind(public_id.trim())
-    .fetch_optional(&state.database)
-    .await?
-    .ok_or_else(|| ApiError::bad_request("Unknown recipient public ID"))?;
-    sqlx::query(
-        "INSERT INTO access_grants (access_control_id, identity_id)
-         VALUES ($1, $2)
-         ON CONFLICT (access_control_id, identity_id) DO NOTHING",
-    )
-    .bind(control_id)
-    .bind(identity_id)
-    .execute(&state.database)
-    .await?;
-    Ok(toolbar_redirect(
-        &state,
-        control_id,
-        &form.return_to,
-        "Recipient granted access",
-    ))
+#[derive(Deserialize)]
+struct RevokeRequest {
+    public_id: String,
 }
 
-async fn revoke_public_id(
+#[derive(Serialize)]
+struct GrantsResponse {
+    grants: Vec<GrantSummary>,
+}
+
+async fn revoke_grant(
     State(state): State<AppState>,
     cookies: Cookies,
     Path(control_id): Path<Uuid>,
-    Form(form): Form<ToolbarActionForm>,
-) -> Result<Response, ApiError> {
-    require_toolbar_owner(&state, &cookies, control_id, &form.action_token).await?;
-    validate_return_to(&state, control_id, &form.return_to).await?;
-    let public_id = form.public_id.unwrap_or_default();
+    Json(body): Json<RevokeRequest>,
+) -> Result<Json<GrantsResponse>, ApiError> {
+    require_toolbar_owner(&state, &cookies, control_id).await?;
     let identity_id: Uuid = sqlx::query_scalar(
         "SELECT id FROM access_identities
          WHERE public_id = $1 AND revoked_at IS NULL",
     )
-    .bind(public_id.trim())
+    .bind(body.public_id.trim())
     .fetch_optional(&state.database)
     .await?
     .ok_or_else(|| ApiError::bad_request("Unknown recipient public ID"))?;
@@ -902,12 +935,9 @@ async fn revoke_public_id(
     .execute(&mut *transaction)
     .await?;
     transaction.commit().await?;
-    Ok(toolbar_redirect(
-        &state,
-        control_id,
-        &form.return_to,
-        "Recipient access revoked",
-    ))
+    Ok(Json(GrantsResponse {
+        grants: list_grants(&state, control_id).await?,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -1399,59 +1429,19 @@ async fn clear_password_failures(
     Ok(())
 }
 
-async fn create_action_token(
-    state: &AppState,
-    control_id: Uuid,
-    owner_user_id: Uuid,
-) -> Result<String, ApiError> {
-    let token = random_token("action_");
-    sqlx::query(
-        "INSERT INTO toolbar_action_tokens (
-            id, access_control_id, owner_user_id, token_hash, expires_at
-         ) VALUES ($1, $2, $3, $4, $5)",
-    )
-    .bind(Uuid::now_v7())
-    .bind(control_id)
-    .bind(owner_user_id)
-    .bind(hash_secret(&token))
-    .bind(Utc::now() + ACTION_LIFETIME)
-    .execute(&state.database)
-    .await?;
-    Ok(token)
-}
-
 async fn require_toolbar_owner(
     state: &AppState,
     cookies: &Cookies,
     control_id: Uuid,
-    action_token: &str,
-) -> Result<auth::AuthUser, ApiError> {
+) -> Result<(auth::AuthUser, AccessControl), ApiError> {
     let user = auth::browser_user(state, cookies)
         .await?
         .ok_or_else(ApiError::unauthorized)?;
-    let valid = sqlx::query(
-        "SELECT id FROM toolbar_action_tokens
-         WHERE access_control_id = $1
-           AND owner_user_id = $2
-           AND token_hash = $3
-           AND expires_at > now()
-         LIMIT 1",
-    )
-    .bind(control_id)
-    .bind(user.id)
-    .bind(hash_secret(action_token))
-    .fetch_optional(&state.database)
-    .await?;
-    if valid.is_none() {
-        return Err(ApiError::forbidden(
-            "Toolbar action expired. Reopen the menu.",
-        ));
-    }
     let control = load_control(state, control_id).await?;
     if control.owner_user_id != user.id {
         return Err(ApiError::not_found());
     }
-    Ok(user)
+    Ok((user, control))
 }
 
 fn access_error_redirect(
@@ -1466,17 +1456,6 @@ fn access_error_redirect(
         control_id,
         urlencoding::encode(return_to),
         urlencoding::encode(error)
-    ))
-    .into_response()
-}
-
-fn toolbar_redirect(state: &AppState, control_id: Uuid, return_to: &str, notice: &str) -> Response {
-    Redirect::to(&format!(
-        "{}/toolbar/{}?return_to={}&notice={}",
-        state.config.auth_public_url,
-        control_id,
-        urlencoding::encode(return_to),
-        urlencoding::encode(notice)
     ))
     .into_response()
 }
@@ -1542,101 +1521,6 @@ button{width:100%;margin-top:12px;padding:11px;border:0;border-radius:10px;backg
 @media(prefers-color-scheme:dark){:root{background:#0a0a0a;color:#ededed}main{background:rgba(20,20,20,.96);border-color:#333}p,.owner{color:#aaa}input{border-color:#444}}
 </style>"#;
 
-fn toolbar_page(
-    control: &AccessControl,
-    share_url: &str,
-    owner: bool,
-    action_token: Option<&str>,
-    notice: Option<&str>,
-) -> String {
-    let owner_controls = if owner {
-        let token = escape_html(action_token.unwrap_or_default());
-        let selected = |mode| {
-            if control.auth_mode == mode {
-                "selected"
-            } else {
-                ""
-            }
-        };
-        let copy_link = if control.auth_mode == AuthMode::Token {
-            format!(
-                r#"<button class="copy-link" type="button" data-invite data-action="/toolbar/{id}/invitations" data-token="{token}">Copy link</button>"#,
-                id = control.id,
-            )
-        } else {
-            String::new()
-        };
-        format!(
-            r#"<section><h2>Authentication</h2><form method="post" action="/toolbar/{id}/settings"><input type="hidden" name="action_token" value="{token}"><input type="hidden" name="return_to" value="{return_to}"><select name="auth" data-auth-select><option value="token" {token_selected}>Token</option><option value="password" {password_selected}>Password</option><option value="none" {none_selected}>Public</option></select><div class="password-row" data-password-row {password_hidden}><input name="password" data-password type="password" minlength="8" maxlength="256" autocomplete="new-password" placeholder="New password"><button class="secondary" type="button" data-generate-password>Generate</button></div><button class="save" type="submit">Save</button></form>{copy_link}</section>"#,
-            id = control.id,
-            return_to = escape_html(share_url),
-            token_selected = selected(AuthMode::Token),
-            password_selected = selected(AuthMode::Password),
-            none_selected = selected(AuthMode::None),
-            password_hidden = if control.auth_mode == AuthMode::Password {
-                ""
-            } else {
-                "hidden"
-            },
-        )
-    } else {
-        let popup_return_to = Url::parse(share_url)
-            .map(|mut url| {
-                url.query_pairs_mut()
-                    .append_pair("_brume_auth_complete", "1");
-                url.to_string()
-            })
-            .unwrap_or_else(|_| share_url.to_owned());
-        format!(
-            "<p class=\"muted\">Only the person who deployed this website can change access.</p><a class=\"signin\" target=\"brume-auth\" href=\"/auth/github/start?site={}&site_return_to={}\">Sign in to manage</a>",
-            control.id,
-            urlencoding::encode(&popup_return_to)
-        )
-    };
-    let notice = notice
-        .map(|value| format!("<p class=\"notice\">{}</p>", escape_html(value)))
-        .unwrap_or_default();
-    let share_json = serde_json::to_string(share_url).unwrap_or_else(|_| "\"\"".to_owned());
-    format!(
-        r##"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brume toolbar</title><style>
-@font-face{{font-family:"Geist Variable";font-style:normal;font-weight:100 900;font-display:swap;src:url("/_brume/geist.woff2") format("woff2")}}
-*{{box-sizing:border-box}}:root{{color-scheme:dark;font-family:"Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif;color:#f5f5f5}}
-body{{margin:0;background:transparent;overflow:hidden;font:13px/1.35 "Geist Variable",Geist,ui-sans-serif,system-ui,sans-serif}}button,input,select,a{{font:inherit}}
-button{{border:1px solid #3a3a3a;border-radius:10px;padding:9px 10px;background:#272727;color:#f5f5f5;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}}
-button:hover{{background:#333;border-color:#484848}}button:active{{transform:scale(.98)}}button:disabled{{cursor:wait;opacity:.65}}button:focus-visible,input:focus-visible,select:focus-visible{{outline:2px solid #8ab4f8;outline-offset:2px}}
-.launcher{{position:absolute;right:0;bottom:0;width:52px;height:52px;padding:0;border:1px solid rgba(255,255,255,.15);border-radius:50%;background:rgba(20,20,20,.94);box-shadow:0 8px 28px rgba(0,0,0,.3);font-size:22px;backdrop-filter:blur(16px);animation:toolbar-in .28s cubic-bezier(.2,.8,.2,1) both}}
-.launcher:hover{{transform:translateY(-2px) scale(1.03);box-shadow:0 12px 34px rgba(0,0,0,.38)}}
-.panel{{position:absolute;right:0;bottom:0;width:370px;max-height:465px;overflow:auto;padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:rgba(18,18,18,.96);box-shadow:0 20px 70px rgba(0,0,0,.45);backdrop-filter:blur(22px);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(10px) scale(.97);transform-origin:bottom right;transition:opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s linear .24s}}
-.open .panel{{opacity:1;visibility:visible;pointer-events:auto;transform:none;transition-delay:0s}}.open .launcher{{opacity:0;visibility:hidden;pointer-events:none;transform:scale(.84)}}header{{display:flex;align-items:center;justify-content:space-between;padding:4px 5px 10px}}header strong{{font-size:14px;font-weight:620;letter-spacing:-.01em}}.close{{width:28px;height:28px;padding:0;border:0;border-radius:8px;background:#292929;color:#aaa}}
-.actions{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
-section{{margin-top:10px;padding:10px 4px 2px;border-top:1px solid #303030}}h2{{font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:0 0 8px}}
-form{{display:grid;gap:8px}}input,select{{width:100%;border:1px solid #3a3a3a;border-radius:9px;background:#202020;color:#eee;padding:9px 10px;transition:border-color .16s ease,background .16s ease}}input:hover,select:hover{{border-color:#4a4a4a}}select{{cursor:pointer}}
-.password-row{{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;animation:field-in .18s ease both}}.password-row[hidden]{{display:none}}.password-row .secondary{{min-width:82px}}
-.save{{width:100%;border-color:#e7e7e7;background:#ededed;color:#171717;font-weight:620}}.save:hover{{border-color:#fff;background:#fff}}
-.copy-link{{width:100%;margin-top:8px;background:#272727}}
-.muted{{color:#9a9a9a;margin:12px 5px}}.notice{{background:#173c2b;color:#9ee6bc;border-radius:9px;padding:9px 10px}}.result{{margin:9px 4px 0;color:#9ee6bc;word-break:break-word}}.result:empty{{display:none}}
-.signin{{display:block;margin:8px 5px;color:#ddd}}
-body.embedded{{min-height:0;overflow:auto}}body.embedded .launcher,body.embedded header,body.embedded .actions{{display:none}}
-body.embedded .panel{{position:static;width:100%;max-height:none;overflow:visible;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;opacity:1;visibility:visible;pointer-events:auto;transform:none}}
-body.embedded section:first-of-type{{margin-top:0;border-top:0;padding-top:2px}}
-@keyframes toolbar-in{{from{{opacity:0;transform:translateY(8px) scale(.82)}}to{{opacity:1;transform:none}}}}@keyframes field-in{{from{{opacity:0;transform:translateY(-4px)}}to{{opacity:1;transform:none}}}}
-@media(prefers-reduced-motion:reduce){{*,*::before,*::after{{animation-duration:.01ms!important;transition-duration:.01ms!important}}}}
-</style></head><body><div id="toolbar"><button class="launcher" aria-label="Open Brume toolbar">☁️</button><div class="panel"><header><strong>Brume</strong><button class="close" aria-label="Close">×</button></header>{notice}<div class="actions"><button type="button" data-share>Share website</button><button type="button" data-copy>Copy URL</button></div>{owner_controls}<p class="result" aria-live="polite"></p></div></div><script>
-const root=document.querySelector("#toolbar");const result=document.querySelector(".result");const shareUrl={share_json};
-if(window.self!==window.top)document.body.classList.add("embedded");
-function setOpen(open){{root.classList.toggle("open",open)}}
-document.querySelector(".launcher").onclick=()=>setOpen(true);document.querySelector(".close").onclick=()=>setOpen(false);setOpen(true);
-async function copy(value){{await navigator.clipboard.writeText(value);result.textContent="Copied"}}
-document.querySelector("[data-copy]").onclick=()=>copy(shareUrl);
-document.querySelector("[data-share]").onclick=()=>navigator.share?navigator.share({{url:shareUrl}}):copy(shareUrl);
-const invite=document.querySelector("[data-invite]");if(invite)invite.onclick=async()=>{{invite.disabled=true;const label=invite.textContent;invite.textContent="Copying…";const body=new URLSearchParams({{action_token:invite.dataset.token,return_to:shareUrl}});try{{const response=await fetch(invite.dataset.action,{{method:"POST",body}});const data=await response.json();if(response.ok){{await navigator.clipboard.writeText(data.url);result.textContent="Link copied. It expires in 24 hours."}}else result.textContent=data.message??"Could not copy link"}}catch{{result.textContent="Could not copy link"}}finally{{invite.disabled=false;invite.textContent=label}}}};
-const authSelect=document.querySelector("[data-auth-select]");const passwordRow=document.querySelector("[data-password-row]");const password=document.querySelector("[data-password]");if(authSelect&&passwordRow&&password){{const updatePassword=()=>{{const enabled=authSelect.value==="password";passwordRow.hidden=!enabled;passwordRow.setAttribute("aria-hidden",String(!enabled));password.required=enabled&&{password_required};if(!enabled){{password.value="";password.type="password"}}}};authSelect.onchange=updatePassword;updatePassword()}}
-const generate=document.querySelector("[data-generate-password]");if(generate&&password)generate.onclick=()=>{{const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";const values=crypto.getRandomValues(new Uint32Array(20));password.value=Array.from(values,value=>alphabet[value%alphabet.length]).join("");password.type="text";password.focus();password.select();result.textContent="Password generated."}};
-</script></body></html>"##,
-        password_required = control.auth_mode != AuthMode::Password,
-    )
-}
-
 fn invitation_page(invitation: &str, return_to: &str) -> String {
     format!(
         r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Accept Brume invitation</title>{AUTH_STYLES}</head><body><main><div class="mark">☁️</div><h1>Website invitation</h1><p>This one-time invitation adds the website to your Brume access token.</p><form method="post" action="/invitations/{invitation}/claim"><input type="hidden" name="return_to" value="{return_to}"><label>Existing token, optional<input name="token" autocomplete="off" placeholder="Leave empty to create one"></label><button>Accept invitation</button></form></main></body></html>"#,
@@ -1671,63 +1555,6 @@ fn claimed_invitation_page(public_id: &str, token: Option<&str>, return_to: &str
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn control(auth_mode: AuthMode) -> AccessControl {
-        AccessControl {
-            id: Uuid::nil(),
-            owner_user_id: Uuid::nil(),
-            auth_mode,
-            password_hash: (auth_mode == AuthMode::Password).then(|| "hash".to_owned()),
-            access_version: 1,
-            overlay_enabled: true,
-        }
-    }
-
-    #[test]
-    fn token_toolbar_keeps_only_the_compact_copy_link_action() {
-        let html = toolbar_page(
-            &control(AuthMode::Token),
-            "https://demo.example.com/",
-            true,
-            Some("action_token"),
-            None,
-        );
-
-        assert!(html.contains(">Copy link</button>"));
-        assert!(html.contains(r#"data-password-row hidden"#));
-        assert!(!html.contains("Create one-day invite"));
-        assert!(!html.contains("Recipient public ID"));
-        assert!(!html.contains("Show cloud toolbar"));
-    }
-
-    #[test]
-    fn password_toolbar_shows_password_and_generator_side_by_side() {
-        let html = toolbar_page(
-            &control(AuthMode::Password),
-            "https://demo.example.com/",
-            true,
-            Some("action_token"),
-            None,
-        );
-
-        assert!(html.contains(r#"data-password-row >"#));
-        assert!(html.contains(r#"data-generate-password>Generate</button>"#));
-        assert!(!html.contains(">Copy link</button>"));
-    }
-
-    #[test]
-    fn public_toolbar_hides_password_controls() {
-        let html = toolbar_page(
-            &control(AuthMode::None),
-            "https://demo.example.com/",
-            true,
-            Some("action_token"),
-            None,
-        );
-
-        assert!(html.contains(r#"<option value="none" selected>Public</option>"#));
-        assert!(html.contains(r#"data-password-row hidden"#));
-    }
 
     #[test]
     fn injected_toolbar_registers_geist_outside_the_shadow_tree_and_loads_the_overlay() {

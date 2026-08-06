@@ -109,9 +109,6 @@ async fn cleanup_expired_auth(state: &AppState) -> Result<()> {
     sqlx::query("DELETE FROM site_sessions WHERE expires_at <= now()")
         .execute(&state.database)
         .await?;
-    sqlx::query("DELETE FROM toolbar_action_tokens WHERE expires_at <= now()")
-        .execute(&state.database)
-        .await?;
     sqlx::query(
         "DELETE FROM password_attempts
          WHERE window_started_at <= now() - interval '1 day'

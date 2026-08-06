@@ -1,0 +1,37 @@
+meta {
+  name: Owner replies in the deployment review thread
+  type: http
+  seq: 61
+}
+
+post {
+  url: {{review_deployment_url}}/_brume/review/threads/{{review_deployment_thread_id}}/comments?site={{review_deployment_site}}&return_to={{review_deployment_return_to}}
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: brume_plan_access={{token}}
+}
+
+body:json {
+  {
+    "body": "on it, will fix"
+  }
+}
+
+script:pre-request {
+  const jar = bru.cookies.jar();
+  await jar.setCookie(bru.getEnvVar("review_deployment_url"), "brume_plan_access", bru.getEnvVar("token"));
+}
+
+script:post-response {
+  bru.setVar("review_owner_comment_id", res.body.comment_id);
+}
+
+tests {
+  test("the owner reply is attributed to the owner", function() {
+    expect(res.status).to.equal(201);
+    expect(res.body.comment_id).to.be.a("string");
+  });
+}

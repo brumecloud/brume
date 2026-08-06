@@ -1,0 +1,36 @@
+meta {
+  name: Owner lists everyone with access
+  type: http
+  seq: 59
+}
+
+get {
+  url: {{auth_url}}/toolbar/{{review_site}}/access
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: brume_auth_refresh={{refresh_token}}
+  Origin: {{plan_url}}
+}
+
+script:pre-request {
+  const jar = bru.cookies.jar();
+  await jar.setCookie(bru.getEnvVar("auth_url"), "brume_auth_refresh", bru.getEnvVar("refresh_token"));
+}
+
+tests {
+  test("the invited recipient appears in the grants list", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.auth_mode).to.equal("token");
+    const ids = res.body.grants.map((grant) => grant.public_id);
+    expect(ids).to.include(bru.getVar("grant_public_id"));
+  });
+
+  test("grants carry timestamps for the management UI", function() {
+    res.body.grants.forEach((grant) => {
+      expect(Date.parse(grant.granted_at)).to.be.a("number").and.not.NaN;
+    });
+  });
+}

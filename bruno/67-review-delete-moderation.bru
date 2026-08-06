@@ -1,0 +1,21 @@
+meta {
+  name: Owner moderates away an anonymous comment
+  type: http
+  seq: 67
+}
+
+delete {
+  url: {{review_deployment_url}}/_brume/review/comments/{{review_anonymous_comment_id}}?site={{review_deployment_site}}&return_to={{review_deployment_return_to}}
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: brume_plan_access={{token}}
+}
+
+tests {
+  test("the site owner can delete any comment", function() {
+    expect(res.status).to.equal(204);
+  });
+}

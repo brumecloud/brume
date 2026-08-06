@@ -1,0 +1,23 @@
+meta {
+  name: Toolbar requires an owner session
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{auth_url}}/toolbar/{{token_site}}/access
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: brume_auth_refresh=invalid
+  Origin: {{plan_url}}
+}
+
+tests {
+  test("a signed-out browser gets 401 so the overlay can offer sign-in", function() {
+    expect(res.status).to.equal(401);
+    expect(res.headers["access-control-allow-origin"]).to.equal(bru.getEnvVar("plan_url"));
+  });
+}

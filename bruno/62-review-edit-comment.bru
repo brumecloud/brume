@@ -1,0 +1,27 @@
+meta {
+  name: Owner edits their own comment
+  type: http
+  seq: 62
+}
+
+patch {
+  url: {{review_deployment_url}}/_brume/review/comments/{{review_owner_comment_id}}?site={{review_deployment_site}}&return_to={{review_deployment_return_to}}
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: brume_plan_access={{token}}
+}
+
+body:json {
+  {
+    "body": "on it, fixed in the next deploy"
+  }
+}
+
+tests {
+  test("the author can rewrite their comment while the round is open", function() {
+    expect(res.status).to.equal(204);
+  });
+}
