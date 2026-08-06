@@ -1,0 +1,246 @@
+/*
+ * Compiled to a string (?inline) and adopted into the two closed shadow roots.
+ * Tokens live on :host, not :root - :root never matches inside a shadow tree.
+ * Everything is px-based: the host page controls the document font-size, so
+ * rem would let arbitrary sites (62.5% tricks, user zoom hacks) resize the overlay.
+ */
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@source "./";
+
+/* The overlay is dark-only: the mount container inside each shadow root
+ * carries the .dark class so the components' dark: styles always apply. */
+@custom-variant dark (&:is(.dark, .dark *));
+
+:host {
+  /* Dark glass palette - the overlay is always dark regardless of the page. */
+  --background: oklch(0.166 0 0 / 0.94);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.185 0 0 / 0.93);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.175 0 0 / 0.95);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(1 0 0 / 0.08);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(1 0 0 / 0.06);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(1 0 0 / 0.1);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 0.12);
+  --input: oklch(1 0 0 / 0.14);
+  --ring: oklch(0.6 0 0);
+  /* Review identity: warm amber highlights (#f5b700 family). */
+  --highlight: oklch(0.82 0.166 84.4);
+  --success: oklch(0.87 0.12 155);
+  --radius: 10px;
+
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--foreground);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :host {
+    --background: oklch(0.166 0 0);
+    --card: oklch(0.185 0 0);
+    --popover: oklch(0.175 0 0);
+    --border: oklch(1 0 0 / 0.22);
+  }
+}
+
+@theme {
+  --spacing: 4px;
+  --text-xs: 11.5px;
+  --text-xs--line-height: 1.35;
+  --text-sm: 13px;
+  --text-sm--line-height: 1.45;
+  --text-base: 14px;
+  --text-base--line-height: 1.45;
+  --text-lg: 16px;
+  --text-lg--line-height: 1.4;
+  --font-sans: "Geist Variable", Geist, ui-sans-serif, system-ui, sans-serif;
+  /* Stronger curves than the CSS built-ins; ease-out is the house default. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-highlight: var(--highlight);
+  --color-success: var(--success);
+  --font-heading: var(--font-sans);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer components {
+  /* Translucent material; bigger surfaces get the thicker variant. */
+  .glass {
+    backdrop-filter: blur(16px) saturate(1.6);
+  }
+  .glass-thick {
+    backdrop-filter: blur(24px) saturate(1.8);
+  }
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .glass,
+    .glass-thick {
+      backdrop-filter: none;
+    }
+  }
+
+  /*
+   * Motion. Transitions only (interruptible, retargetable), transform + opacity
+   * only, exits faster than entries, no bounce - this is chrome injected on
+   * other people's sites.
+   */
+
+  /* Launcher: enters once per page load, hides while the panel is open. */
+  .brume-launcher {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 140ms var(--ease-out),
+      transform 180ms var(--ease-out),
+      box-shadow 180ms var(--ease-out),
+      visibility 0s;
+    @starting-style {
+      opacity: 0;
+      transform: translateY(8px) scale(0.9);
+    }
+  }
+  [data-open] .brume-launcher {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: scale(0.88);
+    transition:
+      opacity 120ms var(--ease-out),
+      transform 140ms var(--ease-out),
+      visibility 0s linear 140ms;
+  }
+
+  /* Panel: scales from the corner it lives in (spatial anchor to its trigger). */
+  .brume-panel {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    transform-origin: bottom right;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(10px) scale(0.96);
+    transition:
+      opacity 160ms var(--ease-out),
+      transform 160ms var(--ease-out),
+      visibility 0s linear 160ms;
+  }
+  :host([data-side="left"]) .brume-panel {
+    right: auto;
+    left: 0;
+    transform-origin: bottom left;
+  }
+  [data-open] .brume-panel {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: none;
+    transition:
+      opacity 220ms var(--ease-panel),
+      transform 220ms var(--ease-panel),
+      visibility 0s;
+  }
+
+  /* Panel view switch (primary <-> management): fade + short slide on unhide. */
+  .brume-view {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 180ms var(--ease-out),
+      transform 180ms var(--ease-out);
+    @starting-style {
+      opacity: 0;
+      transform: translateX(6px);
+    }
+  }
+
+  /* Review popover: scales in from the point it annotates. */
+  .brume-pop-in {
+    opacity: 1;
+    transform: none;
+    transform-origin: top center;
+    transition:
+      opacity 180ms var(--ease-out),
+      transform 180ms var(--ease-out);
+    @starting-style {
+      opacity: 0;
+      transform: translateY(4px) scale(0.97);
+    }
+  }
+
+  /* Comment markers and the selection float button: quick, subtle entrance. */
+  .brume-chip-in {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 160ms var(--ease-out),
+      transform 160ms var(--ease-out);
+    @starting-style {
+      opacity: 0;
+      transform: scale(0.92);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Keep the opacity fades (they aid comprehension), drop all movement. */
+    .brume-launcher,
+    [data-open] .brume-launcher,
+    .brume-panel,
+    [data-open] .brume-panel,
+    .brume-view,
+    .brume-pop-in,
+    .brume-chip-in {
+      transform: none;
+    }
+    .brume-launcher,
+    .brume-view,
+    .brume-pop-in,
+    .brume-chip-in {
+      @starting-style {
+        transform: none;
+      }
+    }
+  }
+}

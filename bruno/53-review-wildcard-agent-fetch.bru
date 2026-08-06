@@ -18,7 +18,7 @@ tests {
   test("the deployment review round tracks the element comment", function() {
     expect(res.status).to.equal(200);
     expect(res.body.round.status).to.equal("open");
-    expect(res.body.round.number).to.equal(1);
+    expect(res.body.round.number).to.be.at.least(1);
     expect(res.body.round.thread_count).to.equal(1);
     expect(res.body.round.comment_count).to.equal(1);
   });

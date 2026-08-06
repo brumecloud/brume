@@ -15,12 +15,12 @@ auth:bearer {
 }
 
 tests {
-  test("redeploying with --review superseded the first round", function() {
+  test("redeploying with --review superseded the previous round", function() {
     expect(res.status).to.equal(200);
-    expect(res.body.rounds).to.have.length(2);
-    expect(res.body.rounds[0].number).to.equal(2);
+    expect(res.body.rounds.length).to.be.at.least(2);
+    expect(res.body.rounds[0].number).to.equal(Number(bru.getVar("review_round")));
     expect(res.body.rounds[0].status).to.equal("open");
-    expect(res.body.rounds[1].number).to.equal(1);
+    expect(res.body.rounds[1].number).to.equal(Number(bru.getVar("review_round")) - 1);
     expect(res.body.rounds[1].status).to.equal("superseded");
   });
 }

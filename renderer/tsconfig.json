@@ -9,8 +9,10 @@
     "noUncheckedIndexedAccess": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["bun", "node", "vite/client"]
+    "types": ["bun", "node", "vite/client"],
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts", "vite.config.overlay.ts"]
 }
 

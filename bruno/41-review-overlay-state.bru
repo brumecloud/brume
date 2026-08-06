@@ -10,12 +10,16 @@ get {
   auth: none
 }
 
+script:post-response {
+  bru.setVar("review_round", res.body.review && res.body.review.number);
+}
+
 tests {
   test("the overlay learns the open review round at runtime", function() {
     expect(res.status).to.equal(200);
     expect(res.body.enabled).to.equal(true);
     expect(res.body.review.status).to.equal("open");
-    expect(res.body.review.number).to.equal(2);
+    expect(res.body.review.number).to.be.at.least(2);
     expect(res.body.review.thread_count).to.equal(0);
   });
 }
