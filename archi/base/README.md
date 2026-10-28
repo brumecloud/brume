@@ -40,6 +40,7 @@ Ce dossier rassemble les décisions d'architecture et de sécurité prises penda
 | [08-hote-et-installation.md](08-hote-et-installation.md) | install.sh, `brume install`, Docker, SSH, systemd, mises à jour |
 | [09-observabilite.md](09-observabilite.md) | Logs, journal d'audit, détection des écarts, alertes |
 | [10-developpement.md](10-developpement.md) | Style et règles de code, dépendances, CI, releases |
+| [front-architecture.md](front-architecture.md) | Stack, organisation du code, règles et outillage du panel |
 | [11-comparatif.md](11-comparatif.md) | Comment font Portainer, Coolify, Dokploy, CapRover et Kamal |
 | [12-plus-tard.md](12-plus-tard.md) | Ce qui est volontairement repoussé après la 0.1 |
 
@@ -52,3 +53,4 @@ La page Notion « Alpha 0.1 » prévoit « TLS only, port 443, Let's Encrypt ».
 1. **Second facteur à la connexion :** mot de passe ou passkey. Recommandation : passkey. Voir [04-panel-admin.md](04-panel-admin.md).
 2. **Signature des mises à jour :** clé publique minisign intégrée au binaire, ou identité Sigstore du workflow de release. Voir [10-developpement.md](10-developpement.md).
 3. **Propositions par défaut, à confirmer :** pas de Headscale en 0.1, aucune télémétrie, vérification des mises à jour désactivable.
+4. **Frontend :** implémentation du React Compiler, types partagés entre Rust et TypeScript, TanStack DB. Voir [front-architecture.md](front-architecture.md#décisions-ouvertes).

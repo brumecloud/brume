@@ -54,7 +54,7 @@ Le même risque existe pour la config nginx, les variables d'environnement (un `
 
 ## Frontend
 
-Le code du panel tourne avec les droits de l'admin : un paquet npm compromis donne root.
+Le code du panel tourne avec les droits de l'admin : un paquet npm compromis donne root. Stack, organisation du code et outillage : voir [front-architecture.md](front-architecture.md).
 
 - **Uniquement des dépendances connues, ou du code écrit par nous.** Mais « connue » ne suffit pas : en septembre 2025, `chalk` et `debug`, parmi les paquets npm les plus utilisés, ont été compromis après le phishing de leur mainteneur.
 - **Lockfile, `--ignore-scripts`,** et un délai avant d'adopter une nouvelle version (`minimumReleaseAge` dans pnpm).
