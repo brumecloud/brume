@@ -1,0 +1,6 @@
+# Google Rust style guide: https://google.github.io/styleguide/rustguide.html#code-formatting
+# The last three options are unstable: run `cargo +nightly fmt`.
+max_width = 100
+hex_literal_case = "Lower"
+format_macro_matchers = true
+imports_granularity = "Module"

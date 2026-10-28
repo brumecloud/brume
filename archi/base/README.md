@@ -39,7 +39,7 @@ Ce dossier rassemble les décisions d'architecture et de sécurité prises penda
 | [07-secrets-et-backups.md](07-secrets-et-backups.md) | Secrets de la plateforme et des apps, backups chiffrés |
 | [08-hote-et-installation.md](08-hote-et-installation.md) | install.sh, `brume install`, Docker, SSH, systemd, mises à jour |
 | [09-observabilite.md](09-observabilite.md) | Logs, journal d'audit, détection des écarts, alertes |
-| [10-developpement.md](10-developpement.md) | Règles de code, dépendances, CI, releases |
+| [10-developpement.md](10-developpement.md) | Style et règles de code, dépendances, CI, releases |
 | [11-comparatif.md](11-comparatif.md) | Comment font Portainer, Coolify, Dokploy, CapRover et Kamal |
 | [12-plus-tard.md](12-plus-tard.md) | Ce qui est volontairement repoussé après la 0.1 |
 

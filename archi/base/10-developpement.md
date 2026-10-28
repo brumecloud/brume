@@ -1,5 +1,31 @@
 # Développement de Brume
 
+## Style Rust
+
+Le code Rust suit le [guide de style Rust de Google](https://google.github.io/styleguide/rustguide.html), qui s'appuie lui-même sur le [Rust Style Guide](https://doc.rust-lang.org/style-guide/) et les [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/). Les règles de sécurité de la section suivante priment en cas de conflit.
+
+**Adaptations à Brume :**
+
+- **Les règles propres à Chromium, Android et Fuchsia ne s'appliquent pas :** pas d'arborescence plate, pas de `git cl format`, pas de `rust_gtest_interop`. En particulier, l'interdiction d'`async` vise Chrome : Brume utilise tokio.
+- **Brume est du code applicatif.** Les règles d'API sont des recommandations fortes, pas des obligations. Pas de généralisation prématurée : renvoyer un `Vec<T>` est acceptable, `impl Into<T>` est à éviter.
+- **`unsafe` est interdit, pas seulement déconseillé.** Voir la section suivante.
+- **Tests avec `#[test]` et `#[tokio::test]`.**
+
+**Formatage :** [`rustfmt.toml`](../../rustfmt.toml) à la racine. Trois options sont instables, donc on formate avec `cargo +nightly fmt`. Le toolchain de compilation reste stable : aucune feature instable dans le code.
+
+**Les règles qui comptent le plus au quotidien :**
+
+- **Newtypes plutôt qu'alias de type.** Un `Domain` ou un `ServiceName` ne se construit qu'après validation, ce qui rend la validation par liste blanche impossible à oublier.
+- **Pas de glob imports,** et un seul module par `use` (`imports_granularity = "Module"`).
+- **`match` ou `if let` plutôt que vérifier puis `unwrap`,** et `expect` plutôt qu'`unwrap` quand une panique est voulue.
+- **`Option` pour un échec simple, `Result` pour un échec récupérable, `panic!` pour un bug.**
+- **Paramètres empruntés les plus souples :** `&str` plutôt que `&String`, `&[T]` plutôt que `&Vec<T>`.
+- **Une `enum` plutôt qu'un paramètre `bool`** dont le sens n'est pas évident à l'appel.
+- **Possession unique plutôt que `Rc` ou `Arc`,** sauf si l'alternative est déraisonnablement complexe.
+- **Ne jamais lire l'intérieur d'un mutex empoisonné.**
+- **Aucun code exécuté avant `main()`** (crate `ctor` interdit).
+- **Pas de commentaire qui répète le code.** On documente les API publiques avec `///` et les modules avec `//!`.
+
 ## Règles de code Rust
 
 - **`#![forbid(unsafe_code)]`.**
@@ -37,6 +63,7 @@ Le code du panel tourne avec les droits de l'admin : un paquet npm compromis don
 
 ## CI
 
+- **`cargo +nightly fmt --check` et `cargo clippy -- -D warnings`.**
 - **`cargo deny` et `cargo audit`.**
 - **GitHub Actions épinglées par SHA.** L'attaque tj-actions de 2025 passait par un tag modifié.
 - **`systemd-analyze security --offline=true` :** plus tard.
