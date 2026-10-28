@@ -20,29 +20,32 @@
 - **Déchiffrés uniquement par l'engine,** et injectés à la création du container.
 - **L'API ne voit jamais un secret en clair,** sauf sur une action « révéler » explicite.
 - **Dans le code Rust,** les secrets sont stockés dans les types du crate `secrecy`.
-- **Variables d'environnement en 0.1.** Les fichiers sur tmpfs viendront plus tard.
+- **Variables d'environnement en 0.1.** Seule exception : la keyfile du replica set MongoDB, écrite dans le volume de la base. Voir [templates.md](templates.md#mongodb). Les fichiers sur tmpfs viendront plus tard.
 - **Logs :** Brume masque les secrets dans les logs de build. Les apps écrivent parfois des secrets dans leurs propres logs : rétention limitée, et pas de logs dans les backups.
 
 ## Backups
 
 ### Ce qui est sauvegardé
 
-- **Des dumps cohérents** (`pg_dump`, `.backup` pour SQLite), jamais une copie de fichiers en cours d'écriture.
+- **Des dumps cohérents** (`pg_dump`, `mongodump`, snapshot RDB de Redis, `.backup` pour SQLite), jamais une copie de fichiers en cours d'écriture. Le détail par base est dans [templates.md](templates.md).
 - **Brume fait ses propres dumps :** `pg_dump | age | upload`. Pas de restic : il doit lire, lister et supprimer dans son dépôt, ce qui est incompatible avec des credentials en écriture seule.
 - **L'état de Brume lui-même** (config, secrets chiffrés), sinon rien n'est reconstructible.
+- **Limite en 0.1 : la clé maître n'est pas sauvegardée.** Si le serveur est perdu, les secrets chiffrés de l'état ne sont pas restaurables. Voir [12-plus-tard.md](12-plus-tard.md).
 - **Pas les logs.**
 
 ### Le chiffrement
 
 - **age asymétrique :** le serveur n'a que la clé publique. Il peut chiffrer, pas déchiffrer.
 - **La clé privée est donnée à l'utilisateur à l'install,** ou l'utilisateur fournit sa propre clé publique. Elle est indispensable pour restaurer.
+- **La clé publique ne se change que sur l'hôte,** en root, jamais depuis le panel. Sinon une session volée rendrait les backups suivants lisibles par l'attaquant.
 - **Bonus :** un attaquant qui prend le serveur ne peut pas lire les anciens backups.
 
 ### Le stockage
 
 - **Hors du VPS,** sur un stockage compatible S3, configuré depuis le panel.
+- **Tout changement de destination déclenche une alerte.** Une session volée pourrait sinon envoyer les backups suivants ailleurs, en silence.
 - **Credentials en écriture seule** (`PutObject`), sans droit de suppression.
-- **Versioning du bucket ou Object Lock obligatoire :** `PutObject` peut écraser un objet existant dont on connaît le nom.
+- **Versioning du bucket ou Object Lock obligatoire :** `PutObject` peut écraser un objet existant dont on connaît le nom. Brume ne le vérifie pas en 0.1 : voir [12-plus-tard.md](12-plus-tard.md).
 - **La rétention se fait par des règles de cycle de vie du bucket,** pas par Brume, qui ne peut rien supprimer.
 
 ### La vérification

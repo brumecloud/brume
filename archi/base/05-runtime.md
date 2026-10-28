@@ -2,18 +2,27 @@
 
 ## Isolation des containers
 
-- **Un réseau interne par environnement,** sans accès Internet par défaut. Voir [03-reseau.md](03-reseau.md).
+- **Un réseau interne par environnement,** sans accès Internet par défaut. Un service exposé rejoint aussi un réseau `edge-<service>`, avec Traefik seul. Voir [03-reseau.md](03-reseau.md).
 - **Aucun port publié.**
+- **`userns-remap` sur dockerd.** Root dans un container correspond à un UID sans privilège sur l'hôte : une évasion par une faille runc ou noyau ne donne pas root directement. Activé à l'install : l'activer sur un hôte existant oblige à retélécharger toutes les images et à changer le propriétaire de tous les volumes.
 - **Par défaut :** `no-new-privileges`, capabilities supprimées, limites de mémoire, de CPU et de pids. Sans limites, un seul container peut faire tomber Brume.
-- **Profils seccomp et AppArmor par défaut,** jamais `unconfined`.
-- **Interdits par défaut :** `--privileged`, réseau host, montages de l'hôte, socket Docker.
-- **Accès bloqué** au tailnet, à l'endpoint de métadonnées de l'hébergeur et à Brume. Brume n'écoute que sur des sockets unix et sur `127.0.0.1`.
+- **Profils seccomp et AppArmor par défaut,** jamais `unconfined`. Seule exception : le builder, voir [06-builds-et-deploiement.md](06-builds-et-deploiement.md#le-builder).
+- **Config construite par liste blanche.** L'engine fixe lui-même chaque champ de la config d'un container ; rien n'est recopié depuis une demande. Une liste d'interdits ne suffit pas : plusieurs options Docker équivalent à un montage de l'hôte ou au réseau d'un autre container.
+- **Interdits hors `policy.toml`,** entre autres :
+  - `--privileged`, réseau host, montages de l'hôte, socket Docker ;
+  - volumes nommés avec des options de driver : `o=bind` en fait un montage de l'hôte ;
+  - `--network container:…`, qui rejoint le réseau d'un autre container (celui de Traefik donne tous les réseaux edge) ;
+  - `--volumes-from` ;
+  - `--pid`, `--ipc`, `--uts` et `--cgroupns` partagés avec l'hôte ou un autre container, et `--userns=host` ;
+  - `--cap-add`, `--device`, `--security-opt`, `--sysctl`, `--runtime`.
+- **Accès bloqué** au tailnet, aux plages privées, aux endpoints de métadonnées et à Brume. Brume n'écoute que sur des sockets unix, sur `127.0.0.1` (l'API) et sur l'adresse de l'hôte dans le réseau `ingress` (le webhook), que seuls cloudflared et Traefik joignent.
 
 ## `policy.toml` : les options dangereuses
 
 - **Les options interdites ne s'activent que dans `/etc/brume/policy.toml`,** modifiable en root via SSH, jamais depuis le panel.
 - **L'engine applique cette politique à chaque demande,** quel que soit le client. Une API compromise ne peut pas la contourner.
 - **C'est la réponse aux outils qui demandent le socket Docker :** Portainer, Watchtower, un runner CI.
+- **Le socket Docker, `--privileged` et le réseau host imposent aussi `--userns=host`.** Docker refuse les deux derniers tant que le container est remappé, et un root remappé ne peut pas ouvrir le socket. Avec `--userns=host`, root dans le container redevient root sur l'hôte.
 
 ## Images
 
@@ -27,8 +36,8 @@
 
 ## Bases de données
 
-- **Templates (Postgres, Redis) :** toujours un mot de passe aléatoire fort, même sans port publié. Un Redis sans mot de passe reste joignable par n'importe quelle app compromise du même environnement.
-- **Accès depuis le laptop :** en TCP sur le tailnet uniquement, jamais par un port publié.
+- **Templates PostgreSQL, MongoDB et Redis :** identifiants forts générés par l'engine, compte de l'app aux droits minimaux, config en lecture seule. Voir [templates.md](templates.md).
+- **Accès depuis le laptop :** en TCP sur le tailnet uniquement, par `tailscale serve`, jamais par un port publié. Activé base par base. Voir [03-reseau.md](03-reseau.md#tailscale).
 
 ## Volumes
 
@@ -36,7 +45,7 @@
 
 ## Sites statiques
 
-- **Servis par un container nginx géré par Brume,** avec un volume en lecture seule et une image nginx sans root.
+- **Servis par un container nginx géré par Brume,** avec un volume en lecture seule et une image nginx sans root. Cache, headers et limites des artefacts : voir [templates.md](templates.md#site-statique).
 - **Fichiers cachés refusés** (`.env`, `.git`) : beaucoup de builds les laissent dans le dossier de sortie.
 - **Extraction des artefacts** dans un process sans privilège, jamais dans l'engine. Les chemins en `../` et les symlinks sont rejetés, sinon nginx pourrait servir des fichiers situés hors du site.
 - **Rollback instantané :** chaque version est conservée. Une version peut être purgée définitivement, par exemple si un secret y a fuité.

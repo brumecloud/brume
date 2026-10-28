@@ -14,8 +14,9 @@
 ## Goals for alpha 0.1
 
 - A single VPS, a single owner.
-- One-command install: `curl -sSL https://brume.dev/install.sh | bash`.
+- One-command install: `curl -sSL https://github.com/brumecloud/brume/releases/latest/download/install.sh | bash`.
 - Deploy any container, plus static sites with instant rollback.
+- Templates with good practices built in: static site, PostgreSQL, MongoDB, Redis.
 - Automatic CI/CD from GitHub, built with Railpack.
 - Backups, logs and secrets managed from the panel.
 - Admin panel reachable only over Tailscale.
@@ -25,7 +26,7 @@
 
 ## Design documents
 
-The architecture decisions live in [`archi/base/`](archi/base/README.md) (written in French): threat model, architecture, networking, admin panel, runtime, builds and deployment, secrets and backups, host setup, observability, development rules, and a comparison with similar tools.
+The architecture decisions live in [`archi/base/`](archi/base/README.md) (written in French): threat model, architecture, networking, admin panel, runtime, templates, builds and deployment, secrets and backups, host setup, observability, development rules, and a comparison with similar tools.
 
 ## Code style
 

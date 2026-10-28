@@ -10,8 +10,9 @@
 ## Tailscale
 
 - **Clé d'auth de l'install :** à usage unique, pré-autorisée, taguée, de courte durée.
-- **Nœud tagué `tag:brume` :** un nœud tagué n'a pas d'expiration de clé. Sans tag, la clé expire au bout de 180 jours et on perd l'accès au panel. Les ACL l'empêchent aussi d'ouvrir des connexions vers les appareils du tailnet.
-- **Tailnet Lock proposé en option :** il empêche le serveur de coordination de Tailscale d'ajouter un nœud au tailnet.
+- **Nœud tagué `tag:brume` :** un nœud tagué n'a pas d'expiration de clé. Sans tag, la clé expire au bout de 180 jours et on perd l'accès au panel. La policy du tailnet doit aussi lui interdire d'ouvrir des connexions vers les appareils : voir [03-reseau.md](03-reseau.md#tailscale).
+- **Tailscale SSH ne passe pas par le second facteur.** En 0.1, l'identité Tailscale seule donne un shell root. Risque accepté, voir [01-modele-de-menace.md](01-modele-de-menace.md#risques-acceptés-en-01).
+- **Tailnet Lock : plus tard.** Il empêchera le serveur de coordination de Tailscale, ou un compte volé chez le fournisseur d'identité, d'ajouter un nœud au tailnet. Voir [12-plus-tard.md](12-plus-tard.md).
 
 ## Authentification
 
@@ -19,9 +20,9 @@ Deux facteurs indépendants.
 
 ### 1. L'identité Tailscale
 
-- `tailscale serve` ajoute le header `Tailscale-User-Login` selon l'appareil qui se connecte.
+- **`tailscale serve` pose le header `Tailscale-User-Login`** selon l'appareil qui se connecte, après avoir supprimé les headers `Tailscale-User-*` envoyés par le client. Il ne le pose pas pour un appareil tagué : toute requête sans ce header est rejetée.
 - **Allowlist d'identités fixée à l'install :** `brume install` demande le login Tailscale de l'admin. Jamais de « le premier qui se connecte devient admin ».
-- **Le header n'est fiable que s'il vient de `tailscale serve`.** N'importe quel process local qui atteint `127.0.0.1` peut le forger. Donc : rejeter toute requête sans header, et aucun container en réseau host.
+- **Un process local qui atteint `127.0.0.1` peut forger le header.** Aucun container n'est en réseau host, et sans session émise par l'engine, un header forgé ne donne rien.
 - **Être sur le tailnet ne suffit pas :** un appareil compromis ou un tailnet partagé donnerait accès au panel. D'où le second facteur.
 
 ### 2. Un second facteur à la connexion
@@ -37,14 +38,16 @@ Deux facteurs indépendants.
 
 **Recommandation : passkey.**
 
-- **Les identifiants sont stockés par l'engine,** pas par l'API. Il pourra ainsi vérifier lui-même les actions critiques le jour où on ajoute la ré-authentification.
+- **Vérifié par l'engine, pas par l'API.** L'engine stocke les identifiants, génère le challenge, vérifie la réponse et émet la session.
 - **Premier accès :** `brume install` affiche une URL d'enrôlement à usage unique, valable 15 minutes.
 - **Récupération :** la CLI `brume` en local, depuis la console de l'hébergeur, via un socket unix en `0600`.
 
 ## Session
 
+- **Émise par l'engine après le second facteur,** sur une requête same-origin. L'engine garde la session ; l'API ne fait que transmettre son jeton.
+- **Validée par l'engine à chaque demande.** L'API joint le jeton et l'identité Tailscale à chaque appel, et l'engine vérifie que la session est valide et liée à cette identité. Une API compromise ne peut rien faire sans une session ouverte par l'admin.
+- **Durée courte, fixée par l'engine :** c'est la fenêtre pendant laquelle une API compromise peut agir.
 - **Cookie `__Host-brume_session`,** en `Secure`, `HttpOnly` et `SameSite=Strict`. Un site tiers ne peut pas le faire envoyer.
-- **Émis après le second facteur,** sur une requête same-origin.
 - **Lié à l'identité Tailscale :** si le header change, la session devient invalide.
 
 ## CSRF et requêtes cross-site
@@ -60,17 +63,17 @@ L'identité Tailscale est une auth implicite, ajoutée par le réseau, comme un 
 
 ## XSS
 
-Une faille XSS dans le panel donne root sur la machine. Or le panel affiche du contenu contrôlé par l'attaquant : lignes de logs, noms de branches, messages de commit.
+Une faille XSS dans le panel donne ses actions pendant la session de l'admin : toutes les apps, leurs secrets et leurs données. Or le panel affiche du contenu contrôlé par l'attaquant : lignes de logs, noms de branches, messages de commit.
 
 - **Jamais de `dangerouslySetInnerHTML`,** y compris pour le rendu des couleurs ANSI.
-- **CSP stricte :** `default-src 'self'`, pas de script inline.
+- **CSP stricte :** `default-src 'self'`, pas de script inline, plus `base-uri 'none'` et `form-action 'self'`, que `default-src` ne couvre pas.
 - **Trusted Types** (`require-trusted-types-for 'script'`), là où le navigateur le supporte : le navigateur bloque lui-même toute insertion de HTML brut.
 - **Anti-clickjacking :** `frame-ancestors 'none'`. Sinon, un site peut afficher le panel dans une iframe invisible et faire cliquer l'admin sur « Supprimer ».
 
 ## Secrets dans le panel
 
 - **L'API ne renvoie jamais la valeur d'un secret,** sauf sur une action « révéler » explicite.
-- **Ré-authentification avant les actions critiques :** plus tard, voir [12-plus-tard.md](12-plus-tard.md).
+- **« Révéler » passe par la session vérifiée par l'engine,** comme toutes les actions, et est journalisé.
 
 ## Journal d'audit
 

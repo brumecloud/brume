@@ -2,7 +2,7 @@
 
 Le panel est une SPA React. Elle est compilée en CI et intégrée au binaire signé : le serveur n'exécute jamais npm (voir [10-developpement.md](10-developpement.md#frontend)). `brume api` la sert avec l'API, sur la même origine.
 
-Ce document fixe la stack, l'organisation du code, les règles et l'outillage du panel. Beaucoup de pratiques viennent de [t3code](https://github.com/pingdotgg/t3code). Les règles de sécurité de [04-panel-admin.md](04-panel-admin.md) et [10-developpement.md](10-developpement.md) priment.
+Ce document fixe la stack, l'organisation du code, les règles et l'outillage du panel. Les règles de sécurité de [04-panel-admin.md](04-panel-admin.md) et [10-developpement.md](10-developpement.md) priment.
 
 ## Stack
 
@@ -286,19 +286,8 @@ allowBuilds: {}
 - **`vp fmt --check`, `vp lint`, `tsc --noEmit`, `vp test run`, `knip`, `vp build`.**
 - **GitHub Actions épinglées par SHA,** voir [10-developpement.md](10-developpement.md#ci).
 
-## Ce qu'on ne reprend pas de t3code
-
-| t3code | Brume |
-|---|---|
-| `dangerouslySetInnerHTML` pour la coloration syntaxique | Interdit |
-| Un script inline dans `index.html` pour le thème | Incompatible avec la CSP : un fichier sous `'self'` |
-| GitHub Actions épinglées par tag | Épinglées par SHA |
-| Effect et ses atoms pour les données, une trentaine de règles de lint maison | TanStack Query, trois règles maison |
-| Environ 80 dépendances d'exécution | Une liste courte, chaque ajout justifié |
-| `@tsc-rs/typescript`, en 0.8 | TypeScript officiel |
-
 ## Décisions ouvertes
 
-1. **Implémentation du React Compiler :** `babel-plugin-react-compiler`, l'officiel en 1.0, ou `oxc-transform-react`, le port Rust utilisé par t3code. Le port tient en une dépendance, mais `@vitejs/plugin-react` le marque expérimental. Recommandation : l'officiel, tant que le port reste expérimental.
+1. **Implémentation du React Compiler :** `babel-plugin-react-compiler`, l'officiel en 1.0, ou `oxc-transform-react`, son port en Rust. Le port tient en une dépendance, mais `@vitejs/plugin-react` le marque expérimental. Recommandation : l'officiel, tant que le port reste expérimental.
 2. **Types partagés entre Rust et TypeScript :** générés depuis les types Rust (`ts-rs`, `specta`) ou depuis un schéma OpenAPI (`utoipa`). Sans génération, les types de `src/api/` s'écrivent à la main et finissent par diverger.
 3. **TanStack DB :** prévue dans la stack, mais TanStack Query suffit peut-être pour un panel à un seul admin. À trancher au premier vrai besoin.

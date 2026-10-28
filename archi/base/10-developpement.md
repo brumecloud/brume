@@ -31,10 +31,11 @@ Le code Rust suit le [guide de style Rust de Google](https://google.github.io/st
 - **`#![forbid(unsafe_code)]`.**
 - **Secrets dans les types du crate `secrecy` :** un `Debug` ou un `tracing::info!` ne peut pas les afficher par accident.
 - **Docker piloté par son API** (crate `bollard`), jamais par `sh -c` ni par la CLI `docker`.
+- **Config des containers construite par liste blanche,** avec un test qui vérifie la config complète de chaque type de container. Voir [05-runtime.md](05-runtime.md#isolation-des-containers).
 - **L'engine n'analyse aucune donnée non fiable.** Voir [02-architecture.md](02-architecture.md).
 - **Requêtes SQLite paramétrées** (sqlx). Pour DuckDB, voir [09-observabilite.md](09-observabilite.md).
 - **Taille limitée** pour tous les bodies HTTP et tous les messages des sockets.
-- **Requêtes vers des URL fournies par l'utilisateur** (notifications, healthchecks) : tailnet et endpoint de métadonnées bloqués.
+- **Requêtes vers des URL fournies par l'utilisateur** (notifications, healthchecks) : tailnet, plages privées et endpoints de métadonnées bloqués.
 
 ## Injection dans ce que Brume génère
 
@@ -54,7 +55,7 @@ Le même risque existe pour la config nginx, les variables d'environnement (un `
 
 ## Frontend
 
-Le code du panel tourne avec les droits de l'admin : un paquet npm compromis donne root. Stack, organisation du code et outillage : voir [front-architecture.md](front-architecture.md).
+Le code du panel tourne avec les droits de l'admin : un paquet npm compromis donne toutes les actions du panel. Stack, organisation du code et outillage : voir [front-architecture.md](front-architecture.md).
 
 - **Uniquement des dépendances connues, ou du code écrit par nous.** Mais « connue » ne suffit pas : en septembre 2025, `chalk` et `debug`, parmi les paquets npm les plus utilisés, ont été compromis après le phishing de leur mainteneur.
 - **Lockfile, `--ignore-scripts`,** et un délai avant d'adopter une nouvelle version (`minimumReleaseAge` dans pnpm).
@@ -70,13 +71,14 @@ Le code du panel tourne avec les droits de l'admin : un paquet npm compromis don
 
 ## Releases
 
-- **Binaires publiés sur GitHub Releases.**
+- **Binaires et `install.sh` publiés sur GitHub Releases.** Voir [08-hote-et-installation.md](08-hote-et-installation.md#installsh).
 - **Compte GitHub protégé par une clé 2FA physique.**
 
-### Signature, à trancher
+### Signature : minisign
 
-- **minisign :** clé publique intégrée au binaire, clé privée gardée hors ligne. Simple à vérifier dans l'updater.
-- **Sigstore via OIDC :** pas de clé longue durée, signature liée au workflow de release. L'updater vérifie l'identité du workflow, ce qui est plus complexe à implémenter.
+- **minisign, clé privée gardée hors ligne,** clé publique intégrée au binaire. Simple à vérifier dans l'updater.
+- **Clé hors ligne :** un compte GitHub compromis (scénario 5 du [modèle de menace](01-modele-de-menace.md)) ne peut pas signer une mise à jour. La première installation, elle, fait confiance à GitHub : voir [08-hote-et-installation.md](08-hote-et-installation.md#installsh).
+- **Manifeste de release signé,** qui porte la version : l'updater refuse les retours en arrière. La version est dans le contenu signé, jamais dans le commentaire non signé de minisign, qui n'est pas authentifié. Voir [08-hote-et-installation.md](08-hote-et-installation.md#mises-à-jour).
 
 ## Signalement des failles
 
