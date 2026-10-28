@@ -38,7 +38,7 @@
 - **Son propre réseau, avec accès Internet** (npm, pip), mais bloqué vers le tailnet, les plages privées, les endpoints de métadonnées et les réseaux d'environnement.
 - **Limites CPU et RAM, un seul build à la fois.** Un build Next.js peut prendre toute la RAM : l'OOM killer tuerait alors les apps ou Brume.
 - **Brume et Traefik protégés en priorité de l'OOM killer.**
-- **Un cache séparé par projet.** Sinon un build compromis peut empoisonner le cache des autres.
+- **Un cache séparé par environnement.** Sinon un build compromis peut empoisonner le cache des autres, et un build de staging celui de la prod. Voir [13-modele-de-donnees.md](13-modele-de-donnees.md#cache-de-build).
 - **Railpack et son frontend BuildKit épinglés par digest.**
 
 ## Les secrets pendant le build
@@ -50,4 +50,4 @@
 ## Déploiement et rollback
 
 - **Le builder ne touche jamais le runtime.** Il produit une image, l'engine la charge dans dockerd et la déploie par digest.
-- **Rollback :** redéployer le digest précédent.
+- **Rollback :** redéployer le digest d'une révision précédente, sans rebuild. Ce qui revient avec elle et ce qui ne revient pas : voir [13-modele-de-donnees.md](13-modele-de-donnees.md#rollback).

@@ -26,7 +26,7 @@
 
 ## Design documents
 
-The architecture decisions live in [`archi/base/`](archi/base/README.md) (written in French): threat model, architecture, networking, admin panel, runtime, templates, builds and deployment, secrets and backups, host setup, observability, development rules, and a comparison with similar tools.
+The architecture decisions live in [`archi/base/`](archi/base/README.md) (written in French): threat model, architecture, data model, networking, admin panel, runtime, templates, builds and deployment, secrets and backups, host setup, observability, development rules, and a comparison with similar tools.
 
 ## Code style
 

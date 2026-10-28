@@ -42,11 +42,12 @@
 ## Volumes
 
 - **Supprimer un service ne supprime pas son volume tout de suite.** L'engine applique quelques jours de rétention.
+- **Un rollback ne restaure jamais un volume.** Voir [13-modele-de-donnees.md](13-modele-de-donnees.md#rollback).
 
 ## Sites statiques
 
 - **Servis par un container nginx géré par Brume,** avec un volume en lecture seule et une image nginx sans root. Cache, headers et limites des artefacts : voir [templates.md](templates.md#site-statique).
 - **Fichiers cachés refusés** (`.env`, `.git`) : beaucoup de builds les laissent dans le dossier de sortie.
 - **Extraction des artefacts** dans un process sans privilège, jamais dans l'engine. Les chemins en `../` et les symlinks sont rejetés, sinon nginx pourrait servir des fichiers situés hors du site.
-- **Rollback instantané :** chaque version est conservée. Une version peut être purgée définitivement, par exemple si un secret y a fuité.
+- **Rollback instantané :** les dernières versions restent sur le disque. Une version peut être purgée définitivement, par exemple si un secret y a fuité. Voir [13-modele-de-donnees.md](13-modele-de-donnees.md#rétention-et-purge).
 - **Les variables lues par le build sont publiques.** `VITE_*`, `NEXT_PUBLIC_*` et tout ce que lit le build finissent dans le bundle JS servi à tout le monde. Brume avertit quand un secret est injecté dans le build d'un site statique.

@@ -45,6 +45,7 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 | [front-architecture.md](front-architecture.md) | Stack, organisation du code, règles et outillage du panel |
 | [11-comparatif.md](11-comparatif.md) | Comment font Portainer, Coolify, Dokploy, CapRover et Kamal |
 | [12-plus-tard.md](12-plus-tard.md) | Ce qui est volontairement repoussé après la 0.1 |
+| [13-modele-de-donnees.md](13-modele-de-donnees.md) | Projets, environnements, services, révisions, variables et secrets, rollback |
 
 ## Décisions ouvertes
 

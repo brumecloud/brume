@@ -15,6 +15,7 @@
 
 ## Secrets des apps
 
+- **Définis sur le projet, l'environnement ou le service,** résolus au déploiement, jamais copiés dans une révision. Voir [13-modele-de-donnees.md](13-modele-de-donnees.md#variables-et-secrets).
 - **Chiffrés en base avec la clé maître.** Le gain est limité tant que la clé est sur la même machine : la vraie protection porte sur les backups.
 - **Clé maître dans les credentials systemd** (`LoadCredentialEncrypted=`). Elle est chiffrée sur le disque, et seul l'engine la reçoit au démarrage, dans un répertoire privé. Les autres services ne peuvent pas la lire, même avec un bug qui permettrait de lire des fichiers. Il faut Debian 12 ou Ubuntu 24.04.
 - **Déchiffrés uniquement par l'engine,** et injectés à la création du container.

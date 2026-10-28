@@ -26,7 +26,7 @@ Brume est un seul binaire signé, `brume`, lancé en plusieurs services systemd.
 | `brume webhook` | Reçoit les webhooks GitHub. | le secret HMAC, un socket vers l'engine | Mettre en file le build d'un repo déjà configuré. |
 | `brume logs` | Reçoit les logs de dockerd, les stocke et les interroge (DuckDB). | les logs | Lire les logs. Ni réseau, ni secrets, ni Docker. |
 | `brume updater` | Installe les mises à jour de Brume. | le droit d'écrire les binaires | Équivaut à root, mais ne tourne que le temps d'une mise à jour et n'accepte que des binaires signés. |
-| BuildKit rootless | Construit les images. | un accès Internet sortant, le token GitHub et les secrets du build | Le build en cours, ses secrets et le token GitHub. Son sandbox est affaibli, car il n'exécute que du code de confiance : voir [06-builds-et-deploiement.md](06-builds-et-deploiement.md#le-builder). |
+| BuildKit rootless | Construit les images. | un accès Internet sortant, le token GitHub et les secrets du build | Le build en cours, ses secrets, le token GitHub et le cache de son environnement. Son sandbox est affaibli, car il n'exécute que du code de confiance : voir [06-builds-et-deploiement.md](06-builds-et-deploiement.md#le-builder). |
 | cloudflared | Connecteur du tunnel. | le token du tunnel | Lire et modifier le trafic public. Ne joint que Traefik et le webhook. |
 | Traefik | Routage HTTP. | sa config, en lecture seule | Lire et modifier le trafic public, joindre les services exposés. Pas les bases. |
 | nginx | Sert les sites statiques. | les fichiers, en lecture seule | Servir du contenu modifié jusqu'au redémarrage. |
