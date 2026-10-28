@@ -7,8 +7,9 @@ Brume propose quatre templates : site statique, PostgreSQL, MongoDB et Redis. Ch
 - **Un template est une recette typée, compilée dans le binaire signé.** Aucun fichier YAML à modifier. Chaque template a une version : une nouvelle version arrive avec une release de Brume, et la réconciliation l'applique avec un court redémarrage du service.
 - **Paramètres typés et bornés :** taille, mode Redis, accès par le tailnet, et les réglages listés pour chaque template. Chaque réglage a un nom, un type et des bornes. Brume le traduit dans la config qu'il génère : aucune valeur n'est passée telle quelle.
 - **Aucun flag, variable d'environnement ou fichier de config libre.** Un réglage qui affaiblit la sécurité n'est proposé que s'il est listé ici, désactivé par défaut.
+- **Une base ne reçoit ni les variables ni les secrets partagés** du projet ou de l'environnement. Un site statique reçoit les variables de build partagées, qui alimentent son build et non le container nginx. Voir [13-modele-de-donnees.md](13-modele-de-donnees.md#trois-niveaux--projet-environnement-service).
 - **Config générée par sérialisation,** montée en lecture seule dans le container. Voir [10-developpement.md](10-developpement.md#injection-dans-ce-que-brume-génère).
-- **Dernière version majeure uniquement** pour une nouvelle base. Une base existante garde la sienne jusqu'à une mise à jour explicite : backup, puis dump et restauration dans la nouvelle version. Le panel signale une version majeure en fin de support. Les versions mineures suivent les releases de Brume.
+- **Dernière version majeure uniquement** pour une nouvelle base. Elle ne change plus ensuite : les mises à jour majeures ne sont pas en 0.1, voir [12-plus-tard.md](12-plus-tard.md). Le panel signale une version majeure en fin de support. Les versions mineures suivent les releases de Brume.
 
 ## Ce que toute base reçoit
 
@@ -19,7 +20,7 @@ Brume propose quatre templates : site statique, PostgreSQL, MongoDB et Redis. Ch
   - un compte admin, gardé par l'engine pour les backups et la maintenance, révélable ;
   - un compte pour l'app, avec le minimum de droits.
 
-  Un service lié reçoit `DATABASE_URL`, `MONGODB_URI` ou `REDIS_URL` avec le compte de l'app. Une injection dans l'app obtient les droits de l'app, pas ceux de la base.
+  Un service lié reçoit `DATABASE_URL`, `MONGODB_URI` ou `REDIS_URL` avec le compte de l'app. Une injection dans l'app obtient les droits de l'app, pas ceux de la base. Ces URLs contiennent le mot de passe : ce sont des secrets, résolus au déploiement et jamais copiés dans une révision.
 - **Une taille de mémoire choisie dans une liste fixe.** Le cache de la base en découle. Sinon, la base se dimensionne sur la RAM de l'hôte et l'OOM killer la tue.
 - **Arrêt propre :** le bon signal d'arrêt, et 60 secondes avant `SIGKILL`. Par défaut, Docker tue le container au bout de 10 secondes, et la base doit se réparer au démarrage suivant.
 - **Healthcheck dans le container.** Une base en échec déclenche une alerte.
@@ -48,7 +49,6 @@ Brume propose quatre templates : site statique, PostgreSQL, MongoDB et Redis. Ch
 - **`security.javaScriptEnabled: false` :** aucun JavaScript côté serveur (`$where`, mapReduce). Une voie d'injection NoSQL en moins.
 - **Cache WiredTiger fixé** par la formule de MongoDB, appliquée à la limite du container : 50 % de (limite − 1 Go), 256 Mo minimum.
 - **Backups :** `mongodump --archive --oplog`.
-- **Mise à jour majeure :** une version à la fois, avec l'étape `setFeatureCompatibilityVersion` faite par Brume.
 - **Réglages :** JavaScript côté serveur, désactivé par défaut.
 
 ## Redis

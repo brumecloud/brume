@@ -56,14 +56,15 @@ Projet                              variables et secrets communs
 - **Les variables simples suivent la révision.** Sinon un rollback casse : la v2 renomme `PAYMENT_URL` en `PAYMENTS_API_URL`, et la v1 restaurée ne trouve plus `PAYMENT_URL`. Comme elles sont injectées à la création du container, en changer une demande de toute façon de le recréer.
 - **Les variables de build font partie de l'artefact,** qu'on le veuille ou non : elles finissent dans les couches de l'image ou dans le bundle JS. Pour un site statique, elles sont publiques, voir [05-runtime.md](05-runtime.md#sites-statiques).
 - **Les secrets sont résolus au déploiement.** Un rollback ne ramène jamais un secret changé après une fuite. Les secrets de build, passés par `--secret`, suivent la même règle.
-- **Avertissement à la saisie** quand une variable simple porte un nom de secret (`*_KEY`, `*_TOKEN`, `*_SECRET`, `*PASSWORD*`) : sa valeur resterait dans l'historique des révisions.
+- **Les URLs de connexion injectées par un template sont des secrets** (`DATABASE_URL`, `MONGODB_URI`, `REDIS_URL`) : elles contiennent le mot de passe de l'app. Voir [templates.md](templates.md#ce-que-toute-base-reçoit).
+- **Avertissement à la saisie** quand une variable simple porte un nom de secret (`*_KEY`, `*_TOKEN`, `*_SECRET`, `*PASSWORD*`) ou que sa valeur contient des identifiants (`scheme://user:pass@host`) : sa valeur resterait dans l'historique des révisions.
 
 ### Trois niveaux : projet, environnement, service
 
 - **Variables et secrets se définissent sur le projet, l'environnement ou le service.** Le niveau le plus précis gagne : service, puis environnement, puis projet.
-- **L'environnement porte les valeurs qui diffèrent entre prod et staging** (`DATABASE_URL`, clés d'API de test). Le projet garde ce qui est vraiment identique partout.
+- **L'environnement porte les valeurs qui diffèrent entre prod et staging** (URL publique de l'app, clés d'API de test). Le projet garde ce qui est vraiment identique partout.
 - **Un secret de projet atteint aussi le staging,** construit depuis des branches moins relues. Le panel le rappelle à la création d'un secret de projet, et propose de le définir par environnement.
-- **Les variables simples partagées sont héritées par tous les services.**
+- **Les variables simples partagées sont héritées par tous les services, sauf les bases créées depuis un template.** Une base n'accepte que ses réglages typés, voir [templates.md](templates.md#principe). Un site statique reçoit les variables de build partagées : elles alimentent son build, pas le container nginx.
 - **Les secrets partagés ne vont qu'aux services qui les référencent.** Une image tierce (un Redis, un outil d'admin) ne reçoit pas la clé Stripe juste parce qu'elle est dans le projet. Le service déclare le nom du secret, et la valeur est cherchée sur le service, puis l'environnement, puis le projet.
 - **Un nom est soit une variable, soit un secret, à tous les niveaux.** Sinon une variable simple de service pourrait remplacer un secret partagé, et sa valeur partirait en clair dans l'historique des révisions.
 - **La révision note d'où vient chaque valeur** (projet, environnement ou service), pour l'affichage et l'audit. Elle garde la valeur résolue : un rollback restaure une variable partagée telle qu'elle était, même si elle a changé depuis.
@@ -80,7 +81,7 @@ Projet                              variables et secrets communs
 - **Vérifié avant de commencer :** l'artefact existe encore, et chaque secret nommé dans la révision existe, sur le service, l'environnement ou le projet. Sinon le rollback est refusé, avec la liste de ce qui manque.
 - **Par service.** Revenir en arrière sur un backend ne touche pas le frontend qui appelle son API. L'état d'un environnement entier à une date donnée pourra se reconstruire plus tard depuis l'historique des déploiements, sans nouvelle entité.
 - **Les données ne reviennent jamais en arrière.** Après une migration, l'ancien code tourne sur le nouveau schéma. Le panel avertit avant le rollback d'un service qui a un volume.
-- **Pas de rollback entre versions majeures d'une base.** Un Postgres 15 ne lit pas le dossier de données d'un Postgres 16. Pour les templates (Postgres, Redis), l'engine connaît la version et refuse.
+- **La version majeure d'une base créée depuis un template ne change pas en 0.1,** donc un rollback ne peut pas la croiser. Voir [12-plus-tard.md](12-plus-tard.md).
 - **Le déploiement automatique continue après un rollback :** le prochain push sur la branche configurée redéploie.
 
 ## Rétention et purge
