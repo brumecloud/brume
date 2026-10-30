@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  /* `night` is the page background: it must stay PALETTE[0] in src/lib/mist.ts,
+     so the mist fades into the page. */
+  --color-night: #020818;
+  --color-surface: #04102a;
+  --color-terminal: #030b20;
+  --color-highlight: #061738;
+  --color-edge: #11285a;
+  --color-edge-strong: #1d4590;
+  --color-ink: #e6f0ff;
+  --color-ink-muted: #9fb5dc;
+  --color-ink-dim: #6f8bbf;
+  /* The logo blue. */
+  --color-brand: #3fb0fc;
+  --color-brand-soft: #b4dcff;
+
+  --container-page: 67.5rem;
+
+  --animate-blink: blink 1.1s steps(1) infinite;
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
+/* The font variables are set on <html> by next/font in layout.tsx. */
+@theme inline {
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-pixel: var(--font-silkscreen), var(--font-jetbrains-mono), monospace;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-night);
+    color: var(--color-ink);
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  ::selection {
+    background-color: var(--color-brand);
+    color: var(--color-night);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 3px;
+  }
+}
+
+/* Small uppercase labels in the pixel font. */
+@utility text-pixel {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* A pixel-art border: four flat shadows leave the corners empty. */
+@utility pixel-border {
+  box-shadow:
+    0 -2px 0 0 var(--pixel-border-color, var(--color-edge)),
+    0 2px 0 0 var(--pixel-border-color, var(--color-edge)),
+    -2px 0 0 0 var(--pixel-border-color, var(--color-edge)),
+    2px 0 0 0 var(--pixel-border-color, var(--color-edge));
+}
+
+@utility pixel-border-strong {
+  --pixel-border-color: var(--color-edge-strong);
+}

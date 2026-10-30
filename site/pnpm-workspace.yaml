@@ -1,0 +1,24 @@
+packages:
+  - .
+
+catalog:
+  "@tailwindcss/postcss": 4.3.3
+  # The 22.x types pull undici-types 6, which predates npm provenance and
+  # trips trustPolicy. The site calls no Node API, so the 24.x types are enough.
+  "@types/node": 24.19.2
+  "@types/react": 19.3.0
+  "@types/react-dom": 19.3.0
+  babel-plugin-react-compiler: 1.0.0
+  next: 16.4.2
+  oxfmt: 0.74.0
+  oxlint: 1.89.0
+  react: 19.3.1
+  react-dom: 19.3.1
+  tailwindcss: 4.3.3
+  typescript: 7.0.2
+
+savePrefix: ""
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude: []
+trustPolicy: no-downgrade
+allowBuilds: {}
