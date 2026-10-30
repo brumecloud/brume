@@ -64,6 +64,11 @@
 @layer base {
   html {
     background-color: var(--color-night);
+    /* A gradient one step deep, invisible to the eye. As a flat color, Chrome
+       draws the empty parts of the page through another path than the parts
+       with content, and on some color profiles the two come out a shade apart.
+       A gradient sends the whole background through the same path. */
+    background-image: linear-gradient(var(--color-night), #02081a);
     color: var(--color-ink);
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
