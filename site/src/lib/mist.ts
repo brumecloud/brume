@@ -79,7 +79,12 @@ const pack = (hex: string): number => {
 };
 const STAR_WORDS = Uint32Array.from(STAR_COLORS, pack);
 const LEVELS = PALETTES.night.length;
-const SKY = pack(PALETTES.night[0]);
+/**
+ * Clear sky is left transparent: the page background shows through, so the
+ * canvas never paints its own copy of it, which browsers can render a shade
+ * off from the CSS background.
+ */
+const SKY = 0;
 
 const mulberry32 = (seed: number) => (): number => {
   seed = (seed + 0x6d2b79f5) | 0;
@@ -150,6 +155,7 @@ class MistField {
     private readonly options: MistOptions,
   ) {
     this.palette = Uint32Array.from(PALETTES[options.palette], pack);
+    this.palette[0] = SKY;
   }
 
   /** Matches the canvas to the box it covers, padding included. */

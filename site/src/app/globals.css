@@ -16,6 +16,27 @@
   --color-brand: #3fb0fc;
   --color-brand-soft: #b4dcff;
 
+  /* The accents in plain sRGB. Tailwind's palette is in oklch, and some of its
+     colors fall outside sRGB: Chrome then renders the areas holding them in a
+     wider color space, and the page background shows lighter bands there. */
+  --color-sky-300: #7dd3fc;
+  --color-sky-400: #38bdf8;
+  --color-emerald-200: #a7f3d0;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-violet-300: #c4b5fd;
+  --color-violet-400: #a78bfa;
+  --color-rose-300: #fda4af;
+  --color-rose-400: #fb7185;
+  --color-teal-300: #5eead4;
+  --color-teal-400: #2dd4bf;
+  --color-orange-300: #fdba74;
+  --color-orange-400: #fb923c;
+  --color-fuchsia-300: #f0abfc;
+  --color-fuchsia-400: #e879f9;
+
   --container-page: 67.5rem;
 
   --animate-blink: blink 1.1s steps(1) infinite;
