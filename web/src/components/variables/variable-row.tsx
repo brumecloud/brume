@@ -1,50 +1,100 @@
 import { useMutation } from "@tanstack/react-query";
-import { EyeIcon, EyeOffIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, PencilIcon, Trash2Icon, Undo2Icon } from "lucide-react";
 
-import { deleteVariable, revealSecret } from "~/api/variables";
+import { stageChange, unstageChange } from "~/api/changes";
+import type { ServiceId } from "~/api/types";
+import { revealSecret } from "~/api/variables";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import type { ResolvedVariable } from "~/helpers/variables";
+import type { VariableDraftRow } from "~/helpers/changes";
+
+import { VariableDialog } from "./variable-dialog";
 
 const KIND_LABELS = { build: "Build", secret: "Secret" } as const;
 const ORIGIN_LABELS = { project: "Projet", environment: "Environnement" } as const;
+const DRAFT_LABELS = { added: "Nouvelle", modified: "Modifiée", removed: "Supprimée" } as const;
 
-export function VariableRow({ resolved }: { readonly resolved: ResolvedVariable }) {
-  const { variable, origin } = resolved;
+interface VariableRowProps {
+  readonly serviceId: ServiceId;
+  readonly row: VariableDraftRow;
+}
+
+export function VariableRow({ serviceId, row }: VariableRowProps) {
+  const { variable, draft, changeId } = row;
   // The revealed value stays in this row's state: `gcTime: 0` drops it once the row is gone.
-  const reveal = useMutation({ mutationFn: () => revealSecret(variable.id), gcTime: 0 });
+  const reveal = useMutation({
+    mutationFn: () => (variable ? revealSecret(variable.id) : Promise.resolve("")),
+    gcTime: 0,
+  });
+  const removal = useMutation({ mutationFn: stageChange });
+  const revealable = row.kind === "secret" && variable && !draft;
 
   return (
-    <div className="grid grid-cols-1 items-center gap-2 px-4 py-2.5 sm:grid-cols-12 sm:gap-4">
+    <div
+      data-draft={draft}
+      className="grid grid-cols-1 items-center gap-2 px-4 py-2.5 data-[draft=added]:outline-2 data-[draft=modified]:outline-2 data-[draft=added]:-outline-offset-2 data-[draft=modified]:-outline-offset-2 data-[draft=added]:outline-info data-[draft=modified]:outline-info data-[draft=removed]:opacity-60 sm:grid-cols-12 sm:gap-4"
+    >
       <span className="flex min-w-0 items-center gap-2 sm:col-span-5">
-        <span className="truncate font-mono text-sm">{variable.name}</span>
-        {variable.kind !== "plain" && <Badge variant="outline">{KIND_LABELS[variable.kind]}</Badge>}
-        {origin !== "service" && <Badge variant="secondary">{ORIGIN_LABELS[origin]}</Badge>}
+        <span className="truncate font-mono text-sm in-data-[draft=removed]:line-through">
+          {row.name}
+        </span>
+        {row.kind !== "plain" && <Badge variant="outline">{KIND_LABELS[row.kind]}</Badge>}
+        {row.origin !== "service" && <Badge variant="secondary">{ORIGIN_LABELS[row.origin]}</Badge>}
+        {draft && <Badge variant="info">{DRAFT_LABELS[draft]}</Badge>}
       </span>
       <span className="truncate font-mono text-muted-foreground text-sm sm:col-span-5">
-        {variable.kind === "secret" ? (reveal.data ?? "••••••••") : variable.value}
+        {row.kind === "secret" ? (reveal.data ?? "••••••••") : row.value}
       </span>
       <span className="flex justify-end gap-1 sm:col-span-2">
-        {variable.kind === "secret" && (
+        {revealable && (
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={reveal.data ? `Masquer ${variable.name}` : `Révéler ${variable.name}`}
+            aria-label={reveal.data ? `Masquer ${row.name}` : `Révéler ${row.name}`}
             loading={reveal.isPending}
             onClick={() => (reveal.data ? reveal.reset() : reveal.mutate())}
           >
             {reveal.data ? <EyeOffIcon /> : <EyeIcon />}
           </Button>
         )}
-        {origin === "service" && (
+        {changeId ? (
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={`Supprimer ${variable.name}`}
-            onClick={() => deleteVariable(variable.id)}
+            aria-label={`Annuler le changement de ${row.name}`}
+            onClick={() => unstageChange(changeId)}
           >
-            <Trash2Icon />
+            <Undo2Icon />
           </Button>
+        ) : (
+          row.origin === "service" && (
+            <>
+              <VariableDialog
+                serviceId={serviceId}
+                initial={{
+                  name: row.name,
+                  kind: row.kind,
+                  value: row.kind === "secret" ? "" : (row.value ?? ""),
+                }}
+                trigger={
+                  <Button variant="ghost" size="icon-sm" aria-label={`Modifier ${row.name}`}>
+                    <PencilIcon />
+                  </Button>
+                }
+              />
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Supprimer ${row.name}`}
+                loading={removal.isPending}
+                onClick={() =>
+                  removal.mutate({ serviceId, type: "variable-removal", name: row.name })
+                }
+              >
+                <Trash2Icon />
+              </Button>
+            </>
+          )
         )}
       </span>
     </div>

@@ -23,7 +23,7 @@ import { Route as ProjectsProjectIdEnvCanvasServicesServiceIdIndexRouteImport } 
 import { Route as ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteImport } from './routes/projects/$projectId/$env/_canvas/services/$serviceId/deployments'
 import { Route as ProjectsProjectIdEnvCanvasServicesServiceIdSettingsRouteImport } from './routes/projects/$projectId/$env/_canvas/services/$serviceId/settings'
 import { Route as ProjectsProjectIdEnvCanvasServicesServiceIdVariablesRouteImport } from './routes/projects/$projectId/$env/_canvas/services/$serviceId/variables'
-import { Route as ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRouteImport } from './routes/projects/$projectId/$env/_canvas/services/$serviceId/deployments_.$deploymentId'
+import { Route as ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRouteImport } from './routes/projects/$projectId/$env/_canvas/services/$serviceId/deployments/$deploymentId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -105,10 +105,10 @@ const ProjectsProjectIdEnvCanvasServicesServiceIdVariablesRoute =
 const ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute =
   ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRouteImport.update(
     {
-      id: '/deployments_/$deploymentId',
-      path: '/deployments/$deploymentId',
+      id: '/$deploymentId',
+      path: '/$deploymentId',
       getParentRoute: () =>
-        ProjectsProjectIdEnvCanvasServicesServiceIdRouteRoute,
+        ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute,
     } as any,
   )
 
@@ -121,7 +121,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/$env/logs': typeof ProjectsProjectIdEnvLogsRoute
   '/projects/$projectId/$env/': typeof ProjectsProjectIdEnvCanvasIndexRoute
   '/projects/$projectId/$env/services/$serviceId': typeof ProjectsProjectIdEnvCanvasServicesServiceIdRouteRouteWithChildren
-  '/projects/$projectId/$env/services/$serviceId/deployments': typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute
+  '/projects/$projectId/$env/services/$serviceId/deployments': typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteWithChildren
   '/projects/$projectId/$env/services/$serviceId/settings': typeof ProjectsProjectIdEnvCanvasServicesServiceIdSettingsRoute
   '/projects/$projectId/$env/services/$serviceId/variables': typeof ProjectsProjectIdEnvCanvasServicesServiceIdVariablesRoute
   '/projects/$projectId/$env/services/$serviceId/': typeof ProjectsProjectIdEnvCanvasServicesServiceIdIndexRoute
@@ -134,7 +134,7 @@ export interface FileRoutesByTo {
   '/projects': typeof WorkspaceProjectsIndexRoute
   '/projects/$projectId': typeof ProjectsProjectIdIndexRoute
   '/projects/$projectId/$env/logs': typeof ProjectsProjectIdEnvLogsRoute
-  '/projects/$projectId/$env/services/$serviceId/deployments': typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute
+  '/projects/$projectId/$env/services/$serviceId/deployments': typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteWithChildren
   '/projects/$projectId/$env/services/$serviceId/settings': typeof ProjectsProjectIdEnvCanvasServicesServiceIdSettingsRoute
   '/projects/$projectId/$env/services/$serviceId/variables': typeof ProjectsProjectIdEnvCanvasServicesServiceIdVariablesRoute
   '/projects/$projectId/$env/services/$serviceId': typeof ProjectsProjectIdEnvCanvasServicesServiceIdIndexRoute
@@ -152,11 +152,11 @@ export interface FileRoutesById {
   '/projects/$projectId/$env/logs': typeof ProjectsProjectIdEnvLogsRoute
   '/projects/$projectId/$env/_canvas/': typeof ProjectsProjectIdEnvCanvasIndexRoute
   '/projects/$projectId/$env/_canvas/services/$serviceId': typeof ProjectsProjectIdEnvCanvasServicesServiceIdRouteRouteWithChildren
-  '/projects/$projectId/$env/_canvas/services/$serviceId/deployments': typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute
+  '/projects/$projectId/$env/_canvas/services/$serviceId/deployments': typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteWithChildren
   '/projects/$projectId/$env/_canvas/services/$serviceId/settings': typeof ProjectsProjectIdEnvCanvasServicesServiceIdSettingsRoute
   '/projects/$projectId/$env/_canvas/services/$serviceId/variables': typeof ProjectsProjectIdEnvCanvasServicesServiceIdVariablesRoute
   '/projects/$projectId/$env/_canvas/services/$serviceId/': typeof ProjectsProjectIdEnvCanvasServicesServiceIdIndexRoute
-  '/projects/$projectId/$env/_canvas/services/$serviceId/deployments_/$deploymentId': typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute
+  '/projects/$projectId/$env/_canvas/services/$serviceId/deployments/$deploymentId': typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -203,7 +203,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/$env/_canvas/services/$serviceId/settings'
     | '/projects/$projectId/$env/_canvas/services/$serviceId/variables'
     | '/projects/$projectId/$env/_canvas/services/$serviceId/'
-    | '/projects/$projectId/$env/_canvas/services/$serviceId/deployments_/$deploymentId'
+    | '/projects/$projectId/$env/_canvas/services/$serviceId/deployments/$deploymentId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -314,12 +314,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdVariablesRouteImport
       parentRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdRouteRoute
     }
-    '/projects/$projectId/$env/_canvas/services/$serviceId/deployments_/$deploymentId': {
-      id: '/projects/$projectId/$env/_canvas/services/$serviceId/deployments_/$deploymentId'
-      path: '/deployments/$deploymentId'
+    '/projects/$projectId/$env/_canvas/services/$serviceId/deployments/$deploymentId': {
+      id: '/projects/$projectId/$env/_canvas/services/$serviceId/deployments/$deploymentId'
+      path: '/$deploymentId'
       fullPath: '/projects/$projectId/$env/services/$serviceId/deployments/$deploymentId'
       preLoaderRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRouteImport
-      parentRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdRouteRoute
+      parentRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute
     }
   }
 }
@@ -336,26 +336,38 @@ const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
   WorkspaceRouteChildren,
 )
 
+interface ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteChildren {
+  ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute
+}
+
+const ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteChildren: ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteChildren =
+  {
+    ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute:
+      ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute,
+  }
+
+const ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteWithChildren =
+  ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute._addFileChildren(
+    ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteChildren,
+  )
+
 interface ProjectsProjectIdEnvCanvasServicesServiceIdRouteRouteChildren {
-  ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute
+  ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteWithChildren
   ProjectsProjectIdEnvCanvasServicesServiceIdSettingsRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdSettingsRoute
   ProjectsProjectIdEnvCanvasServicesServiceIdVariablesRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdVariablesRoute
   ProjectsProjectIdEnvCanvasServicesServiceIdIndexRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdIndexRoute
-  ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute: typeof ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute
 }
 
 const ProjectsProjectIdEnvCanvasServicesServiceIdRouteRouteChildren: ProjectsProjectIdEnvCanvasServicesServiceIdRouteRouteChildren =
   {
     ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute:
-      ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRoute,
+      ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsRouteWithChildren,
     ProjectsProjectIdEnvCanvasServicesServiceIdSettingsRoute:
       ProjectsProjectIdEnvCanvasServicesServiceIdSettingsRoute,
     ProjectsProjectIdEnvCanvasServicesServiceIdVariablesRoute:
       ProjectsProjectIdEnvCanvasServicesServiceIdVariablesRoute,
     ProjectsProjectIdEnvCanvasServicesServiceIdIndexRoute:
       ProjectsProjectIdEnvCanvasServicesServiceIdIndexRoute,
-    ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute:
-      ProjectsProjectIdEnvCanvasServicesServiceIdDeploymentsDeploymentIdRoute,
   }
 
 const ProjectsProjectIdEnvCanvasServicesServiceIdRouteRouteWithChildren =

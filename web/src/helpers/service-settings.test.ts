@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { DecodeError } from "./decode";
-import { parseServiceSettings } from "./service-settings";
+import type { Service, ServiceKind } from "~/api/types";
+
+import { parseServiceSettings, settingsSections } from "./service-settings";
 
 const raw = {
   source: { kind: "github", repository: "planchon/brume", branch: "main", autoDeploy: true },
@@ -34,5 +36,34 @@ describe("parseServiceSettings", () => {
   it("rejects an unknown source or a malformed limit", () => {
     expect(() => parseServiceSettings({ ...raw, source: { kind: "ftp" } })).toThrow(DecodeError);
     expect(() => parseServiceSettings({ ...raw, cpuLimit: "1" })).toThrow(DecodeError);
+  });
+});
+
+const service = (kind: ServiceKind, volume: Service["volume"] = null) =>
+  ({ kind, volume }) as Service;
+
+describe("settingsSections", () => {
+  it("shows every section of an app with a volume", () => {
+    expect(settingsSections(service("github", { name: "data", mountPath: "/data" }))).toEqual([
+      "source",
+      "network",
+      "deploy",
+      "resources",
+      "volume",
+      "danger",
+    ]);
+  });
+
+  it("drops the command and the limits of a static site, served by the shared nginx", () => {
+    expect(settingsSections(service("static"))).toEqual(["source", "network", "danger"]);
+  });
+
+  it("drops the command of a template database", () => {
+    expect(settingsSections(service("postgres"))).toEqual([
+      "source",
+      "network",
+      "resources",
+      "danger",
+    ]);
   });
 });

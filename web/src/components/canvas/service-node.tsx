@@ -3,6 +3,7 @@ import { useParams } from "@tanstack/react-router";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { HardDriveIcon } from "lucide-react";
 
+import { serviceChanges } from "~/api/changes";
 import { serviceById } from "~/api/services";
 import { ServiceIcon } from "~/components/services/service-icon";
 import { ServiceStatusLabel } from "~/components/services/service-status";
@@ -11,6 +12,7 @@ import { ServiceStatusLabel } from "~/components/services/service-status";
 // so a status change re-renders the card without rebuilding the graph.
 export function ServiceNode({ id }: NodeProps) {
   const { data: service } = useLiveSuspenseQuery({ query: serviceById(id) });
+  const { data: changes } = useLiveSuspenseQuery({ query: serviceChanges(id) });
   // The open panel tells which service is selected.
   const { serviceId } = useParams({ strict: false });
   if (!service) {
@@ -20,12 +22,11 @@ export function ServiceNode({ id }: NodeProps) {
   return (
     <div className="w-72">
       <div
-        className={
-          serviceId === id
-            ? "relative flex flex-col gap-6 rounded-xl border border-ring bg-card p-4 shadow-sm ring-2 ring-ring/24"
-            : "relative flex flex-col gap-6 rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-ring/40"
-        }
+        data-selected={serviceId === id}
+        data-staged={changes.length > 0}
+        className="relative flex flex-col gap-6 rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-ring/40 data-[staged=true]:border-info data-[selected=true]:border-ring data-[staged=true]:ring-2 data-[selected=true]:ring-2 data-[staged=true]:ring-info/30 data-[selected=true]:ring-ring/24"
       >
+        {" "}
         <Handle type="target" position={Position.Top} isConnectable={false} className="opacity-0" />
         <div className="flex items-start gap-3">
           <ServiceIcon kind={service.kind} />
@@ -36,7 +37,12 @@ export function ServiceNode({ id }: NodeProps) {
             </span>
           </div>
         </div>
-        <ServiceStatusLabel status={service.status} />
+        <span className="flex items-center justify-between gap-2">
+          <ServiceStatusLabel status={service.status} />
+          {changes.length > 0 && (
+            <span className="text-info-foreground text-xs">{changes.length} en attente</span>
+          )}
+        </span>
         <Handle
           type="source"
           position={Position.Bottom}

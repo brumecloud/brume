@@ -115,3 +115,7 @@ export function parseDeploymentSearch(raw: Record<string, unknown>): DeploymentS
 export function parseDeploymentId(raw: string): DeploymentId | undefined {
   return isId(raw) ? (raw as DeploymentId) : undefined;
 }
+
+export function deploymentShortId(deployment: Deployment): string {
+  return (deployment.commit?.sha ?? deployment.id).slice(0, 8);
+}

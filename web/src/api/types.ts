@@ -104,13 +104,6 @@ export interface Variable {
   readonly value: string | null;
 }
 
-export interface NewVariable {
-  readonly serviceId: ServiceId;
-  readonly name: string;
-  readonly kind: VariableKind;
-  readonly value: string;
-}
-
 export type ServiceSource =
   | {
       readonly kind: "github";
@@ -160,3 +153,59 @@ export interface Revision {
   readonly startCommand: string | null;
   readonly variables: readonly RevisionVariable[];
 }
+
+// Staged changes: edited in the panel, applied together by one deploy, like Railway.
+// They live on the server, so a staged secret never sits in the browser.
+export type SettingField =
+  | "branch"
+  | "autoDeploy"
+  | "image"
+  | "startCommand"
+  | "port"
+  | "healthcheckPath"
+  | "cpuLimit"
+  | "memoryLimitMb"
+  | "egress"
+  | "domains";
+
+export type SettingValue = string | number | boolean | readonly string[];
+
+export type ChangeId = Id<"ChangeId">;
+
+interface ChangeTarget {
+  readonly id: ChangeId;
+  readonly environmentId: EnvironmentId;
+  readonly serviceId: ServiceId;
+}
+
+export type StagedChange =
+  | (ChangeTarget & {
+      readonly type: "setting";
+      readonly field: SettingField;
+      readonly value: SettingValue;
+    })
+  | (ChangeTarget & {
+      readonly type: "variable";
+      readonly name: string;
+      readonly kind: VariableKind;
+      // Null for a secret: the server keeps the value until the deploy.
+      readonly value: string | null;
+    })
+  | (ChangeTarget & { readonly type: "variable-removal"; readonly name: string });
+
+// What the panel sends: the server finds the environment and assigns the id.
+export type NewChange =
+  | {
+      readonly serviceId: ServiceId;
+      readonly type: "setting";
+      readonly field: SettingField;
+      readonly value: SettingValue;
+    }
+  | {
+      readonly serviceId: ServiceId;
+      readonly type: "variable";
+      readonly name: string;
+      readonly kind: VariableKind;
+      readonly value: string;
+    }
+  | { readonly serviceId: ServiceId; readonly type: "variable-removal"; readonly name: string };

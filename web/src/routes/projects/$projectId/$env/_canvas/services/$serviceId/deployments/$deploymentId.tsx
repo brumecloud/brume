@@ -1,11 +1,11 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { deploymentsCollection } from "~/api/deployments";
-import { DeploymentDetails } from "~/components/deployments/deployment-details";
+import { DeploymentPanel } from "~/components/deployments/deployment-panel";
 import { parseDeploymentId, parseDeploymentSearch } from "~/helpers/deployments";
 
 export const Route = createFileRoute(
-  "/projects/$projectId/$env/_canvas/services/$serviceId/deployments_/$deploymentId",
+  "/projects/$projectId/$env/_canvas/services/$serviceId/deployments/$deploymentId",
 )({
   params: {
     parse: (raw) => {
@@ -29,7 +29,7 @@ export const Route = createFileRoute(
 });
 
 function DeploymentPage() {
-  const { deploymentId } = Route.useParams();
+  const { serviceId, deploymentId } = Route.useParams();
   const { tab } = Route.useSearch();
-  return <DeploymentDetails deploymentId={deploymentId} tab={tab} />;
+  return <DeploymentPanel serviceId={serviceId} deploymentId={deploymentId} tab={tab} />;
 }

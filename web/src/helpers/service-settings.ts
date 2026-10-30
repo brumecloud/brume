@@ -1,4 +1,4 @@
-import type { DatabaseKind, ServiceSettings, ServiceSource } from "~/api/types";
+import type { DatabaseKind, Service, ServiceSettings, ServiceSource } from "~/api/types";
 
 import {
   DecodeError,
@@ -46,4 +46,21 @@ function parseSource(raw: unknown): ServiceSource {
     default:
       throw new DecodeError("source.kind: expected github, image or template");
   }
+}
+
+export type SettingsSectionId = "source" | "network" | "deploy" | "resources" | "volume" | "danger";
+
+// A static site is served by the shared nginx: no command, port or limits of its own.
+// A template database runs the command of its template.
+export function settingsSections(service: Pick<Service, "kind" | "volume">): SettingsSectionId[] {
+  const runsContainer = service.kind !== "static";
+  const ownCommand = service.kind === "github" || service.kind === "image";
+  return [
+    "source",
+    "network",
+    ...(ownCommand ? (["deploy"] as const) : []),
+    ...(runsContainer ? (["resources"] as const) : []),
+    ...(service.volume ? (["volume"] as const) : []),
+    "danger",
+  ];
 }

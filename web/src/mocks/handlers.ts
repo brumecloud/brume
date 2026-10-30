@@ -4,13 +4,16 @@ import type { LogLine } from "~/api/types";
 
 import {
   createProject,
-  createVariable,
+  currentSettings,
   db,
   deleteService,
   deploy,
+  deployChanges,
+  discardChanges,
+  publicChange,
   readNewProjectSource,
   revisionFor,
-  settingsFor,
+  stageChange,
 } from "./db";
 import { backlog, deploymentLogs, liveLine } from "./logs";
 import { repositories } from "./seed";
@@ -62,7 +65,7 @@ export const handlers = [
     await delay(LATENCY_MS);
     const service = db.services.find(({ id }) => id === params.serviceId);
     return service
-      ? HttpResponse.json(settingsFor(service))
+      ? HttpResponse.json(currentSettings(service))
       : HttpResponse.json({ message: "Service introuvable." }, { status: 404 });
   }),
 
@@ -106,17 +109,33 @@ export const handlers = [
     return HttpResponse.json(db.variables);
   }),
 
-  http.post("/api/variables", async ({ request }) => {
-    await delay(LATENCY_MS * 2);
-    const created = createVariable(await request.json());
-    return typeof created === "string"
-      ? HttpResponse.json({ message: created }, { status: 409 })
-      : HttpResponse.json(created, { status: 201 });
+  http.get("/api/changes", async () => {
+    await delay(LATENCY_MS);
+    return HttpResponse.json(db.changes.map(publicChange));
   }),
 
-  http.delete("/api/variables/:variableId", async ({ params }) => {
-    await delay(LATENCY_MS * 2);
-    db.variables = db.variables.filter(({ id }) => id !== params.variableId);
+  http.post("/api/changes", async ({ request }) => {
+    await delay(LATENCY_MS);
+    const change = stageChange(await request.json());
+    return typeof change === "string"
+      ? HttpResponse.json({ message: change }, { status: 400 })
+      : HttpResponse.json(change, { status: 201 });
+  }),
+
+  http.delete("/api/changes/:changeId", async ({ params }) => {
+    await delay(LATENCY_MS);
+    db.changes = db.changes.filter(({ id }) => id !== params.changeId);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post("/api/environments/:environmentId/changes/deploy", async ({ params }) => {
+    await delay(LATENCY_MS * 4);
+    return HttpResponse.json({ deployed: deployChanges(String(params.environmentId)) });
+  }),
+
+  http.delete("/api/environments/:environmentId/changes", async ({ params }) => {
+    await delay(LATENCY_MS);
+    discardChanges(String(params.environmentId));
     return new HttpResponse(null, { status: 204 });
   }),
 

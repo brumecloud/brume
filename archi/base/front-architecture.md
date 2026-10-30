@@ -123,6 +123,8 @@ useEffect(() => subscribeToLogs(serviceId, append), [serviceId]);
 - **Deux registres seulement : coss ui (`@coss`) et le registre shadcn officiel.** coss est maintenu par Cal.com, sur Base UI et Tailwind v4 comme notre stack. Le CLI shadcn copie le code source dans le repo : on le relit comme le nôtre. On n'ajoute que les composants utilisés (`pnpm dlx shadcn@<version> add @coss/<composant>`), jamais `@coss/ui` en entier.
 - **Le Chart de shadcn ne s'ajoute pas tel quel :** son `ChartStyle` injecte un `<style>` par `dangerouslySetInnerHTML`. On le retire, et les couleurs des séries passent par les variables `--chart-*` du thème.
 - **Compatible mobile :** cibles tactiles d'au moins 44 px sur pointeur grossier (`pointer-coarse:`).
+- **Un état « en attente » se voit à son contour bleu** (`outline-info`), posé par `data-staged` ou `data-draft` : réglage, ligne de variable, carte du canvas.
+- **Les logs ont leur fond de terminal** (`bg-terminal`), plus sombre que les cartes.
 
 ## Routes
 
@@ -148,7 +150,7 @@ function LogsPage() {
 
 - **Un seul client HTTP, dans `src/api/`.** Il appelle des URL relatives (`/api/…`), ajoute `X-Brume: 1` et `Content-Type: application/json`, et transforme les erreurs en un type connu. `fetch` et `EventSource` sont interdits ailleurs.
 - **Chaque réponse est décodée** par un helper (`helpers/decode.ts`) avant d'être typée : la forme est vérifiée, pas supposée.
-- **Une collection TanStack DB par entité du modèle** (projets, environnements, services, déploiements, variables), avec `queryCollectionOptions`. Le `loader` de la route appelle `collection.preload()`. Les composants lisent par `useLiveSuspenseQuery({ query })`, avec des requêtes nommées dans `api/` (`projectById(id)`, `projectEnvironments(id)`). Les mutations sont optimistes.
+- **Une collection TanStack DB par entité du modèle** (projets, environnements, services, déploiements, variables), avec `queryCollectionOptions`. Le `loader` de la route appelle `collection.preload()`. Les composants lisent par `useLiveSuspenseQuery({ query })`, avec des requêtes nommées dans `api/` (`projectById(id)`, `projectEnvironments(id)`). Les mutations sont optimistes, sauf celles qui portent la valeur d'un secret.
 - **TanStack Query seul** pour ce qui n'est pas une entité : séries de métriques, statistiques d'une base, logs de build.
 - **TanStack DB est encore en 0.x.** La 1.0 arrivera par une mise à jour normale, une fois passé le délai de `minimumReleaseAge`.
 - **Révéler un secret est une mutation :** c'est un `POST`, journalisé. Elle tourne avec `gcTime: 0`, et la valeur n'entre jamais dans le cache des queries.
@@ -157,6 +159,16 @@ function LogsPage() {
 - **`EventSource` ne peut pas envoyer `X-Brume`.** Le flux de logs est un `GET` sans effet de bord : le serveur le protège par Fetch Metadata (`Sec-Fetch-Site: same-origin`), et aucun CORS ne le rend lisible depuis un autre site.
 - **Couleurs ANSI :** un parseur écrit par nous (`helpers/ansi.ts`) découpe chaque ligne en segments `{ text, style }`, rendus en `<span>` avec des classes. Il ne garde que les codes de couleur et retire les autres séquences (curseur, titres de fenêtre, liens OSC) et les caractères de contrôle. Jamais de HTML, ni de bibliothèque qui en produit.
 - **URL venant de l'API** (domaine d'une app, lien de commit) : affichées en lien seulement si leur schéma est `https:`.
+
+### Changements en attente
+
+Un réglage ou une variable modifiés ne s'appliquent pas tout de suite : ils attendent le prochain déploiement de l'environnement, comme sur Railway.
+
+- **Le brouillon vit sur le serveur** (`/api/changes`), pas dans le navigateur : il survit à un rechargement, et la valeur d'un secret en attente n'en revient jamais (`null`). `changesCollection` ne contient donc aucun secret.
+- **Un changement par réglage ou par variable :** en remettre un nouveau remplace l'ancien. Revenir à la valeur appliquée retire le changement (`settingChange`).
+- **Mettre en attente n'est pas optimiste** (`stageChange` envoie puis recharge la collection), pour la même raison que la création d'un secret. Annuler un changement l'est.
+- **Une barre dans l'en-tête de l'environnement** compte ses changements, sans jamais couvrir le panneau : « Détails » les liste par service, « Déployer » (ou ⇧ Entrée) les applique tous, une nouvelle révision par service touché. Le menu ⋮ les annule tous.
+- **Ce qu'affichent les onglets est l'état après le prochain déploiement :** `withStagedSettings` et `stagedVariableRows` superposent les changements aux valeurs appliquées.
 
 ### Données simulées
 
@@ -176,7 +188,8 @@ Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 - **Les arêtes viennent des dépendances** que l'API calcule à partir des secrets référencés par chaque service.
 - **La mention React Flow reste visible :** sa licence demande un abonnement Pro pour la masquer.
 - **Le panneau d'un service est une route enfant du canvas** (`$env/_canvas/services/$serviceId/{deployments,variables,settings}`). Le canvas reste monté derrière, le bouton Retour ferme le panneau, et chaque onglet a son URL. Le canvas se décale pour garder le service sélectionné visible à gauche du panneau (`panelFocusCenter`).
-- **Supprimer une variable est optimiste** (`onDelete` de la collection) : la ligne disparaît tout de suite et revient si le serveur refuse. Créer une variable passe par l'API puis recharge la collection, pour que la valeur d'un secret n'entre jamais dans le cache.
+- **Un déploiement s'ouvre par-dessus le panneau du service** (`deployments/$deploymentId`), qui reste visible sur sa gauche. Ses onglets (détails, logs de build, logs d'exécution) passent par le paramètre `tab` de l'URL.
+- **Une carte du canvas signale ses changements en attente** par un contour bleu et leur nombre.
 - React Flow tire `zustand` pour son état interne. La règle « pas de store global » vise notre code, pas celui des dépendances.
 
 ## Animations
@@ -303,6 +316,8 @@ Les couches s'ajoutent par des `overrides` de `eslint/no-restricted-imports`, un
 - **`allowOnly: !process.env.CI` :** un `.only` oublié fait échouer la CI.
 - **`vitest-browser-react` démonte les composants** avant chaque test, même après un échec. Son `render` n'est pas encore disposable (`await using`).
 - **Les tests navigateur passent par les handlers MSW,** comme le dev : un test monte l'app entière sur une URL (`test/render-app.tsx`) et vérifie ce que voit l'admin. Les fichiers de test tournent l'un après l'autre : ils partagent le service worker de MSW, et des iframes en parallèle mélangeraient leurs requêtes.
+- **L'API simulée garde son état entre les tests d'un fichier :** un test qui met un changement en attente le déploie ou l'annule avant de finir.
+- **Le pré-bundling de Vite parcourt tous les fichiers au démarrage** (`optimizeDeps.entries`). Une dépendance découverte en cours de route recharge les tests et les fait échouer.
 - **`build/react-compiler.test.ts`** compile chaque fichier de `src/` et échoue si le compilateur en saute une fonction.
 
 ## Build

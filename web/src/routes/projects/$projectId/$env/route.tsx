@@ -1,7 +1,9 @@
 import { Outlet, createFileRoute, notFound } from "@tanstack/react-router";
 
+import { changesCollection } from "~/api/changes";
 import { environmentsCollection, projectsCollection } from "~/api/projects";
 import { servicesCollection } from "~/api/services";
+import { StagedChangesBar } from "~/components/changes/staged-changes-bar";
 import { ProjectShell } from "~/components/layout/project-shell";
 import { findEnvironment, parseEnvironmentName, parseProjectId } from "~/helpers/projects";
 
@@ -22,6 +24,7 @@ export const Route = createFileRoute("/projects/$projectId/$env")({
       projectsCollection.preload(),
       environmentsCollection.preload(),
       servicesCollection.preload(),
+      changesCollection.preload(),
     ]);
     const environment = findEnvironment(environmentsCollection.toArray, projectId, env);
     if (!projectsCollection.has(projectId) || !environment) {
@@ -34,8 +37,13 @@ export const Route = createFileRoute("/projects/$projectId/$env")({
 
 function ProjectLayout() {
   const { projectId, env } = Route.useParams();
+  const { environment } = Route.useLoaderData();
   return (
-    <ProjectShell projectId={projectId} environmentName={env}>
+    <ProjectShell
+      projectId={projectId}
+      environmentName={env}
+      actions={<StagedChangesBar environmentId={environment.id} />}
+    >
       <Outlet />
     </ProjectShell>
   );

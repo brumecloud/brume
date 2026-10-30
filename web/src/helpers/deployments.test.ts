@@ -4,6 +4,7 @@ import type { Deployment, DeploymentId, DeploymentStatus, ServiceId } from "~/ap
 
 import { DecodeError } from "./decode";
 import {
+  deploymentShortId,
   deploymentTitle,
   formatDateTime,
   parseDeploymentId,
@@ -124,5 +125,14 @@ describe("parseDeploymentId", () => {
   it("accepts an id and rejects anything else", () => {
     expect(parseDeploymentId("d-1")).toBe("d-1");
     expect(parseDeploymentId("<x>")).toBeUndefined();
+  });
+});
+
+describe("deploymentShortId", () => {
+  it("uses the first eight characters of the commit, or of the id", () => {
+    const commit = { sha: "d63eac96f1b2", message: "x", branch: "main" };
+
+    expect(deploymentShortId(deployment("d-1", "active", "", { commit }))).toBe("d63eac96");
+    expect(deploymentShortId(deployment("7b2ae12a-59db", "active", ""))).toBe("7b2ae12a");
   });
 });

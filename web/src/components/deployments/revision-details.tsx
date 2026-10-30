@@ -6,8 +6,9 @@ import { revisionQuery } from "~/api/deployments";
 import type { Deployment } from "~/api/types";
 import { Badge } from "~/components/ui/badge";
 
-const ORIGINS = { project: "Projet", environment: "Environnement", service: "Service" } as const;
-const KINDS = { plain: "Simple", build: "Build", secret: "Secret" } as const;
+// Chips for what differs from the default only: a plain variable of the service has none.
+const ORIGINS = { project: "Projet", environment: "Environnement" } as const;
+const KINDS = { build: "Build", secret: "Secret" } as const;
 
 // Reference: infra/screens/05a-deployment-details.png. A revision is immutable: what ran then.
 export function RevisionDetails({ deployment }: { readonly deployment: Deployment }) {
@@ -47,10 +48,12 @@ export function RevisionDetails({ deployment }: { readonly deployment: Deploymen
           {revision.variables.map((variable) => (
             <li key={variable.name} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="font-mono">{variable.name}</span>
-              <Badge variant="outline">{KINDS[variable.kind]}</Badge>
-              <Badge variant="secondary">{ORIGINS[variable.origin]}</Badge>
+              {variable.kind !== "plain" && <Badge variant="outline">{KINDS[variable.kind]}</Badge>}
+              {variable.origin !== "service" && (
+                <Badge variant="secondary">{ORIGINS[variable.origin]}</Badge>
+              )}
               <span className="ms-auto truncate font-mono text-muted-foreground">
-                {variable.value ?? "valeur résolue au déploiement"}
+                {variable.value ?? "••••••••"}
               </span>
             </li>
           ))}

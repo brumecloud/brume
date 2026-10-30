@@ -10,6 +10,7 @@ import {
   isNearBottom,
   logCountLabel,
   logHistogram,
+  logsAsText,
   mergeLogLines,
   parseLogLines,
   parseLogsSearch,
@@ -163,5 +164,18 @@ describe("logCountLabel", () => {
     [500, "500 lignes"],
   ])("%i → %s", (count, label) => {
     expect(logCountLabel(count)).toBe(label);
+  });
+});
+
+describe("logsAsText", () => {
+  it("writes one line per log, timestamp first, escape codes removed", () => {
+    const lines = [
+      line("1", "\u001B[32mINFO\u001B[0m started", "info", "s", "2026-10-28T22:48:00Z"),
+      line("2", "done", "info", "s", "2026-10-28T22:48:01Z"),
+    ];
+
+    expect(logsAsText(lines)).toBe(
+      "2026-10-28T22:48:00Z INFO started\n2026-10-28T22:48:01Z done\n",
+    );
   });
 });

@@ -1,9 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
-import { PlusIcon, TriangleAlertIcon } from "lucide-react";
-import { useState } from "react";
+import { TriangleAlertIcon } from "lucide-react";
+import { type ReactElement, useState } from "react";
 
+import { stageChange } from "~/api/changes";
 import type { ServiceId, VariableKind } from "~/api/types";
-import { createVariable } from "~/api/variables";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -39,34 +39,47 @@ const KIND_DESCRIPTIONS: Record<VariableKind, string> = {
   secret: "Résolu au déploiement, jamais copié dans une révision.",
 };
 
-export function NewVariableDialog({ serviceId }: { readonly serviceId: ServiceId }) {
+// What an edit starts from. A secret starts empty: its value never comes back to the browser.
+interface VariableDraft {
+  readonly name: string;
+  readonly kind: VariableKind;
+  readonly value: string;
+}
+
+interface VariableDialogProps {
+  readonly serviceId: ServiceId;
+  readonly trigger: ReactElement;
+  // Absent: a new variable.
+  readonly initial?: VariableDraft;
+}
+
+// The variable is staged, not applied: the deploy bar of the canvas applies it.
+export function VariableDialog({ serviceId, trigger, initial }: VariableDialogProps) {
   const [open, setOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        <PlusIcon />
-        Nouvelle variable
-      </DialogTrigger>
+      <DialogTrigger render={trigger} />
       <DialogPopup>
-        <NewVariableForm serviceId={serviceId} onCreated={() => setOpen(false)} />
+        <VariableForm serviceId={serviceId} initial={initial} onStaged={() => setOpen(false)} />
       </DialogPopup>
     </Dialog>
   );
 }
 
-interface NewVariableFormProps {
+interface VariableFormProps {
   readonly serviceId: ServiceId;
-  readonly onCreated: () => void;
+  readonly initial: VariableDraft | undefined;
+  readonly onStaged: () => void;
 }
 
 // Mounted only while the dialog is open: closing it resets the form.
-function NewVariableForm({ serviceId, onCreated }: NewVariableFormProps) {
-  const [name, setName] = useState("");
-  const [value, setValue] = useState("");
-  const [kind, setKind] = useState<VariableKind>("plain");
+function VariableForm({ serviceId, initial, onStaged }: VariableFormProps) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [value, setValue] = useState(initial?.value ?? "");
+  const [kind, setKind] = useState<VariableKind>(initial?.kind ?? "plain");
   const [nameInvalid, setNameInvalid] = useState(false);
-  const mutation = useMutation({ mutationFn: createVariable, onSuccess: onCreated });
+  const mutation = useMutation({ mutationFn: stageChange, onSuccess: onStaged });
 
   return (
     <form
@@ -76,20 +89,23 @@ function NewVariableForm({ serviceId, onCreated }: NewVariableFormProps) {
         const validName = parseVariableName(name);
         setNameInvalid(!validName);
         if (validName) {
-          mutation.mutate({ serviceId, name: validName, kind, value });
+          mutation.mutate({ serviceId, type: "variable", name: validName, kind, value });
         }
       }}
     >
       <DialogHeader>
-        <DialogTitle>Nouvelle variable</DialogTitle>
-        <DialogDescription>Elle s'ajoute à ce service, dans cet environnement.</DialogDescription>
+        <DialogTitle>{initial ? `Modifier ${initial.name}` : "Nouvelle variable"}</DialogTitle>
+        <DialogDescription>
+          Le changement attend le prochain déploiement de cet environnement.
+        </DialogDescription>
       </DialogHeader>
       <DialogPanel>
         <div className="flex flex-col gap-4">
           <Field>
             <FieldLabel>Nom</FieldLabel>
             <Input
-              autoFocus
+              autoFocus={!initial}
+              disabled={Boolean(initial)}
               value={name}
               aria-invalid={nameInvalid || undefined}
               placeholder="DATABASE_URL"
@@ -124,6 +140,7 @@ function NewVariableForm({ serviceId, onCreated }: NewVariableFormProps) {
           <Field>
             <FieldLabel>Valeur</FieldLabel>
             <Input
+              autoFocus={Boolean(initial)}
               value={value}
               type={kind === "secret" ? "password" : "text"}
               onChange={(event) => setValue(event.target.value)}
@@ -148,7 +165,7 @@ function NewVariableForm({ serviceId, onCreated }: NewVariableFormProps) {
       <DialogFooter>
         <DialogClose render={<Button variant="ghost" />}>Annuler</DialogClose>
         <Button type="submit" loading={mutation.isPending}>
-          Ajouter
+          {initial ? "Modifier" : "Ajouter"}
         </Button>
       </DialogFooter>
     </form>

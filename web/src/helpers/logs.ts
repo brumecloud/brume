@@ -1,5 +1,6 @@
 import type { LogLevel, LogLine, ServiceId } from "~/api/types";
 
+import { parseAnsi } from "./ansi";
 import { decodeArray, decodeRecord, readOneOf, readString } from "./decode";
 import { isId } from "./ids";
 
@@ -110,4 +111,16 @@ export function logCountLabel(count: number): string {
     return "Aucune ligne";
   }
   return `${count} ${count > 1 ? "lignes" : "ligne"}`;
+}
+
+// A downloadable text file: plain lines, the ANSI codes are gone.
+export function logsAsText(lines: readonly LogLine[]): string {
+  return lines
+    .map((line) => {
+      const text = parseAnsi(line.message)
+        .map((segment) => segment.text)
+        .join("");
+      return `${line.timestamp} ${text}\n`;
+    })
+    .join("");
 }

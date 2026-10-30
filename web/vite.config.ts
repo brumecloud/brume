@@ -162,6 +162,8 @@ export default defineConfig({
       },
       {
         extends: true,
+        // Crawls every file up front: a dependency found mid-run reloads the tests and fails them.
+        optimizeDeps: { entries: ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"] },
         test: {
           name: "browser",
           include: ["src/**/*.browser.test.tsx"],

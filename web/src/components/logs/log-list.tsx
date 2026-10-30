@@ -60,7 +60,7 @@ export function LogList({ lines, serviceNames }: LogListProps) {
   }
 
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="relative min-h-0 flex-1 bg-terminal">
       <div
         ref={scrollRef}
         className="h-full overflow-auto"

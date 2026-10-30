@@ -56,10 +56,16 @@ export function domainUrl(domain: string): string | undefined {
   return HOSTNAME.test(domain) ? new URL(`https://${domain}`).href : undefined;
 }
 
+export function formatCpu(cpu: number): string {
+  return `${NUMBER_FORMAT.format(cpu)} vCPU`;
+}
+
+export function formatMemory(memoryMb: number): string {
+  return memoryMb >= 1024 ? `${NUMBER_FORMAT.format(memoryMb / 1024)} Go` : `${memoryMb} Mo`;
+}
+
 export function formatLimits(cpu: number, memoryMb: number): string {
-  const memory =
-    memoryMb >= 1024 ? `${NUMBER_FORMAT.format(memoryMb / 1024)} Go` : `${memoryMb} Mo`;
-  return `${NUMBER_FORMAT.format(cpu)} vCPU · ${memory}`;
+  return `${formatCpu(cpu)} · ${formatMemory(memoryMb)}`;
 }
 
 export function serviceNames(services: readonly Service[]): Map<string, string> {

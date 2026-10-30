@@ -1,14 +1,17 @@
+import { withStagedSettings } from "~/helpers/changes";
 import { resolveVariables } from "~/helpers/variables";
 
 import type {
+  ChangeId,
   CreatedProject,
   Deployment,
   DeploymentId,
+  NewChange,
   Revision,
   ServiceSettings,
+  StagedChange,
   Variable,
   VariableId,
-  VariableKind,
   Environment,
   EnvironmentId,
   NewProjectSource,
@@ -30,6 +33,11 @@ export const db = {
   deployments: [...history.deployments],
   variables: [...history.variables],
   secretValues: new Map(history.secretValues),
+  changes: [] as StagedChange[],
+  // Values of the staged secrets, kept apart like the applied ones.
+  stagedSecrets: new Map<string, string>(),
+  // Settings changed by a deploy; the others come from settingsFor.
+  settings: new Map<string, ServiceSettings>(),
 };
 
 const SERVICE_NAMES: Record<Exclude<ServiceKind, "github" | "static" | "image">, string> = {
@@ -173,44 +181,9 @@ export function deleteService(serviceId: string): void {
   db.variables = db.variables.filter((variable) => variable.ownerId !== serviceId);
 }
 
-const KINDS: ReadonlySet<string> = new Set<VariableKind>(["plain", "build", "secret"]);
-const NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
-
-// Returns an error message the panel shows as is, or the created variable.
-export function createVariable(raw: unknown): string | Variable {
-  const body = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
-  const { serviceId, name, kind, value } = body;
-  if (
-    typeof serviceId !== "string" ||
-    typeof name !== "string" ||
-    typeof value !== "string" ||
-    typeof kind !== "string" ||
-    !KINDS.has(kind) ||
-    !NAME.test(name)
-  ) {
-    return "Variable invalide.";
-  }
-  if (db.variables.some((variable) => variable.ownerId === serviceId && variable.name === name)) {
-    return `${name} existe déjà sur ce service.`;
-  }
-  const variable: Variable = {
-    id: crypto.randomUUID() as VariableId,
-    level: "service",
-    ownerId: serviceId,
-    name,
-    kind: kind as VariableKind,
-    value: kind === "secret" ? null : value,
-  };
-  if (kind === "secret") {
-    db.secretValues.set(variable.id, value);
-  }
-  db.variables.push(variable);
-  return variable;
-}
-
 const TEMPLATE_VERSIONS = { postgres: "17.6", mongodb: "8.0.15", redis: "8.2.2" } as const;
 
-export function settingsFor(service: Service): ServiceSettings {
+function settingsFor(service: Service): ServiceSettings {
   const environment = db.environments.find(({ id }) => id === service.environmentId);
   const limits = { cpuLimit: 1, memoryLimitMb: 512 };
   switch (service.kind) {
@@ -271,7 +244,7 @@ export function revisionFor(deployment: Deployment): Revision | undefined {
   return {
     digest: `sha256:${(deployment.commit?.sha ?? deployment.id.replaceAll("-", "")).repeat(8).slice(0, 64)}`,
     builder: deployment.commit ? "Railpack 0.40.1" : null,
-    startCommand: settingsFor(service).startCommand,
+    startCommand: currentSettings(service).startCommand,
     variables: resolveVariables(db.variables, service, environment).map(({ variable, origin }) => ({
       name: variable.name,
       kind: variable.kind,
@@ -279,4 +252,99 @@ export function revisionFor(deployment: Deployment): Revision | undefined {
       origin,
     })),
   };
+}
+
+export function currentSettings(service: Service): ServiceSettings {
+  return db.settings.get(service.id) ?? settingsFor(service);
+}
+
+// What the API sends: never the value of a staged secret.
+export function publicChange(change: StagedChange): StagedChange {
+  return change.type === "variable" && change.kind === "secret"
+    ? { ...change, value: null }
+    : change;
+}
+
+// One draft per setting and one per variable name: a new edit replaces the previous one.
+export function stageChange(raw: unknown): string | StagedChange {
+  const body = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+  const service = db.services.find(({ id }) => id === body.serviceId);
+  if (!service) {
+    return "Service introuvable.";
+  }
+  const input = body as unknown as NewChange;
+  const sameTarget = (change: StagedChange) =>
+    change.serviceId === service.id &&
+    (input.type === "setting"
+      ? change.type === "setting" && change.field === input.field
+      : change.type !== "setting" && change.name === input.name);
+  db.changes = db.changes.filter((change) => !sameTarget(change));
+  const change: StagedChange = {
+    ...input,
+    id: crypto.randomUUID() as ChangeId,
+    environmentId: service.environmentId,
+  };
+  if (change.type === "variable" && change.kind === "secret" && change.value !== null) {
+    db.stagedSecrets.set(change.id, change.value);
+  }
+  db.changes.push(change);
+  return publicChange(change);
+}
+
+export function discardChanges(environmentId: string): void {
+  db.changes = db.changes.filter((change) => change.environmentId !== environmentId);
+}
+
+// Applies every staged change of the environment, then deploys each service it touched.
+export function deployChanges(environmentId: string): number {
+  const changes = db.changes.filter((change) => change.environmentId === environmentId);
+  const touched = new Set(changes.map((change) => change.serviceId));
+  for (const serviceId of touched) {
+    const index = db.services.findIndex(({ id }) => id === serviceId);
+    const service = db.services[index];
+    if (!service) {
+      continue;
+    }
+    const own = changes.filter((change) => change.serviceId === serviceId);
+    const next = withStagedSettings(currentSettings(service), service.domains, own);
+    db.settings.set(serviceId, next.settings);
+    db.services[index] = { ...service, domains: next.domains };
+    for (const change of own) {
+      applyVariableChange(change);
+    }
+    const active = db.deployments.find(
+      (deployment) => deployment.serviceId === serviceId && deployment.status === "active",
+    );
+    if (active) {
+      deploy(active, "admin");
+    }
+  }
+  discardChanges(environmentId);
+  return touched.size;
+}
+
+function applyVariableChange(change: StagedChange): void {
+  if (change.type === "setting") {
+    return;
+  }
+  const existing = db.variables.find(
+    (variable) => variable.ownerId === change.serviceId && variable.name === change.name,
+  );
+  db.variables = db.variables.filter((variable) => variable !== existing);
+  if (change.type === "variable-removal") {
+    return;
+  }
+  const variable: Variable = {
+    id: existing?.id ?? (crypto.randomUUID() as VariableId),
+    level: "service",
+    ownerId: change.serviceId,
+    name: change.name,
+    kind: change.kind,
+    value: change.kind === "secret" ? null : change.value,
+  };
+  if (change.kind === "secret") {
+    db.secretValues.set(variable.id, db.stagedSecrets.get(change.id) ?? "");
+    db.stagedSecrets.delete(change.id);
+  }
+  db.variables.push(variable);
 }

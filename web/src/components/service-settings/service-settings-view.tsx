@@ -1,12 +1,40 @@
 import { useLiveSuspenseQuery } from "@tanstack/react-db";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import {
+  CodeXmlIcon,
+  CpuIcon,
+  HardDriveIcon,
+  NetworkIcon,
+  RocketIcon,
+  TriangleAlertIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
+import { serviceChanges } from "~/api/changes";
 import { serviceById, serviceSettingsQuery } from "~/api/services";
-import type { ProjectId, ServiceId, ServiceSource } from "~/api/types";
-import { domainUrl, formatLimits } from "~/helpers/services";
+import type { ProjectId, Service, ServiceId, ServiceSettings, StagedChange } from "~/api/types";
+import { GitHubIcon } from "~/components/icons/brand-icons";
+import { ServiceIcon } from "~/components/services/service-icon";
+import { CPU_LIMITS, MEMORY_LIMITS_MB, stagedFields, withStagedSettings } from "~/helpers/changes";
+import { type SettingsSectionId, settingsSections } from "~/helpers/service-settings";
+import { formatCpu, formatMemory, isDatabase } from "~/helpers/services";
 
 import { DeleteServiceDialog } from "./delete-service-dialog";
+import { DomainsSetting } from "./domains-setting";
+import { LimitSetting } from "./limit-setting";
+import { SettingsSection } from "./settings-section";
+import { SwitchSetting } from "./switch-setting";
+import { TextSetting } from "./text-setting";
+import { useSettingCommit } from "./use-setting-commit";
+
+const SECTIONS: Record<SettingsSectionId, { readonly title: string; readonly icon: ReactNode }> = {
+  source: { title: "Source", icon: <CodeXmlIcon /> },
+  network: { title: "Réseau", icon: <NetworkIcon /> },
+  deploy: { title: "Déploiement", icon: <RocketIcon /> },
+  resources: { title: "Ressources", icon: <CpuIcon /> },
+  volume: { title: "Volume", icon: <HardDriveIcon /> },
+  danger: { title: "Zone dangereuse", icon: <TriangleAlertIcon /> },
+};
 
 const TEMPLATE_NAMES = { postgres: "PostgreSQL", mongodb: "MongoDB", redis: "Redis" } as const;
 
@@ -16,8 +44,7 @@ interface ServiceSettingsViewProps {
   readonly serviceId: ServiceId;
 }
 
-// Reference: infra/screens/04e-service-settings-*.png. Read-only for now: editing a field
-// creates a revision, which comes with the deployment details.
+// Reference: infra/screens/04e-service-settings-*.png.
 export function ServiceSettingsView({
   projectId,
   environmentName,
@@ -25,111 +52,239 @@ export function ServiceSettingsView({
 }: ServiceSettingsViewProps) {
   const { data: service } = useLiveSuspenseQuery({ query: serviceById(serviceId) });
   const { data: settings } = useSuspenseQuery(serviceSettingsQuery(serviceId));
+  const { data: changes } = useLiveSuspenseQuery({ query: serviceChanges(serviceId) });
   if (!service) {
     return null;
   }
 
   return (
-    <div className="flex flex-col gap-8 p-6">
-      <Section title="Source">
-        <SourceRows source={settings.source} />
-      </Section>
-      <Section title="Réseau">
-        <Row label="Nom interne">
-          <span className="font-mono">{service.slug}</span>
-        </Row>
-        <Row label="Domaines publics">
-          {service.domains.length === 0
-            ? "Aucun"
-            : service.domains.map((domain) => (
-                <a
-                  key={domain}
-                  href={domainUrl(domain)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block hover:underline"
-                >
-                  {domain}
-                </a>
-              ))}
-        </Row>
-        <Row label="Accès Internet sortant">{settings.egress ? "Autorisé" : "Coupé"}</Row>
-      </Section>
-      <Section title="Déploiement">
-        <Row label="Commande">
-          <span className="font-mono">{settings.startCommand ?? "Celle de l'image"}</span>
-        </Row>
-        <Row label="Port">{settings.port ?? "—"}</Row>
-        <Row label="Healthcheck">
-          <span className="font-mono">{settings.healthcheckPath ?? "Celui de l'image"}</span>
-        </Row>
-        <Row label="Limites">{formatLimits(settings.cpuLimit, settings.memoryLimitMb)}</Row>
-      </Section>
-      {service.volume && (
-        <Section title="Volume">
-          <Row label="Nom">{service.volume.name}</Row>
-          <Row label="Monté sur">
-            <span className="font-mono">{service.volume.mountPath}</span>
-          </Row>
-        </Section>
-      )}
-      <Section title="Zone dangereuse">
-        <div className="flex items-center justify-between gap-4 px-4 py-3">
-          <span className="text-muted-foreground text-sm">
-            Supprimer le service, ses déploiements et son volume.
-          </span>
-          <DeleteServiceDialog
-            projectId={projectId}
-            environmentName={environmentName}
-            service={service}
-          />
-        </div>
-      </Section>
+    <SettingsForm
+      projectId={projectId}
+      environmentName={environmentName}
+      service={service}
+      settings={settings}
+      changes={changes}
+    />
+  );
+}
+
+interface SettingsFormProps {
+  readonly projectId: ProjectId;
+  readonly environmentName: string;
+  readonly service: Service;
+  readonly settings: ServiceSettings;
+  readonly changes: readonly StagedChange[];
+}
+
+// Every edit is a draft: outlined in blue, applied by the deploy bar of the canvas.
+function SettingsForm({
+  projectId,
+  environmentName,
+  service,
+  settings,
+  changes,
+}: SettingsFormProps) {
+  const { commit, error } = useSettingCommit(service.id, settings, service.domains, changes);
+  const staged = withStagedSettings(settings, service.domains, changes);
+  const fields = stagedFields(changes);
+  const { source } = staged.settings;
+  const sections = settingsSections(service);
+
+  return (
+    <div className="flex gap-8 p-6">
+      <div className="relative min-w-0 flex-1">
+        <span aria-hidden="true" className="absolute top-0 bottom-0 left-4.5 w-px bg-border" />
+        {error && (
+          <p role="alert" className="mb-4 text-destructive-foreground text-sm">
+            {error.message}
+          </p>
+        )}
+        {sections.includes("source") && (
+          <SettingsSection id="settings-source" {...SECTIONS.source}>
+            {source.kind === "github" && (
+              <>
+                <ReadOnlySetting label="Dépôt">
+                  <GitHubIcon className="size-4" />
+                  {source.repository}
+                </ReadOnlySetting>
+                <TextSetting
+                  key={`branch:${source.branch}`}
+                  field="branch"
+                  label={`Branche déployée en ${environmentName}`}
+                  description="Un push sur cette branche déclenche un déploiement."
+                  value={source.branch}
+                  staged={fields.has("branch")}
+                  onCommit={(value) => commit("branch", value)}
+                />
+                <SwitchSetting
+                  label="Déploiement automatique"
+                  description="Déployer à chaque push sur la branche."
+                  text="Déployer automatiquement"
+                  checked={source.autoDeploy}
+                  staged={fields.has("autoDeploy")}
+                  onCommit={(checked) => commit("autoDeploy", checked)}
+                />
+              </>
+            )}
+            {source.kind === "image" && (
+              <TextSetting
+                key={`image:${source.image}`}
+                field="image"
+                label="Image"
+                description="Tirée et épinglée par son digest à chaque déploiement."
+                value={source.image}
+                staged={fields.has("image")}
+                onCommit={(value) => commit("image", value)}
+              />
+            )}
+            {source.kind === "template" && (
+              <ReadOnlySetting
+                label="Template"
+                description="Les versions mineures suivent les releases de Brume."
+              >
+                <ServiceIcon kind={source.template} />
+                {TEMPLATE_NAMES[source.template]} {source.version}
+              </ReadOnlySetting>
+            )}
+          </SettingsSection>
+        )}
+        {sections.includes("network") && (
+          <SettingsSection id="settings-network" {...SECTIONS.network}>
+            {!isDatabase(service.kind) && (
+              <DomainsSetting
+                domains={staged.domains}
+                staged={fields.has("domains")}
+                onCommit={(domains) => commit("domains", domains)}
+              />
+            )}
+            <ReadOnlySetting
+              label="Nom interne"
+              description="Les services de l'environnement le joignent sous ce nom."
+            >
+              <span className="font-mono">{service.slug}</span>
+            </ReadOnlySetting>
+            {isDatabase(service.kind) ? (
+              <ReadOnlySetting label="Accès Internet sortant">
+                Coupé : une base ne sort jamais sur Internet.
+              </ReadOnlySetting>
+            ) : (
+              <SwitchSetting
+                label="Accès Internet sortant"
+                description="Coupez-le pour un service qui n'appelle rien à l'extérieur."
+                text="Autoriser les connexions sortantes"
+                checked={staged.settings.egress}
+                staged={fields.has("egress")}
+                onCommit={(checked) => commit("egress", checked)}
+              />
+            )}
+          </SettingsSection>
+        )}
+        {sections.includes("deploy") && (
+          <SettingsSection id="settings-deploy" {...SECTIONS.deploy}>
+            <TextSetting
+              key={`startCommand:${staged.settings.startCommand ?? ""}`}
+              field="startCommand"
+              label="Commande de démarrage"
+              description="Vide : la commande de l'image."
+              value={staged.settings.startCommand ?? ""}
+              placeholder="pnpm start"
+              staged={fields.has("startCommand")}
+              onCommit={(value) => commit("startCommand", value)}
+            />
+            <TextSetting
+              key={`port:${staged.settings.port ?? ""}`}
+              field="port"
+              label="Port"
+              description="Le port sur lequel le service écoute."
+              value={String(staged.settings.port ?? "")}
+              placeholder="3000"
+              staged={fields.has("port")}
+              onCommit={(value) => commit("port", value)}
+            />
+            <TextSetting
+              key={`healthcheckPath:${staged.settings.healthcheckPath ?? ""}`}
+              field="healthcheckPath"
+              label="Healthcheck"
+              description="Le trafic bascule quand ce chemin répond 200. Vide : celui de l'image."
+              value={staged.settings.healthcheckPath ?? ""}
+              placeholder="/health"
+              staged={fields.has("healthcheckPath")}
+              onCommit={(value) => commit("healthcheckPath", value)}
+            />
+          </SettingsSection>
+        )}
+        {sections.includes("resources") && (
+          <SettingsSection id="settings-resources" {...SECTIONS.resources}>
+            <LimitSetting
+              key={`cpu:${staged.settings.cpuLimit}`}
+              label="CPU"
+              steps={CPU_LIMITS}
+              value={staged.settings.cpuLimit}
+              format={formatCpu}
+              staged={fields.has("cpuLimit")}
+              onCommit={(value) => commit("cpuLimit", value)}
+            />
+            <LimitSetting
+              key={`memory:${staged.settings.memoryLimitMb}`}
+              label="Mémoire"
+              steps={MEMORY_LIMITS_MB}
+              value={staged.settings.memoryLimitMb}
+              format={formatMemory}
+              staged={fields.has("memoryLimitMb")}
+              onCommit={(value) => commit("memoryLimitMb", value)}
+            />
+          </SettingsSection>
+        )}
+        {sections.includes("volume") && service.volume && (
+          <SettingsSection id="settings-volume" {...SECTIONS.volume}>
+            <ReadOnlySetting label="Nom">{service.volume.name}</ReadOnlySetting>
+            <ReadOnlySetting label="Monté sur">
+              <span className="font-mono">{service.volume.mountPath}</span>
+            </ReadOnlySetting>
+          </SettingsSection>
+        )}
+        {sections.includes("danger") && (
+          <SettingsSection id="settings-danger" {...SECTIONS.danger}>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/32 bg-background px-4 py-3">
+              <span className="text-muted-foreground text-sm">
+                Supprimer le service, ses déploiements et son volume.
+              </span>
+              <DeleteServiceDialog
+                projectId={projectId}
+                environmentName={environmentName}
+                service={service}
+              />
+            </div>
+          </SettingsSection>
+        )}
+      </div>
+      <nav className="sticky top-0 hidden w-32 shrink-0 flex-col gap-2 self-start pt-2 text-muted-foreground text-sm lg:flex">
+        {sections.map((section) => (
+          <a key={section} href={`#settings-${section}`} className="hover:text-foreground">
+            {SECTIONS[section].title}
+          </a>
+        ))}
+      </nav>
     </div>
   );
 }
 
-function SourceRows({ source }: { readonly source: ServiceSource }) {
-  switch (source.kind) {
-    case "github":
-      return (
-        <>
-          <Row label="Dépôt">{source.repository}</Row>
-          <Row label="Branche">{source.branch}</Row>
-          <Row label="Déploiement automatique">
-            {source.autoDeploy ? "À chaque push sur la branche" : "Désactivé"}
-          </Row>
-        </>
-      );
-    case "image":
-      return (
-        <Row label="Image">
-          <span className="font-mono">{source.image}</span>
-        </Row>
-      );
-    case "template":
-      return (
-        <Row label="Template">
-          {TEMPLATE_NAMES[source.template]} {source.version}
-        </Row>
-      );
-  }
+interface ReadOnlySettingProps {
+  readonly label: string;
+  readonly description?: string;
+  readonly children: ReactNode;
 }
 
-function Section({ title, children }: { readonly title: string; readonly children: ReactNode }) {
+function ReadOnlySetting({ label, description, children }: ReadOnlySettingProps) {
   return (
-    <section className="flex flex-col gap-3">
-      <h3 className="font-medium">{title}</h3>
-      <div className="flex flex-col divide-y rounded-xl border bg-background">{children}</div>
-    </section>
-  );
-}
-
-function Row({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-  return (
-    <div className="grid grid-cols-1 gap-1 px-4 py-3 text-sm sm:grid-cols-3 sm:gap-4">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="min-w-0 break-words sm:col-span-2">{children}</span>
+    <div className="flex flex-col gap-2">
+      <div>
+        <p className="font-medium text-sm">{label}</p>
+        {description && <p className="text-muted-foreground text-sm">{description}</p>}
+      </div>
+      <div className="flex items-center gap-2 rounded-lg border bg-background px-4 py-2.5 text-sm">
+        {children}
+      </div>
     </div>
   );
 }
