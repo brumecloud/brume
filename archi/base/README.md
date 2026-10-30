@@ -46,6 +46,10 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 | [11-comparatif.md](11-comparatif.md) | Comment font Portainer, Coolify, Dokploy, CapRover et Kamal |
 | [12-plus-tard.md](12-plus-tard.md) | Ce qui est volontairement repoussé après la 0.1 |
 | [13-modele-de-donnees.md](13-modele-de-donnees.md) | Projets, environnements, services, révisions, variables et secrets, rollback |
+| [14-architecture-logicielle.md](14-architecture-logicielle.md) | Engine et agent, event sourcing, cœurs sans I/O, protocole entre l'engine et l'agent, crates |
+| [15-etat-et-restauration.md](15-etat-et-restauration.md) | L'état sur S3, chiffrement et clés, envoi asynchrone, restauration, `brume verify` |
+| [16-tests.md](16-tests.md) | Simulation déterministe, tests de conformité, tests sur une vraie VM |
+| [17-telemetrie.md](17-telemetrie.md) | OpenTelemetry : traces, métriques et logs de Brume, sans secret |
 
 ## Décisions ouvertes
 
