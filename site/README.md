@@ -24,7 +24,9 @@ To preview the export: `python3 -m http.server --directory out 4173`.
 
 ## Hosting
 
-Deployed on Vercel from `main`, with `site/` as the root directory. `vercel.json` adds what a static export cannot set itself:
+Served at https://brume.dev by the Vercel project `brume-site` (team "planchon's projects"), and `www.brume.dev` redirects there. Until the Vercel GitHub app can read `brumecloud/brume`, deploys are manual, from this folder: `vercel deploy --prod`. Once it can, link the project with `site/` as its root directory, and every push to `main` deploys.
+
+`vercel.json` adds what a static export cannot set itself:
 
 - the security headers: `Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`;
 - `/install.sh`, redirected to the script of the latest GitHub release, so the script always comes from the same place as the binaries.
