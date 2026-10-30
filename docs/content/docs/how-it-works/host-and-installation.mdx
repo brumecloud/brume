@@ -1,0 +1,98 @@
+---
+title: Host and installation
+description: What the install script and brume install set up on a fresh server, and how Brume, its components and the OS stay patched.
+type: concept
+status: planned
+sources:
+  - archi/base/08-hote-et-installation.md
+---
+
+Brume configures the whole server itself, starting from a fresh VPS. A tiny script downloads and verifies the `brume` binary, then `brume install` does the rest: firewall, Docker, Tailscale, Cloudflare Tunnel, systemd services and automatic updates. All of that host configuration lives in the Rust binary, not in bash: it can be tested, replayed safely, and reapplied at every update.
+
+## Requirements
+
+- **A fresh VPS.** On an existing server, ports already published and services already exposed would stay open.
+- **Debian 12 or Ubuntu 24.04,** for systemd credentials.
+- **Docker 28.5.2 or later.** [Networking](/docs/how-it-works/networking) explains why.
+
+## The install script
+
+The install command downloads `install.sh` from GitHub Releases and runs it:
+
+```bash
+curl -sSL https://github.com/brumecloud/brume/releases/latest/download/install.sh | bash
+```
+
+- **Tiny, readable in 30 seconds** before you run it: download, verify, run `brume install`.
+- **Wrapped in a function called on the last line,** so nothing runs partially if the connection drops.
+- **Served by GitHub Releases, like the binaries.** The script decides what to download and whether to verify it, so it comes from the same place as the binaries.
+- **Verifies the [minisign](https://jedisct1.github.io/minisign/) signature of the binary.** Versions are pinned.
+- **Manual verification is documented.** The minisign public key is published in the README and on brume.dev, so you can check `install.sh` and the binary before running them. To fool this check, an attacker has to compromise both.
+
+<Callout type="warn" title="The first install trusts GitHub">
+  A compromised GitHub account can change `install.sh` so that it skips the verification. The offline signing key only protects updates. To close this gap on your server, verify `install.sh` and the binary by hand before running them.
+</Callout>
+
+## What `brume install` does
+
+The steps run in this order:
+
+1. Install Brume's nftables table, with the systemd unit that loads it before Docker. See [Networking](/docs/how-it-works/networking).
+2. Install Docker from the official apt repository, signed with GPG (not through a second `curl | sh`), and write `daemon.json`.
+3. Join the tailnet with a single-use auth key, pre-authorized and tagged `tag:brume`.
+4. Ask for the admin's Tailscale login, for the identity allowlist.
+5. Create the Cloudflare tunnel and the wildcard CNAME with an API token, then forget the token.
+6. Generate the age key pair and show the private key once, or import your own public key.
+7. Create the system users, the systemd units and the master key (systemd credentials), then start the services.
+8. Enable Tailscale SSH and check that it works. Only then: key-only SSH, port 22 closed to the public, and UFW closed to inbound traffic except from the `ingress` network to the webhook.
+9. Configure `unattended-upgrades`: the distribution, Docker and Tailscale repositories, the Docker major version pinned, automatic reboot. See [Updates](#updates).
+10. Show the enrollment URL for the second factor, valid for 15 minutes. The [admin panel](/docs/how-it-works/admin-panel) page covers the second factor.
+
+## Docker
+
+- **`daemon.json`** sets `no-new-privileges: true`, `live-restore: true`, and log rotation for the default driver and for the local copy. Without a limit, Docker logs fill the disk, and SQLite and Brume go down.
+- **`userns-remap: "default"`** from install. See [Runtime](/docs/how-it-works/runtime).
+- **`default-address-pools` pinned,** outside the hosting provider's private network, so the nftables rules know the Docker subnets.
+- **On Ubuntu 24.04, `kernel.apparmor_restrict_unprivileged_userns=0`,** for the builder. See [Builds and deployments](/docs/how-it-works/builds-and-deployments).
+- **The Docker API never listens on TCP** (port 2375). It is the classic way in for cryptominers.
+- **Default seccomp and AppArmor profiles.**
+
+## SSH
+
+- **Key authentication only.**
+- **Tailscale SSH,** with port 22 closed to the public.
+- **Fallback:** the hosting provider's console.
+
+## systemd services
+
+- **One dedicated user per service,** with the hardening described in [Architecture](/docs/how-it-works/architecture).
+- **Brume's files are `0600`,** owned by their service.
+- **OOM priority:** Brume and Traefik get priority protection from the OOM killer.
+- **`systemd-analyze security` in CI** comes later.
+
+## Updates
+
+Each layer has its own update path: Brume through its signed updater, its components with each Brume release, and the OS, Docker and Tailscale through `unattended-upgrades`.
+
+### Brume
+
+- **The updater verifies the minisign signature** with the public key built into the binary already installed, replaces the binary and restarts the services. See [Development](/docs/customize/development).
+- **No downgrade.** The signed release manifest carries the version, and the updater refuses any version lower than or equal to the installed one. An old, vulnerable version stays signed: without this check, an attacker could reinstall it.
+- **Components** (Traefik, nginx, cloudflared, BuildKit) are pinned by digest and updated with every Brume release. A year after install, the main risk would be an unpatched component.
+
+### OS, Docker and Tailscale
+
+- **`unattended-upgrades`,** configured with the distribution, Docker and Tailscale repositories. By default, it only follows the distribution's.
+- **Docker major version pinned** by Brume (apt preferences), and raised at each Brume release, after testing. Patch versions install on their own. A major version can break a Docker API client: Docker 29 raised its minimum API version.
+- **Automatic reboot** when an update needs one, a kernel update in particular: without a reboot, a patched kernel does not apply. The reboot happens at 4 a.m. server time, which you can change on the host. At boot, the nftables table loads before Docker, then the engine restarts all containers. Apps are down during the reboot.
+- **dockerd updates:** with `live-restore`, containers keep running during a patch update. A major version restarts them.
+- **tailscaled updates:** the panel and SSH drop for a few seconds.
+- **Alerts** for a failed update and for a reboot. See [Observability](/docs/how-it-works/observability).
+
+### Telemetry and update checks: open
+
+The default proposal is no telemetry, and an update check you can turn off. This is not confirmed yet.
+
+## Emergency access
+
+If Tailscale or the panel is unreachable, you still have the hosting provider's console and the local `brume` CLI, through a unix socket in `0600`. The CLI manages the identity allowlist and resets the second factor.

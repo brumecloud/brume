@@ -1,0 +1,13 @@
+# Settings only: docs/ is a standalone package. The rules match the panel's,
+# see archi/base/10-developpement.md#frontend.
+
+# Wait 7 days before adopting a new version of any package.
+minimumReleaseAge: 10080
+
+# Dependencies never run install scripts. A new package that ships one fails
+# the install until it is reviewed and listed below.
+strictDepBuilds: true
+onlyBuiltDependencies: []
+ignoredBuiltDependencies:
+  # Its script only checks the platform binary, which pnpm already installs.
+  - esbuild

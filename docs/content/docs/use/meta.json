@@ -1,0 +1,16 @@
+{
+  "title": "Use Brume",
+  "description": "Install Brume and deploy your apps",
+  "icon": "Rocket",
+  "root": true,
+  "pages": [
+    "---Getting started---",
+    "index",
+    "quickstart",
+    "concepts",
+    "---Deploy---",
+    "templates",
+    "---Work with agents---",
+    "ai-agents"
+  ]
+}

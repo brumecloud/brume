@@ -1,0 +1,80 @@
+---
+title: Observability
+description: How Brume collects and serves app logs, keeps an audit log an attacker cannot erase, detects drift, and sends alerts.
+type: concept
+status: planned
+sources:
+  - archi/base/09-observabilite.md
+---
+
+Logs are hostile content: apps copy requests from the outside into them. So Brume collects them in an isolated process with no network, no secrets and no Docker access, and serves them only through the engine, which checks the session. The audit log leaves the server as it is written, so an attacker can stop it but not erase it. Alerts cover drift, failures and sensitive changes.
+
+## App logs
+
+```text
+Collection
+  container ─► dockerd ── fluentd driver, unix socket (0600) ──► brume logs (DuckDB)
+
+Reading
+  panel ◄── SSE ── brume api ◄── brume engine ◄── brume logs
+                                 checks the session,
+                                 relays the answer without interpreting it
+```
+
+### Collection
+
+- **dockerd sends each container's logs to `brume logs`,** with the [`fluentd` logging driver](https://docs.docker.com/engine/logging/drivers/fluentd/) over a unix socket. The socket is `0600`: only root, so only dockerd, can write to it. The engine sets this driver in the configuration of each container.
+- **Asynchronous connection** (`fluentd-async`): a stopped `brume logs` does not prevent a container from starting.
+- **Non-blocking mode, bounded buffer** (`mode=non-blocking`, `max-buffer-size`). Under a flood of logs, Docker drops lines instead of blocking the app or growing in memory. The engine never sees this flood.
+- **`docker logs` still works:** Docker keeps a bounded local copy of the logs (dual logging).
+
+### Reading
+
+- **The API asks the engine for logs.** The engine checks the session and relays the answer from `brume logs` without interpreting it. The API streams the logs to the panel over SSE. Without a session, a compromised API reads no logs.
+- **Reads are capped:** number of streams per session, number of lines per response, and duration of a DuckDB query.
+
+### Isolation and retention
+
+- **`brume logs` is isolated:** DuckDB, `PrivateNetwork=yes`, memory and CPU caps, and no access to Docker or to secrets.
+- **Limited retention,** because apps sometimes write secrets in their logs.
+- **No logs in backups.**
+- **Display:** log content is hostile, because apps copy requests from the outside into it. The XSS rules in [Admin panel](/docs/how-it-works/admin-panel) cover how the panel shows it.
+- **Disk:** Docker log rotation and free space monitoring.
+
+### Hardened DuckDB
+
+Without hardening, an injection could read any file, write files with `COPY ... TO`, or load network extensions. So `brume logs` uses:
+
+- **Parameterized queries.**
+- **`SET enable_external_access = false`** when it opens the database.
+- **Automatic extension loading turned off** (`autoinstall_known_extensions`, `autoload_known_extensions`).
+- **Then `SET lock_configuration = true`,** which freezes these settings.
+
+## Traefik logs
+
+- **Limited retention:** they contain IP addresses, which are personal data under the GDPR.
+
+## Audit log
+
+- **Written by the engine,** since every action goes through it. Each entry carries the admin's Tailscale identity.
+- **Sent continuously to S3 with Object Lock.** An attacker can stop the log, but cannot erase what has already left the server.
+
+## Drift detection
+
+A container, a network or a published port that Brume did not create triggers an alert. See [Architecture](/docs/how-it-works/architecture).
+
+## Alerts
+
+- **Channels:** email, webhook, [ntfy](https://ntfy.sh).
+- **Events:**
+  - new deployment;
+  - failed backup;
+  - change of backup destination;
+  - failed system update;
+  - automatic reboot;
+  - failed healthcheck;
+  - disk almost full;
+  - new identity on the panel;
+  - drift detected;
+  - Cloudflare tunnel down.
+- **You supply the notification URLs,** so requests to them cannot reach the tailnet, private ranges or metadata endpoints. Otherwise Brume could be used to reach internal machines.

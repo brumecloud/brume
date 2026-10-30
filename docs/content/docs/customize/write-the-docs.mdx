@@ -1,0 +1,88 @@
+---
+title: Write the docs
+description: How these docs are organized, written by people and agents, and kept true to the code.
+type: guide
+status: available
+sources:
+  - docs/AGENTS.md
+  - docs/src/lib/source.ts
+---
+
+These docs live in the Brume repository, in [`docs/`](https://github.com/brumecloud/brume/tree/main/docs). They are a static [Fumadocs](https://fumadocs.dev) site. Most pages are drafted by coding agents and reviewed by people, so the rules are written down where agents read them: [`docs/AGENTS.md`](https://github.com/brumecloud/brume/blob/main/docs/AGENTS.md).
+
+## Run the docs locally
+
+<Steps>
+<Step>
+
+### Install the dependencies
+
+```bash
+cd docs
+pnpm install
+```
+
+pnpm waits 7 days before adopting a new version of a package, and no dependency runs install scripts.
+
+</Step>
+<Step>
+
+### Start the dev server
+
+```bash
+pnpm dev
+```
+
+The site runs on http://localhost:3000.
+
+</Step>
+<Step>
+
+### Build before you open a pull request
+
+```bash
+pnpm build
+```
+
+The build prerenders every page and follows every link. It fails on a link to a missing page and on a page whose frontmatter does not match the schema.
+
+</Step>
+</Steps>
+
+## Add a page
+
+1. Pick the section: [Use Brume](/docs/use) for running Brume, [How Brume works](/docs/how-it-works) for how it is built, [Customize Brume](/docs/customize) for changing it.
+2. Pick one page type: `overview`, `tutorial`, `guide`, `concept` or `reference`. `docs/AGENTS.md` says what each one looks like.
+3. Create the `.mdx` file with its frontmatter, and add it to the `meta.json` of its folder.
+
+```yaml title="content/docs/how-it-works/networking.mdx"
+---
+title: Networking
+description: How traffic reaches your apps without any inbound port.
+type: concept
+status: planned
+sources:
+  - archi/base/03-reseau.md
+---
+```
+
+## Write with an agent
+
+Coding agents read `docs/AGENTS.md` before they write. A good request names the page, its type and its sources:
+
+```text
+Write docs/content/docs/use/custom-domains.mdx, a guide, from
+archi/base/03-reseau.md. Follow docs/AGENTS.md.
+```
+
+Review an agent's page like code: check every fact against its `sources`, and read the first paragraph as the reader.
+
+## Keep the docs true
+
+- **`sources` link each page to what it describes.** When a design note in `archi/base/` changes, the pages that list it are updated in the same pull request.
+- **`status` tells readers, and their agents, what exists.** A `planned` page shows a warning and says so in its Markdown.
+- **Reference pages will be generated from the code** once it exists: the CLI from clap, the configuration from the Rust types. The build will check they are current.
+
+## Keep the site safe
+
+The docs publish the install command, so a compromised docs site could hand out a malicious one. The site is static, loads no third-party script, and the install command always points to GitHub Releases. See the security rules in `docs/AGENTS.md`.

@@ -1,0 +1,16 @@
+{
+  "title": "Customize Brume",
+  "description": "Build Brume from source and change it",
+  "icon": "Wrench",
+  "root": true,
+  "pages": [
+    "---Get started---",
+    "index",
+    "build-from-source",
+    "---Codebase---",
+    "development",
+    "frontend",
+    "---Documentation---",
+    "write-the-docs"
+  ]
+}

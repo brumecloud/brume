@@ -1,0 +1,302 @@
+---
+title: Panel frontend
+description: The stack, code layout, rules and tooling of Brume's React admin panel, and why each rule exists.
+type: concept
+status: planned
+sources:
+  - archi/base/front-architecture.md
+---
+
+The admin panel is a React single-page app. CI compiles it and embeds it in the signed binary, so the server never runs npm (see [Development rules](/docs/customize/development)). `brume api` serves it with the API, on the same origin.
+
+This page sets the stack, code layout, rules and tooling of the panel. The security rules of [Admin panel](/docs/how-it-works/admin-panel) and [Development rules](/docs/customize/development) take precedence over it.
+
+## Stack
+
+| Role | Choice |
+|---|---|
+| UI | React 19, with the React Compiler |
+| Toolchain | Vite+ (`vp`): build, tests (Vitest), lint (oxlint), formatting |
+| Types | Official TypeScript (`tsc`), in strict mode |
+| Routing | TanStack Router, file-based routes |
+| Server data | TanStack Query |
+| Components | shadcn on Base UI, Tailwind v4, `cva`, `tailwind-merge`, lucide icons |
+| Browser tests | Vitest in browser mode, headless Chromium through Playwright |
+
+**No global store** (zustand, Redux) in 0.1. Shared state comes from TanStack Query or from the URL; everything else is local state.
+
+## Code layout
+
+```text
+web/
+├── src/
+│   ├── routes/            route files, kept thin
+│   ├── api/               the only code that talks to the server
+│   ├── components/ui/     shadcn primitives
+│   ├── components/<domain>/
+│   ├── hooks/
+│   └── lib/
+├── test/                  test helpers
+└── oxlint-plugin/         Brume's own lint rules
+```
+
+- **Pure logic goes in `*.logic.ts` files** (ANSI parsing, sorting, formatting), tested in Node. Components stay simple: they read, render and delegate.
+- **`*.test.ts` runs in Node, `*.browser.test.tsx` in Chromium.**
+- **The `~/` alias** points to `src/`.
+- **Same comment rule as for Rust:** no comment that repeats the code.
+
+## TypeScript
+
+```jsonc title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "paths": { "~/*": ["./src/*"] }
+  },
+  "include": ["src", "test", "oxlint-plugin", "vite.config.ts"]
+}
+```
+
+- **No `any`.** Unknown data is `unknown`, then validated.
+- **Branded IDs** (`ServiceId`, `ProjectId`), the equivalent of Rust newtypes: you cannot pass one for the other.
+- **No `enum` and no `namespace`** (`erasableSyntaxOnly`): use string unions.
+- **Inferred types** rather than annotated ones, except at boundaries (props, the API client).
+
+## React
+
+### The React Compiler memoizes for you
+
+- **It is enabled on all of `src/`.**
+- **No `useMemo`, no `useCallback`, no `"use memo"` or `"use no memo"` directive** (`brume/no-manual-memo`).
+- **The compiler silently skips** any function it cannot prove correct, such as one that reads a ref during render or calls `setState` in an effect. The `react/*` lint rules turn these cases into errors.
+- **The lint does not catch everything** (`try` with `finally`, `throw` inside a `try`). So a test compiles every file of `src/` and fails on any skip. The build keeps `panicThreshold: "none"`, as the React docs recommend.
+
+### Every effect says why it exists
+
+`brume/no-unreasoned-effect` flags every `useEffect`, `useLayoutEffect` and `useInsertionEffect`. Before you keep one, check whether something else does the job:
+
+| If the effect… | Do this instead |
+|---|---|
+| Computes something from props or state | Compute it during render. |
+| Responds to an action | Do it in the event handler. |
+| Resets state when a prop changes | Put a `key` on the component. |
+| Loads data | Use TanStack Query. |
+| Reads a value from outside React | Use `useSyncExternalStore`. |
+
+An effect only belongs when it syncs the component with something outside React: a DOM node, a listener, a timer, an SSE connection. It then states its reason:
+
+```tsx
+// oxlint-disable-next-line brume/no-unreasoned-effect -- opens the log SSE stream and closes it on unmount
+useEffect(() => subscribeToLogs(serviceId, append), [serviceId]);
+```
+
+**Every lint or type suppression says why** (`brume/require-suppression-reason`). A suppression that is no longer needed is an error.
+
+## Components and styles
+
+- **The exports of `components/ui` own their look.** You pick a `variant` or a `size`; you do not restyle them with `className`. Layout classes (width, flex, margin, position) go on the parent.
+- **When a look is missing:** if it is generic, it becomes a new variant of the component. If it is specific to one feature, it stays in that feature's component.
+- **No borrowed class recipes:** `buttonVariants` and the like are not imported outside `components/ui`. Render the component instead (`render={<Button />}`).
+- **No raw `<button>`, `<input>` or `<select>` styled** to look like a control that a primitive already provides.
+- **Composition through slots:** a component exports small subcomponents (`Banner.Root`, `Banner.Title`, `Banner.Actions`). Each one carries its own classes, accepts `className` and merges it with `cn`. Compose or extend them, do not copy the markup.
+- **Tailwind goes in the component that renders the element.** Global CSS is only for what classes cannot express: theme variables, animations. No `style={{…}}` for a static value. The theme goes through `@variant dark`.
+- **Official shadcn registry only.** Its CLI copies the source code into the repository, so review that code as you would Brume's own. No third-party registry.
+- **Mobile friendly:** touch targets are at least 44 px on coarse pointers (`pointer-coarse:`).
+
+## Routes
+
+- **File-based routes, with `autoCodeSplitting: true`.** `routeTree.gen.ts` is generated, and excluded from lint and formatting.
+- **A route file is thin:** `createFileRoute`, the parameter validation, the `loader`, and a component imported from `components/`.
+- **URL parameters are hostile input:** anyone can send a crafted link to the admin. `validateSearch` accepts only known values and caps the length of strings. Path parameters (`$serviceId`) go through `params.parse`.
+
+```tsx
+interface LogsSearch {
+  readonly level: "all" | "warn" | "error";
+  readonly q?: string;
+}
+
+export const Route = createFileRoute("/services/$serviceId/logs")({
+  validateSearch: (raw: Record<string, unknown>): LogsSearch => ({
+    level: raw.level === "warn" || raw.level === "error" ? raw.level : "all",
+    ...(typeof raw.q === "string" && raw.q ? { q: raw.q.slice(0, 200) } : {}),
+  }),
+  component: ServiceLogsPage,
+});
+```
+
+## Data
+
+- **One HTTP client, in `src/api/`.** It calls relative URLs (`/api/…`), adds `X-Brume: 1` and `Content-Type: application/json`, and turns errors into a known type. `fetch` and `EventSource` are forbidden everywhere else.
+- **One `queryOptions` per resource** (`api/services.ts`), shared by the route `loader` (`ensureQueryData`) and the component. A mutation invalidates the keys it touches.
+- **Revealing a secret is a mutation:** it is a `POST`, recorded in the audit log. It runs with `gcTime: 0`, and the value never enters the query cache.
+- **Live logs arrive over SSE,** as [Admin panel](/docs/how-it-works/admin-panel) specifies. The list is virtualized (TanStack Virtual), and only the last N lines stay in memory.
+- **ANSI colors:** a parser written for Brume (`ansi.logic.ts`) splits each line into `{ text, style }` segments, rendered as `<span>` elements with classes. It keeps only color codes and strips every other sequence. Never HTML, and never a library that produces HTML.
+- **URLs that come from the API** (an app's domain, a commit link) are shown as links only if their scheme is `https:`.
+
+## Security enforced by tooling
+
+| Rule | How |
+|---|---|
+| Never `dangerouslySetInnerHTML` | `react/no-danger` set to error |
+| CSP without inline scripts | No inline `<script>` in `index.html`. The theme applied before the first render loads from a file, under `'self'`. |
+| Trusted Types | Brume's code never inserts raw HTML. A dependency that does is refused. |
+| No `eval` | `eslint/no-eval`, `eslint/no-new-func`, `eslint/no-script-url` |
+| `X-Brume` header on every request | `fetch` and `EventSource` forbidden outside `src/api/` |
+| External links | `react/jsx-no-target-blank` |
+
+In development, Vite injects inline scripts (HMR, React Refresh). The strict CSP applies to the build that `brume api` serves.
+
+## Lint
+
+The lint config lives in `vite.config.ts`, under the Vite+ `lint` key:
+
+```ts title="vite.config.ts"
+lint: {
+  plugins: ["eslint", "oxc", "react", "unicorn", "typescript"],
+  jsPlugins: ["./oxlint-plugin/index.ts", "@shadcn/lint"],
+  settings: { shadcn: { ui: "~/components/ui" } },
+  categories: { correctness: "error", suspicious: "warn", perf: "warn" },
+  rules: {
+    // Security
+    "react/no-danger": "error",
+    "react/jsx-no-target-blank": "error",
+    "eslint/no-eval": "error",
+    "eslint/no-new-func": "error",
+    "eslint/no-script-url": "error",
+    "eslint/no-restricted-globals": [
+      "error",
+      { name: "fetch", message: "Go through ~/api." },
+      { name: "EventSource", message: "Go through ~/api." },
+    ],
+
+    // React Compiler
+    "react/exhaustive-effect-dependencies": "error",
+    "react/globals": "error",
+    "react/hooks": "error",
+    "react/immutability": "error",
+    "react/purity": "error",
+    "react/refs": "error",
+    "react/set-state-in-effect": "error",
+    "react/set-state-in-render": "error",
+    "react/static-components": "error",
+    "react/unsupported-syntax": "error",
+    "react/no-array-index-key": "error",
+    "react/no-unstable-nested-components": "error",
+    // The compiler memoizes context values.
+    "react/jsx-no-constructed-context-values": "off",
+
+    // TypeScript
+    "typescript/no-explicit-any": "error",
+    "eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+
+    // Brume's own rules
+    "brume/no-manual-memo": "error",
+    "brume/no-unreasoned-effect": "error",
+    "brume/require-suppression-reason": "error",
+
+    // Components
+    "shadcn/no-raw-colors": "error",
+    "shadcn/no-unknown-classes": "error",
+  },
+  overrides: [
+    {
+      files: ["src/**"],
+      excludeFiles: ["src/components/ui/**"],
+      rules: {
+        "shadcn/no-restyle": ["error", { allow: ["layout"] }],
+        "shadcn/no-arbitrary-values": "error",
+        "shadcn/require-static-classes": "error",
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["~/components/ui/*"],
+                importNames: ["buttonVariants", "badgeVariants", "toggleVariants"],
+                message: "Render the components/ui component instead of borrowing its recipe.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    { files: ["src/api/**"], rules: { "eslint/no-restricted-globals": "off" } },
+  ],
+  options: { reportUnusedDisableDirectives: "error" },
+},
+```
+
+**Only three custom rules:** `no-manual-memo`, `no-unreasoned-effect` and `require-suppression-reason`. They are short, written for Brume, and live in `web/oxlint-plugin/`.
+
+## Tests
+
+- **Two Vitest projects:** `unit` in Node (`src/**/*.test.ts`) and `browser` in headless Chromium (`src/**/*.browser.test.tsx`). No jsdom and no happy-dom: a real browser.
+- **Test logic and observable behavior.** No markup snapshots, and no test that only checks that a callback is wired.
+- **For a logic or data bug,** write a failing test first, then the fix. For a purely visual bug, take a before and after screenshot instead of writing a test.
+- **Never wait for real:** no `sleep`, no polling loop, no duration measurement. Use fake timers, and assert with `expect.element` or `vi.waitFor`.
+- **`retry: 0`:** a flaky test gets fixed, not rerun.
+- **`allowOnly: !process.env.CI`:** a forgotten `.only` fails CI.
+- **Disposable render** (`await using screen = await render(…)`): a failing test still unmounts its component.
+
+## Build
+
+- **No cycle between chunks.** A Vite plugin of a few lines fails the build if two chunks import each other. A cycle can run a chunk before its dependencies and leave a blank page.
+- **Reload after an update.** Every Brume update removes the old chunks from the binary. So a tab left open reloads the page once on `vite:preloadError`, with a `sessionStorage` flag to prevent reload loops.
+- **Output goes to `web/dist`,** which CI embeds in the binary.
+
+## Dependencies
+
+```yaml title="pnpm-workspace.yaml"
+packages:
+  - web
+
+catalog:
+  react: 19.3.0
+  react-dom: 19.3.0
+  "@tanstack/react-query": 5.105.0
+  "@tanstack/react-router": 1.170.46
+
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude: []
+trustPolicy: no-downgrade
+allowBuilds: {}
+```
+
+- **The catalog declares each version once, as an exact version.** `package.json` refers to it with `catalog:`.
+- **`minimumReleaseAge: 10080`,** that is 7 days. The pnpm default is one day and not strict: when no version is old enough, pnpm installs a recent one anyway. An explicit value makes the check strict.
+- **`minimumReleaseAgeExclude` stays empty.** An urgent security fix is added to it explicitly, then removed.
+- **`trustPolicy: no-downgrade`:** the install fails if a version has less evidence of trust (trusted publisher, provenance) than the earlier ones.
+- **Install scripts:** `strictDepBuilds` (true by default) fails the install if a package has a script nobody reviewed. `allowBuilds` lists the reviewed ones, set to `false` by default.
+- **`blockExoticSubdeps` keeps its default** (true): no transitive dependency from git or from a tarball URL.
+- **`overrides`** keep a single copy of each package.
+- **`packageManager` is pinned** in `package.json`. `trustPolicy` checks that pnpm version too.
+- **`knip`** reports unused dependencies and exports.
+- **Every new runtime dependency is discussed in a PR:** what it brings, who maintains it, and what it pulls in with it.
+
+## CI
+
+- **`pnpm install --frozen-lockfile`.**
+- **`vp fmt --check`, `vp lint`, `tsc --noEmit`, `vp test run`, `knip`, `vp build`.**
+- **GitHub Actions are pinned by SHA,** see [Development rules](/docs/customize/development).
+
+## Open decisions
+
+These three questions are not settled yet.
+
+1. **React Compiler implementation:** `babel-plugin-react-compiler`, the official one, at 1.0, or `oxc-transform-react`, its Rust port. The port is a single dependency, but `@vitejs/plugin-react` marks it experimental. The current recommendation is the official one, as long as the port stays experimental.
+2. **Types shared between Rust and TypeScript:** generated from the Rust types (`ts-rs`, `specta`) or from an OpenAPI schema (`utoipa`). Without generation, the types in `src/api/` are written by hand and end up drifting from the Rust ones.
+3. **TanStack DB:** it is planned in the stack, but TanStack Query may be enough for a panel with a single admin. The choice is made at the first real need.

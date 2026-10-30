@@ -1,0 +1,130 @@
+---
+title: Build from source
+description: Build the panel and the brume binary yourself, check them like CI does, and sign them with your own minisign key.
+type: guide
+status: planned
+sources:
+  - README.md
+  - rustfmt.toml
+  - archi/base/02-architecture.md
+  - archi/base/08-hote-et-installation.md
+  - archi/base/10-developpement.md
+  - archi/base/front-architecture.md
+---
+
+Brume ships as one signed binary, `brume`, with the React panel compiled and embedded in it. To build it yourself, you build the panel first, then compile the Rust code, which embeds the panel. If you want your servers to accept your builds as updates, you also sign them with your own minisign key.
+
+<Callout title="No code yet">
+  Brume is in its design phase. This page describes the toolchains, checks and signing that the design fixes for alpha 0.1.
+</Callout>
+
+## Prerequisites
+
+- **Stable Rust.** Brume builds on the stable toolchain, and the code uses no unstable feature.
+- **Nightly Rust, for formatting only.** Three options in `rustfmt.toml` are unstable, so formatting runs with `cargo +nightly fmt`.
+- **pnpm,** at the version pinned by `packageManager` in `package.json`. pnpm's trust policy checks that version too.
+- **`cargo deny` and `cargo audit`,** to run the dependency checks of CI.
+- **Chromium, through Playwright,** for the panel's browser tests.
+- **minisign,** to sign your builds.
+
+## Build the panel and the binary
+
+<Steps>
+
+<Step>
+
+### Install the panel's dependencies
+
+```bash
+pnpm install --frozen-lockfile
+```
+
+The panel's code runs with the admin's rights: a compromised npm package gets every action of the panel. So `pnpm-workspace.yaml` makes the install strict:
+
+- **A 7-day delay before a new version installs** (`minimumReleaseAge: 10080`). pnpm's default is one day and not strict: without a version old enough, it installs a recent one.
+- **No drop in trust** (`trustPolicy: no-downgrade`). The install fails if a version has less evidence of trust, such as a trusted publisher or provenance, than the versions before it.
+- **No unreviewed install script.** The install fails if a package has an install script nobody reviewed (`strictDepBuilds`).
+- **No transitive dependency from git or a tarball URL** (`blockExoticSubdeps`).
+- **Exact versions, declared once** in the workspace catalog.
+
+</Step>
+
+<Step>
+
+### Build the panel
+
+```bash
+vp build
+```
+
+Vite+ writes the panel to `web/dist`. The build fails if two chunks import each other: a cycle can run a chunk before its dependencies and leave a blank page.
+
+The server never runs npm. The panel reaches it only inside the signed binary.
+
+Two open decisions may change this step: which React Compiler implementation to use, and whether the API's TypeScript types are generated from the Rust types or from an OpenAPI schema. See [Frontend](/docs/customize/frontend).
+
+</Step>
+
+<Step>
+
+### Compile the binary
+
+Compile the Rust code with the stable toolchain. The binary embeds the panel from `web/dist`, and `brume api` serves it with the API, on the same origin.
+
+This one binary runs every part of Brume. `brume engine`, `brume api`, `brume webhook` and `brume logs` each run as their own systemd service, with their own system user, so a flaw in one does not give the rights of the others. `brume updater` runs only during an update. See [Architecture](/docs/how-it-works/architecture).
+
+</Step>
+
+<Step>
+
+### Sign your build
+
+Brume signs its official releases with minisign. The private key stays offline, and the public key is embedded in the binary. Because the key is offline, a compromised GitHub account cannot sign an update. The binaries and `install.sh` are published on GitHub Releases, from an account protected by a physical 2FA key.
+
+To sign your own builds, follow the same scheme:
+
+- **Keep your private key offline,** for the same reason.
+- **Embed your public key in the binary.** The updater checks every update against the key embedded in the binary already installed.
+- **Sign a release manifest that carries the version.** Put the version in the signed content, never in minisign's untrusted comment, which is not authenticated.
+
+</Step>
+
+</Steps>
+
+## Check your build
+
+Run the checks that CI runs. For the Rust code:
+
+```bash
+cargo +nightly fmt --check
+cargo clippy -- -D warnings
+```
+
+CI also runs `cargo deny` and `cargo audit` on the dependencies. For the panel, after `pnpm install --frozen-lockfile`:
+
+```bash
+vp fmt --check
+vp lint
+tsc --noEmit
+vp test run
+knip
+vp build
+```
+
+- **`vp lint`** runs oxlint with Brume's security and React rules.
+- **`tsc --noEmit`** checks types in strict mode.
+- **`vp test run`** runs the unit tests in Node and the browser tests in headless Chromium.
+- **`knip`** reports unused dependencies and exports.
+
+If you run your own CI on GitHub Actions, pin each action by SHA: the tj-actions attack of 2025 went through a modified tag. A `systemd-analyze security --offline=true` check is planned for later. The full rules are in [Development rules](/docs/customize/development).
+
+## What your own key changes
+
+The updater accepts only binaries signed with the key embedded in the binary already installed. So the key your build carries decides which updates a server accepts:
+
+- **A build with your key** accepts only binaries signed with your key. Brume's official releases fail the check, so you sign every update yourself.
+- **A build with Brume's key** accepts Brume's official releases as updates.
+- **No going back.** The updater refuses any version lower than or equal to the installed one, so each of your releases needs a higher version in its signed manifest. An old vulnerable version stays signed forever: without this check, an attacker could reinstall it.
+- **The official `install.sh` installs Brume's releases.** It downloads Brume's binaries from GitHub Releases and checks their signature before running `brume install`.
+
+The design proposes that you can turn off update checks. This is still to be confirmed. See [Host and installation](/docs/how-it-works/host-and-installation).

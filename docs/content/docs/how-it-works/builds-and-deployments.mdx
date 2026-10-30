@@ -1,0 +1,77 @@
+---
+title: Builds and deployments
+description: How a push to GitHub becomes a running container, and why the webhook, the builder and the engine each do only their part.
+type: concept
+status: planned
+sources:
+  - archi/base/06-builds-et-deploiement.md
+---
+
+A push to a configured branch starts a build. Each step runs in its own component, with only what it needs: the webhook checks the request and queues a build, the builder clones and builds the image without touching the runtime, and the engine deploys the result by digest.
+
+## The flow
+
+1. A push to a configured branch triggers a GitHub webhook.
+2. The request goes through Cloudflare (a WAF rule lets only GitHub IPs through), then cloudflared, then Traefik (rate limit), then `brume webhook`.
+3. `brume webhook` checks the signature and calls `enqueue_build(repo_id, ref)` on the engine.
+4. The engine checks that the ref matches the configured branch, then starts the build.
+5. The builder clones the repository and builds the image with [Railpack](https://railpack.com).
+6. The engine loads the image into dockerd and deploys it by digest.
+
+## The webhook
+
+The webhook receives requests from the internet, so it treats the payload as a trigger and nothing more.
+
+- **A separate process, with its own listener,** never a route of the admin API. [Architecture](/docs/how-it-works/architecture) explains why.
+- **HMAC signature `X-Hub-Signature-256`,** checked in constant time, before the JSON is parsed. See GitHub's guide to [validating webhook deliveries](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries).
+- **Limited body size.**
+- **Replay protection.** GitHub does not sign a timestamp, so the webhook ignores duplicate `X-GitHub-Delivery` IDs.
+- **The payload is only a trigger.** The repository comes from Brume's configuration, and the ref must match the configured branch.
+- **Pushes to configured branches only.** There are no pull request previews in 0.1. When they arrive, a pull request from a fork is never built with secrets.
+- **No outbound network.**
+
+## Access to GitHub
+
+- **A GitHub App rather than a personal token.** The engine holds the App's private key and generates an installation token for each build. The token expires after one hour.
+- **The token must never end up in the image.** A clone through `https://x-access-token:TOKEN@github.com/...` writes the token into `.git/config`, and a `COPY . .` then puts it in an image layer. So the token goes through a credential helper or a header, and `.git` is excluded from the build context.
+- **The clone happens in the builder, never in the engine.** Git has had code execution flaws triggered by cloning a crafted repository, such as [CVE-2024-32002](https://www.cve.org/CVERecord?id=CVE-2024-32002).
+- **`GIT_ALLOW_PROTOCOL=https:ssh`,** and no arbitrary submodules.
+- **`--` before any user argument** passed to `git`, so that a ref starting with `-` cannot become an option.
+
+## The builder
+
+The builder runs BuildKit rootless in its own container. Its sandbox is weaker than an app's. Brume accepts this because the code it builds is trusted, dependencies included: see the [threat model](/docs/how-it-works/threat-model).
+
+### Sandbox
+
+- **BuildKit rootless, in its own container,** with no Docker socket.
+- **A weakened sandbox, by necessity.** Inside a container, rootless BuildKit needs seccomp, AppArmor and `systempaths` set to `unconfined`. According to the [BuildKit documentation](https://github.com/moby/buildkit/blob/master/docs/rootless.md), `systempaths=unconfined` can allow reading and writing sensitive kernel files.
+- **Unprivileged user namespaces required.** On Ubuntu 24.04, `brume install` disables `kernel.apparmor_restrict_unprivileged_userns`, for the whole host. Debian 12 needs no change.
+- **BuildKit image v0.25.2 or later.** It ships its own runc, which must be patched separately from Docker's.
+- **Railpack and its BuildKit frontend are pinned by digest.**
+
+<Callout type="warn" title="A malicious dependency can try to reach root">
+  Because the builder's sandbox is weakened, a malicious dependency would have the means to attempt an escape to root, for example with the November 2025 runc vulnerabilities, which can be triggered from a Dockerfile. This is the cost of trusting the owner's code, dependencies included.
+</Callout>
+
+### User namespaces: not validated yet
+
+The builder has to work with `userns-remap`, which Docker uses on the host, and this still needs early validation. rootlesskit maps the range `100000:65536` inside the container, beyond the 65,536 UIDs that `userns-remap` gives by default. A wider `dockremap` range will probably be needed.
+
+### Network, resources and cache
+
+- **Its own network, with internet access** (npm, pip), but blocked from the tailnet, private ranges, metadata endpoints and environment networks.
+- **CPU and RAM limits, one build at a time.** A Next.js build can take all the RAM, and the OOM killer would then kill the apps or Brume.
+- **Brume and Traefik get priority protection from the OOM killer.**
+- **A separate cache per environment.** Otherwise a compromised build could poison the cache of the others, and a staging build the production one. See the [data model](/docs/how-it-works/data-model).
+
+## Secrets during the build
+
+- **Passed with `--secret`,** never with `ARG` or `ENV`: those stay in the image layers.
+- **Masked in build logs.**
+- **Build variables of static sites are public.** See [Runtime](/docs/how-it-works/runtime).
+
+## Deployment and rollback
+
+- **The builder never touches the runtime.** It produces an image. The engine loads it into dockerd and deploys it by digest.
+- **Rollback redeploys the digest of a previous revision,** without a rebuild. The [data model](/docs/how-it-works/data-model) lists what comes back with it and what does not.

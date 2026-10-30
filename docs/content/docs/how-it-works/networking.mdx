@@ -1,0 +1,145 @@
+---
+title: Networking
+description: How traffic reaches your apps with no inbound port, through Cloudflare Tunnel, Tailscale, Traefik, Docker networks and nftables rules.
+type: concept
+status: planned
+sources:
+  - archi/base/03-reseau.md
+---
+
+Brume opens no inbound port on your server. Public traffic arrives through Cloudflare Tunnel, and administration goes through Tailscale. Inside the server, every container sits on internal Docker networks with no published port, and a Brume nftables table stops containers from reaching your tailnet, private networks or your hosting provider's metadata endpoint.
+
+## No inbound port
+
+- **Public traffic goes through Cloudflare Tunnel, which is mandatory.** `cloudflared` opens an outbound connection to Cloudflare.
+- **Administration goes through Tailscale,** SSH included (Tailscale SSH).
+- **UFW denies all inbound traffic,** except from the `ingress` network to the webhook port. Tailscale still works, through its outbound connections and its relays.
+- **UFW is static.** `brume install` configures it once, and nothing changes it afterwards. Brume does not need `CAP_NET_ADMIN`: Traefik and the Docker networks direct the traffic.
+- **Emergency access** is your hosting provider's console.
+
+## The public path
+
+A request to one of your apps crosses Cloudflare, `cloudflared` and Traefik before it reaches the app. The Docker networks on this path are described [below](#docker-networks).
+
+```text
+Internet
+   │
+   ▼
+Cloudflare          public certificates, HSTS, WAF
+   │                outbound connection opened by cloudflared
+   ▼
+cloudflared         networks: tunnel, ingress
+   │
+   ▼
+Traefik             listens only on its fixed IP in ingress
+   ├──► exposed service     through its edge-<service> network
+   ├──► nginx               through static (static sites)
+   └──► brume webhook       on the host, rate limited
+```
+
+Administration never takes this path. The panel is reached over Tailscale only: see [Admin panel](/docs/how-it-works/admin-panel).
+
+## Cloudflare Tunnel
+
+### Why a tunnel rather than the classic proxy
+
+With Cloudflare's classic proxy, DNS points to your server's IP and Cloudflare forwards requests to port 443. Allowing only Cloudflare's IPs is not enough: any Cloudflare customer can point their own zone at your IP and bypass your rules. You would need Authenticated Origin Pulls with your own certificate, because the global certificate is shared by every Cloudflare customer.
+
+With the tunnel, nothing listens, so there is nothing to bypass.
+
+### What it simplifies
+
+- **No Let's Encrypt, no ACME, no port 80.** Cloudflare manages the public certificates.
+- **Traefik publishes no port.** It runs without root, with a read-only file system.
+- **A leak of your server's IP does not matter.**
+
+### What it costs you
+
+<Callout type="warn" title="Cloudflare sees all public traffic">
+Cloudflare decrypts all traffic to your apps. It sees the passwords and data of your apps' users. Cloudflare is a US company, which matters under the GDPR.
+</Callout>
+
+- **Your Cloudflare account controls the traffic.** It can add private routes to the tunnel from the Cloudflare dashboard, without touching the server. Your organization's WARP devices then reach, through `cloudflared`, everything the `cloudflared` container can reach. Brume's [nftables rules](#nftables-rules) limit that to Traefik and the webhook. Protect the account with 2FA.
+- **Your domain must use Cloudflare DNS.**
+- **Free plan limits:** 100 MB per request and a 100-second response timeout. Beyond that, the upload or the request fails.
+- **HTTP only.** Databases are reached through the tailnet instead: see [Tailscale](#tailscale).
+
+### Tokens
+
+- **Cloudflare API token.** `brume install` uses it to create the tunnel and the wildcard CNAME, then forgets it. A domain outside the initial zone needs a new token, used for that one operation only.
+- **Tunnel token.** It is the only Cloudflare token stored on the server, and `cloudflared` holds it.
+
+### Cloudflare settings
+
+- **HSTS and the redirect to HTTPS** are turned on.
+- **A WAF rule** restricts the webhook path to GitHub's IP ranges, on top of the HMAC signature check.
+
+## Domains
+
+- **By default, a wildcard on your domain.** `*.example.com` points to the tunnel, so a new service needs no DNS change.
+- **One subdomain level only,** for example `api-prod.example.com`. Cloudflare's free certificate covers `*.example.com` but not `*.apps.example.com`.
+- **Custom domains are checked first.** Before it creates the router for a custom domain, Brume checks that the domain is routed to the tunnel.
+- **The panel's name is public.** The panel's name (`brume.xxx.ts.net`) appears in the public Certificate Transparency logs, so the name of your tailnet becomes public. This is harmless, but you should know it.
+
+## Traefik
+
+Traefik routes all public HTTP traffic to your apps, so it runs with as few rights as possible.
+
+- **Never the Docker socket.** The engine writes Traefik's configuration (file provider) to a folder that Traefik mounts read-only.
+- **No published port,** no root, read-only file system.
+- **Listens only on its fixed IP in the `ingress` network.** By default, Traefik listens on all its interfaces: an app could then call it with another app's `Host` header and bypass Cloudflare's protections (Access, WAF).
+- **One `edge-<service>` network per exposed service,** shared with Traefik only. Traefik is on no environment network, so it never reaches the databases.
+- **Dashboard and API turned off.** A default router returns a 404.
+- **Forwarded headers are trusted only from `cloudflared`.** For `X-Forwarded-For` and `CF-Connecting-IP`, Traefik trusts only the values set by `cloudflared`, never the values sent by the client. Otherwise your apps would see spoofed IPs. `CF-*` headers that do not come from `cloudflared` are removed.
+- **Rate limit** on the webhook route.
+- **Rules are generated by serialization,** from validated names. See the injection rules in [Development](/docs/customize/development).
+
+## Docker networks
+
+| Network | Members | Internet access |
+|---|---|---|
+| `tunnel` | `cloudflared` | Yes, to Cloudflare |
+| `ingress` (internal) | `cloudflared`, Traefik | No |
+| `static` (internal) | Traefik, nginx | No |
+| One per environment (internal) | The services of the environment | No |
+| `edge-<service>` (internal) | Traefik, one exposed service | No |
+| The environment's `egress` | The services with egress turned on | Yes |
+| `build` | BuildKit | Yes |
+
+- **No container publishes a port.** Docker bypasses UFW: a published port would be exposed despite the firewall.
+- **No outbound Internet access by default.** You turn egress on per service in the panel, which attaches the service to its environment's `egress` network. The panel asks when you create the service, with a clear message: most web apps call external APIs.
+- **Docker 28.5.2 minimum:**
+  - Docker 26 closes the DNS leak from internal networks, which allowed data exfiltration ([CVE-2024-29018](https://nvd.nist.gov/vuln/detail/CVE-2024-29018)).
+  - Docker 28 blocks direct access to container IPs from neighbors on the hosting provider's network.
+  - Docker 28.5.2 ships runc 1.3.3, which fixes the November 2025 container escapes ([CVE-2025-31133](https://nvd.nist.gov/vuln/detail/CVE-2025-31133), [CVE-2025-52565](https://nvd.nist.gov/vuln/detail/CVE-2025-52565), [CVE-2025-52881](https://nvd.nist.gov/vuln/detail/CVE-2025-52881)).
+- **Filtering by domain comes later.** Allowing only `api.stripe.com`, for example, needs an egress proxy. See the [roadmap](/docs/how-it-works/roadmap).
+
+## nftables rules
+
+Docker turns on IP forwarding on the host. Without extra rules, a compromised container can use the server to reach the machines on your tailnet (laptop, NAS, other servers), your hosting provider's private network, or its metadata endpoint.
+
+Brume loads its own nftables table, `inet brume`, through a systemd unit that runs before `docker.service`. The table does not depend on Docker's chains: a `drop` in it is final, whatever rules Docker adds. It drops traffic from Docker networks toward these destinations:
+
+| Destination | Ranges |
+|---|---|
+| The tailnet | `100.64.0.0/10` |
+| Private ranges, except Brume's own Docker subnets | `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` |
+| Link-local, which includes the metadata endpoints | `169.254.0.0/16` |
+| Azure's endpoint, which is outside link-local | `168.63.129.16` |
+| IPv6 unique local, which includes the tailnet and AWS metadata | `fc00::/7` |
+| IPv6 link-local | `fe80::/10` |
+
+- **Docker subnets are pinned** in `default-address-pools`, outside your hosting provider's private network, so the rules know them in advance.
+- **Every network is covered,** `tunnel` and `build` included.
+- **The engine refuses to start a container if the table is missing.** Containers have no Docker restart policy: the engine starts them at boot, after this check.
+- **Test:** a `curl` from a container to a tailnet machine or to a private IP must fail.
+
+## Tailscale
+
+- **The server is tagged `tag:brume`.** Your tailnet policy must forbid it from opening connections to your devices, because a tailnet's default policy allows everything. Identity headers keep working, because they identify the client, not the server.
+- **Databases are reachable from your laptop** over TCP, on the tailnet only. Without this simple path, users would publish port 5432.
+  - **Through `tailscale serve` in TCP mode.** `tailscaled` forwards a port of the node to the database container. Docker publishes no port.
+  - **Turned on database by database** in the panel. Each exposed database has its own port on the node.
+  - **The engine keeps the `tailscale serve` configuration current** through the local API of `tailscaled`, at every reconciliation, because a container's IP can change when it restarts. It keeps the panel's HTTPS entry in place.
+  - **Your tailnet policy opens these ports only to the admin's identities.**
+- **Identity, auth key and Tailnet Lock** are covered in [Admin panel](/docs/how-it-works/admin-panel).

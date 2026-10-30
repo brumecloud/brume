@@ -1,0 +1,98 @@
+---
+title: Architecture
+description: The processes of Brume, their privileges, and how they talk to each other.
+type: concept
+status: planned
+sources:
+  - archi/base/02-architecture.md
+---
+
+Brume is a single signed binary, `brume`, started as several systemd services. Each service has its own system user, its own permissions and its own hardening. Installing Brume stays simple, but a flaw in one service does not give the rights of the others.
+
+## Overview
+
+```text
+Internet ─► Cloudflare ─► cloudflared ─► Traefik ─┬─► exposed apps (one edge network per service)
+                                                  ├─► nginx (static sites, read-only)
+                                                  └─► brume webhook ──┐
+                                                                      │ webhook.sock
+Tailnet ──► tailscale serve ──► brume api ────────────────────────────┤ api.sock
+                                                                      ▼
+                                        S3 (backups, audit) ◄── brume engine ──► dockerd ──► brume logs
+                                                                  │     ▲                        │
+                                                                  │     └── image ◄── BuildKit   │
+                                                                  └─────────── read ─────────────┘
+```
+
+Public traffic enters through Cloudflare and Traefik, which route it to the apps, to nginx and to the webhook. Administration enters through the tailnet and `tailscale serve`, which lead to `brume api`. The webhook and the API reach `brume engine` only through their unix sockets, and the engine alone drives Docker.
+
+## Components
+
+| Component | Role | What it holds | If it is compromised |
+|---|---|---|---|
+| `brume engine` | The only owner of the state. Drives Docker, decrypts secrets, runs backups. | The Docker socket, the master key, the SQLite state database. | Everything. With the updater, it is the only Brume component in this position, hence its minimal code. |
+| `brume api` | Serves the panel and its API. | A socket to the engine. | Nothing without a session opened by the admin: the engine checks every session. During a session, the panel's actions, without the dangerous options. |
+| `brume webhook` | Receives GitHub webhooks. | The HMAC secret, a socket to the engine. | Queuing a build of an already configured repository. |
+| `brume logs` | Receives the logs from dockerd, stores them and queries them with DuckDB. | The logs. | Reading the logs. No network, no secrets, no Docker. |
+| `brume updater` | Installs Brume updates. | The right to write the binaries. | Equivalent to root, but it runs only during an update and accepts only signed binaries. |
+| Rootless BuildKit | Builds the images. | Outbound internet access, the GitHub token and the build secrets. | The current build, its secrets, the GitHub token and the cache of its environment. Its sandbox is weakened because it only runs trusted code: see [Builds and deployments](/docs/how-it-works/builds-and-deployments). |
+| cloudflared | The tunnel connector. | The tunnel token. | Reading and modifying public traffic. It reaches only Traefik and the webhook. |
+| Traefik | HTTP routing. | Its config, read-only. | Reading and modifying public traffic, reaching the exposed services. Not the databases. |
+| nginx | Serves static sites. | The files, read-only. | Serving modified content until it restarts. |
+| An app | The user's code. | Its environment network, its secrets. | Its environment, nothing else. |
+
+## The engine
+
+The engine is one of the two components equivalent to root, so it does as little as possible.
+
+- **The only owner of the state database.** No other service accesses it: the API and the webhook go through the engine.
+- **A reconciliation loop,** as in Kubernetes. The database describes the desired state, and the engine brings Docker to that state. After a crash or a reboot, it puts everything back in place on its own.
+- **Drift detection.** A container, network or published port that Brume did not create, such as a `docker run -p` started by hand, triggers an alert.
+- **Its own policy.** It builds each container's config from an allowlist and validates every request against `/etc/brume/policy.toml`, without trusting its clients. See [Runtime](/docs/how-it-works/runtime).
+- **No untrusted data.** Each parser in the engine would be a door to root. So it does no git clone, no archive extraction, and no webhook or log parsing. It receives only typed values that are already validated.
+- **No inbound network.** It listens only on unix sockets.
+- **The owner of the sessions.** The engine checks the second factor, issues the session and validates it on every request from the API. A compromised API can do nothing without a session opened by the admin. See [Admin panel](/docs/how-it-works/admin-panel).
+
+## How the services talk to each other
+
+- **One unix socket per client.** `/run/brume/api.sock` belongs to the `brume-api` group, `/run/brume/webhook.sock` to the `brume-webhook` group. File system permissions do the authorization.
+- **Each socket has its own operations.** The webhook socket exposes only `enqueue_build(repo_id, ref)`.
+- **A typed, versioned protocol,** with bounded message sizes. There is no generic operation such as "run a Docker command".
+- **Log collection does not go through the engine.** dockerd sends each container's logs directly to `brume logs`, so a flood of logs cannot saturate the engine. See [Observability](/docs/how-it-works/observability).
+- **Log reading goes through the engine.** The API asks the engine for logs. The engine checks the session, then relays the answer from `brume logs` without interpreting it. The API streams the logs to the panel over SSE. `brume logs` never has access to Docker.
+- **The builder never touches the runtime.** It produces an image, and the engine loads it into dockerd and deploys it by digest.
+
+## Why the webhook is separate from the API
+
+- **It is the only Brume component reachable from the internet.** Inside the API, a flaw in its parsing would give access to every admin action.
+- **It does not listen in the same place.** The webhook is reachable from the ingress network, the API only through `tailscale serve`. Merging them would force the API to listen on the internet side.
+- **On its own, it stays tiny:** a few hundred lines and a single operation.
+
+## Two-stage ingress
+
+- **cloudflared is on the `tunnel` network,** to reach Cloudflare, **and on the `ingress` network,** with Traefik. Once compromised, it reaches only Traefik and the webhook.
+- **Traefik is on `ingress`,** and on one `edge-<service>` network per exposed service. It is never on the environment networks, so it does not reach the databases.
+- **Traefik listens only on its fixed IP on the `ingress` network.** On the edge networks, it only opens connections to the apps. An app therefore cannot call Traefik to reach another app without going through Cloudflare.
+- **Traefik never has the Docker socket.** The engine writes its config (file provider) to a folder that Traefik mounts read-only.
+- **Mounting the Docker socket with `:ro` protects nothing.** A read-only socket still accepts every Docker API call.
+
+## Service hardening
+
+Every service has a dedicated user, `NoNewPrivileges=yes`, `ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp=yes`, and `ReadWritePaths=` limited to its own folder in `/var/lib/brume`.
+
+| Service | Allowed network |
+|---|---|
+| `brume engine` | Unix sockets, and outbound to S3, GitHub and the notification channels. |
+| `brume api` | Localhost only (`IPAddressDeny=any`, `IPAddressAllow=localhost`). |
+| `brume webhook` | The ingress network only. |
+| `brume logs` | None (`PrivateNetwork=yes`). |
+
+`brume logs` also has memory and CPU caps (`MemoryMax=`, `CPUQuota=`), so a flood of logs cannot starve the server.
+
+Without outbound network, code running in the API or the webhook can neither download tools nor send data out directly. Even a successful DuckDB injection in `brume logs` gets no network, no secrets and no Docker.
+
+## Binaries and updates
+
+- **The binaries belong to root,** and `ProtectSystem=strict` prevents the services from modifying them.
+- **A dedicated updater** checks the [minisign](https://jedisct1.github.io/minisign/) signature, replaces the binary and restarts the services.
+- **As a result,** a compromised service, other than the engine, cannot persist by replacing its own binary.

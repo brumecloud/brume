@@ -1,0 +1,98 @@
+---
+title: Admin panel
+description: How the panel is reachable only over Tailscale, how the admin signs in with two independent factors, and how the panel resists CSRF and XSS.
+type: concept
+status: planned
+sources:
+  - archi/base/04-panel-admin.md
+---
+
+The admin panel never faces the internet. `brume api` listens only on localhost, and Tailscale exposes it over HTTPS to your tailnet. Every action needs two independent factors: your Tailscale identity and a second factor that the engine checks. Because your browser is on the tailnet and the panel displays content written by outsiders, the panel also defends itself against CSRF, DNS rebinding, XSS and clickjacking.
+
+## Network access
+
+- **`brume api` listens only on `127.0.0.1`.** `tailscale serve` exposes it over HTTPS on the tailnet, with a `*.ts.net` certificate.
+- **HTTPS only.** There is no HTTP listener on the tailnet.
+- **The `Host` header is checked** on every request, against DNS rebinding.
+- **Never Tailscale Funnel on Brume.** Funnel publishes a tailnet service on the public internet.
+
+## Tailscale
+
+- **The install auth key** is single-use, pre-authorized, tagged and short-lived.
+- **The node is tagged `tag:brume`,** because a tagged node has no key expiry. Without a tag, the key expires after 180 days and you lose access to the panel. The tailnet policy must also forbid the node from opening connections to your devices: see [Networking](/docs/how-it-works/networking).
+- **Tailnet Lock comes later.** It will stop Tailscale's coordination server, or an account stolen from your identity provider, from adding a node to your tailnet. See the [roadmap](/docs/how-it-works/roadmap).
+
+<Callout type="warn" title="Tailscale SSH skips the second factor">
+In 0.1, your Tailscale identity alone gives a root shell on the server through Tailscale SSH. The panel's second factor does not cover SSH. This is an accepted risk: see the [threat model](/docs/how-it-works/threat-model).
+</Callout>
+
+## Authentication
+
+The panel requires two independent factors.
+
+### First factor: your Tailscale identity
+
+- **`tailscale serve` sets the `Tailscale-User-Login` header** from the device that connects, after it removes any `Tailscale-User-*` headers sent by the client. It does not set the header for a tagged device, and any request without it is rejected.
+- **The identity allowlist is set at install.** `brume install` asks for the admin's Tailscale login. There is never a "first to connect becomes admin" step.
+- **A local process that reaches `127.0.0.1` can forge the header.** No container runs on the host network, and without a session issued by the engine, a forged header gets nothing.
+- **Being on the tailnet is not enough.** A compromised device or a shared tailnet would give access to the panel. Hence the second factor.
+
+### Second factor: at sign-in
+
+<Callout type="info" title="Open decision">
+The second factor is not decided yet: passkey or password. The table compares them, and the recommendation below is not final.
+</Callout>
+
+| | Passkey (WebAuthn, `webauthn-rs` crate) | Password |
+|---|---|---|
+| Phishing | Resists it: bound to the panel's origin | Can be phished |
+| User experience | Touch ID, Face ID | Must be typed |
+| Server side | A public key, nothing secret | argon2id hash, limited attempts |
+| Limit | Bound to the name `brume.xxx.ts.net`: you re-enroll if the machine or the tailnet is renamed | Password reuse |
+
+**Recommendation: passkey.**
+
+- **The engine checks the second factor, not the API.** The engine stores the credentials, generates the challenge, verifies the response and issues the session.
+- **First access:** `brume install` prints a single-use enrollment URL, valid for 15 minutes.
+- **Recovery:** the local `brume` CLI, run from your hosting provider's console, through a unix socket with mode `0600`.
+
+## Session
+
+- **The engine issues the session after the second factor,** on a same-origin request. The engine holds the session; the API only forwards its token.
+- **The engine checks the session on every request.** The API attaches the token and the Tailscale identity to each call, and the engine checks that the session is valid and bound to that identity. A compromised API can do nothing without a session opened by the admin.
+- **The engine sets a short lifetime.** It is the window during which a compromised API can act.
+- **The cookie is `__Host-brume_session`,** with `Secure`, `HttpOnly` and `SameSite=Strict`. A third-party site cannot make the browser send it.
+- **The session is bound to the Tailscale identity.** If the header changes, the session becomes invalid.
+
+## CSRF and cross-site requests
+
+Your Tailscale identity is implicit authentication, added by the network, like a cookie without `SameSite`. A malicious site open on your laptop can send a `POST` to the panel, and the request arrives with your Tailscale identity. The panel blocks this in several ways:
+
+- **Fetch Metadata.** The API rejects any request whose `Sec-Fetch-Site` is not `same-origin`. This is stricter than `SameSite`: for the browser, the other `.ts.net` machines on your tailnet are "same-site".
+- **`Origin` is checked** on every request that changes something.
+- **`Content-Type: application/json` and a custom header (`X-Brume: 1`) are required.** A form on another site cannot send them without a CORS preflight request, which fails.
+- **No side effect on a `GET`.**
+- **No CORS.**
+- **WebSockets:** `Origin` is checked at the handshake, because WebSockets are not subject to CORS. For live logs, the panel prefers SSE, which is safer by default.
+
+## XSS
+
+An XSS flaw in the panel gives the attacker the panel's actions during your session: every app, its secrets and its data. And the panel displays content that an attacker controls: log lines, branch names, commit messages.
+
+- **Never `dangerouslySetInnerHTML`,** including for rendering ANSI colors.
+- **Strict CSP:** `default-src 'self'` with no inline script, plus `base-uri 'none'` and `form-action 'self'`, which `default-src` does not cover.
+- **Trusted Types** (`require-trusted-types-for 'script'`) where the browser supports it: the browser itself blocks any raw HTML insertion.
+- **Anti-clickjacking:** `frame-ancestors 'none'`. Otherwise, a site could show the panel in an invisible iframe and make you click "Delete".
+
+## Secrets in the panel
+
+- **The API never returns the value of a secret,** except on an explicit "reveal" action.
+- **"Reveal" goes through the session checked by the engine,** like every other action, and it is logged.
+
+## Audit log
+
+Every action is logged with the Tailscale identity that performed it. See [Observability](/docs/how-it-works/observability).
+
+## Not in 0.1
+
+These features are left out of alpha 0.1: a web shell into containers, API tokens, a remote CLI, and deploying from GitHub Actions. See the [roadmap](/docs/how-it-works/roadmap).

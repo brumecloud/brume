@@ -1,0 +1,67 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+@import "@fontsource-variable/inter";
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+
+/*
+ * Brume palette: zinc neutrals, with the sky blue of the logo (#47adfa) as
+ * the only accent. The light primary is darker so white text on it stays
+ * above 4.5:1.
+ */
+:root {
+  --color-fd-background: #ffffff;
+  --color-fd-foreground: #131316;
+  --color-fd-muted: #f4f4f5;
+  --color-fd-muted-foreground: #5f5f6b;
+  --color-fd-popover: #ffffff;
+  --color-fd-popover-foreground: #131316;
+  --color-fd-card: #fafafa;
+  --color-fd-card-foreground: #131316;
+  --color-fd-border: #e4e4e7;
+  --color-fd-primary: #0a72bc;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: #f4f4f5;
+  --color-fd-secondary-foreground: #131316;
+  --color-fd-accent: #f0f0f2;
+  --color-fd-accent-foreground: #131316;
+  --color-fd-ring: #47adfa;
+}
+
+.dark {
+  --color-fd-background: #131316;
+  --color-fd-foreground: #ededef;
+  --color-fd-muted: #1c1c1f;
+  --color-fd-muted-foreground: #a1a1aa;
+  --color-fd-popover: #19191c;
+  --color-fd-popover-foreground: #ededef;
+  --color-fd-card: #19191c;
+  --color-fd-card-foreground: #ededef;
+  --color-fd-border: rgb(255 255 255 / 0.08);
+  --color-fd-primary: #47adfa;
+  --color-fd-primary-foreground: #0b1620;
+  --color-fd-secondary: #1f1f23;
+  --color-fd-secondary-foreground: #ededef;
+  --color-fd-accent: rgb(255 255 255 / 0.07);
+  --color-fd-accent-foreground: #fafafa;
+  --color-fd-ring: #47adfa;
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: #1c1c1f;
+  --color-fd-secondary: #1f1f23;
+  --color-fd-muted-foreground: #a1a1aa;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}

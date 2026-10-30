@@ -1,0 +1,114 @@
+---
+title: Development rules
+description: The rules every change to Brume follows, for Rust style and security, generated config, the frontend, CI, releases and vulnerability reports.
+type: reference
+status: planned
+sources:
+  - archi/base/10-developpement.md
+  - rustfmt.toml
+---
+
+Every change to Brume follows these rules. When a style rule and a [security rule](#rust-security-rules) conflict, the security rule wins.
+
+## Rust style
+
+Brume's Rust code follows the [Google Rust style guide](https://google.github.io/styleguide/rustguide.html), which itself builds on the [Rust Style Guide](https://doc.rust-lang.org/style-guide/) and the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/).
+
+### Adaptations for Brume
+
+- **The Chromium, Android and Fuchsia rules do not apply:** no flat tree, no `git cl format`, no `rust_gtest_interop`. In particular, the ban on `async` targets Chrome: Brume uses tokio.
+- **Brume is application code.** The API rules are strong recommendations, not obligations. Do not generalize too early: returning a `Vec<T>` is fine, avoid `impl Into<T>`.
+- **`unsafe` is forbidden, not just discouraged.** See [Rust security rules](#rust-security-rules).
+- **Tests use `#[test]` and `#[tokio::test]`.**
+
+### Formatting
+
+The formatter config is [`rustfmt.toml`](https://github.com/brumecloud/brume/blob/main/rustfmt.toml), at the repository root:
+
+```toml title="rustfmt.toml"
+# Google Rust style guide: https://google.github.io/styleguide/rustguide.html#code-formatting
+# The last three options are unstable: run `cargo +nightly fmt`.
+max_width = 100
+hex_literal_case = "Lower"
+format_macro_matchers = true
+imports_granularity = "Module"
+```
+
+- **Format with `cargo +nightly fmt`.** Three of the options are unstable, so formatting needs the nightly toolchain.
+- **Build on stable.** The compile toolchain stays stable: the code uses no unstable feature.
+
+### Everyday rules
+
+These are the rules that matter most day to day.
+
+- **Newtypes, not type aliases.** A `Domain` or a `ServiceName` can only be built after validation, so the allowlist check cannot be forgotten.
+- **No glob imports,** and one module per `use` (`imports_granularity = "Module"`).
+- **`match` or `if let`, not a check followed by `unwrap`.** Use `expect` rather than `unwrap` when a panic is intended.
+- **`Option` for a simple failure, `Result` for a recoverable failure, `panic!` for a bug.**
+- **The most flexible borrowed parameters:** `&str` rather than `&String`, `&[T]` rather than `&Vec<T>`.
+- **An `enum` rather than a `bool` parameter** whose meaning is not obvious at the call site.
+- **Single ownership rather than `Rc` or `Arc`,** unless the alternative is unreasonably complex.
+- **Never read the inside of a poisoned mutex.**
+- **No code runs before `main()`:** the `ctor` crate is forbidden.
+- **No comment that repeats the code.** Document public APIs with `///` and modules with `//!`.
+
+## Rust security rules
+
+- **`#![forbid(unsafe_code)]`.**
+- **Secrets live in the types of the `secrecy` crate,** so a `Debug` or a `tracing::info!` cannot print them by accident.
+- **Docker is driven through its API** (the `bollard` crate), never through `sh -c` or the `docker` CLI.
+- **Container config is built from an allowlist,** with a test that checks the full config of each container type. See [Runtime](/docs/how-it-works/runtime).
+- **The engine parses no untrusted data.** See [Architecture](/docs/how-it-works/architecture).
+- **SQLite queries are parameterized** (sqlx). For DuckDB, see [Observability](/docs/how-it-works/observability).
+- **Size limits** on every HTTP body and every socket message.
+- **Requests to user-supplied URLs** (notifications, healthchecks) cannot reach the tailnet, private ranges or metadata endpoints.
+
+## Injection in what Brume generates
+
+If Brume built a Traefik rule by concatenating strings, a domain containing a backtick could inject a condition that captures all traffic:
+
+```text
+template:        Host(`${domain}`)
+domain entered:  x`) || PathPrefix(`/
+generated rule:  Host(`x`) || PathPrefix(`/`)
+```
+
+The same risk exists for nginx config, environment variables (a `\n` in a value) and `git` commands (an argument that starts with `-`).
+
+- **Strict name validation** (domains, services, variables, branches), against an allowlist.
+- **All generated config is serialized** (serde), never built by string templating.
+- **`--` before any user argument** passed to `git`.
+
+## Frontend
+
+The panel code runs with the admin's rights: a compromised npm package gets every action of the panel. For the stack, code layout and tooling, see [Panel frontend](/docs/customize/frontend).
+
+- **Only well-known dependencies, or code written for Brume.** "Well-known" is not enough on its own: in September 2025, `chalk` and `debug`, among the most used npm packages, were compromised after their maintainer was phished.
+- **Lockfile, `--ignore-scripts`,** and a delay before adopting a new version (`minimumReleaseAge` in pnpm).
+- **Compiled in CI and embedded in the signed binary:** the server never runs npm.
+- **Never `dangerouslySetInnerHTML`.**
+
+## CI
+
+| Check | Notes |
+|---|---|
+| `cargo +nightly fmt --check` | Formatting matches `rustfmt.toml`. |
+| `cargo clippy -- -D warnings` | A clippy warning fails CI. |
+| `cargo deny` and `cargo audit` | Check the Rust dependencies. |
+| GitHub Actions pinned by SHA | The 2025 tj-actions attack went through a modified tag. |
+| `systemd-analyze security --offline=true` | Comes later. See [Roadmap](/docs/how-it-works/roadmap). |
+
+## Releases
+
+- **Binaries and `install.sh` are published on GitHub Releases.** See [Host and installation](/docs/how-it-works/host-and-installation).
+- **The GitHub account is protected by a hardware 2FA key.**
+
+### Signing with minisign
+
+- **minisign, with the private key kept offline** and the public key embedded in the binary. It is simple to verify in the updater.
+- **Why the key stays offline:** a compromised GitHub account, one of the supply chain attacks in the [threat model](/docs/how-it-works/threat-model), cannot sign an update. The first install, however, trusts GitHub: see [Host and installation](/docs/how-it-works/host-and-installation).
+- **A signed release manifest carries the version,** so the updater refuses downgrades. The version is in the signed content, never in minisign's unsigned comment, which is not authenticated. See [Host and installation](/docs/how-it-works/host-and-installation).
+
+## Reporting vulnerabilities
+
+Before Brume is announced publicly, the repository gets a `SECURITY.md` with an address for reporting vulnerabilities.

@@ -1,0 +1,45 @@
+---
+title: Roadmap
+description: What is deliberately left out of alpha 0.1, and what each item will bring.
+type: concept
+status: planned
+sources:
+  - archi/base/12-plus-tard.md
+  - archi/base/README.md
+---
+
+Alpha 0.1 leaves some features and some hardening out on purpose. This page lists them, with what each one brings once it lands. For what 0.1 does include, see the [overview](/docs/how-it-works).
+
+## Access and isolation
+
+| Item | What it brings |
+|---|---|
+| Tailnet Lock | Neither the Tailscale coordination server nor an account stolen from the identity provider can add a device to the tailnet. This closes a risk accepted in 0.1 for Tailscale SSH: see the [threat model](/docs/how-it-works/threat-model). |
+| Disposable builder under gVisor, or builds off the server | A build can no longer reach root through a kernel or runc flaw, and cannot tamper with later builds. This closes a risk accepted in 0.1 for write access to deployed branches: see the [threat model](/docs/how-it-works/threat-model). |
+| Secrets as files on tmpfs | Environment variables leak to child processes, to error reports (Sentry) and to `/proc/<pid>/environ`. Files avoid that. This is an option, because almost every app expects environment variables. |
+| Rootless Docker, gVisor for apps | Stronger isolation of the host and the containers, beyond `userns-remap`. |
+| `systemd-analyze security --offline=true` in CI | Scores the exposure of each systemd unit. CI fails if the score gets worse. |
+
+## Data and backups
+
+| Item | What it brings |
+|---|---|
+| Hardened backups | S3 credentials tested when you configure them: read, list and delete must fail. Object Lock retention headers on every upload, so that a bucket without Object Lock fails instead of accepting the upload. The master key included in the encrypted backup. An external alert when backups stop arriving. |
+| Major database upgrades | A backup, then a dump and a restore into the new version. For MongoDB, one version at a time, with Brume running the `setFeatureCompatibilityVersion` step. The engine then refuses a rollback that would run the old version on data written by the new one (PostgreSQL, MongoDB, Redis). |
+| Replicas and point-in-time recovery | Backups are dumps: you can lose the data written since the last one. Postgres WAL archiving brings that loss down to a few seconds. |
+
+## Features
+
+| Item | What it brings |
+|---|---|
+| Web shell into containers | The most powerful feature of the panel, so it needs careful design. |
+| API tokens, remote CLI, deploys from GitHub Actions | Access from outside Tailscale, with its own rules. |
+| PR previews | One rule is already set: a PR from a fork is never built with secrets. |
+| Outbound internet filtering by domain | Needs an egress proxy. |
+
+## Hosting
+
+| Item | What it brings |
+|---|---|
+| Multi-server | The Edge Agent model: each node connects outbound to the panel. Never a central root SSH key. See the [comparison](/docs/how-it-works/comparison) for why. |
+| Headscale | Full self-hosting of the admin layer. Leaving it out of 0.1 is a proposal, still open and to be confirmed. |

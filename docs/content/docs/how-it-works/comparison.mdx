@@ -1,0 +1,31 @@
+---
+title: Comparison
+description: How Portainer, Coolify, Dokploy, CapRover and Kamal give their panel access to Docker, and what Brume learns from them.
+type: concept
+status: planned
+sources:
+  - archi/base/11-comparatif.md
+---
+
+Every self-hosted platform lets something drive Docker on your server. Where that access lives decides what an attacker gets when the web panel is compromised. In most tools, the panel and the Docker socket share one process, so a compromised panel means root on the host. Brume keeps them apart.
+
+## How the others do it
+
+This comparison is based on each tool's installation docs.
+
+| Tool | Panel | Access to Docker | If the panel is compromised |
+|---|---|---|---|
+| Portainer | Container exposed on port 9443 | Socket mounted in the same container as the UI | Root on the host |
+| Coolify | Laravel app exposed on port 8000 | Root SSH to the host, even when local: the private key is in the app | Root on every managed server |
+| Dokploy | Next.js app exposed on port 3000 | Socket mounted, Docker Swarm | Root on the host |
+| CapRover | Node app exposed, default password `captain42` | Socket mounted, Docker Swarm | Root on the host |
+| Kamal | No panel | SSH from the developer's machine; only a small proxy runs on the server | No panel to attack |
+
+## Lessons for Brume
+
+- **All of them except Kamal put the web UI and the Docker socket in the same process.** This is their core weakness. The split between the engine and the API is what sets Brume apart: see [Architecture](/docs/how-it-works/architecture).
+- **Mounting the socket `:ro` protects nothing.** Coolify does it for its Traefik, but a socket mounted read-only still accepts every call of the Docker API.
+- **The first start is always the weak point.** Portainer shuts the instance down if nobody creates the admin within 5 minutes. CapRover starts with a known password. In Brume, the allowlist of admin identities is set at install, and the panel is never public: see [Admin panel](/docs/how-it-works/admin-panel).
+- **A central root SSH key to every server,** as in Coolify, is a single point of compromise. If Brume becomes multi-server, it should copy Portainer's Edge Agent instead: each node connects outbound to the panel, and the panel holds no access to the nodes. See the [roadmap](/docs/how-it-works/roadmap).
+- **The usual way to limit the socket is a filtering proxy,** such as Tecnativa's `docker-socket-proxy`. The Brume engine is a much narrower version of the same idea: it exposes business operations, not the Docker API.
+- **Kamal shows the smallest surface:** no permanent control plane, and a proxy driven by commands, with no socket. Brume needs a panel and webhooks, but keeps the idea of a proxy configured through files, never through the socket. See [Networking](/docs/how-it-works/networking).

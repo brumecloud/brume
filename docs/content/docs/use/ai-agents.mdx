@@ -1,0 +1,44 @@
+---
+title: Use with AI agents
+description: Give your coding agent the Brume docs as Markdown, through llms.txt or a single page.
+type: guide
+status: available
+sources:
+  - docs/src/lib/source.ts
+  - docs/src/routes
+---
+
+These docs are written to be read by agents as well as people. Every page exists as plain Markdown, and an index tells an agent which page answers which question.
+
+## Give your agent the whole docs
+
+Paste this in your agent's chat:
+
+<AgentPrompt prompt="Answer my questions about Brume using" path="/llms.txt" />
+
+| File | Content | Use it when |
+|---|---|---|
+| `/llms.txt` | Every page, with its one-line description. | The agent can fetch pages: it reads the index, then only the pages it needs. |
+| `/llms-full.txt` | Every page, in one file. | The agent cannot fetch URLs, or you want to load everything in its context once. |
+
+## Give your agent one page
+
+Add `.md` to the URL of any page to get its Markdown:
+
+```text
+/docs/how-it-works/networking     → the page
+/docs/how-it-works/networking.md  → its Markdown
+```
+
+On every page, two buttons under the title do the same:
+
+- **Copy Markdown** copies the page to your clipboard.
+- **Open** opens the page in ChatGPT, Claude or another assistant, or shows the Markdown or the source on GitHub.
+
+## What the Markdown contains
+
+Each Markdown page starts with its title, its URL and its description. A page that describes something not built yet says so, the same way the page shows a "Planned" warning: your agent knows what exists and what is still a design.
+
+## What is next
+
+When Brume ships a CLI, the docs will add a skill file that teaches a coding agent to deploy an app on your Brume server.

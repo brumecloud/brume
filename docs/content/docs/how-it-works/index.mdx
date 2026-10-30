@@ -1,0 +1,50 @@
+---
+title: Design principles
+description: The principles behind Brume's design, and where to read about each part.
+type: concept
+status: planned
+sources:
+  - archi/base/README.md
+---
+
+Brume runs on a single server that you own, for a single owner. That server holds your code, your databases and your secrets. Every design decision starts from that fact: Brume must be as safe as it can be while staying simple to use.
+
+## Principles
+
+1. **As safe as possible.** When a safer option exists, Brume takes it, as long as it stays simple for the user.
+2. **A compromised part does not take down the rest.** Brume is single-tenant, but each component is isolated as if it were going to be compromised.
+3. **Only two components of Brume are equivalent to root: the engine and the updater.** The engine has minimal code, listens on no network and parses no untrusted data. The updater runs only during an update and accepts only signed binaries.
+4. **No inbound port.** Public traffic goes through Cloudflare Tunnel, administration through Tailscale.
+5. **The owner's code is trusted, the outside is not.** Everything that comes from outside is hostile: requests to your apps, webhook payloads, sites the admin opens. So is everything that keeps a trace of it, such as logs and headers. Every name typed in the panel is validated against an allowlist.
+6. **Dangerous options are decided on the host, never in the panel.**
+7. **Detect as much as prevent:** an audit log out of reach, alerts, drift detection.
+
+## Alpha 0.1 scope
+
+- A single VPS, a single owner.
+- One-command install.
+- Deploy any container, and static sites with instant rollback.
+- Templates with good practices built in: static site, PostgreSQL, MongoDB, Redis.
+- Automatic CI/CD from GitHub, built with Railpack.
+- Backups, logs and secrets managed from the panel.
+- Admin panel reachable only over Tailscale.
+- Public traffic only through Cloudflare Tunnel: no inbound port open on the server.
+
+**Stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, shadcn, Tailwind), SQLite, DuckDB, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
+
+## Read next
+
+<Cards>
+  <Card title="Threat model" href="/docs/how-it-works/threat-model">
+    What Brume protects, against whom, and what is out of scope.
+  </Card>
+  <Card title="Architecture" href="/docs/how-it-works/architecture">
+    The processes of Brume, their privileges and their exchanges.
+  </Card>
+  <Card title="Data model" href="/docs/how-it-works/data-model">
+    Projects, environments, services, immutable revisions and rollback.
+  </Card>
+  <Card title="Networking" href="/docs/how-it-works/networking">
+    Cloudflare Tunnel, Traefik, firewall, Docker networks and domains.
+  </Card>
+</Cards>

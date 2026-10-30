@@ -28,6 +28,10 @@
 
 The architecture decisions live in [`archi/base/`](archi/base/README.md) (written in French): threat model, architecture, data model, networking, admin panel, runtime, templates, builds and deployment, secrets and backups, host setup, observability, development rules, and a comparison with similar tools.
 
+## Documentation
+
+The public docs live in [`docs/`](docs/), a static [Fumadocs](https://fumadocs.dev) site in three parts: using Brume, how it works, and customizing it. Run them with `pnpm install && pnpm dev` in `docs/`. Writing rules for people and agents: [`docs/AGENTS.md`](docs/AGENTS.md).
+
 ## Code style
 
 Rust code follows the [Google Rust style guide](https://google.github.io/styleguide/rustguide.html), with a few Brume-specific adaptations listed in [`archi/base/10-developpement.md`](archi/base/10-developpement.md#style-rust). Format with `cargo +nightly fmt`.

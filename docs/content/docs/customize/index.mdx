@@ -1,0 +1,40 @@
+---
+title: Overview
+description: What you can change in Brume, and where to start.
+type: overview
+status: planned
+sources:
+  - README.md
+  - archi/base/10-developpement.md
+---
+
+Brume is open source. You can read every line that runs on your server, build it yourself and change it. This section is for people who want to go past using Brume.
+
+## What you can do
+
+- **Build Brume from source** instead of installing the published binaries.
+- **Sign your own releases** with your own key, so your servers only accept your builds.
+- **Change the code:** the Rust engine and API, or the React panel.
+- **Improve these docs,** by hand or with a coding agent.
+
+## How the code is organized
+
+Brume is written in Rust (tokio, clap) with a React panel (TanStack, shadcn, Tailwind). The panel is compiled in CI and embedded in the signed binary: the server never runs npm.
+
+<Callout title="No code yet">
+  Brume is in its design phase. The repository holds the architecture and security design, and these docs. The build instructions describe the planned setup.
+</Callout>
+
+## Next steps
+
+<Cards>
+  <Card title="Build from source" href="/docs/customize/build-from-source">
+    Compile Brume and run your own build.
+  </Card>
+  <Card title="Development rules" href="/docs/customize/development">
+    Code style, security rules, dependencies and CI.
+  </Card>
+  <Card title="Write the docs" href="/docs/customize/write-the-docs">
+    How these docs are organized, written and checked.
+  </Card>
+</Cards>

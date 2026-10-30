@@ -1,0 +1,24 @@
+{
+  "title": "How Brume works",
+  "description": "Architecture, security and design decisions",
+  "icon": "Layers",
+  "root": true,
+  "pages": [
+    "---Foundations---",
+    "index",
+    "threat-model",
+    "architecture",
+    "data-model",
+    "---Components---",
+    "networking",
+    "admin-panel",
+    "runtime",
+    "builds-and-deployments",
+    "secrets-and-backups",
+    "host-and-installation",
+    "observability",
+    "---Context---",
+    "comparison",
+    "roadmap"
+  ]
+}

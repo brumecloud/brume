@@ -1,0 +1,57 @@
+---
+title: Welcome to Brume Docs
+description: Brume is an open source, self-hostable alternative to Railway, Coolify and Dokploy.
+type: overview
+---
+
+import { Blocks, Bot, Database, FileLock2, Globe, KeyRound, Layers, Rocket, ScrollText, ShieldCheck, Wrench } from "lucide-react";
+
+<Hero title="Welcome to Brume Docs">
+  Brume deploys your containers, static sites and databases on your own server, with the simplicity of Railway. Learn how to use it, how it works, and how to make it your own.
+</Hero>
+
+<AgentPrompt prompt="Answer my questions about Brume using" path="/llms.txt" />
+
+<Cards className="lg:grid-cols-4">
+  <Card icon={<Rocket />} title="Use Brume" href="/docs/use">
+    Install Brume on a VPS, deploy your first app and run it in production.
+  </Card>
+  <Card icon={<Layers />} title="How Brume works" href="/docs/how-it-works">
+    The architecture, the threat model and every security decision behind them.
+  </Card>
+  <Card icon={<Wrench />} title="Customize Brume" href="/docs/customize">
+    Build Brume from source, sign your own releases and change the code.
+  </Card>
+  <Card icon={<Bot />} title="Use with AI agents" href="/docs/use/ai-agents">
+    Every page is available as Markdown, with an llms.txt index for your agent.
+  </Card>
+</Cards>
+
+## Explore how Brume works
+
+<Features>
+  <Feature icon={<ShieldCheck />} title="Threat model" href="/docs/how-it-works/threat-model">
+    What Brume protects, against whom, and the risks accepted in alpha 0.1.
+  </Feature>
+  <Feature icon={<Blocks />} title="Architecture" href="/docs/how-it-works/architecture">
+    The processes of Brume, their privileges and how they talk to each other.
+  </Feature>
+  <Feature icon={<Globe />} title="Networking" href="/docs/how-it-works/networking">
+    Public traffic through Cloudflare Tunnel, administration through Tailscale, no inbound port.
+  </Feature>
+  <Feature icon={<Database />} title="Templates" href="/docs/use/templates">
+    Static sites, PostgreSQL, MongoDB and Redis, with good practices built in.
+  </Feature>
+  <Feature icon={<KeyRound />} title="Secrets and backups" href="/docs/how-it-works/secrets-and-backups">
+    How platform and app secrets are stored, and how backups are encrypted.
+  </Feature>
+  <Feature icon={<ScrollText />} title="Observability" href="/docs/how-it-works/observability">
+    Logs, an audit log out of reach, drift detection and alerts.
+  </Feature>
+  <Feature icon={<FileLock2 />} title="Host and installation" href="/docs/how-it-works/host-and-installation">
+    What the installer changes on the host, and how signed updates are applied.
+  </Feature>
+  <Feature icon={<Wrench />} title="Build from source" href="/docs/customize/build-from-source">
+    Compile Brume yourself and run your own build.
+  </Feature>
+</Features>

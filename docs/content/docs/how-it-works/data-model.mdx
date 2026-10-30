@@ -1,0 +1,104 @@
+---
+title: Data model
+description: Projects, environments, services and immutable revisions, and what a rollback restores.
+type: concept
+status: planned
+sources:
+  - archi/base/13-modele-de-donnees.md
+---
+
+Brume organizes your apps in levels: project, environment, service and revision, with a history of deployments. This page explains what each level holds, what is immutable, and what a rollback restores.
+
+```text
+Project                             shared variables and secrets
+└─ Environment                      internal network, egress network, build cache,
+   │                                environment variables and secrets
+   └─ Service                       source, slug, type, domains, egress, volumes,
+      │                             service variables and secrets
+      ├─ Revision (immutable)       artifact, command, port, healthcheck, limits,
+      │                             variable values, secret names
+      └─ Deployment (history)       revision, secret versions, status, author, date
+```
+
+## Levels
+
+- **Project:** the environments of one app (prod, staging), and the variables and secrets common to all of them.
+- **Environment:** its own internal network and its own `egress` network (see [Networking](/docs/how-it-works/networking)), and the values specific to this environment. Two environments cannot reach each other, even in the same project.
+- **Service:** a container or a static site. The type is set at creation and decides what the service can do. A static site is served by the shared nginx, outside the environment network, and has no secret at runtime.
+- **A service's slug is immutable.** It is the service's DNS name on the environment network: renaming it would break the services that call it. The display name can still change. The engine validates the slug as a DNS label (`[a-z0-9-]`, 63 characters at most).
+
+## Revisions
+
+- **A revision is the immutable spec of a service:** everything needed to recreate its container. Changing one of these fields creates a new revision.
+- **It is created after a successful build,** never before. So it always points to an artifact that exists: an image digest, or the hash of a static site's archive. A failed build creates no revision.
+- **It never holds the data.** Volumes and databases are not versioned, see [Rollback](#rollback).
+
+| In the revision: follows a rollback | On the service: does not follow a rollback |
+|---|---|
+| Artifact (digest), source commit | Source (repository, branch), slug, display name |
+| Command, port, healthcheck | Domains and public routes |
+| CPU, memory and pids limits | Egress |
+| Values of simple and build variables | Attached volumes |
+| Secret names | Secret values |
+
+- **The security posture and the links to the outside stay on the service.** Otherwise a rollback would turn back on an egress that was cut after an incident, or remove a domain whose DNS record still exists.
+
+## Deployments
+
+- **A deployment puts a revision into service.** It records the revision, the version of each injected secret, the status, the author and the date.
+- **The history only grows.** A rollback is a new deployment of an old revision: nothing is rewritten.
+- **Changing a secret redeploys the same revision.** The spec has not changed, so there is no new revision.
+- **You can tell which version of a secret was running at a given date.** It is the first question after a leak.
+
+## Variables and secrets
+
+### Three kinds
+
+| Kind | In the revision | Changing the value |
+|---|---|---|
+| Simple variable | The value | A new revision, then a deployment |
+| Build variable | The value | A rebuild, a new revision, then a deployment |
+| Secret | The name only | A redeployment of the same revision |
+
+- **Simple variables follow the revision.** Otherwise a rollback breaks: v2 renames `PAYMENT_URL` to `PAYMENTS_API_URL`, and the restored v1 no longer finds `PAYMENT_URL`. They are injected when the container is created, so changing one requires recreating the container anyway.
+- **Build variables are part of the artifact,** whether you want it or not: they end up in the image layers or in the JS bundle. For a static site, they are public, see [Runtime](/docs/how-it-works/runtime).
+- **Secrets are resolved at deployment.** A rollback never brings back a secret that was changed after a leak. Build secrets, passed with `--secret`, follow the same rule.
+- **Connection URLs injected by a template are secrets** (`DATABASE_URL`, `MONGODB_URI`, `REDIS_URL`): they contain the app's password. See [Templates](/docs/use/templates).
+- **The panel warns you on input** when a simple variable has a secret-like name (`*_KEY`, `*_TOKEN`, `*_SECRET`, `*PASSWORD*`), or when its value contains credentials (`scheme://user:pass@host`). Its value would stay in the revision history.
+
+### Three levels: project, environment, service
+
+- **Variables and secrets are defined on the project, the environment or the service.** The most specific level wins: service, then environment, then project.
+- **The environment holds the values that differ between prod and staging,** such as the app's public URL or test API keys. The project keeps what is truly identical everywhere.
+- **A project secret also reaches staging,** which is built from less-reviewed branches. The panel reminds you of this when you create a project secret, and offers to define it per environment instead.
+- **Shared simple variables are inherited by every service, except databases created from a template.** A database accepts only its typed settings, see [Templates](/docs/use/templates). A static site receives the shared build variables: they feed its build, not the nginx container.
+- **Shared secrets go only to the services that reference them.** A third-party image, such as a Redis or an admin tool, does not receive the Stripe key just because it is in the project. The service declares the secret's name, and the value is looked up on the service, then the environment, then the project.
+- **A name is either a variable or a secret, at every level.** Otherwise a service's simple variable could override a shared secret, and its value would end up in clear text in the revision history.
+- **The revision records where each value comes from** (project, environment or service), for display and audit. It keeps the resolved value: a rollback restores a shared variable as it was, even if it has changed since.
+
+### Changing a shared value
+
+- **Simple or build variable:** before you confirm, the panel lists the affected services, environment by environment, production included. Services that override the value at a more specific level do not appear in that list. Confirming creates one revision per service, after a rebuild for a build variable, then deploys it.
+- **Secret:** running containers keep the old value until their next deployment. By default, the panel offers to redeploy the services that reference it right away.
+- **Deleting a secret still in use is refused** as long as an active deployment references it. The panel lists the services concerned.
+
+## Rollback
+
+- **A rollback redeploys an old revision, by its digest, without a rebuild.** Simple and build variables come back with it. Secrets take their current value.
+- **It is checked before it starts.** The artifact must still exist, and each secret named in the revision must exist on the service, the environment or the project. Otherwise the rollback is refused, with the list of what is missing.
+- **It works per service.** Rolling back a backend does not touch the frontend that calls its API. Restoring a whole environment to its state at a given date can come later: the deployment history is enough to rebuild that state, without a new entity.
+- **Data never goes back.** After a migration, the old code runs on the new schema. The panel warns you before rolling back a service that has a volume.
+- **The major version of a database created from a template does not change in 0.1,** so a rollback cannot cross a major version. See the [roadmap](/docs/how-it-works/roadmap).
+- **Automatic deployment continues after a rollback.** The next push to the configured branch redeploys.
+
+## Retention and purge
+
+- **Immutable does not mean forever.** Built images exist only in the local dockerd, and the disk of the VPS is limited.
+- **The engine keeps the artifacts of the last 10 revisions of each service.** Older revisions stay in the history but can no longer be rolled back to, and the panel shows it.
+- **The engine deletes only the artifacts it no longer keeps,** never with a blind `docker image prune`. If a kept artifact disappears anyway, for example after a `docker image prune -a` run by hand, the engine marks the revision as not rollbackable and raises an alert.
+- **A revision can be purged for good.** Its artifact and its variable values are erased, and its row stays in the history. Use it for a secret leaked into a static bundle, or a sensitive value entered by mistake as a simple variable.
+- **A purge does not reach backups already sent.** Brume cannot delete anything on S3, see [Secrets and backups](/docs/how-it-works/secrets-and-backups). A leaked secret must be revoked at its issuer: it cannot be erased.
+
+## Build cache
+
+**Each environment has its own build cache,** not each project. Otherwise a staging build, started from a less-reviewed branch, could poison the npm or pip caches that the production build reads next.

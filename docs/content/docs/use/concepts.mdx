@@ -1,0 +1,81 @@
+---
+title: Core concepts
+description: Projects, environments, services, revisions, variables and secrets, and how a deploy and a rollback use them.
+type: concept
+status: planned
+sources:
+  - archi/base/13-modele-de-donnees.md
+---
+
+Everything you deploy in Brume lives in a project, an environment and a service. Each change to a service's spec creates an immutable revision, and each deployment puts one revision into service. A rollback deploys an older revision again.
+
+```text
+Project                             shared variables and secrets
+└─ Environment                      internal network, egress network, build cache,
+   │                                environment variables and secrets
+   └─ Service                       source, slug, type, domains, egress, volumes,
+      │                             service variables and secrets
+      ├─ Revision (immutable)       artifact, command, port, healthcheck, limits,
+      │                             variable values, secret names
+      └─ Deployment (history)       revision, secret versions, status, author, date
+```
+
+## Project
+
+The environments of one app, such as prod and staging, and the variables and secrets they all share.
+
+## Environment
+
+One stage of a project, with its own internal network, its own `egress` network, and the values specific to it. Two environments cannot reach each other, even in the same project. Each environment also has its own build cache, so a staging build from a less reviewed branch cannot poison the npm or pip cache that the prod build reads.
+
+## Service
+
+A container or a static site. You pick the type at creation and cannot change it: it decides what the service can do. A static site is served by the shared nginx, outside the environment network, and has no secrets at runtime.
+
+Each service has a **slug**, its DNS name on the environment network. The slug never changes, because renaming it would break the services that call it. It is a DNS label: `[a-z0-9-]`, 63 characters at most. The display name stays free.
+
+## Revision
+
+The immutable spec of a service: everything needed to recreate its container. That covers the artifact (an image digest, or the hash of a static site archive) and the commit it came from, the command, port and healthcheck, the CPU, memory and pids limits, the values of variables, and the names of secrets. Changing any of these creates a new revision.
+
+- **A revision is created after a successful build, never before.** It always points to an artifact that exists. A failed build creates no revision.
+- **A revision never holds data.** Volumes and databases are not versioned.
+- **Domains, egress, volumes and the source stay on the service.** A rollback does not change them: it cannot turn egress back on after you cut it during an incident, or remove a domain whose DNS record still exists.
+
+## Deployment
+
+A deployment puts a revision into service. It records the revision, the version of each secret it injected, the status, the author and the date. So you can tell which version of a secret was running on a given date: the first question after a leak.
+
+The history only grows. Nothing in it is rewritten.
+
+## Variables and secrets
+
+Brume has three kinds of values:
+
+| Kind | Stored in the revision | When you change the value |
+|---|---|---|
+| Plain variable | the value | new revision, then deploy |
+| Build variable | the value | rebuild, new revision, then deploy |
+| Secret | the name only | redeploy of the same revision |
+
+- **Plain variables follow the revision,** so a rollback brings back the values the old code expects. If v2 renames `PAYMENT_URL` to `PAYMENTS_API_URL`, v1 restored by a rollback still finds `PAYMENT_URL`.
+- **Build variables are part of the artifact:** they end up in the image layers or in the JS bundle. For a static site, they are public.
+- **Secrets are resolved at deploy time.** A rollback never brings back a secret you changed after a leak.
+- **You define variables and secrets on the project, the environment or the service.** The most specific level wins: service, then environment, then project.
+- **Shared plain variables reach every service,** except databases created from a template.
+- **Shared secrets only reach the services that reference them.** A service declares the secret's name, and Brume looks up the value on the service, then the environment, then the project.
+- **A name is either a variable or a secret, at every level.** Otherwise a service variable could replace a shared secret, and its value would land in clear in the revision history.
+- **The connection URLs a template injects are secrets** (`DATABASE_URL`, `MONGODB_URI`, `REDIS_URL`): they contain the app's database password.
+- **Brume warns you** when a plain variable has a secret-like name (`*_KEY`, `*_TOKEN`, `*_SECRET`, `*PASSWORD*`) or a value with credentials (`scheme://user:pass@host`): its value would stay in the revision history.
+
+## Deploys and rollbacks
+
+- **Changing a secret redeploys the same revision.** The spec has not changed, so there is no new revision.
+- **A rollback is a new deployment of an old revision,** by its digest, without a rebuild. Plain variables and build variables come back with it. Secrets take their current value.
+- **Brume checks a rollback before it starts:** the artifact still exists, and every secret named in the revision exists. Otherwise it refuses, and lists what is missing.
+- **A rollback applies to one service.** Rolling back a backend does not touch the frontend that calls its API.
+- **Data never goes back.** After a migration, the old code runs on the new schema. The panel warns you before rolling back a service that has a volume.
+- **Automatic deploys continue after a rollback:** the next push to the configured branch deploys again.
+- **The engine keeps the artifacts of the last 10 revisions of each service.** Older revisions stay in the history, but you can no longer roll back to them, and the panel shows it.
+
+The [data model](/docs/how-it-works/data-model) covers the details: shared values across environments, retention and purge, and the reasons behind each rule. The [templates](/docs/use/templates) page covers what a database service gets.

@@ -1,0 +1,39 @@
+---
+title: Introduction
+description: What Brume is, who it is for, and what alpha 0.1 will do.
+type: overview
+status: planned
+sources:
+  - README.md
+  - archi/base/README.md
+---
+
+Brume is an open source, self-hostable alternative to Railway, Coolify and Dokploy. You install it on your own server with one command. Then you deploy containers, static sites and databases from a web panel, with the simplicity of a hosted platform.
+
+## Who it is for
+
+Brume alpha 0.1 targets one person running their projects on one VPS: side projects, small products, internal tools. It is single-tenant by design: one server, one owner.
+
+## What alpha 0.1 will do
+
+- **Install in one command** on a fresh VPS.
+- **Deploy any container,** and static sites with instant rollback.
+- **Start databases from templates** with good practices built in: PostgreSQL, MongoDB, Redis.
+- **Build and deploy on every push** to GitHub, with [Railpack](https://railpack.com).
+- **Manage backups, logs and secrets** from the panel.
+- **Keep the server closed:** the panel is reachable only over Tailscale, and public traffic arrives only through Cloudflare Tunnel. No inbound port is open.
+
+## What makes it different
+
+Brume treats your server as the thing to protect. The panel never faces the internet, a compromised app cannot reach the rest of the server, and updates are signed with a key kept offline. [How Brume works](/docs/how-it-works) explains each decision.
+
+## Next steps
+
+<Cards>
+  <Card title="Quickstart" href="/docs/use/quickstart">
+    Install Brume on a VPS and deploy your first app.
+  </Card>
+  <Card title="Core concepts" href="/docs/use/concepts">
+    Projects, environments, services and revisions.
+  </Card>
+</Cards>
