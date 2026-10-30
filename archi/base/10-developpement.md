@@ -24,6 +24,7 @@ Le code Rust suit le [guide de style Rust de Google](https://google.github.io/st
 - **Possession unique plutôt que `Rc` ou `Arc`,** sauf si l'alternative est déraisonnablement complexe.
 - **Ne jamais lire l'intérieur d'un mutex empoisonné.**
 - **Aucun code exécuté avant `main()`** (crate `ctor` interdit).
+- **Commentaires en anglais.**
 - **Pas de commentaire qui répète le code.** On documente les API publiques avec `///` et les modules avec `//!`.
 
 ## Règles de code Rust

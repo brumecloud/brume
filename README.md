@@ -22,7 +22,7 @@
 - Admin panel reachable only over Tailscale.
 - Public traffic only through Cloudflare Tunnel: no inbound port open on the server.
 
-**Planned stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, shadcn, Tailwind), SQLite, DuckDB, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
+**Planned stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, coss ui, Tailwind, React Flow), SQLite, DuckDB, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
 
 ## Design documents
 

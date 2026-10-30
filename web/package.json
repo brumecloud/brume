@@ -1,0 +1,48 @@
+{
+  "name": "@brume/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "ci": "vp fmt --check && vp lint && tsc --noEmit && vp test && knip && vp build"
+  },
+  "dependencies": {
+    "@base-ui/react": "catalog:",
+    "@tanstack/query-db-collection": "catalog:",
+    "@tanstack/react-db": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "class-variance-authority": "catalog:",
+    "clsx": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwind-merge": "catalog:"
+  },
+  "devDependencies": {
+    "@babel/core": "catalog:",
+    "@rolldown/plugin-babel": "catalog:",
+    "@shadcn/lint": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@tanstack/router-plugin": "catalog:",
+    "@types/babel__core": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
+    "babel-plugin-react-compiler": "catalog:",
+    "knip": "catalog:",
+    "msw": "catalog:",
+    "playwright": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:",
+    "vitest-browser-react": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@12.15.0"
+}

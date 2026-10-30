@@ -15,7 +15,7 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 - Panel d'administration joignable uniquement par Tailscale.
 - Trafic public uniquement par Cloudflare Tunnel : aucun port entrant sur le serveur.
 
-**Stack :** Rust (tokio, clap), React (TanStack Query, Router et DB, shadcn, Tailwind, compatible mobile), SQLite, DuckDB, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
+**Stack :** Rust (tokio, clap), React (TanStack Query, Router et DB, coss ui, Tailwind, React Flow, compatible mobile), SQLite, DuckDB, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
 
 ## Principes
 
@@ -52,4 +52,4 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 1. **Second facteur à la connexion :** mot de passe ou passkey. Recommandation : passkey. Dans les deux cas, c'est l'engine qui le vérifie. Voir [04-panel-admin.md](04-panel-admin.md).
 2. **Redis : `vm.overcommit_memory=1` sur l'hôte.** Redis le recommande pour le fork de ses snapshots, mais le réglage vaut pour tout l'hôte. Voir [templates.md](templates.md#redis).
 3. **Propositions par défaut, à confirmer :** pas de Headscale en 0.1, aucune télémétrie, vérification des mises à jour désactivable.
-4. **Frontend :** implémentation du React Compiler, types partagés entre Rust et TypeScript, TanStack DB. Voir [front-architecture.md](front-architecture.md#décisions-ouvertes).
+4. **Frontend :** types partagés entre Rust et TypeScript, décodage des réponses de l'API, graphiques des métriques. Voir [front-architecture.md](front-architecture.md#décisions-ouvertes).
