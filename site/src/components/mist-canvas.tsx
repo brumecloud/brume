@@ -2,24 +2,25 @@
 
 import { useEffect, useRef } from "react";
 
-import { type MistShape, startMist } from "~/lib/mist";
+import { type MistPalette, type MistShape, startMist } from "~/lib/mist";
 
 interface MistCanvasProps {
   readonly shape: MistShape;
   readonly seed: number;
+  readonly palette?: MistPalette;
   readonly stars?: boolean;
 }
 
 /** Decorative mist that covers its parent, which must be `relative isolate overflow-hidden`. */
-export function MistCanvas({ shape, seed, stars = false }: MistCanvasProps) {
+export function MistCanvas({ shape, seed, palette = "night", stars = false }: MistCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Starts the canvas animation once mounted, and stops it on unmount.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    return startMist(canvas, { shape, seed, stars });
-  }, [shape, seed, stars]);
+    return startMist(canvas, { shape, palette, seed, stars });
+  }, [shape, palette, seed, stars]);
 
   return (
     <canvas

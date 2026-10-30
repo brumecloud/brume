@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
 
+import { MotionProvider } from "~/components/motion-provider";
 import { site } from "~/content";
 
 import "./globals.css";
@@ -17,12 +18,6 @@ const geist = localFont({
 const jetbrainsMono = localFont({
   src: "../fonts/jetbrains-mono-regular.woff2",
   variable: "--font-jetbrains-mono",
-  weight: "400",
-});
-
-const silkscreen = localFont({
-  src: "../fonts/silkscreen.woff2",
-  variable: "--font-silkscreen",
   weight: "400",
 });
 
@@ -54,10 +49,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { readonly children: ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${geist.variable} ${jetbrainsMono.variable} ${silkscreen.variable}`}
-    >
+    <html lang="en" className={`${geist.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans text-base">
         <a
           href="#main"
@@ -65,7 +57,7 @@ export default function RootLayout({ children }: { readonly children: ReactNode 
         >
           Skip to content
         </a>
-        {children}
+        <MotionProvider>{children}</MotionProvider>
       </body>
     </html>
   );

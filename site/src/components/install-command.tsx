@@ -48,14 +48,14 @@ export function InstallCommand({ command, className = "" }: InstallCommandProps)
       </span>
       <code
         ref={codeRef}
-        className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-ink [scrollbar-width:none]"
+        className="min-w-0 flex-1 text-ink [overflow-wrap:anywhere] sm:overflow-x-auto sm:whitespace-nowrap sm:[scrollbar-width:none]"
       >
         {command}
       </code>
       <button
         type="button"
         onClick={copy}
-        className="text-pixel shrink-0 cursor-pointer border-l border-edge py-0.5 pl-3.5 text-[10px] text-ink-muted transition-colors hover:text-brand"
+        className="text-label shrink-0 cursor-pointer border-l border-edge py-0.5 pl-3.5 font-sans text-ink-muted transition-colors hover:text-brand"
       >
         {buttonLabel[status]}
       </button>

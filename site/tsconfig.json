@@ -11,7 +11,9 @@
     "resolveJsonModule": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
+    // Off: the Animate UI icons in src/components/animate-ui are copied as is,
+    // and are written without it.
+    "exactOptionalPropertyTypes": false,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,

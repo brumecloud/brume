@@ -6,8 +6,9 @@ export function Problem() {
   return (
     <Section
       id="problem"
-      kicker="The problem"
-      title="Self-hosting shouldn't mean opening your server to the world."
+      kicker="Why Brume"
+      tone="rose"
+      title="Self-hosting, secure by design."
       lede="Most self-hosted platforms run their admin panel on a public port, in the same process as the Docker socket. One bug in the panel, and an attacker is root on your machine."
     >
       <div className="mt-12 grid gap-7 md:grid-cols-2">

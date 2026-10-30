@@ -6,7 +6,6 @@ const links = [
   { href: "#how", label: "How it works" },
   { href: "#features", label: "Features" },
   { href: "#security", label: "Security" },
-  { href: "#open-source", label: "Open source" },
 ];
 
 export function SiteHeader() {

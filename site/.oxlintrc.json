@@ -6,7 +6,7 @@
     "suspicious": "warn",
     "perf": "warn"
   },
-  "ignorePatterns": [".next/**", "out/**", "next-env.d.ts"],
+  "ignorePatterns": [".next/**", "out/**", "next-env.d.ts", "src/components/animate-ui/**"],
   "rules": {
     "react/react-in-jsx-scope": "off",
     "react/no-danger": "error",

@@ -14,9 +14,9 @@ export default function NotFound() {
       id="main"
       className="relative isolate grid min-h-svh place-items-center overflow-hidden px-6 text-center"
     >
-      <MistCanvas shape="floor" seed={4} stars />
+      <MistCanvas shape="floor" palette="dawn" seed={4} stars />
       <div>
-        <p className="text-pixel text-brand">404</p>
+        <p className="text-label text-brand">404</p>
         <h1 className="mt-4 text-[clamp(2rem,5vw,3.5rem)] font-semibold tracking-[-0.04em]">
           Lost in the mist.
         </h1>

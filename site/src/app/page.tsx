@@ -5,10 +5,10 @@ import { Features } from "~/components/sections/features";
 import { Hero } from "~/components/sections/hero";
 import { HowItWorks } from "~/components/sections/how-it-works";
 import { MistBand } from "~/components/sections/mist-band";
-import { OpenSource } from "~/components/sections/open-source";
 import { Problem } from "~/components/sections/problem";
 import { Roadmap } from "~/components/sections/roadmap";
 import { Security } from "~/components/sections/security";
+import { StackMarquee } from "~/components/sections/stack-marquee";
 import { site } from "~/content";
 
 const structuredData = {
@@ -37,12 +37,12 @@ export default function HomePage() {
       <SiteHeader />
       <main id="main">
         <Hero />
+        <StackMarquee />
         <Problem />
         <HowItWorks />
         <Features />
         <MistBand />
         <Security />
-        <OpenSource />
         <Roadmap />
         <ClosingCta />
       </main>

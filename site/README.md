@@ -20,8 +20,13 @@ To preview the export: `python3 -m http.server --directory out 4173`.
 - `src/components/`: shared pieces: install command, terminal window, cards, mist canvas.
 - `src/content.ts`: links and copy.
 - `src/lib/mist.ts`: the dithered mist. Its `PALETTE[0]` must stay `--color-night` in `src/app/globals.css`.
-- `src/fonts/`: Geist, JetBrains Mono (subset to Latin, arrows and box drawing) and Silkscreen, under the SIL Open Font License.
+- `src/fonts/`: Geist for the text, and JetBrains Mono (subset to Latin, arrows and box drawing) for commands and terminals, under the SIL Open Font License.
 
 ## Hosting
 
-Any static host works, including Brume's own static sites. The host should send the security headers, since a static export cannot: `Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` and `Permissions-Policy`.
+Deployed on Vercel from `main`, with `site/` as the root directory. `vercel.json` adds what a static export cannot set itself:
+
+- the security headers: `Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`;
+- `/install.sh`, redirected to the script of the latest GitHub release, so the script always comes from the same place as the binaries.
+
+The Vercel project sets `ENABLE_EXPERIMENTAL_COREPACK=1`, so the build uses the pnpm version pinned in `package.json`.

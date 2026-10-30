@@ -7,6 +7,7 @@ export function Features() {
     <Section
       id="features"
       kicker="Features"
+      tone="violet"
       title="Everything your apps need to run. Nothing you have to babysit."
     >
       <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

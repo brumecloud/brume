@@ -6,9 +6,11 @@
 // prefers reduced motion.
 
 export type MistShape = "hero" | "band" | "floor";
+export type MistPalette = keyof typeof PALETTES;
 
 export interface MistOptions {
   readonly shape: MistShape;
+  readonly palette: MistPalette;
   readonly seed: number;
   readonly stars: boolean;
 }
@@ -17,18 +19,26 @@ export interface MistOptions {
 const PIXEL = 4;
 const FRAME_MS = 90;
 
-/** From the page background (`--color-night`) to the brightest fog. */
-const PALETTE = [
-  "#020818",
-  "#05112e",
-  "#0a1d4a",
-  "#11306f",
-  "#1b4c9e",
-  "#2f74d0",
-  "#5ea8f5",
-  "#b4dcff",
-];
-const STAR_COLORS = ["#1b4c9e", "#8fc6ff", "#ffffff"];
+/**
+ * From the page background (`--color-night`) to the brightest fog. Every
+ * palette starts on the page background and has the same number of levels.
+ */
+const PALETTES = {
+  night: ["#020818", "#05112e", "#0a1d4a", "#11306f", "#1b4c9e", "#2f74d0", "#5ea8f5", "#b4dcff"],
+  aurora: ["#020818", "#04172a", "#062b39", "#0a4447", "#0f6655", "#1f9a72", "#4fd59a", "#c4f7dc"],
+  dawn: ["#020818", "#0d0f2b", "#1e1440", "#3b1d55", "#6b2a63", "#a33e63", "#e0685a", "#ffc08a"],
+} as const;
+const STAR_COLORS = ["#3b4f7a", "#c9d8ff", "#ffffff"];
+
+/**
+ * Stars thin out toward the top edge over this share of the height, so a canvas
+ * below another section starts without a visible line.
+ */
+const STAR_FADE_IN: Record<MistShape, number> = { hero: 0, band: 0, floor: 0.35 };
+
+/** A shooting star crosses the sky every few seconds. */
+const METEOR_PERIOD = 7;
+const METEOR_DURATION = 0.9;
 
 const clamp01 = (value: number): number => (value < 0 ? 0 : value > 1 ? 1 : value);
 
@@ -46,10 +56,14 @@ const SHAPES: Record<MistShape, (v: number) => number> = {
     const center = 1 - Math.abs(v - 0.5) * 2;
     return center * center * 1.35 - 0.5;
   },
-  // Low fog under the closing call to action.
+  // Low fog under the closing call to action. It fades in from the top, so the
+  // section starts on the page background, and dims at the very bottom to meet
+  // the footer softly.
   floor(v) {
     const rise = Math.max(0, (v - 0.35) / 0.65);
-    return rise * rise * 0.95 - 0.25;
+    const fadeIn = clamp01(1 - v / 0.3);
+    const fadeOut = clamp01((v - 0.9) / 0.1);
+    return rise * rise * 0.95 - 0.25 - fadeIn * 0.8 - fadeOut * 0.5;
   },
 };
 
@@ -63,10 +77,9 @@ const pack = (hex: string): number => {
   const n = Number.parseInt(hex.slice(1), 16);
   return ((255 << 24) | ((n & 255) << 16) | (n & 0xff00) | ((n >> 16) & 255)) >>> 0;
 };
-const PALETTE_WORDS = Uint32Array.from(PALETTE, pack);
 const STAR_WORDS = Uint32Array.from(STAR_COLORS, pack);
-const LEVELS = PALETTE.length;
-const SKY = PALETTE_WORDS[0] ?? 0;
+const LEVELS = PALETTES.night.length;
+const SKY = pack(PALETTES.night[0]);
 
 const mulberry32 = (seed: number) => (): number => {
   seed = (seed + 0x6d2b79f5) | 0;
@@ -119,6 +132,7 @@ interface Star {
   readonly phase: number;
   readonly speed: number;
   readonly big: boolean;
+  readonly keep: number;
 }
 
 class MistField {
@@ -128,12 +142,15 @@ class MistField {
   private pixels = new Uint32Array(0);
   private rowShape = new Float32Array(0);
   private stars: Star[] = [];
+  private readonly palette: Uint32Array;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly context: CanvasRenderingContext2D,
     private readonly options: MistOptions,
-  ) {}
+  ) {
+    this.palette = Uint32Array.from(PALETTES[options.palette], pack);
+  }
 
   /** Matches the canvas to the box it covers, padding included. */
   resize(box: DOMRect): void {
@@ -155,7 +172,7 @@ class MistField {
 
   draw(time: number): void {
     if (!this.image) return;
-    const { width, height, pixels, rowShape } = this;
+    const { width, height, pixels, rowShape, palette } = this;
     const offset = this.options.seed * 37;
     for (let y = 0; y < height; y++) {
       const shape = rowShape[y]!;
@@ -168,24 +185,29 @@ class MistField {
         const level = density * (LEVELS - 1);
         const base = level | 0;
         const index = base + (level - base > BAYER[bayerRow | (x & 3)]! ? 1 : 0);
-        pixels[row + x] = PALETTE_WORDS[Math.min(index, LEVELS - 1)]!;
+        pixels[row + x] = palette[Math.min(index, LEVELS - 1)]!;
       }
     }
     this.drawStars(time);
+    if (this.options.stars) this.drawMeteor(time);
     this.context.putImageData(this.image, 0, 0);
   }
 
   private makeStars(): Star[] {
     const random = mulberry32(this.options.seed * 7919);
     const count = Math.floor(this.width * this.height * 0.6 * 0.008);
-    return Array.from({ length: count }, () => ({
+    const fadeIn = STAR_FADE_IN[this.options.shape] * this.height;
+    const stars = Array.from({ length: count }, () => ({
       x: Math.floor(random() * this.width),
       y: Math.floor(random() * this.height * 0.6),
       brightness: 0.25 + random() * random() * 0.75,
       phase: random() * Math.PI * 2,
       speed: 0.5 + random() * 2.5,
       big: random() < 0.05,
+      keep: random(),
     }));
+    // Fewer stars near the top edge: a dithered fade rather than a line.
+    return stars.filter((star) => fadeIn === 0 || star.keep < star.y / fadeIn);
   }
 
   /** Stars only show through clear sky, never over the fog. */
@@ -210,6 +232,28 @@ class MistField {
         if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
         if (pixels[ny * width + nx] === SKY) pixels[ny * width + nx] = STAR_WORDS[0]!;
       }
+    }
+  }
+
+  /** A short streak moving down and to the left, hidden behind the fog. */
+  private drawMeteor(time: number): void {
+    const cycle = Math.floor(time / METEOR_PERIOD);
+    const progress = (time - cycle * METEOR_PERIOD) / METEOR_DURATION;
+    if (cycle === 0 || progress >= 1) return;
+    const { width, height, pixels } = this;
+    const random = mulberry32(this.options.seed * 131 + cycle);
+    const startX = width * (0.35 + random() * 0.6);
+    const startY = height * (STAR_FADE_IN[this.options.shape] + random() * 0.3);
+    const distance = 28 + random() * 24;
+    const headX = startX - progress * distance;
+    const headY = startY + progress * distance * 0.45;
+    for (let i = 0; i < 7; i++) {
+      const x = Math.round(headX + i);
+      const y = Math.round(headY - i * 0.45);
+      if (x < 0 || y < 0 || x >= width || y >= height) continue;
+      const at = y * width + x;
+      if (pixels[at] !== SKY) continue;
+      pixels[at] = STAR_WORDS[i === 0 ? 2 : i < 3 ? 1 : 0]!;
     }
   }
 }
