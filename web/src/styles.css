@@ -110,8 +110,10 @@
   --color-sidebar-border: var(--sidebar-border);
 }
 
-/* Brand colors of the services shown on the canvas and the project cards. */
+/* Brand colors of the services, and the easing curves of src/lib/motion.ts. */
 @theme {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --color-brand-postgres: #4169e1;
   --color-brand-mongodb: #47a248;
   --color-brand-redis: #ff4438;

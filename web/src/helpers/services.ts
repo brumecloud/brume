@@ -8,6 +8,7 @@ import type {
 } from "~/api/types";
 
 import { decodeArray, decodeRecord, readOneOf, readString, readStringArray } from "./decode";
+import { isId } from "./ids";
 
 const KINDS: readonly ServiceKind[] = ["github", "image", "static", "postgres", "mongodb", "redis"];
 const STATUSES: readonly ServiceStatus[] = ["online", "deploying", "crashed", "stopped"];
@@ -37,4 +38,26 @@ function parseVolume(raw: unknown): Volume {
     name: readString(record, "name", "volume"),
     mountPath: readString(record, "mountPath", "volume"),
   };
+}
+
+export function parseServiceId(raw: string): ServiceId | undefined {
+  return isId(raw) ? (raw as ServiceId) : undefined;
+}
+
+export function isDatabase(kind: ServiceKind): boolean {
+  return kind === "postgres" || kind === "mongodb" || kind === "redis";
+}
+
+const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
+
+// Domains come from the API: link to them only over https, and only when they are hostnames.
+export function domainUrl(domain: string): string | undefined {
+  return HOSTNAME.test(domain) ? new URL(`https://${domain}`).href : undefined;
+}
+
+export function formatLimits(cpu: number, memoryMb: number): string {
+  const memory =
+    memoryMb >= 1024 ? `${NUMBER_FORMAT.format(memoryMb / 1024)} Go` : `${memoryMb} Mo`;
+  return `${NUMBER_FORMAT.format(cpu)} vCPU · ${memory}`;
 }

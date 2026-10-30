@@ -1,4 +1,5 @@
 import { useLiveSuspenseQuery } from "@tanstack/react-db";
+import { useParams } from "@tanstack/react-router";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { HardDriveIcon } from "lucide-react";
 
@@ -10,13 +11,21 @@ import { ServiceStatusLabel } from "~/components/services/service-status";
 // so a status change re-renders the card without rebuilding the graph.
 export function ServiceNode({ id }: NodeProps) {
   const { data: service } = useLiveSuspenseQuery({ query: serviceById(id) });
+  // The open panel tells which service is selected.
+  const { serviceId } = useParams({ strict: false });
   if (!service) {
     return null;
   }
 
   return (
     <div className="w-72">
-      <div className="relative flex flex-col gap-6 rounded-xl border bg-card p-4 shadow-sm">
+      <div
+        className={
+          serviceId === id
+            ? "relative flex flex-col gap-6 rounded-xl border border-ring bg-card p-4 shadow-sm ring-2 ring-ring/24"
+            : "relative flex flex-col gap-6 rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-ring/40"
+        }
+      >
         <Handle type="target" position={Position.Top} isConnectable={false} className="opacity-0" />
         <div className="flex items-start gap-3">
           <ServiceIcon kind={service.kind} />

@@ -3,6 +3,9 @@ import type { Edge, Node, XYPosition } from "@xyflow/react";
 import type { Service } from "~/api/types";
 
 export const NODE_WIDTH = 288;
+// The service panel: `max-w-4xl` plus its `right-2` gap.
+export const PANEL_WIDTH = 896 + 8;
+const DEFAULT_NODE_HEIGHT = 120;
 const COLUMN_GAP = 48;
 const ROW_HEIGHT = 240;
 
@@ -97,4 +100,29 @@ export function canvasKey(services: readonly Service[]): string {
     .map((service) => `${service.id}:${service.dependencies.toSorted().join(",")}`)
     .toSorted()
     .join("|");
+}
+
+interface FocusedNode {
+  readonly position: XYPosition;
+  readonly width?: number | undefined;
+  readonly height?: number | undefined;
+}
+
+// Where to center the viewport so the selected node sits in the middle of the strip the
+// panel leaves visible, like infra/screens/04a-service-deployments.png.
+export function panelFocusCenter(
+  node: FocusedNode,
+  viewportWidth: number,
+  zoom: number,
+): XYPosition {
+  const width = node.width ?? NODE_WIDTH;
+  const center = {
+    x: node.position.x + width / 2,
+    y: node.position.y + (node.height ?? DEFAULT_NODE_HEIGHT) / 2,
+  };
+  const visible = viewportWidth - PANEL_WIDTH;
+  if (visible < width * zoom) {
+    return center;
+  }
+  return { x: center.x + (viewportWidth - visible) / 2 / zoom, y: center.y };
 }

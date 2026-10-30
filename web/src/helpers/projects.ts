@@ -1,8 +1,8 @@
 import type { Environment, EnvironmentId, Project, ProjectId } from "~/api/types";
 
 import { decodeArray, decodeRecord, readString } from "./decode";
+import { isId } from "./ids";
 
-const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const DNS_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const DEFAULT_ENVIRONMENT = "production";
 
@@ -35,7 +35,7 @@ function parseEnvironment(raw: unknown): Environment {
 
 // URL params are hostile: a crafted link can be sent to the admin.
 export function parseProjectId(raw: string): ProjectId | undefined {
-  return ID.test(raw) ? (raw as ProjectId) : undefined;
+  return isId(raw) ? (raw as ProjectId) : undefined;
 }
 
 export function parseEnvironmentName(raw: string): string | undefined {

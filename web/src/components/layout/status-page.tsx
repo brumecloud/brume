@@ -19,7 +19,9 @@ export function NotFoundPage() {
           <CloudOffIcon />
         </EmptyMedia>
         <EmptyTitle>Page introuvable</EmptyTitle>
-        <EmptyDescription>Ce projet ou cet environnement n'existe pas, ou plus.</EmptyDescription>
+        <EmptyDescription>
+          Ce projet, cet environnement ou ce service n'existe pas, ou plus.
+        </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         <Button variant="outline" render={<Link to="/projects" />}>

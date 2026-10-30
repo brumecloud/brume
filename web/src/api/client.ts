@@ -22,8 +22,12 @@ export function apiPost<T>(path: ApiPath, body: unknown, decode: (raw: unknown) 
   return request("POST", path, body, decode);
 }
 
+export function apiDelete(path: ApiPath): Promise<void> {
+  return request("DELETE", path, undefined, () => undefined);
+}
+
 async function request<T>(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "DELETE",
   path: ApiPath,
   body: unknown,
   decode: (raw: unknown) => T,

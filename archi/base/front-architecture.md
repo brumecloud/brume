@@ -172,6 +172,8 @@ Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 - **Les positions déplacées à la main** restent dans le navigateur, dans une collection TanStack DB sur localStorage. Ce sont des préférences d'affichage, pas des données du projet. « Réorganiser » les efface.
 - **Les arêtes viennent des dépendances** que l'API calcule à partir des secrets référencés par chaque service.
 - **La mention React Flow reste visible :** sa licence demande un abonnement Pro pour la masquer.
+- **Le panneau d'un service est une route enfant du canvas** (`$env/_canvas/services/$serviceId/{deployments,variables,settings}`). Le canvas reste monté derrière, le bouton Retour ferme le panneau, et chaque onglet a son URL. Le canvas se décale pour garder le service sélectionné visible à gauche du panneau (`panelFocusCenter`).
+- **Supprimer une variable est optimiste** (`onDelete` de la collection) : la ligne disparaît tout de suite et revient si le serveur refuse. Créer une variable passe par l'API puis recharge la collection, pour que la valeur d'un secret n'entre jamais dans le cache.
 - React Flow tire `zustand` pour son état interne. La règle « pas de store global » vise notre code, pas celui des dépendances.
 
 ## Animations

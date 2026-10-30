@@ -50,3 +50,29 @@ export function readStringArray(
   }
   return value;
 }
+
+export function readNumber(record: Record<string, unknown>, key: string, what: string): number {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new DecodeError(`${what}.${key}: expected a number`);
+  }
+  return value;
+}
+
+export function readBoolean(record: Record<string, unknown>, key: string, what: string): boolean {
+  const value = record[key];
+  if (typeof value !== "boolean") {
+    throw new DecodeError(`${what}.${key}: expected a boolean`);
+  }
+  return value;
+}
+
+// `read` decodes the field when it is not null.
+export function readNullable<T>(
+  record: Record<string, unknown>,
+  key: string,
+  what: string,
+  read: (record: Record<string, unknown>, key: string, what: string) => T,
+): T | null {
+  return record[key] === null ? null : read(record, key, what);
+}

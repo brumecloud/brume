@@ -1,5 +1,11 @@
 import type {
   CreatedProject,
+  Deployment,
+  DeploymentId,
+  ServiceSettings,
+  Variable,
+  VariableId,
+  VariableKind,
   Environment,
   EnvironmentId,
   NewProjectSource,
@@ -10,6 +16,7 @@ import type {
   ServiceKind,
 } from "~/api/types";
 
+import * as history from "./history";
 import * as seed from "./seed";
 
 // In-memory state of the mocked server. A page reload resets it to the seed.
@@ -17,6 +24,9 @@ export const db = {
   projects: [...seed.projects],
   environments: [...seed.environments],
   services: [...seed.services],
+  deployments: [...history.deployments],
+  variables: [...history.variables],
+  secretValues: new Map(history.secretValues),
 };
 
 const SERVICE_NAMES: Record<Exclude<ServiceKind, "github" | "static" | "image">, string> = {
@@ -43,8 +53,19 @@ export function createProject(source: NewProjectSource): CreatedProject {
   db.projects.push(project);
   db.environments.push(environment);
   if (serviceName && source.kind !== "empty") {
+    const serviceId = crypto.randomUUID() as ServiceId;
+    db.deployments.push({
+      id: crypto.randomUUID() as DeploymentId,
+      serviceId,
+      status: source.kind === "github" || source.kind === "static" ? "deploying" : "active",
+      createdAt: new Date().toISOString(),
+      author: "admin",
+      commit: null,
+      image: source.kind === "image" ? source.image : null,
+      rollbackable: true,
+    });
     db.services.push({
-      id: crypto.randomUUID() as ServiceId,
+      id: serviceId,
       environmentId: environment.id,
       name: serviceName,
       slug: serviceName.toLowerCase(),
@@ -109,5 +130,130 @@ export function readNewProjectSource(raw: unknown): NewProjectSource | undefined
       return typeof source.image === "string" ? { kind: "image", image: source.image } : undefined;
     default:
       return undefined;
+  }
+}
+
+// Puts a deployment in service: the one it replaces is kept in the history.
+export function deploy(from: Deployment, author: string): Deployment {
+  for (const [index, deployment] of db.deployments.entries()) {
+    if (deployment.serviceId === from.serviceId && deployment.status === "active") {
+      db.deployments[index] = { ...deployment, status: "superseded" };
+    }
+  }
+  const deployment: Deployment = {
+    ...from,
+    id: crypto.randomUUID() as DeploymentId,
+    status: "active",
+    createdAt: new Date().toISOString(),
+    author,
+  };
+  db.deployments.push(deployment);
+  const index = db.services.findIndex((service) => service.id === from.serviceId);
+  const service = db.services[index];
+  if (service) {
+    db.services[index] = { ...service, status: "online" };
+  }
+  return deployment;
+}
+
+export function deleteService(serviceId: string): void {
+  db.services = db.services.filter((service) => service.id !== serviceId);
+  for (const [index, service] of db.services.entries()) {
+    if (service.dependencies.includes(serviceId as ServiceId)) {
+      db.services[index] = {
+        ...service,
+        dependencies: service.dependencies.filter((dependency) => dependency !== serviceId),
+      };
+    }
+  }
+  db.deployments = db.deployments.filter((deployment) => deployment.serviceId !== serviceId);
+  db.variables = db.variables.filter((variable) => variable.ownerId !== serviceId);
+}
+
+const KINDS: ReadonlySet<string> = new Set<VariableKind>(["plain", "build", "secret"]);
+const NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
+
+// Returns an error message the panel shows as is, or the created variable.
+export function createVariable(raw: unknown): string | Variable {
+  const body = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+  const { serviceId, name, kind, value } = body;
+  if (
+    typeof serviceId !== "string" ||
+    typeof name !== "string" ||
+    typeof value !== "string" ||
+    typeof kind !== "string" ||
+    !KINDS.has(kind) ||
+    !NAME.test(name)
+  ) {
+    return "Variable invalide.";
+  }
+  if (db.variables.some((variable) => variable.ownerId === serviceId && variable.name === name)) {
+    return `${name} existe déjà sur ce service.`;
+  }
+  const variable: Variable = {
+    id: crypto.randomUUID() as VariableId,
+    level: "service",
+    ownerId: serviceId,
+    name,
+    kind: kind as VariableKind,
+    value: kind === "secret" ? null : value,
+  };
+  if (kind === "secret") {
+    db.secretValues.set(variable.id, value);
+  }
+  db.variables.push(variable);
+  return variable;
+}
+
+const TEMPLATE_VERSIONS = { postgres: "17.6", mongodb: "8.0.15", redis: "8.2.2" } as const;
+
+export function settingsFor(service: Service): ServiceSettings {
+  const environment = db.environments.find(({ id }) => id === service.environmentId);
+  const limits = { cpuLimit: 1, memoryLimitMb: 512 };
+  switch (service.kind) {
+    case "github":
+    case "static": {
+      const project = service.name.split("-")[0] ?? service.name;
+      return {
+        source: {
+          kind: "github",
+          repository: project === "brume" ? "brumecloud/brume" : `planchon/${project}`,
+          branch: environment?.name === "production" ? "main" : (environment?.name ?? "main"),
+          autoDeploy: true,
+        },
+        startCommand: service.kind === "github" ? "pnpm start" : null,
+        port: service.kind === "github" ? 3000 : null,
+        healthcheckPath: service.kind === "github" ? "/health" : null,
+        ...limits,
+        egress: true,
+      };
+    }
+    case "image": {
+      const image = db.deployments.find(
+        (deployment) => deployment.serviceId === service.id && deployment.status === "active",
+      )?.image;
+      return {
+        source: { kind: "image", image: image ?? service.name },
+        startCommand: null,
+        port: null,
+        healthcheckPath: null,
+        ...limits,
+        egress: true,
+      };
+    }
+    default:
+      return {
+        source: {
+          kind: "template",
+          template: service.kind,
+          version: TEMPLATE_VERSIONS[service.kind],
+        },
+        startCommand: null,
+        port: null,
+        healthcheckPath: null,
+        cpuLimit: 1,
+        memoryLimitMb: 1024,
+        egress: false,
+      };
   }
 }

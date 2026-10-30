@@ -2,7 +2,15 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { EnvironmentId, Service, ServiceId } from "~/api/types";
 
-import { NODE_WIDTH, canvasEdges, canvasKey, canvasNodes, layoutServices } from "./canvas";
+import {
+  NODE_WIDTH,
+  PANEL_WIDTH,
+  canvasEdges,
+  canvasKey,
+  canvasNodes,
+  layoutServices,
+  panelFocusCenter,
+} from "./canvas";
 
 const service = (name: string, dependencies: string[] = []): Service => ({
   id: name as ServiceId,
@@ -101,5 +109,30 @@ describe("canvasKey", () => {
 
     expect(canvasKey([service("a"), service("b"), service("c")])).not.toBe(key);
     expect(canvasKey([service("a"), service("b", ["a"])])).not.toBe(key);
+  });
+});
+
+describe("panelFocusCenter", () => {
+  const node = { position: { x: 0, y: 0 }, width: NODE_WIDTH, height: 120 };
+
+  it("centers the node in the strip left of the panel", () => {
+    const viewportWidth = PANEL_WIDTH + 400;
+    const center = panelFocusCenter(node, viewportWidth, 1);
+    // setCenter puts `center` in the middle of the viewport: the node lands mid-strip.
+    const nodeOnScreen = viewportWidth / 2 - (center.x - NODE_WIDTH / 2);
+
+    expect(nodeOnScreen).toBe(200);
+    expect(center.y).toBe(60);
+  });
+
+  it("accounts for the zoom", () => {
+    const viewportWidth = PANEL_WIDTH + 400;
+    const center = panelFocusCenter(node, viewportWidth, 0.5);
+
+    expect(viewportWidth / 2 - (center.x - NODE_WIDTH / 2) * 0.5).toBe(200);
+  });
+
+  it("simply centers the node when the panel covers the screen", () => {
+    expect(panelFocusCenter(node, 600, 1)).toEqual({ x: NODE_WIDTH / 2, y: 60 });
   });
 });
