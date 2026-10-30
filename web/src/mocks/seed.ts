@@ -1,4 +1,14 @@
-import type { Environment, EnvironmentId, Project, ProjectId } from "~/api/types";
+import type {
+  Environment,
+  EnvironmentId,
+  Project,
+  ProjectId,
+  Repository,
+  Service,
+  ServiceId,
+  ServiceKind,
+  ServiceStatus,
+} from "~/api/types";
 
 const project = (id: string, name: string, description: string, updatedAt: string): Project => ({
   id: id as ProjectId,
@@ -11,6 +21,20 @@ const environment = (projectId: ProjectId, name: string): Environment => ({
   id: `${projectId}-${name}` as EnvironmentId,
   projectId,
   name,
+});
+
+const service = (
+  env: Environment,
+  name: string,
+  kind: ServiceKind,
+  status: ServiceStatus = "online",
+): Service => ({
+  id: `${env.id}-${name}` as ServiceId,
+  environmentId: env.id,
+  name,
+  slug: name.toLowerCase(),
+  kind,
+  status,
 });
 
 export const brume = project(
@@ -35,10 +59,47 @@ const eve = project("2d7e9b14-0c3a-4e61-8f5d-6b2a1c9e7f33", "eve", "", "2026-10-
 
 export const projects: readonly Project[] = [brume, beaubon, melled, eve];
 
+const brumeProduction = environment(brume.id, "production");
+const brumeStaging = environment(brume.id, "staging");
+const beaubonProduction = environment(beaubon.id, "production");
+const melledProduction = environment(melled.id, "production");
+const eveDev = environment(eve.id, "dev");
+
 export const environments: readonly Environment[] = [
-  environment(brume.id, "production"),
-  environment(brume.id, "staging"),
-  environment(beaubon.id, "production"),
-  environment(melled.id, "production"),
-  environment(eve.id, "dev"),
+  brumeProduction,
+  brumeStaging,
+  beaubonProduction,
+  melledProduction,
+  eveDev,
 ];
+
+export const services: readonly Service[] = [
+  service(brumeProduction, "brume-api", "github"),
+  service(brumeProduction, "brume-worker", "github"),
+  service(brumeProduction, "MongoDB", "mongodb"),
+  service(brumeProduction, "Redis", "redis"),
+  service(brumeStaging, "brume-api", "github", "deploying"),
+  service(brumeStaging, "MongoDB", "mongodb"),
+  service(beaubonProduction, "beaubon-api", "github"),
+  service(beaubonProduction, "beaubon-site", "static"),
+  service(beaubonProduction, "PostgreSQL", "postgres"),
+  service(melledProduction, "melled-web", "static"),
+  service(melledProduction, "melled-api", "github"),
+  service(melledProduction, "MongoDB", "mongodb"),
+  service(eveDev, "eve", "github"),
+  service(eveDev, "shim", "image", "crashed"),
+  service(eveDev, "tailscale-forwarder", "image"),
+  service(eveDev, "MongoDB", "mongodb"),
+  service(eveDev, "Redis", "redis"),
+];
+
+export const repositories: readonly Repository[] = [
+  "planchon/planchon",
+  "brumecloud/brume",
+  "planchon/beaubon",
+  "planchon/eve",
+  "planchon/melled",
+  "planchon/coucou",
+  "planchon/movictory",
+  "planchon/ai-agent",
+].map((fullName) => ({ fullName }));

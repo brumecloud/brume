@@ -12,13 +12,30 @@ class ApiError extends Error {
   }
 }
 
-export async function apiGet<T>(path: `/api/${string}`, decode: (raw: unknown) => T): Promise<T> {
+type ApiPath = `/api/${string}`;
+
+export function apiGet<T>(path: ApiPath, decode: (raw: unknown) => T): Promise<T> {
+  return request("GET", path, undefined, decode);
+}
+
+export function apiPost<T>(path: ApiPath, body: unknown, decode: (raw: unknown) => T): Promise<T> {
+  return request("POST", path, body, decode);
+}
+
+async function request<T>(
+  method: "GET" | "POST",
+  path: ApiPath,
+  body: unknown,
+  decode: (raw: unknown) => T,
+): Promise<T> {
   const response = await fetch(path, {
+    method,
     headers: { "X-Brume": "1", "Content-Type": "application/json" },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  const body: unknown = await response.json().catch(() => undefined);
+  const payload: unknown = await response.json().catch(() => undefined);
   if (!response.ok) {
-    throw new ApiError(response.status, apiErrorMessage(response.status, body));
+    throw new ApiError(response.status, apiErrorMessage(response.status, payload));
   }
-  return decode(body);
+  return decode(payload);
 }

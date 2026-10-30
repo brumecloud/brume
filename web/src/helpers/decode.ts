@@ -25,3 +25,16 @@ export function readString(record: Record<string, unknown>, key: string, what: s
   }
   return value;
 }
+
+export function readOneOf<const T extends string>(
+  record: Record<string, unknown>,
+  key: string,
+  values: readonly T[],
+  what: string,
+): T {
+  const value = record[key];
+  if (!values.includes(value as T)) {
+    throw new DecodeError(`${what}.${key}: expected one of ${values.join(", ")}`);
+  }
+  return value as T;
+}

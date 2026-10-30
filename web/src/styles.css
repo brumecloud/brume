@@ -110,6 +110,20 @@
   --color-sidebar-border: var(--sidebar-border);
 }
 
+/* Brand colors of the services shown on the canvas and the project cards. */
+@theme {
+  --color-brand-postgres: #4169e1;
+  --color-brand-mongodb: #47a248;
+  --color-brand-redis: #ff4438;
+  --color-brand-docker: #2496ed;
+}
+
+/* The dotted background of the canvas and of the project previews. */
+@utility bg-dots {
+  background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

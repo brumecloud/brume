@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { DecodeError, decodeArray, decodeRecord, readString } from "./decode";
+import { DecodeError, decodeArray, decodeRecord, readOneOf, readString } from "./decode";
 
 describe("decodeRecord", () => {
   it("accepts a plain object", () => {
@@ -32,5 +32,19 @@ describe("readString", () => {
       "project.name: expected a string",
     );
     expect(() => readString({}, "name", "project")).toThrow(DecodeError);
+  });
+});
+
+describe("readOneOf", () => {
+  const kinds = ["github", "image"] as const;
+
+  it("reads one of the allowed values", () => {
+    expect(readOneOf({ kind: "image" }, "kind", kinds, "service")).toBe("image");
+  });
+
+  it("rejects any other value", () => {
+    expect(() => readOneOf({ kind: "lambda" }, "kind", kinds, "service")).toThrow(
+      "service.kind: expected one of github, image",
+    );
   });
 });

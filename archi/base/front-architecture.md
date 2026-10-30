@@ -287,7 +287,7 @@ Les couches s'ajoutent par des `overrides` de `eslint/no-restricted-imports`, un
 - **`retry: 0` :** un test instable se corrige, il ne se relance pas.
 - **`allowOnly: !process.env.CI` :** un `.only` oublié fait échouer la CI.
 - **`vitest-browser-react` démonte les composants** avant chaque test, même après un échec. Son `render` n'est pas encore disposable (`await using`).
-- **Les tests navigateur passent par les handlers MSW,** comme le dev : un test monte le vrai routeur sur une URL et vérifie ce que voit l'admin.
+- **Les tests navigateur passent par les handlers MSW,** comme le dev : un test monte l'app entière sur une URL (`test/render-app.tsx`) et vérifie ce que voit l'admin. Les fichiers de test tournent l'un après l'autre : ils partagent le service worker de MSW, et des iframes en parallèle mélangeraient leurs requêtes.
 - **`build/react-compiler.test.ts`** compile chaque fichier de `src/` et échoue si le compilateur en saute une fonction.
 
 ## Build

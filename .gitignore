@@ -16,3 +16,6 @@ node_modules/
 /web/.vite-plus/
 __screenshots__/
 *.log
+
+# Vitest failure screenshots
+/web/.vitest/

@@ -165,6 +165,8 @@ export default defineConfig({
         test: {
           name: "browser",
           include: ["src/**/*.browser.test.tsx"],
+          // Test files share one MSW service worker: parallel iframes would mix their requests.
+          fileParallelism: false,
           browser: {
             enabled: true,
             headless: true,
