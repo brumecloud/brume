@@ -2,7 +2,9 @@
 
 ## Aucun port entrant
 
-- **Le trafic public passe par Cloudflare Tunnel, obligatoire.** `cloudflared` ouvre une connexion sortante vers Cloudflare.
+Ce document décrit les modes recommandés. L'entrée directe et l'administration sans Tailscale sont possibles, choisies sur l'hôte : voir [Les autres modes](#les-autres-modes).
+
+- **Le trafic public passe par Cloudflare Tunnel.** `cloudflared` ouvre une connexion sortante vers Cloudflare.
 - **L'administration passe par Tailscale,** SSH compris (Tailscale SSH).
 - **UFW refuse tout en entrée,** sauf depuis le réseau `ingress` vers le port du webhook. Tailscale fonctionne quand même, grâce à ses connexions sortantes et à ses relais.
 - **UFW est statique :** configuré une fois par `brume install`, jamais modifié ensuite. Brume n'a pas besoin de `CAP_NET_ADMIN`. Le flux est géré par Traefik et par les réseaux Docker.
@@ -47,7 +49,7 @@ Avec le proxy classique, le DNS pointe sur l'IP du serveur et Cloudflare relaie 
 
 ## Traefik
 
-- **Jamais le socket Docker.** L'engine écrit la config (file provider) dans un dossier monté en lecture seule.
+- **Jamais le socket Docker.** L'agent écrit la config (file provider) dans un dossier monté en lecture seule.
 - **Aucun port publié,** pas de root, système de fichiers en lecture seule.
 - **N'écoute que sur son IP fixe du réseau `ingress`.** Par défaut, Traefik écoute sur toutes ses interfaces : une app pourrait l'appeler avec le `Host` d'une autre app et contourner Cloudflare (Access, WAF).
 - **Un réseau `edge-<service>` par service exposé,** partagé avec Traefik seul. Traefik n'est sur aucun réseau d'environnement et ne joint jamais les bases.
@@ -89,7 +91,7 @@ Docker active le forwarding IP sur l'hôte. Sans règle, un container compromis 
   - en IPv6 : `fc00::/7` (tailnet et métadonnées AWS compris) et `fe80::/10`.
 - **Sous-réseaux Docker épinglés** dans `default-address-pools`, hors du réseau privé de l'hébergeur : les règles les connaissent à l'avance.
 - **Tous les réseaux sont concernés,** `tunnel` et `build` compris.
-- **L'engine refuse de démarrer un container si la table manque.** Les containers n'ont pas de politique de redémarrage Docker : c'est l'engine qui les démarre au boot, après cette vérification.
+- **L'agent refuse de démarrer un container si la table manque.** Les containers n'ont pas de politique de redémarrage Docker : c'est l'agent qui les démarre au boot, après cette vérification.
 - **Test :** un `curl` depuis un container vers une machine du tailnet ou une IP privée doit échouer.
 
 ## Tailscale
@@ -98,6 +100,28 @@ Docker active le forwarding IP sur l'hôte. Sans règle, un container compromis 
 - **Les bases sont joignables depuis le laptop** en TCP sur le tailnet uniquement. Sans ce chemin simple, les utilisateurs publieraient le port 5432.
   - **Par `tailscale serve` en TCP :** tailscaled transfère un port du nœud vers le container de la base. Docker ne publie aucun port.
   - **Activé base par base** dans le panel. Chaque base exposée a son propre port sur le nœud.
-  - **L'engine tient la config de `tailscale serve` à jour** par l'API locale de tailscaled, à chaque réconciliation : l'IP d'un container peut changer à son redémarrage. Il garde l'entrée HTTPS du panel.
+  - **L'agent tient la config de `tailscale serve` à jour** par l'API locale de tailscaled, à chaque réconciliation : l'IP d'un container peut changer à son redémarrage. Il garde l'entrée HTTPS du panel.
   - **La policy du tailnet n'ouvre ces ports qu'aux identités de l'admin.**
 - Le reste (identité, clé d'auth, Tailnet Lock) est dans [04-panel-admin.md](04-panel-admin.md).
+
+## Les autres modes
+
+Moins sûrs, choisis à l'install sur l'hôte, et signalés en permanence dans le panel. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#lentrée-et-ladministration).
+
+### Entrée directe, sans Cloudflare
+
+- **Traefik publie les ports 80 et 443.** C'est le seul container qui publie des ports. UFW les ouvre en entrée.
+- **Plus de cloudflared ni de réseau `tunnel`.** Le reste ne change pas : réseaux Docker, règles nftables, aucun autre port publié.
+- **Certificats Let's Encrypt, un par domaine,** obtenus par Traefik (HTTP-01 ou TLS-ALPN-01). Aucun token DNS à garder sur le serveur. Les certificats vivent dans le seul dossier de Traefik qui n'est pas en lecture seule.
+- **Le DNS pointe sur l'IP du serveur,** avec un wildcard. Après une restauration, l'admin repointe le DNS vers la nouvelle IP.
+- **Le chemin du webhook est réservé aux plages d'IP de GitHub,** par Traefik, à la place de la règle WAF de Cloudflare. L'engine récupère ces plages (`api.github.com/meta`), et l'agent les écrit dans la config de Traefik.
+- **Traefik ne fait confiance à aucun header `X-Forwarded-*` reçu :** il pose lui-même l'IP du client. Il pose aussi HSTS, que Cloudflare posait.
+- **L'IP du serveur est publique,** et la protection contre le DDoS n'est plus déléguée.
+
+### Administration sans Tailscale
+
+- **Tunnel SSH :** `brume api` reste sur `127.0.0.1`, et l'admin le joint par `ssh -L`. Aucun port d'administration n'est ouvert sur Internet.
+- **Public :** Traefik sert le panel sur un domaine dédié, par le tunnel Cloudflare ou en entrée directe. `brume api` écoute alors sur le réseau `ingress`, comme le webhook.
+- **SSH reste ouvert sur le port 22,** par clé uniquement, puisque Tailscale SSH n'est plus là.
+- **Les bases se joignent depuis le laptop par un tunnel SSH,** base par base. Le mécanisme est laissé au builder, tant qu'aucun port Docker n'est publié sur une interface publique.
+- **La connexion au panel** passe par un mot de passe et une passkey : voir [04-panel-admin.md](04-panel-admin.md#sans-tailscale).

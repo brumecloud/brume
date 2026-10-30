@@ -30,10 +30,16 @@ Le code Rust suit le [guide de style Rust de Google](https://google.github.io/st
 
 - **`#![forbid(unsafe_code)]`.**
 - **Secrets dans les types du crate `secrecy` :** un `Debug` ou un `tracing::info!` ne peut pas les afficher par accident.
-- **Docker piloté par son API** (crate `bollard`), jamais par `sh -c` ni par la CLI `docker`.
+- **Docker piloté par son API** (crate `bollard`), depuis l'agent uniquement, jamais par `sh -c` ni par la CLI `docker`.
 - **Config des containers construite par liste blanche,** avec un test qui vérifie la config complète de chaque type de container. Voir [05-runtime.md](05-runtime.md#isolation-des-containers).
-- **L'engine n'analyse aucune donnée non fiable.** Voir [02-architecture.md](02-architecture.md).
-- **Requêtes SQLite paramétrées** (sqlx). Pour DuckDB, voir [09-observabilite.md](09-observabilite.md).
+- **Ni l'engine ni l'agent n'analysent de données non fiables.** Voir [02-architecture.md](02-architecture.md).
+- **Requêtes SQLite paramétrées** (rusqlite, pour le log de l'engine). Pour DuckDB, voir [09-observabilite.md](09-observabilite.md).
+- **Aucune I/O dans les crates du cœur :** ni horloge, ni hasard, ni `HashMap`. Leur `clippy.toml` l'interdit. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#les-crates).
+- **Seuls les types sûrs entrent dans la télémétrie** (trait `Telemetry`). Voir [17-telemetrie.md](17-telemetrie.md#aucun-secret-dans-la-télémétrie).
+
+## Organisation du code
+
+Le découpage en crates, les cœurs sans I/O et les règles de dépendances vérifiées par `cargo deny` sont dans [14-architecture-logicielle.md](14-architecture-logicielle.md#les-crates). Les tests sont dans [16-tests.md](16-tests.md).
 - **Taille limitée** pour tous les bodies HTTP et tous les messages des sockets.
 - **Requêtes vers des URL fournies par l'utilisateur** (notifications, healthchecks) : tailnet, plages privées et endpoints de métadonnées bloqués.
 
@@ -65,7 +71,8 @@ Le code du panel tourne avec les droits de l'admin : un paquet npm compromis don
 ## CI
 
 - **`cargo +nightly fmt --check` et `cargo clippy -- -D warnings`.**
-- **`cargo deny` et `cargo audit`.**
+- **`cargo deny` et `cargo audit`.** `cargo deny` vérifie aussi le graphe des crates.
+- **Simulation déterministe et tests de conformité à chaque PR,** une VM réelle chaque nuit. Voir [16-tests.md](16-tests.md).
 - **GitHub Actions épinglées par SHA.** L'attaque tj-actions de 2025 passait par un tag modifié.
 - **`systemd-analyze security --offline=true` :** plus tard.
 

@@ -2,6 +2,8 @@
 
 ## Accès réseau
 
+Ce document décrit l'administration par Tailscale, le mode recommandé. Les autres modes sont à la fin : voir [Sans Tailscale](#sans-tailscale).
+
 - **`brume api` écoute uniquement sur `127.0.0.1`.** `tailscale serve` l'expose en HTTPS sur le tailnet, avec un certificat `*.ts.net`.
 - **HTTPS uniquement,** aucun listener HTTP sur le tailnet.
 - **Vérifier le header `Host`** sur chaque requête, contre le DNS rebinding.
@@ -39,12 +41,13 @@ Deux facteurs indépendants.
 **Recommandation : passkey.**
 
 - **Vérifié par l'engine, pas par l'API.** L'engine stocke les identifiants, génère le challenge, vérifie la réponse et émet la session.
-- **Premier accès :** `brume install` affiche une URL d'enrôlement à usage unique, valable 15 minutes.
+- **Premier accès :** `brume install` affiche une URL d'enrôlement à usage unique, valable 15 minutes. Elle porte un jeton affiché seulement dans le terminal de l'install : en administration publique, cette URL est joignable depuis Internet.
 - **Récupération :** la CLI `brume` en local, depuis la console de l'hébergeur, via un socket unix en `0600`.
 
 ## Session
 
 - **Émise par l'engine après le second facteur,** sur une requête same-origin. L'engine garde la session ; l'API ne fait que transmettre son jeton.
+- **Hors du log d'événements :** une table SQLite, jeton haché, jamais envoyée sur S3. Une restauration déconnecte donc l'admin. Ouvrir ou fermer une session produit un événement d'audit. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#ce-qui-est-un-événement).
 - **Validée par l'engine à chaque demande.** L'API joint le jeton et l'identité Tailscale à chaque appel, et l'engine vérifie que la session est valide et liée à cette identité. Une API compromise ne peut rien faire sans une session ouverte par l'admin.
 - **Durée courte, fixée par l'engine :** c'est la fenêtre pendant laquelle une API compromise peut agir.
 - **Cookie `__Host-brume_session`,** en `Secure`, `HttpOnly` et `SameSite=Strict`. Un site tiers ne peut pas le faire envoyer.
@@ -77,7 +80,17 @@ Une faille XSS dans le panel donne ses actions pendant la session de l'admin : t
 
 ## Journal d'audit
 
-Chaque action est journalisée avec l'identité Tailscale. Voir [09-observabilite.md](09-observabilite.md).
+Chaque action est un événement du log, avec l'identifiant de l'admin. Son identité (login Tailscale ou email) vit dans un blob qu'on peut purger. Voir [09-observabilite.md](09-observabilite.md#journal-daudit).
+
+## Sans Tailscale
+
+Deux modes, choisis à l'install sur l'hôte : le tunnel SSH et l'administration publique. Voir [03-reseau.md](03-reseau.md#administration-sans-tailscale) pour le réseau.
+
+- **Le premier facteur devient un mot de passe :** hash argon2id, limite de tentatives, vérifié par l'engine. Il n'y a plus d'identité Tailscale ni d'allowlist : le compte de l'admin est créé à l'install.
+- **Le second facteur est une passkey,** quelle que soit la décision ouverte sur le mode Tailscale. Un mot de passe plus un mot de passe ne font pas deux facteurs.
+- **La session n'est liée qu'à son cookie.** Tout le reste s'applique : Fetch Metadata, `Origin`, header custom, CSP, Trusted Types.
+- **Tunnel SSH :** le panel est servi sur `http://localhost`. Les navigateurs récents y acceptent les cookies `Secure` et les passkeys, à vérifier sur chacun.
+- **Public :** le panel a son propre domaine, et `Host` est vérifié contre ce domaine. Traefik et l'engine limitent les tentatives de connexion. N'importe qui sur Internet peut atteindre la page de connexion et l'API : le second facteur et la vérification des sessions par l'engine sont la seule barrière.
 
 ## Hors 0.1
 

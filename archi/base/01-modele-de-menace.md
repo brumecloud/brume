@@ -14,7 +14,8 @@
 | L'accès root à l'hôte | Contrôle total : apps, données, secrets |
 | Les secrets des apps et de la plateforme | Accès aux services tiers : Stripe, bases, GitHub, Cloudflare, S3 |
 | Les données (volumes, bases) | Le cœur de valeur de l'utilisateur |
-| Les backups | Seul recours en cas de perte ou de rançongiciel |
+| Les backups et l'état de Brume sur S3 | Seul recours en cas de perte ou de rançongiciel : un serveur perdu se remonte depuis le bucket |
+| La clé age privée de l'admin | Seule clé capable de restaurer l'état, les secrets et les backups. Perdue, rien n'est restaurable. |
 | Le tailnet de l'admin | Laptop, NAS, autres serveurs : le serveur ne doit pas servir de tremplin |
 | L'intégrité des déploiements | Ce qui tourne doit être exactement ce qui a été construit depuis le repo configuré |
 | La chaîne de release de Brume | Une compromission toucherait toutes les installations |
@@ -34,7 +35,7 @@
 ## Hors périmètre
 
 - **L'hébergeur** a accès à la VM, à son disque et à sa mémoire. On lui fait confiance. Le compte de l'utilisateur chez l'hébergeur équivaut donc à root (console, mode rescue) : à protéger par une 2FA.
-- **Cloudflare** déchiffre tout le trafic public. C'est accepté en échange de zéro port entrant, et à signaler aux utilisateurs (entreprise américaine, RGPD). Le compte Cloudflare peut aussi ajouter des routes privées au tunnel : voir [03-reseau.md](03-reseau.md#ce-que-ça-coûte-à-dire-aux-utilisateurs).
+- **Cloudflare,** en mode recommandé, déchiffre tout le trafic public. C'est accepté en échange de zéro port entrant, et à signaler aux utilisateurs (entreprise américaine, RGPD). Le compte Cloudflare peut aussi ajouter des routes privées au tunnel : voir [03-reseau.md](03-reseau.md#ce-que-ça-coûte-à-dire-aux-utilisateurs).
 - **Tailscale** contrôle le serveur de coordination. Pour le panel, le risque est atténué par l'allowlist d'identités et le second facteur. Pour SSH, voir les risques acceptés.
 - **Le poste de l'admin.** Compromis, il détient l'identité Tailscale et le second facteur. Brume ne s'en protège pas.
 - **Le code du propriétaire, dépendances comprises.** Un paquet npm piégé est traité comme du code du propriétaire. Le builder l'exécute avec un sandbox affaibli : voir [06-builds-et-deploiement.md](06-builds-et-deploiement.md#le-builder).
@@ -49,3 +50,6 @@
 | Un accès en écriture à une branche déployée donne l'exécution de code en prod, avec les secrets du service. Il donne aussi l'exécution de code dans le builder, dont le sandbox est affaibli : avec une faille noyau ou runc, jusqu'à root. | C'est le principe du déploiement continu : qui peut pousser est traité comme le propriétaire. À protéger côté GitHub : 2FA, protection de branche, aucun bot qui fusionne seul. | Builder jetable sous gVisor |
 | Traefik analyse tout le HTTP public. Compromis, il lit le trafic et joint les services exposés. | Il faut un proxy. Il est épinglé par digest, sans root, en lecture seule, et ne joint pas les bases. Voir [03-reseau.md](03-reseau.md#traefik). | |
 | L'identité Tailscale seule donne un shell root par Tailscale SSH : le second facteur du panel ne couvre pas SSH. Un compte volé chez le fournisseur d'identité peut ajouter un appareil au tailnet. | Suffisant pour l'alpha. | Tailnet Lock |
+| Un engine compromis peut faire construire n'importe quel repo par le builder, dont le sandbox est affaibli : avec une faille du noyau ou de runc, jusqu'à root. | Même famille que l'accès en écriture à une branche déployée. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#lengine--le-plan-de-contrôle). | Builder jetable sous gVisor |
+| L'état sur S3 : la dernière seconde se perd avec le VPS, un ancien VPS qui revient garde ses apps en marche, l'engine est un point unique de défaillance, un attaquant root peut arrêter l'envoi. | Une panne de S3 ne bloque rien, et ce qui est déjà envoyé reste intact. Le détail est dans [15-etat-et-restauration.md](15-etat-et-restauration.md#risques-acceptés). | Alerte externe, haute disponibilité de l'engine |
+| Les modes non recommandés : en entrée directe, l'IP du serveur est publique et le DDoS n'est plus délégué ; sans Tailscale, SSH est ouvert sur Internet ; en administration publique, la page de connexion et l'API du panel aussi. | Choisis explicitement sur l'hôte, et signalés en permanence dans le panel. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#lentrée-et-ladministration). | |

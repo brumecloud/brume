@@ -12,17 +12,18 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 - Templates avec bonnes pratiques intégrées : site statique, PostgreSQL, MongoDB, Redis.
 - CI/CD automatique depuis GitHub, build avec Railpack.
 - Backups, logs et secrets gérés depuis le panel.
-- Panel d'administration joignable uniquement par Tailscale.
-- Trafic public uniquement par Cloudflare Tunnel : aucun port entrant sur le serveur.
+- Panel d'administration joignable par Tailscale (recommandé), par un tunnel SSH ou en public.
+- Trafic public par Cloudflare Tunnel (recommandé : aucun port entrant sur le serveur), ou en direct sur les ports 80 et 443.
+- Tout l'état de Brume sur S3, chiffré : un VPS perdu se remonte depuis le bucket.
 
-**Stack :** Rust (tokio, clap), React (TanStack Query, Router et DB, shadcn, Tailwind, compatible mobile), SQLite, DuckDB, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
+**Stack :** Rust (tokio, clap), React (TanStack Query, Router et DB, shadcn, Tailwind, compatible mobile), SQLite, DuckDB, S3, OpenTelemetry, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
 
 ## Principes
 
 1. **Le plus sûr possible.** Quand une option plus sûre existe, on la prend, tant qu'elle reste simple pour l'utilisateur.
 2. **Un élément compromis ne fait pas tomber le reste.** Brume est single-tenant, mais chaque composant est cloisonné comme s'il allait être compromis.
-3. **Deux composants de Brume équivalent à root : l'engine et l'updater.** L'engine a un code minimal, n'écoute sur aucun réseau et n'analyse aucune donnée non fiable. L'updater ne tourne que le temps d'une mise à jour et n'accepte que des binaires signés.
-4. **Aucun port entrant.** Le public passe par Cloudflare Tunnel, l'administration par Tailscale.
+3. **Deux composants de Brume équivalent à root : l'agent et l'updater.** L'agent a un code minimal, n'écoute rien et n'analyse aucune donnée non fiable. L'updater ne tourne que le temps d'une mise à jour et n'accepte que des binaires signés. L'engine, qui tient l'état et les secrets, n'est pas équivalent à root sans une faille du noyau ou de runc : voir [14-architecture-logicielle.md](14-architecture-logicielle.md#lengine--le-plan-de-contrôle).
+4. **Aucun port entrant, par défaut.** Le public passe par Cloudflare Tunnel, l'administration par Tailscale. Les autres modes, moins sûrs, se choisissent sur l'hôte : voir [14-architecture-logicielle.md](14-architecture-logicielle.md#lentrée-et-ladministration).
 5. **Le code du propriétaire est de confiance, l'extérieur ne l'est pas.** Est hostile tout ce qui vient de l'extérieur : requêtes vers les apps, payloads de webhook, sites ouverts par l'admin. Est hostile aussi tout ce qui en garde la trace : logs, en-têtes. Tout nom saisi dans le panel est validé par liste blanche.
 6. **Les options dangereuses se décident sur l'hôte, jamais dans le panel.**
 7. **Détecter autant que prévenir :** journal d'audit hors de portée, alertes, détection des écarts.
@@ -55,5 +56,5 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 
 1. **Second facteur à la connexion :** mot de passe ou passkey. Recommandation : passkey. Dans les deux cas, c'est l'engine qui le vérifie. Voir [04-panel-admin.md](04-panel-admin.md).
 2. **Redis : `vm.overcommit_memory=1` sur l'hôte.** Redis le recommande pour le fork de ses snapshots, mais le réglage vaut pour tout l'hôte. Voir [templates.md](templates.md#redis).
-3. **Propositions par défaut, à confirmer :** pas de Headscale en 0.1, aucune télémétrie, vérification des mises à jour désactivable.
+3. **Propositions par défaut, à confirmer :** pas de Headscale en 0.1, aucune télémétrie envoyée au projet Brume, vérification des mises à jour désactivable. La télémétrie de Brume reste chez l'admin : voir [17-telemetrie.md](17-telemetrie.md).
 4. **Frontend :** implémentation du React Compiler, types partagés entre Rust et TypeScript, TanStack DB. Voir [front-architecture.md](front-architecture.md#décisions-ouvertes).
