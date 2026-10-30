@@ -28,7 +28,8 @@ interface DeploymentPanelProps {
 }
 
 // Reference: infra/screens/05a-deployment-details.png. Takes the place of the service panel,
-// which steps back behind it; closing it goes back to the list.
+// which steps back behind it; closing it goes back to the list. It slides in opaque: a fade
+// would show the header of the service panel through its own.
 export function DeploymentPanel({ serviceId, deploymentId, tab }: DeploymentPanelProps) {
   const { data: service } = useLiveSuspenseQuery({ query: serviceById(serviceId) });
   const { data: deployment } = useLiveSuspenseQuery({ query: deploymentById(deploymentId) });
@@ -40,8 +41,8 @@ export function DeploymentPanel({ serviceId, deploymentId, tab }: DeploymentPane
     <StackedPanel>
       <motion.section
         aria-label={`Déploiement ${deploymentShortId(deployment)}`}
-        initial={{ opacity: 0, x: 24 }}
-        animate={{ opacity: 1, x: 0 }}
+        initial={{ x: 24 }}
+        animate={{ x: 0 }}
         transition={PANEL_TRANSITION}
         className="absolute inset-y-2 right-2 left-2 z-20 flex flex-col overflow-hidden rounded-xl border bg-card shadow-2xl md:left-auto md:w-full md:max-w-panel"
       >
