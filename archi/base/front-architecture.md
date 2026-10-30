@@ -151,8 +151,10 @@ function LogsPage() {
 - **TanStack Query seul** pour ce qui n'est pas une entité : séries de métriques, statistiques d'une base, logs de build.
 - **TanStack DB est encore en 0.x.** La 1.0 arrivera par une mise à jour normale, une fois passé le délai de `minimumReleaseAge`.
 - **Révéler un secret est une mutation :** c'est un `POST`, journalisé. Elle tourne avec `gcTime: 0`, et la valeur n'entre jamais dans le cache des queries.
-- **Logs en direct par SSE,** comme le prévoit [04-panel-admin.md](04-panel-admin.md). Liste virtualisée (TanStack Virtual), et seules les N dernières lignes restent en mémoire.
-- **Couleurs ANSI :** un parseur écrit par nous (`ansi.logic.ts`) découpe chaque ligne en segments `{ text, style }`, rendus en `<span>` avec des classes. Il ne garde que les codes de couleur et retire les autres séquences. Jamais de HTML, ni de bibliothèque qui en produit.
+- **Logs en direct par SSE,** comme le prévoit [04-panel-admin.md](04-panel-admin.md). L'onglet garde les 5000 dernières lignes et affiche les 500 dernières qui passent les filtres. Un flux reconnecté renvoie son historique : les lignes déjà reçues sont ignorées.
+- **Pas de liste virtualisée :** `useVirtualizer` (TanStack Virtual) renvoie la même instance à chaque rendu, le React Compiler mémoïserait `getVirtualItems()`. Le compilateur la classe d'ailleurs comme incompatible et saute le composant. 500 lignes affichées tiennent sans virtualisation.
+- **`EventSource` ne peut pas envoyer `X-Brume`.** Le flux de logs est un `GET` sans effet de bord : le serveur le protège par Fetch Metadata (`Sec-Fetch-Site: same-origin`), et aucun CORS ne le rend lisible depuis un autre site.
+- **Couleurs ANSI :** un parseur écrit par nous (`helpers/ansi.ts`) découpe chaque ligne en segments `{ text, style }`, rendus en `<span>` avec des classes. Il ne garde que les codes de couleur et retire les autres séquences (curseur, titres de fenêtre, liens OSC) et les caractères de contrôle. Jamais de HTML, ni de bibliothèque qui en produit.
 - **URL venant de l'API** (domaine d'une app, lien de commit) : affichées en lien seulement si leur schéma est `https:`.
 
 ### Données simulées
@@ -192,7 +194,7 @@ Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 | CSP sans script inline | Aucun `<script>` inline dans `index.html`. Le thème appliqué avant le premier rendu se charge depuis un fichier, sous `'self'`. |
 | Trusted Types | Notre code n'insère jamais de HTML brut. Une dépendance qui le fait est refusée. |
 | Pas d'`eval` | `eslint/no-eval`, `eslint/no-new-func`, `eslint/no-script-url` |
-| Header `X-Brume` sur chaque requête | `fetch` et `EventSource` interdits hors de `src/api/` |
+| Header `X-Brume` sur chaque requête | `fetch` et `EventSource` interdits hors de `src/api/`. Seul le flux SSE des logs s'en passe, voir [Données](#données). |
 | Liens externes | `react/jsx-no-target-blank` |
 
 En dev, Vite injecte des scripts inline (HMR, React Refresh). La CSP stricte s'applique au build que sert `brume api`.

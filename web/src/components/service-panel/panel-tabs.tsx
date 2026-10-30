@@ -8,7 +8,7 @@ interface PanelTabsProps {
   readonly serviceId: ServiceId;
 }
 
-const TAB_CLASSES =
+export const TAB_CLASSES =
   "border-transparent border-b-2 px-1 pb-3 text-muted-foreground text-sm transition-colors hover:text-foreground data-[status=active]:border-foreground data-[status=active]:text-foreground";
 
 // Each tab is a URL: links, not ARIA tabs.

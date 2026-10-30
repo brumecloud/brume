@@ -1,4 +1,15 @@
-import type { Commit, Deployment, DeploymentId, DeploymentStatus, ServiceId } from "~/api/types";
+import type {
+  Commit,
+  Deployment,
+  DeploymentId,
+  DeploymentLogStream,
+  DeploymentStatus,
+  Revision,
+  RevisionVariable,
+  ServiceId,
+  VariableKind,
+  VariableLevel,
+} from "~/api/types";
 
 import {
   decodeArray,
@@ -8,6 +19,7 @@ import {
   readOneOf,
   readString,
 } from "./decode";
+import { isId } from "./ids";
 
 const STATUSES: readonly DeploymentStatus[] = [
   "building",
@@ -16,6 +28,8 @@ const STATUSES: readonly DeploymentStatus[] = [
   "failed",
   "superseded",
 ];
+const VARIABLE_KINDS: readonly VariableKind[] = ["plain", "build", "secret"];
+const VARIABLE_LEVELS: readonly VariableLevel[] = ["project", "environment", "service"];
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -67,4 +81,37 @@ export function deploymentTitle(deployment: Deployment): string {
 
 export function formatDateTime(iso: string): string {
   return DATE_TIME_FORMAT.format(new Date(iso));
+}
+
+export function parseRevision(raw: unknown): Revision {
+  const record = decodeRecord(raw, "revision");
+  return {
+    digest: readString(record, "digest", "revision"),
+    builder: readNullable(record, "builder", "revision", readString),
+    startCommand: readNullable(record, "startCommand", "revision", readString),
+    variables: decodeArray(record.variables, parseRevisionVariable, "revision.variables"),
+  };
+}
+
+function parseRevisionVariable(raw: unknown): RevisionVariable {
+  const record = decodeRecord(raw, "revision variable");
+  return {
+    name: readString(record, "name", "revision variable"),
+    kind: readOneOf(record, "kind", VARIABLE_KINDS, "revision variable"),
+    value: readNullable(record, "value", "revision variable", readString),
+    origin: readOneOf(record, "origin", VARIABLE_LEVELS, "revision variable"),
+  };
+}
+
+export interface DeploymentSearch {
+  // Absent: the details of the revision.
+  readonly tab?: DeploymentLogStream;
+}
+
+export function parseDeploymentSearch(raw: Record<string, unknown>): DeploymentSearch {
+  return raw.tab === "build" || raw.tab === "deploy" ? { tab: raw.tab } : {};
+}
+
+export function parseDeploymentId(raw: string): DeploymentId | undefined {
+  return isId(raw) ? (raw as DeploymentId) : undefined;
 }

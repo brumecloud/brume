@@ -20,7 +20,13 @@ export const Route = createFileRoute("/projects/$projectId/$env/_canvas/services
     stringify: ({ serviceId }) => ({ serviceId }),
   },
   loader: async ({ params: { projectId, env, serviceId } }) => {
-    await Promise.all([deploymentsCollection.preload(), variablesCollection.preload()]);
+    // Loaders run in parallel: each one waits for the collections it reads.
+    await Promise.all([
+      environmentsCollection.preload(),
+      servicesCollection.preload(),
+      deploymentsCollection.preload(),
+      variablesCollection.preload(),
+    ]);
     const environment = findEnvironment(environmentsCollection.toArray, projectId, env);
     // A service id from another environment is not found here.
     if (!environment || servicesCollection.get(serviceId)?.environmentId !== environment.id) {

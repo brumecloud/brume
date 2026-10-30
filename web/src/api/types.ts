@@ -131,3 +131,32 @@ export interface ServiceSettings {
   // Outbound internet access, off by default for databases.
   readonly egress: boolean;
 }
+
+export type LogLevel = "info" | "warn" | "error";
+
+// The message is hostile: apps copy requests from the outside into their logs.
+export interface LogLine {
+  readonly id: string;
+  readonly timestamp: string;
+  readonly serviceId: ServiceId;
+  readonly level: LogLevel;
+  readonly message: string;
+}
+
+export type DeploymentLogStream = "build" | "deploy";
+
+export interface RevisionVariable {
+  readonly name: string;
+  readonly kind: VariableKind;
+  // Plain and build values are part of the revision; a secret only by its name.
+  readonly value: string | null;
+  readonly origin: VariableLevel;
+}
+
+// The immutable spec a deployment put in service. See archi/base/13-modele-de-donnees.md.
+export interface Revision {
+  readonly digest: string;
+  readonly builder: string | null;
+  readonly startCommand: string | null;
+  readonly variables: readonly RevisionVariable[];
+}

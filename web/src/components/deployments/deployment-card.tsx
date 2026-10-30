@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { EllipsisVerticalIcon, GitBranchIcon, GitCommitHorizontalIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -21,7 +22,14 @@ export function DeploymentCard({ service, deployment }: DeploymentCardProps) {
     <article className="flex items-center gap-4 rounded-xl border bg-background px-4 py-3">
       <DeploymentStatusBadge status={deployment.status} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate text-sm">{deploymentTitle(deployment)}</span>
+        <Link
+          from="/projects/$projectId/$env/services/$serviceId/deployments"
+          to="./$deploymentId"
+          params={{ deploymentId: deployment.id }}
+          className="truncate text-sm hover:underline"
+        >
+          {deploymentTitle(deployment)}
+        </Link>
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
           <span>
             {formatDateTime(deployment.createdAt)} · par {deployment.author}

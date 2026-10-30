@@ -1,7 +1,10 @@
+import { resolveVariables } from "~/helpers/variables";
+
 import type {
   CreatedProject,
   Deployment,
   DeploymentId,
+  Revision,
   ServiceSettings,
   Variable,
   VariableId,
@@ -256,4 +259,24 @@ export function settingsFor(service: Service): ServiceSettings {
         egress: false,
       };
   }
+}
+
+// The spec a deployment put in service: its variables as resolved at that time.
+export function revisionFor(deployment: Deployment): Revision | undefined {
+  const service = db.services.find(({ id }) => id === deployment.serviceId);
+  const environment = db.environments.find(({ id }) => id === service?.environmentId);
+  if (!service || !environment) {
+    return undefined;
+  }
+  return {
+    digest: `sha256:${(deployment.commit?.sha ?? deployment.id.replaceAll("-", "")).repeat(8).slice(0, 64)}`,
+    builder: deployment.commit ? "Railpack 0.40.1" : null,
+    startCommand: settingsFor(service).startCommand,
+    variables: resolveVariables(db.variables, service, environment).map(({ variable, origin }) => ({
+      name: variable.name,
+      kind: variable.kind,
+      value: variable.value,
+      origin,
+    })),
+  };
 }

@@ -61,3 +61,7 @@ export function formatLimits(cpu: number, memoryMb: number): string {
     memoryMb >= 1024 ? `${NUMBER_FORMAT.format(memoryMb / 1024)} Go` : `${memoryMb} Mo`;
   return `${NUMBER_FORMAT.format(cpu)} vCPU · ${memory}`;
 }
+
+export function serviceNames(services: readonly Service[]): Map<string, string> {
+  return new Map(services.map((service) => [service.id, service.name]));
+}

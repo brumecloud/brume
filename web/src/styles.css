@@ -118,6 +118,17 @@
   --color-brand-mongodb: #47a248;
   --color-brand-redis: #ff4438;
   --color-brand-docker: #2496ed;
+
+  /* The colors of the ANSI sequences in the logs. */
+  --color-ansi-black: var(--color-neutral-500);
+  --color-ansi-red: var(--color-red-400);
+  --color-ansi-green: var(--color-emerald-400);
+  --color-ansi-yellow: var(--color-amber-300);
+  --color-ansi-blue: var(--color-sky-400);
+  --color-ansi-magenta: var(--color-fuchsia-400);
+  --color-ansi-cyan: var(--color-cyan-300);
+  --color-ansi-white: var(--color-neutral-100);
+  --color-ansi-gray: var(--color-neutral-500);
 }
 
 /* The dotted background of the canvas and of the project previews. */

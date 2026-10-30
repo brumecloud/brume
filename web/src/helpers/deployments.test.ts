@@ -3,7 +3,15 @@ import { describe, expect, it } from "vite-plus/test";
 import type { Deployment, DeploymentId, DeploymentStatus, ServiceId } from "~/api/types";
 
 import { DecodeError } from "./decode";
-import { deploymentTitle, formatDateTime, parseDeployments, splitDeployments } from "./deployments";
+import {
+  deploymentTitle,
+  formatDateTime,
+  parseDeploymentId,
+  parseDeploymentSearch,
+  parseDeployments,
+  parseRevision,
+  splitDeployments,
+} from "./deployments";
 
 const deployment = (
   id: string,
@@ -79,5 +87,42 @@ describe("deploymentTitle", () => {
 describe("formatDateTime", () => {
   it("formats a date and an hour in French", () => {
     expect(formatDateTime("2026-10-11T12:53:00Z")).toMatch(/^11 oct\. 2026, \d{2}:53$/);
+  });
+});
+
+describe("parseRevision", () => {
+  const raw = {
+    digest: "sha256:4f1c",
+    builder: "Railpack 0.40.1",
+    startCommand: "pnpm start",
+    variables: [
+      { name: "PORT", kind: "plain", value: "3000", origin: "service" },
+      { name: "REDIS_URL", kind: "secret", value: null, origin: "service" },
+    ],
+  };
+
+  it("decodes the revision of a deployment", () => {
+    expect(parseRevision(raw)).toEqual(raw);
+  });
+
+  it("rejects a variable without origin", () => {
+    expect(() =>
+      parseRevision({ ...raw, variables: [{ name: "PORT", kind: "plain", value: "1" }] }),
+    ).toThrow(DecodeError);
+  });
+});
+
+describe("parseDeploymentSearch", () => {
+  it("keeps the build and deploy log tabs only", () => {
+    expect(parseDeploymentSearch({ tab: "build" })).toEqual({ tab: "build" });
+    expect(parseDeploymentSearch({ tab: "deploy" })).toEqual({ tab: "deploy" });
+    expect(parseDeploymentSearch({ tab: "network" })).toEqual({});
+  });
+});
+
+describe("parseDeploymentId", () => {
+  it("accepts an id and rejects anything else", () => {
+    expect(parseDeploymentId("d-1")).toBe("d-1");
+    expect(parseDeploymentId("<x>")).toBeUndefined();
   });
 });

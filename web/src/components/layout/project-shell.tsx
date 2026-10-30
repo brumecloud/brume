@@ -1,14 +1,11 @@
-import { Link } from "@tanstack/react-router";
-import { WorkflowIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { ProjectId } from "~/api/types";
 import { EnvironmentSwitcher } from "~/components/environments/environment-switcher";
 import { ProjectSwitcher } from "~/components/projects/project-switcher";
-import { Button } from "~/components/ui/button";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
 
 import { BrumeLogo } from "./brume-logo";
+import { ProjectRail } from "./project-rail";
 
 interface ProjectShellProps {
   readonly projectId: ProjectId;
@@ -28,28 +25,7 @@ export function ProjectShell({ projectId, environmentName, children }: ProjectSh
         <EnvironmentSwitcher projectId={projectId} environmentName={environmentName} />
       </header>
       <div className="flex min-h-0 flex-1">
-        <nav className="flex w-14 shrink-0 flex-col items-center gap-2 pt-2 max-md:hidden">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Architecture"
-                  render={
-                    <Link
-                      to="/projects/$projectId/$env"
-                      params={{ projectId, env: environmentName }}
-                    />
-                  }
-                />
-              }
-            >
-              <WorkflowIcon />
-            </TooltipTrigger>
-            <TooltipPopup side="right">Architecture</TooltipPopup>
-          </Tooltip>
-        </nav>
+        <ProjectRail projectId={projectId} environmentName={environmentName} />
         <main className="m-2 min-w-0 flex-1 overflow-auto rounded-xl border bg-background md:ml-0">
           {children}
         </main>

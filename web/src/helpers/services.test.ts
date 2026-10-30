@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { DecodeError } from "./decode";
-import { domainUrl, formatLimits, parseServices } from "./services";
+import { domainUrl, formatLimits, parseServices, serviceNames } from "./services";
 
 describe("parseServices", () => {
   const raw = {
@@ -52,5 +52,25 @@ describe("formatLimits", () => {
   it("formats the CPU and memory limits", () => {
     expect(formatLimits(1, 512)).toBe("1 vCPU · 512 Mo");
     expect(formatLimits(0.5, 2048)).toBe("0,5 vCPU · 2 Go");
+  });
+});
+
+describe("serviceNames", () => {
+  it("maps each service id to its name", () => {
+    const [api] = parseServices([
+      {
+        id: "s-1",
+        environmentId: "e-1",
+        name: "api",
+        slug: "api",
+        kind: "github",
+        status: "online",
+        domains: [],
+        volume: null,
+        dependencies: [],
+      },
+    ]);
+
+    expect(serviceNames(api ? [api] : [])).toEqual(new Map([["s-1", "api"]]));
   });
 });
