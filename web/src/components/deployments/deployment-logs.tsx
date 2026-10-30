@@ -9,12 +9,13 @@ interface DeploymentLogsProps {
   readonly stream: DeploymentLogStream;
 }
 
-// References: infra/screens/05b-deployment-build-logs-empty.png and 05c.
+// References: infra/screens/05b-deployment-build-logs-empty.png and 05c. Full width, like the
+// log explorer.
 export function DeploymentLogs({ deploymentId, stream }: DeploymentLogsProps) {
   const { data: lines } = useSuspenseQuery(deploymentLogsQuery(deploymentId, stream));
 
   return (
-    <div className="rounded-xl border bg-background py-2">
+    <div className="py-2">
       {lines.map((line) => (
         <LogRow key={line.id} line={line} />
       ))}

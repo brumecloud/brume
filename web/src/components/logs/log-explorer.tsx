@@ -4,16 +4,15 @@ import { useEffect, useState } from "react";
 import { subscribeToLogs } from "~/api/logs";
 import { environmentServices } from "~/api/services";
 import type { EnvironmentId, LogLine } from "~/api/types";
-import { type LogsSearch, mergeLogLines, visibleLogs } from "~/helpers/logs";
+import { type LogsSearch, filterLogs, mergeLogLines } from "~/helpers/logs";
 import { serviceNames } from "~/helpers/services";
 
 import { LogHistogram } from "./log-histogram";
 import { LogList } from "./log-list";
 import { LogToolbar } from "./log-toolbar";
 
-// The tab keeps the latest 5000 lines and shows the latest 500 that match the filters.
-const KEPT_LINES = 5000;
-const SHOWN_LINES = 500;
+// The tab keeps the latest lines only: a chatty service cannot fill its memory.
+const KEPT_LINES = 50_000;
 
 interface LogExplorerProps {
   readonly environmentId: EnvironmentId;
@@ -36,7 +35,7 @@ export function LogExplorer({ environmentId, search }: LogExplorerProps) {
     );
   }, [environmentId, paused]);
 
-  const visible = visibleLogs(lines, search, SHOWN_LINES);
+  const visible = filterLogs(lines, search);
 
   return (
     <div className="flex h-full flex-col">

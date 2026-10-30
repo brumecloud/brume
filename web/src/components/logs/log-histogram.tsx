@@ -13,7 +13,7 @@ export function LogHistogram({ lines }: { readonly lines: readonly LogLine[] }) 
         <span
           // oxlint-disable-next-line react/no-array-index-key -- a bucket is its position in time
           key={index}
-          className="min-h-0.5 flex-1 rounded-sm bg-info/70"
+          className="min-h-0.5 flex-1 rounded-xs bg-info/70"
           style={{ height: `${height}%` }}
         />
       ))}

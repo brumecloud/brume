@@ -29,8 +29,8 @@ export function DeploymentDetails({ deploymentId, tab }: DeploymentDetailsProps)
   }
 
   return (
-    <div className="flex flex-col gap-4 p-6">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col">
+      <div className="flex items-center gap-3 px-6 pt-6">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -47,7 +47,7 @@ export function DeploymentDetails({ deploymentId, tab }: DeploymentDetailsProps)
           {formatDateTime(deployment.createdAt)}
         </span>
       </div>
-      <nav className="flex gap-6 border-b">
+      <nav className="mx-6 mt-4 flex gap-6 border-b">
         <Link
           from={FROM}
           to="."
@@ -83,7 +83,11 @@ export function DeploymentDetails({ deploymentId, tab }: DeploymentDetailsProps)
           </div>
         }
       >
-        {tab === undefined && <RevisionDetails deployment={deployment} />}
+        {tab === undefined && (
+          <div className="p-6">
+            <RevisionDetails deployment={deployment} />
+          </div>
+        )}
         {tab !== undefined && <DeploymentLogs deploymentId={deployment.id} stream={tab} />}
       </Suspense>
     </div>

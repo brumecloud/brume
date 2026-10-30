@@ -15,6 +15,14 @@ describe("log explorer", () => {
     await expect.element(screen.getByRole("button", { name: "Pause" })).toBeVisible();
   });
 
+  it("renders only the rows in view", async () => {
+    const screen = await renderApp(`${production}/logs`);
+
+    // The stream starts with a backlog of 200 lines.
+    await expect.element(screen.getByText(/^2\d\d lignes$/)).toBeVisible();
+    expect(document.querySelectorAll("[data-index]").length).toBeLessThan(100);
+  });
+
   it("shows a hostile line as text, colors stripped of their escape codes", async () => {
     const screen = await renderApp(`${production}/logs?q=script`);
 

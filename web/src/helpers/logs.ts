@@ -63,22 +63,24 @@ export function mergeLogLines(
   return [...lines, ...incoming.filter((line) => !known.has(line.id))].slice(-max);
 }
 
-export function visibleLogs(lines: readonly LogLine[], search: LogsSearch, max: number): LogLine[] {
-  return filterLogs(lines, search).slice(-max);
-}
-
 export function formatLogTime(iso: string): string {
   return TIME_FORMAT.format(new Date(iso));
 }
 
-// Lines per time bucket, from the first line to the last one.
+// Lines per time bucket, from the first line to the last one. A loop rather than
+// Math.min(...times): tens of thousands of arguments would overflow the stack.
 export function logHistogram(lines: readonly LogLine[], bucketCount: number): number[] {
   if (lines.length === 0) {
     return [];
   }
   const times = lines.map((line) => Date.parse(line.timestamp));
-  const first = Math.min(...times);
-  const span = Math.max(...times) - first;
+  let first = Infinity;
+  let last = -Infinity;
+  for (const time of times) {
+    first = Math.min(first, time);
+    last = Math.max(last, time);
+  }
+  const span = last - first;
   const buckets = Array.from({ length: bucketCount }, () => 0);
   for (const time of times) {
     const index =

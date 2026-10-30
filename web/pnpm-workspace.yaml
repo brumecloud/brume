@@ -34,6 +34,7 @@ catalog:
   vitest-browser-react: 2.3.0
   "@xyflow/react": 12.12.0
   motion: 14.6.0
+  "@tanstack/react-virtual": 3.14.21
 
 # Vite+ ships its own Vite and Vitest: plugins must resolve the same copies.
 overrides:

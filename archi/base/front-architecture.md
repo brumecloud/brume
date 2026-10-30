@@ -90,6 +90,7 @@ web/
 - **Pas de `useMemo`, `useCallback`, ni de directive `"use memo"` ou `"use no memo"`** (`brume/no-manual-memo`).
 - **Le compilateur saute en silence** une fonction qu'il ne peut pas prouver correcte : une ref lue pendant le rendu, un `setState` dans un effet. Les règles `react/*` du lint font de ces cas des erreurs.
 - **Le lint ne voit pas tout** (`try` avec `finally`, `throw` dans un `try`). Un test (`build/react-compiler.test.ts`) compile donc chaque fichier de `src/` et échoue au moindre saut. Le build garde `panicThreshold: "none"`, comme le recommande la doc React.
+- **Une seule exception, explicite :** un composant qui appelle une bibliothèque que le compilateur ne sait pas mémoïser sans figer l'affichage. Le compilateur le signale (`IncompatibleLibrary`) et le laisse non compilé, ce qui est correct. Aujourd'hui, seul `components/logs/log-list.tsx` est dans ce cas, avec `useVirtualizer` de TanStack Virtual. Il est listé dans `build/react-compiler.test.ts`, qui échoue pour tout autre fichier sauté. Ce composant se limite à la colle avec la bibliothèque : les lignes sont des composants compilés.
 - **Le plugin Babel officiel,** branché par `@rolldown/plugin-babel` et `reactCompilerPreset()` de `@vitejs/plugin-react`. **Babel 7, pas Babel 8 :** `babel-plugin-react-compiler` 1.0 ne lit pas l'AST de Babel 8 et saute toute fonction qui a une valeur par défaut dans ses props. Le test ci-dessus l'a détecté.
 
 ### Chaque effet dit pourquoi il existe
@@ -151,8 +152,8 @@ function LogsPage() {
 - **TanStack Query seul** pour ce qui n'est pas une entité : séries de métriques, statistiques d'une base, logs de build.
 - **TanStack DB est encore en 0.x.** La 1.0 arrivera par une mise à jour normale, une fois passé le délai de `minimumReleaseAge`.
 - **Révéler un secret est une mutation :** c'est un `POST`, journalisé. Elle tourne avec `gcTime: 0`, et la valeur n'entre jamais dans le cache des queries.
-- **Logs en direct par SSE,** comme le prévoit [04-panel-admin.md](04-panel-admin.md). L'onglet garde les 5000 dernières lignes et affiche les 500 dernières qui passent les filtres. Un flux reconnecté renvoie son historique : les lignes déjà reçues sont ignorées.
-- **Pas de liste virtualisée :** `useVirtualizer` (TanStack Virtual) renvoie la même instance à chaque rendu, le React Compiler mémoïserait `getVirtualItems()`. Le compilateur la classe d'ailleurs comme incompatible et saute le composant. 500 lignes affichées tiennent sans virtualisation.
+- **Logs en direct par SSE,** comme le prévoit [04-panel-admin.md](04-panel-admin.md). L'onglet garde les 50 000 dernières lignes. Un flux reconnecté renvoie son historique : les lignes déjà reçues sont ignorées.
+- **Liste virtualisée (TanStack Virtual)** : seules les lignes visibles sont dans le DOM, chacune mesurée puisqu'une ligne peut passer à la ligne. Voir l'exception au React Compiler ci-dessous.
 - **`EventSource` ne peut pas envoyer `X-Brume`.** Le flux de logs est un `GET` sans effet de bord : le serveur le protège par Fetch Metadata (`Sec-Fetch-Site: same-origin`), et aucun CORS ne le rend lisible depuis un autre site.
 - **Couleurs ANSI :** un parseur écrit par nous (`helpers/ansi.ts`) découpe chaque ligne en segments `{ text, style }`, rendus en `<span>` avec des classes. Il ne garde que les codes de couleur et retire les autres séquences (curseur, titres de fenêtre, liens OSC) et les caractères de contrôle. Jamais de HTML, ni de bibliothèque qui en produit.
 - **URL venant de l'API** (domaine d'une app, lien de commit) : affichées en lien seulement si leur schéma est `https:`.

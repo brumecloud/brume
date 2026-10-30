@@ -13,7 +13,6 @@ import {
   mergeLogLines,
   parseLogLines,
   parseLogsSearch,
-  visibleLogs,
 } from "./logs";
 
 const line = (
@@ -101,19 +100,6 @@ describe("mergeLogLines", () => {
   });
 });
 
-describe("visibleLogs", () => {
-  it("filters, then keeps the most recent matching lines", () => {
-    const lines = [
-      line("1", "a", "error"),
-      line("2", "b"),
-      line("3", "c", "error"),
-      line("4", "d", "error"),
-    ];
-
-    expect(visibleLogs(lines, { level: "error" }, 2).map(({ id }) => id)).toEqual(["3", "4"]);
-  });
-});
-
 describe("formatLogTime", () => {
   it("formats a timestamp as date and time to the second", () => {
     expect(formatLogTime("2026-10-28T12:48:11Z")).toMatch(/^2026-10-28 \d{2}:48:11$/);
@@ -134,6 +120,14 @@ describe("logHistogram", () => {
 
   it("puts every line in one bucket when they share a timestamp", () => {
     expect(logHistogram([line("1", ""), line("2", "")], 3)).toEqual([2, 0, 0]);
+  });
+
+  it("handles a large buffer", () => {
+    const lines = Array.from({ length: 200_000 }, (_, index) =>
+      line(String(index), "", "info", "s", new Date(index * 1000).toISOString()),
+    );
+
+    expect(logHistogram(lines, 4)).toEqual([50_000, 50_000, 50_000, 50_000]);
   });
 
   it("returns no bucket without lines", () => {
