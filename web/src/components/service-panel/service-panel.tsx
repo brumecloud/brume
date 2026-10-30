@@ -1,7 +1,7 @@
 import { useLiveSuspenseQuery } from "@tanstack/react-db";
-import { Link } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
 import { XIcon } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
 import { serviceById } from "~/api/services";
@@ -20,7 +20,8 @@ interface ServicePanelProps {
 }
 
 // Reference: infra/screens/04a-service-deployments.png. The panel slides in from the right,
-// where it comes from; with reduced motion it only fades in.
+// where it comes from. When a deployment opens over it, it steps back, down and left, so its
+// edge stays visible under the deployment. With reduced motion, MotionConfig drops the moves.
 export function ServicePanel({
   projectId,
   environmentName,
@@ -28,7 +29,8 @@ export function ServicePanel({
   children,
 }: ServicePanelProps) {
   const { data: service } = useLiveSuspenseQuery({ query: serviceById(serviceId) });
-  const reduceMotion = useReducedMotion();
+  const { deploymentId } = useParams({ strict: false });
+  const stacked = deploymentId !== undefined;
   if (!service) {
     return null;
   }
@@ -36,8 +38,8 @@ export function ServicePanel({
   return (
     <motion.aside
       aria-label={service.name}
-      initial={{ opacity: 0, transform: reduceMotion ? "none" : "translateX(24px)" }}
-      animate={{ opacity: 1, transform: "translateX(0px)" }}
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: stacked ? -24 : 0, y: stacked ? 24 : 0 }}
       transition={PANEL_TRANSITION}
       className="absolute inset-y-2 right-2 left-2 z-10 flex flex-col overflow-hidden rounded-xl border bg-card shadow-2xl md:left-auto md:w-full md:max-w-panel"
     >

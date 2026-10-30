@@ -192,7 +192,7 @@ Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 - **Les arêtes viennent des dépendances** que l'API calcule à partir des secrets référencés par chaque service.
 - **La mention React Flow reste visible :** sa licence demande un abonnement Pro pour la masquer.
 - **Le panneau d'un service est une route enfant du canvas** (`$env/_canvas/services/$serviceId/{deployments,variables,settings}`). Le canvas reste monté derrière, le bouton Retour ferme le panneau, et chaque onglet a son URL. Le canvas se décale pour garder le service sélectionné visible à gauche du panneau (`panelFocusCenter`).
-- **Un déploiement s'ouvre par-dessus le panneau du service** (`deployments/$deploymentId`), décalé vers le bas et la droite : le haut et la gauche du panneau restent visibles, comme une carte posée sur une autre. Ses onglets (détails, logs de build, logs d'exécution) passent par le paramètre `tab` de l'URL.
+- **Un déploiement prend la place du panneau du service** (`deployments/$deploymentId`), qui recule en bas à gauche : son bord reste visible dessous, comme une carte sous une autre. Le déploiement est rendu par un portail dans la couche du canvas (`PanelLayer`, `StackedPanel`) : dans le panneau du service, il serait coupé par lui et placé contre lui. Ses onglets (détails, logs de build, logs d'exécution) passent par le paramètre `tab` de l'URL.
 - **Les réglages défilent seuls,** pour que leur navigation suive la section lue (`currentSection`). Un clic dans la navigation fixe sa section jusqu'au prochain défilement à la main : en bas de page, la dernière section prendrait sinon la place.
 - **Une carte du canvas signale ses changements en attente** par un contour bleu et leur nombre.
 - React Flow tire `zustand` pour son état interne. La règle « pas de store global » vise notre code, pas celui des dépendances.
@@ -203,7 +203,7 @@ Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 - **Une raison par animation.** Rien sur ce qui sert cent fois par jour : palette de commandes, raccourcis.
 - **Sous 300 ms**, `ease-out` à l'entrée. Les courbes et les durées sont des variables du thème, jamais tapées dans un composant.
 - **`transform` et `opacity` seulement.** Les popovers partent de leur déclencheur (`--transform-origin` de Base UI).
-- **`prefers-reduced-motion` :** on garde l'opacité, on retire le mouvement. `MotionConfig reducedMotion="user"` à la racine le fait pour les animations de layout.
+- **`prefers-reduced-motion` :** on garde l'opacité, on retire le mouvement. `MotionConfig reducedMotion="user"` à la racine le fait pour les déplacements (`x`, `y`) et les animations de layout.
 - **Onglets à la Vercel** (`NavTabs`) : une pastille suit l'onglet survolé, le soulignement glisse vers l'onglet actif (`layoutId`). Chaque barre d'onglets a son `LayoutGroup` : deux barres peuvent être à l'écran en même temps.
 
 ## Sécurité appliquée par l'outillage
