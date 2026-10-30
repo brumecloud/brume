@@ -23,11 +23,25 @@ const environment = (projectId: ProjectId, name: string): Environment => ({
   name,
 });
 
+interface ServiceOptions {
+  readonly status?: ServiceStatus;
+  readonly domains?: readonly string[];
+  readonly volume?: string;
+  // Names of the services of the same environment this one connects to.
+  readonly dependsOn?: readonly string[];
+}
+
+const MOUNT_PATHS: Partial<Record<ServiceKind, string>> = {
+  postgres: "/var/lib/postgresql/data",
+  mongodb: "/data/db",
+  redis: "/data",
+};
+
 const service = (
   env: Environment,
   name: string,
   kind: ServiceKind,
-  status: ServiceStatus = "online",
+  { status = "online", domains = [], volume, dependsOn = [] }: ServiceOptions = {},
 ): Service => ({
   id: `${env.id}-${name}` as ServiceId,
   environmentId: env.id,
@@ -35,6 +49,9 @@ const service = (
   slug: name.toLowerCase(),
   kind,
   status,
+  domains,
+  volume: volume ? { name: volume, mountPath: MOUNT_PATHS[kind] ?? "/data" } : null,
+  dependencies: dependsOn.map((dependency) => `${env.id}-${dependency}` as ServiceId),
 });
 
 export const brume = project(
@@ -74,23 +91,36 @@ export const environments: readonly Environment[] = [
 ];
 
 export const services: readonly Service[] = [
-  service(brumeProduction, "brume-api", "github"),
-  service(brumeProduction, "brume-worker", "github"),
-  service(brumeProduction, "MongoDB", "mongodb"),
-  service(brumeProduction, "Redis", "redis"),
-  service(brumeStaging, "brume-api", "github", "deploying"),
-  service(brumeStaging, "MongoDB", "mongodb"),
-  service(beaubonProduction, "beaubon-api", "github"),
-  service(beaubonProduction, "beaubon-site", "static"),
-  service(beaubonProduction, "PostgreSQL", "postgres"),
-  service(melledProduction, "melled-web", "static"),
-  service(melledProduction, "melled-api", "github"),
-  service(melledProduction, "MongoDB", "mongodb"),
-  service(eveDev, "eve", "github"),
-  service(eveDev, "shim", "image", "crashed"),
-  service(eveDev, "tailscale-forwarder", "image"),
-  service(eveDev, "MongoDB", "mongodb"),
-  service(eveDev, "Redis", "redis"),
+  service(brumeProduction, "brume-api", "github", {
+    domains: ["api.brume.dev"],
+    dependsOn: ["Redis"],
+  }),
+  service(brumeProduction, "brume-worker", "github", { dependsOn: ["MongoDB"] }),
+  service(brumeProduction, "MongoDB", "mongodb", { volume: "mongodb-data" }),
+  service(brumeProduction, "Redis", "redis", { volume: "redis-data" }),
+  service(brumeStaging, "brume-api", "github", {
+    status: "deploying",
+    domains: ["api.staging.brume.dev"],
+    dependsOn: ["MongoDB"],
+  }),
+  service(brumeStaging, "MongoDB", "mongodb", { volume: "mongodb-data" }),
+  service(beaubonProduction, "beaubon-api", "github", {
+    domains: ["api.beaubon.fr"],
+    dependsOn: ["PostgreSQL"],
+  }),
+  service(beaubonProduction, "beaubon-site", "static", { domains: ["beaubon.fr"] }),
+  service(beaubonProduction, "PostgreSQL", "postgres", { volume: "postgres-data" }),
+  service(melledProduction, "melled-web", "static", { domains: ["melled.app"] }),
+  service(melledProduction, "melled-api", "github", {
+    domains: ["api.melled.app"],
+    dependsOn: ["MongoDB"],
+  }),
+  service(melledProduction, "MongoDB", "mongodb", { volume: "mongodb-data" }),
+  service(eveDev, "eve", "github", { dependsOn: ["MongoDB", "Redis"] }),
+  service(eveDev, "shim", "image", { status: "crashed", dependsOn: ["Redis"] }),
+  service(eveDev, "tailscale-forwarder", "image", { volume: "tailscale-state" }),
+  service(eveDev, "MongoDB", "mongodb", { volume: "mongodb-data" }),
+  service(eveDev, "Redis", "redis", { volume: "redis-data" }),
 ];
 
 export const repositories: readonly Repository[] = [

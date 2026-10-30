@@ -38,6 +38,9 @@ const service = (env: Environment, name: string, status: ServiceStatus = "online
   slug: name,
   kind: "github",
   status,
+  domains: [],
+  volume: null,
+  dependencies: [],
 });
 
 const brume = project("brume", "2026-10-29T10:00:00Z", "API et worker");

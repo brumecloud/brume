@@ -124,6 +124,19 @@
   background-size: 16px 16px;
 }
 
+/* React Flow draws with its own CSS variables: map them to the theme. */
+.react-flow {
+  --xy-background-color: transparent;
+  --xy-background-pattern-color: var(--color-border);
+  --xy-edge-stroke: var(--color-muted-foreground);
+  --xy-edge-stroke-selected: var(--color-ring);
+  --xy-attribution-background-color: transparent;
+}
+
+.react-flow__edge-path {
+  stroke-dasharray: 4 4;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

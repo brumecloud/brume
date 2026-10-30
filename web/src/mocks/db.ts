@@ -50,6 +50,12 @@ export function createProject(source: NewProjectSource): CreatedProject {
       slug: serviceName.toLowerCase(),
       kind: source.kind,
       status: source.kind === "github" || source.kind === "static" ? "deploying" : "online",
+      domains: [],
+      volume:
+        source.kind in SERVICE_NAMES
+          ? { name: `${serviceName.toLowerCase()}-data`, mountPath: "/data" }
+          : null,
+      dependencies: [],
     } satisfies Service);
   }
   return { projectId: project.id, environmentName: environment.name };

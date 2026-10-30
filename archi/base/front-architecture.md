@@ -164,6 +164,16 @@ Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 - **Les tests navigateur utilisent les mêmes handlers.**
 - **Les handlers sont le contrat de l'API** en attendant les types partagés avec Rust : voir les décisions ouvertes.
 
+## Canvas
+
+- **React Flow en mode non contrôlé :** il garde l'état des nœuds (positions, mesures, sélection). Le graphe est reconstruit (`key`) seulement quand sa forme change : un service ou une dépendance en plus ou en moins.
+- **Chaque nœud lit son service par id** dans la collection TanStack DB. Un changement de statut redessine la carte sans reconstruire le graphe.
+- **Placement automatique** (`helpers/canvas.ts`) : un service est une rangée au-dessus des services dont il dépend. Les applications sont en haut, leurs bases en dessous.
+- **Les positions déplacées à la main** restent dans le navigateur, dans une collection TanStack DB sur localStorage. Ce sont des préférences d'affichage, pas des données du projet. « Réorganiser » les efface.
+- **Les arêtes viennent des dépendances** que l'API calcule à partir des secrets référencés par chaque service.
+- **La mention React Flow reste visible :** sa licence demande un abonnement Pro pour la masquer.
+- React Flow tire `zustand` pour son état interne. La règle « pas de store global » vise notre code, pas celui des dépendances.
+
 ## Animations
 
 - **`motion`**, et les règles du skill `improve-animations` (`.claude/skills/improve-animations/AUDIT.md`).

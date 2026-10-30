@@ -1,3 +1,5 @@
+import "~/styles.css";
+
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
 import { beforeAll } from "vite-plus/test";

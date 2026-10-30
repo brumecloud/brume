@@ -38,3 +38,15 @@ export function readOneOf<const T extends string>(
   }
   return value as T;
 }
+
+export function readStringArray(
+  record: Record<string, unknown>,
+  key: string,
+  what: string,
+): string[] {
+  const value = record[key];
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
+    throw new DecodeError(`${what}.${key}: expected an array of strings`);
+  }
+  return value;
+}

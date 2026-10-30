@@ -30,6 +30,11 @@ export type DatabaseKind = Extract<ServiceKind, "postgres" | "mongodb" | "redis"
 // Computed by the server from the latest deployment.
 export type ServiceStatus = "online" | "deploying" | "crashed" | "stopped";
 
+export interface Volume {
+  readonly name: string;
+  readonly mountPath: string;
+}
+
 export interface Service {
   readonly id: ServiceId;
   readonly environmentId: EnvironmentId;
@@ -38,6 +43,10 @@ export interface Service {
   readonly slug: string;
   readonly kind: ServiceKind;
   readonly status: ServiceStatus;
+  readonly domains: readonly string[];
+  readonly volume: Volume | null;
+  // Services this one connects to, derived by the server from the secrets it references.
+  readonly dependencies: readonly ServiceId[];
 }
 
 export interface Repository {
