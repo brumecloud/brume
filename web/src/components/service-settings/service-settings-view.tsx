@@ -8,19 +8,24 @@ import {
   RocketIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import { serviceChanges } from "~/api/changes";
 import { serviceById, serviceSettingsQuery } from "~/api/services";
 import type { ProjectId, Service, ServiceId, ServiceSettings, StagedChange } from "~/api/types";
-import { GitHubIcon } from "~/components/icons/brand-icons";
 import { ServiceIcon } from "~/components/services/service-icon";
 import { CPU_LIMITS, MEMORY_LIMITS_MB, stagedFields, withStagedSettings } from "~/helpers/changes";
-import { type SettingsSectionId, settingsSections } from "~/helpers/service-settings";
+import { isNearBottom } from "~/helpers/logs";
+import {
+  type SettingsSectionId,
+  currentSection,
+  settingsSections,
+} from "~/helpers/service-settings";
 import { formatCpu, formatMemory, isDatabase } from "~/helpers/services";
 
 import { DeleteServiceDialog } from "./delete-service-dialog";
 import { DomainsSetting } from "./domains-setting";
+import { BranchSetting, RepositorySetting } from "./github-source-settings";
 import { LimitSetting } from "./limit-setting";
 import { SettingsSection } from "./settings-section";
 import { SwitchSetting } from "./switch-setting";
@@ -89,9 +94,24 @@ function SettingsForm({
   const fields = stagedFields(changes);
   const { source } = staged.settings;
   const sections = settingsSections(service);
+  const [current, setCurrent] = useState(sections[0]);
+  // A click on the nav pins its section, even when the bottom of the page stops it short of the
+  // top. The highlight follows the scroll again once the admin scrolls by hand.
+  const [pinned, setPinned] = useState(false);
 
+  // The form scrolls on its own, so the nav can follow the section being read.
   return (
-    <div className="flex gap-8 p-6">
+    <div
+      className="flex h-full gap-8 overflow-auto p-6 motion-safe:scroll-smooth"
+      onScroll={(event) => {
+        if (!pinned) {
+          setCurrent(readCurrentSection(event.currentTarget, sections));
+        }
+      }}
+      onWheel={() => setPinned(false)}
+      onTouchMove={() => setPinned(false)}
+      onKeyDown={() => setPinned(false)}
+    >
       <div className="relative min-w-0 flex-1">
         <span aria-hidden="true" className="absolute top-0 bottom-0 left-4.5 w-px bg-border" />
         {error && (
@@ -103,15 +123,14 @@ function SettingsForm({
           <SettingsSection id="settings-source" {...SECTIONS.source}>
             {source.kind === "github" && (
               <>
-                <ReadOnlySetting label="Dépôt">
-                  <GitHubIcon className="size-4" />
-                  {source.repository}
-                </ReadOnlySetting>
-                <TextSetting
-                  key={`branch:${source.branch}`}
-                  field="branch"
-                  label={`Branche déployée en ${environmentName}`}
-                  description="Un push sur cette branche déclenche un déploiement."
+                <RepositorySetting
+                  value={source.repository}
+                  staged={fields.has("repository")}
+                  onCommit={(value) => commit("repository", value)}
+                />
+                <BranchSetting
+                  repository={source.repository}
+                  environmentName={environmentName}
                   value={source.branch}
                   staged={fields.has("branch")}
                   onCommit={(value) => commit("branch", value)}
@@ -260,12 +279,34 @@ function SettingsForm({
       </div>
       <nav className="sticky top-0 hidden w-32 shrink-0 flex-col gap-2 self-start pt-2 text-muted-foreground text-sm lg:flex">
         {sections.map((section) => (
-          <a key={section} href={`#settings-${section}`} className="hover:text-foreground">
+          <a
+            key={section}
+            href={`#settings-${section}`}
+            aria-current={section === current ? "location" : undefined}
+            onClick={() => {
+              setCurrent(section);
+              setPinned(true);
+            }}
+            className="transition-colors hover:text-foreground aria-[current=location]:text-foreground"
+          >
             {SECTIONS[section].title}
           </a>
         ))}
       </nav>
     </div>
+  );
+}
+
+// Reads where each section sits in the scroll area, then lets the helper pick one.
+function readCurrentSection(area: HTMLElement, sections: readonly SettingsSectionId[]) {
+  const areaTop = area.getBoundingClientRect().top;
+  const positions = sections.map((id) => ({
+    id,
+    top: (area.querySelector(`#settings-${id}`)?.getBoundingClientRect().top ?? 0) - areaTop,
+  }));
+  return currentSection(
+    positions,
+    isNearBottom(area.scrollTop, area.clientHeight, area.scrollHeight),
   );
 }
 

@@ -133,3 +133,11 @@ export const repositories: readonly Repository[] = [
   "planchon/movictory",
   "planchon/ai-agent",
 ].map((fullName) => ({ fullName }));
+
+// Every repository has the branches of the seeded environments; brume has a few more.
+export function branchesOf(repository: string): string[] {
+  const common = ["main", "dev", "staging"];
+  return repository === "brumecloud/brume"
+    ? [...common, "develop", "feat/canvas", "fix/log-stream"]
+    : common;
+}

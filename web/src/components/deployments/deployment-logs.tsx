@@ -26,6 +26,7 @@ interface DeploymentLogsProps {
 export function DeploymentLogs({ deploymentId, stream, fileName }: DeploymentLogsProps) {
   const { data: lines } = useSuspenseQuery(deploymentLogsQuery(deploymentId, stream));
   const [query, setQuery] = useState("");
+  const [openLineId, setOpenLineId] = useState<string>();
   const visible = filterLogs(lines, { q: query });
 
   return (
@@ -74,7 +75,14 @@ export function DeploymentLogs({ deploymentId, stream, fileName }: DeploymentLog
             </EmptyHeader>
           </Empty>
         ) : (
-          visible.map((line) => <LogRow key={line.id} line={line} />)
+          visible.map((line) => (
+            <LogRow
+              key={line.id}
+              line={line}
+              open={line.id === openLineId}
+              onToggle={() => setOpenLineId(line.id === openLineId ? undefined : line.id)}
+            />
+          ))
         )}
       </div>
     </div>

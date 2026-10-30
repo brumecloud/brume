@@ -1,6 +1,5 @@
-import { Link } from "@tanstack/react-router";
-
 import type { ProjectId, ServiceId } from "~/api/types";
+import { NavTab, NavTabs } from "~/components/layout/nav-tabs";
 
 interface PanelTabsProps {
   readonly projectId: ProjectId;
@@ -8,35 +7,19 @@ interface PanelTabsProps {
   readonly serviceId: ServiceId;
 }
 
-export const TAB_CLASSES =
-  "border-transparent border-b-2 px-1 pb-3 text-muted-foreground text-sm transition-colors hover:text-foreground data-[status=active]:border-foreground data-[status=active]:text-foreground";
-
-// Each tab is a URL: links, not ARIA tabs.
 export function PanelTabs({ projectId, environmentName, serviceId }: PanelTabsProps) {
   const params = { projectId, env: environmentName, serviceId };
   return (
-    <nav className="mt-4 flex gap-6 border-b px-6">
-      <Link
-        to="/projects/$projectId/$env/services/$serviceId/deployments"
-        params={params}
-        className={TAB_CLASSES}
-      >
+    <NavTabs>
+      <NavTab to="/projects/$projectId/$env/services/$serviceId/deployments" params={params}>
         Déploiements
-      </Link>
-      <Link
-        to="/projects/$projectId/$env/services/$serviceId/variables"
-        params={params}
-        className={TAB_CLASSES}
-      >
+      </NavTab>
+      <NavTab to="/projects/$projectId/$env/services/$serviceId/variables" params={params}>
         Variables
-      </Link>
-      <Link
-        to="/projects/$projectId/$env/services/$serviceId/settings"
-        params={params}
-        className={TAB_CLASSES}
-      >
+      </NavTab>
+      <NavTab to="/projects/$projectId/$env/services/$serviceId/settings" params={params}>
         Réglages
-      </Link>
-    </nav>
+      </NavTab>
+    </NavTabs>
   );
 }

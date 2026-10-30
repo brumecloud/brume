@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute, getRouteApi } from "@tanstack/react-router";
 
 import { ServiceCanvas } from "~/components/canvas/service-canvas";
+import { StagedChangesBar } from "~/components/changes/staged-changes-bar";
 
 const projectRoute = getRouteApi("/projects/$projectId/$env");
 
@@ -17,6 +18,7 @@ function CanvasLayout() {
     <div className="relative h-full">
       <ServiceCanvas projectId={projectId} environmentName={env} environmentId={environment.id} />
       <Outlet />
+      <StagedChangesBar environmentId={environment.id} />
     </div>
   );
 }

@@ -157,6 +157,7 @@ export interface Revision {
 // Staged changes: edited in the panel, applied together by one deploy, like Railway.
 // They live on the server, so a staged secret never sits in the browser.
 export type SettingField =
+  | "repository"
   | "branch"
   | "autoDeploy"
   | "image"

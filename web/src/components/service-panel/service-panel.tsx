@@ -39,7 +39,7 @@ export function ServicePanel({
       initial={{ opacity: 0, transform: reduceMotion ? "none" : "translateX(24px)" }}
       animate={{ opacity: 1, transform: "translateX(0px)" }}
       transition={PANEL_TRANSITION}
-      className="absolute inset-y-2 right-2 left-2 z-10 flex flex-col overflow-hidden rounded-xl border bg-card shadow-2xl md:left-auto md:w-full md:max-w-4xl"
+      className="absolute inset-y-2 right-2 left-2 z-10 flex flex-col overflow-hidden rounded-xl border bg-card shadow-2xl md:left-auto md:w-full md:max-w-panel"
     >
       <header className="flex items-center gap-3 px-6 pt-6">
         <ServiceIcon kind={service.kind} />

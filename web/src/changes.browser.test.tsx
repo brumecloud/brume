@@ -26,6 +26,21 @@ describe("staged changes", () => {
     expect(port.element().closest("[data-staged]")?.getAttribute("data-staged")).toBe("false");
   });
 
+  it("picks the branch among those of the repository", async () => {
+    const screen = await renderApp(`${service("brume-api")}/settings`);
+
+    const branch = screen.getByRole("combobox", { name: "Branche" });
+    await expect.element(branch).toHaveTextContent("main");
+    await branch.click();
+    await screen.getByPlaceholder("Rechercher une branche…").fill("feat");
+    await screen.getByRole("option", { name: "feat/canvas" }).click();
+
+    await expect.element(screen.getByText("Appliquer 1 changement")).toBeVisible();
+    await screen.getByRole("button", { name: "Autres actions" }).click();
+    await screen.getByRole("menuitem", { name: "Annuler tous les changements" }).click();
+    await expect.element(branch).toHaveTextContent("main");
+  });
+
   it("deploys on Shift+Enter", async () => {
     const screen = await renderApp(`${service("brume-worker")}/variables`);
 

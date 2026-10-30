@@ -34,8 +34,12 @@ describe("new project", () => {
 
     await screen.getByRole("option", { name: /Redis/ }).click();
 
-    await expect.element(screen.getByRole("button", { name: /^redis/ })).toBeVisible();
-    await expect.element(screen.getByRole("button", { name: "production" })).toBeVisible();
+    await expect
+      .element(screen.getByRole("combobox", { name: "Projet" }))
+      .toHaveTextContent("redis");
+    await expect
+      .element(screen.getByRole("combobox", { name: "Environnement" }))
+      .toHaveTextContent("production");
   });
 
   it("refuses an invalid image reference", async () => {

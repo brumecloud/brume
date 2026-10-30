@@ -10,13 +10,11 @@ import { ProjectRail } from "./project-rail";
 interface ProjectShellProps {
   readonly projectId: ProjectId;
   readonly environmentName: string;
-  // Shown at the right of the header, e.g. the changes waiting for a deploy.
-  readonly actions?: ReactNode;
   readonly children: ReactNode;
 }
 
 // Reference: infra/screens/03a-project-canvas-prod.png and 03c.
-export function ProjectShell({ projectId, environmentName, actions, children }: ProjectShellProps) {
+export function ProjectShell({ projectId, environmentName, children }: ProjectShellProps) {
   return (
     <div className="flex h-dvh flex-col bg-sidebar">
       <header className="flex h-14 shrink-0 items-center gap-2 px-4">
@@ -25,7 +23,6 @@ export function ProjectShell({ projectId, environmentName, actions, children }: 
         <ProjectSwitcher projectId={projectId} />
         <span className="text-muted-foreground">/</span>
         <EnvironmentSwitcher projectId={projectId} environmentName={environmentName} />
-        <div className="ms-auto">{actions}</div>
       </header>
       <div className="flex min-h-0 flex-1">
         <ProjectRail projectId={projectId} environmentName={environmentName} />

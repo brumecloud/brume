@@ -28,6 +28,7 @@ interface LogListProps {
 export function LogList({ lines, serviceNames }: LogListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [following, setFollowing] = useState(true);
+  const [openLineId, setOpenLineId] = useState<string>();
   // oxlint-disable-next-line react/incompatible-library -- the compiler skips this component on purpose, see the comment above
   const virtualizer = useVirtualizer({
     count: lines.length,
@@ -81,7 +82,16 @@ export function LogList({ lines, serviceNames }: LogListProps) {
                   className="absolute top-0 left-0 w-full"
                   style={{ transform: `translateY(${item.start}px)` }}
                 >
-                  <LogRow line={line} serviceName={serviceNames.get(line.serviceId) ?? ""} />
+                  <LogRow
+                    line={line}
+                    serviceName={serviceNames.get(line.serviceId) ?? ""}
+                    open={line.id === openLineId}
+                    onToggle={() => {
+                      // Reading a line stops the follow: new lines would push it away.
+                      setFollowing(false);
+                      setOpenLineId(line.id === openLineId ? undefined : line.id);
+                    }}
+                  />
                 </div>
               )
             );

@@ -125,6 +125,8 @@ useEffect(() => subscribeToLogs(serviceId, append), [serviceId]);
 - **Compatible mobile :** cibles tactiles d'au moins 44 px sur pointeur grossier (`pointer-coarse:`).
 - **Un état « en attente » se voit à son contour bleu** (`outline-info`), posé par `data-staged` ou `data-draft` : réglage, ligne de variable, carte du canvas.
 - **Les logs ont leur fond de terminal** (`bg-terminal`), plus sombre que les cartes.
+- **Une liste longue se cherche :** `SearchSelect` (combobox de coss, champ de recherche dans la liste) pour les projets, les environnements, les dépôts et les branches. Son déclencheur porte un `aria-label` : un combobox ne prend pas son nom dans son contenu.
+- **Un `Select` s'ouvre sous son déclencheur,** jamais par-dessus (`alignItemWithTrigger` à `false` par défaut dans `ui/select.tsx`).
 
 ## Routes
 
@@ -157,6 +159,8 @@ function LogsPage() {
 - **Logs en direct par SSE,** comme le prévoit [04-panel-admin.md](04-panel-admin.md). L'onglet garde les 50 000 dernières lignes. Un flux reconnecté renvoie son historique : les lignes déjà reçues sont ignorées.
 - **Liste virtualisée (TanStack Virtual)** : seules les lignes visibles sont dans le DOM, chacune mesurée puisqu'une ligne peut passer à la ligne. Voir l'exception au React Compiler ci-dessous.
 - **`EventSource` ne peut pas envoyer `X-Brume`.** Le flux de logs est un `GET` sans effet de bord : le serveur le protège par Fetch Metadata (`Sec-Fetch-Site: same-origin`), et aucun CORS ne le rend lisible depuis un autre site.
+- **Une ligne de log s'ouvre au clic** et montre la ligne entière en JSON indenté (`logJson`) ; un message lui-même JSON y apparaît comme `data`, pas comme une chaîne échappée. La coloration passe par `jsonTokens`, rendus en `<span>` de texte. Ouvrir une ligne arrête de suivre le flux.
+- **L'histogramme empile les niveaux** dans chaque barre (info, avertissement, erreur), aux couleurs des lignes.
 - **Couleurs ANSI :** un parseur écrit par nous (`helpers/ansi.ts`) découpe chaque ligne en segments `{ text, style }`, rendus en `<span>` avec des classes. Il ne garde que les codes de couleur et retire les autres séquences (curseur, titres de fenêtre, liens OSC) et les caractères de contrôle. Jamais de HTML, ni de bibliothèque qui en produit.
 - **URL venant de l'API** (domaine d'une app, lien de commit) : affichées en lien seulement si leur schéma est `https:`.
 
@@ -167,7 +171,7 @@ Un réglage ou une variable modifiés ne s'appliquent pas tout de suite : ils at
 - **Le brouillon vit sur le serveur** (`/api/changes`), pas dans le navigateur : il survit à un rechargement, et la valeur d'un secret en attente n'en revient jamais (`null`). `changesCollection` ne contient donc aucun secret.
 - **Un changement par réglage ou par variable :** en remettre un nouveau remplace l'ancien. Revenir à la valeur appliquée retire le changement (`settingChange`).
 - **Mettre en attente n'est pas optimiste** (`stageChange` envoie puis recharge la collection), pour la même raison que la création d'un secret. Annuler un changement l'est.
-- **Une barre dans l'en-tête de l'environnement** compte ses changements, sans jamais couvrir le panneau : « Détails » les liste par service, « Déployer » (ou ⇧ Entrée) les applique tous, une nouvelle révision par service touché. Le menu ⋮ les annule tous.
+- **Une barre flotte en haut du canvas,** centrée sur ce que le panneau du service laisse libre (`--spacing-panel`), et compte les changements de l'environnement : « Détails » les liste par service, « Déployer » (ou ⇧ Entrée) les applique tous, une nouvelle révision par service touché. Le menu ⋮ les annule tous.
 - **Ce qu'affichent les onglets est l'état après le prochain déploiement :** `withStagedSettings` et `stagedVariableRows` superposent les changements aux valeurs appliquées.
 
 ### Données simulées
@@ -188,7 +192,8 @@ Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 - **Les arêtes viennent des dépendances** que l'API calcule à partir des secrets référencés par chaque service.
 - **La mention React Flow reste visible :** sa licence demande un abonnement Pro pour la masquer.
 - **Le panneau d'un service est une route enfant du canvas** (`$env/_canvas/services/$serviceId/{deployments,variables,settings}`). Le canvas reste monté derrière, le bouton Retour ferme le panneau, et chaque onglet a son URL. Le canvas se décale pour garder le service sélectionné visible à gauche du panneau (`panelFocusCenter`).
-- **Un déploiement s'ouvre par-dessus le panneau du service** (`deployments/$deploymentId`), qui reste visible sur sa gauche. Ses onglets (détails, logs de build, logs d'exécution) passent par le paramètre `tab` de l'URL.
+- **Un déploiement s'ouvre par-dessus le panneau du service** (`deployments/$deploymentId`), décalé vers le bas et la droite : le haut et la gauche du panneau restent visibles, comme une carte posée sur une autre. Ses onglets (détails, logs de build, logs d'exécution) passent par le paramètre `tab` de l'URL.
+- **Les réglages défilent seuls,** pour que leur navigation suive la section lue (`currentSection`). Un clic dans la navigation fixe sa section jusqu'au prochain défilement à la main : en bas de page, la dernière section prendrait sinon la place.
 - **Une carte du canvas signale ses changements en attente** par un contour bleu et leur nombre.
 - React Flow tire `zustand` pour son état interne. La règle « pas de store global » vise notre code, pas celui des dépendances.
 
@@ -198,7 +203,8 @@ Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 - **Une raison par animation.** Rien sur ce qui sert cent fois par jour : palette de commandes, raccourcis.
 - **Sous 300 ms**, `ease-out` à l'entrée. Les courbes et les durées sont des variables du thème, jamais tapées dans un composant.
 - **`transform` et `opacity` seulement.** Les popovers partent de leur déclencheur (`--transform-origin` de Base UI).
-- **`prefers-reduced-motion` :** on garde l'opacité, on retire le mouvement.
+- **`prefers-reduced-motion` :** on garde l'opacité, on retire le mouvement. `MotionConfig reducedMotion="user"` à la racine le fait pour les animations de layout.
+- **Onglets à la Vercel** (`NavTabs`) : une pastille suit l'onglet survolé, le soulignement glisse vers l'onglet actif (`layoutId`). Chaque barre d'onglets a son `LayoutGroup` : deux barres peuvent être à l'écran en même temps.
 
 ## Sécurité appliquée par l'outillage
 

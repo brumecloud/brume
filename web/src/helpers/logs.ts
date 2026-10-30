@@ -70,7 +70,16 @@ export function formatLogTime(iso: string): string {
 
 // Lines per time bucket, from the first line to the last one. A loop rather than
 // Math.min(...times): tens of thousands of arguments would overflow the stack.
-export function logHistogram(lines: readonly LogLine[], bucketCount: number): number[] {
+type LevelCounts = Record<LogLevel, number>;
+
+export interface HistogramBar {
+  // In percent of the busiest bucket.
+  readonly height: number;
+  readonly counts: Readonly<LevelCounts>;
+}
+
+// The visible lines over time, each bucket split by level.
+export function logHistogram(lines: readonly LogLine[], bucketCount: number): HistogramBar[] {
   if (lines.length === 0) {
     return [];
   }
@@ -82,13 +91,29 @@ export function logHistogram(lines: readonly LogLine[], bucketCount: number): nu
     last = Math.max(last, time);
   }
   const span = last - first;
-  const buckets = Array.from({ length: bucketCount }, () => 0);
-  for (const time of times) {
-    const index =
-      span === 0 ? 0 : Math.min(Math.floor(((time - first) / span) * bucketCount), bucketCount - 1);
-    buckets[index] = (buckets[index] ?? 0) + 1;
+  const buckets = Array.from({ length: bucketCount }, (): LevelCounts => ({
+    info: 0,
+    warn: 0,
+    error: 0,
+  }));
+  for (const [index, line] of lines.entries()) {
+    const time = times[index] ?? first;
+    const bucket =
+      buckets[
+        span === 0
+          ? 0
+          : Math.min(Math.floor(((time - first) / span) * bucketCount), bucketCount - 1)
+      ];
+    if (bucket) {
+      bucket[line.level] += 1;
+    }
   }
-  return buckets;
+  const totals = buckets.map((counts) => counts.info + counts.warn + counts.error);
+  const busiest = Math.max(0, ...totals);
+  return buckets.map((counts, index) => ({
+    height: busiest === 0 ? 0 : ((totals[index] ?? 0) / busiest) * 100,
+    counts,
+  }));
 }
 
 const BOTTOM_THRESHOLD_PX = 32;
@@ -101,11 +126,6 @@ export function isNearBottom(
   return scrollHeight - scrollTop - clientHeight <= BOTTOM_THRESHOLD_PX;
 }
 
-export function barHeights(counts: readonly number[]): number[] {
-  const busiest = Math.max(0, ...counts);
-  return counts.map((count) => (busiest === 0 ? 0 : (count / busiest) * 100));
-}
-
 export function logCountLabel(count: number): string {
   if (count === 0) {
     return "Aucune ligne";
@@ -113,14 +133,78 @@ export function logCountLabel(count: number): string {
   return `${count} ${count > 1 ? "lignes" : "ligne"}`;
 }
 
+function plainText(message: string): string {
+  return parseAnsi(message)
+    .map((segment) => segment.text)
+    .join("");
+}
+
 // A downloadable text file: plain lines, the ANSI codes are gone.
 export function logsAsText(lines: readonly LogLine[]): string {
-  return lines
-    .map((line) => {
-      const text = parseAnsi(line.message)
-        .map((segment) => segment.text)
-        .join("");
-      return `${line.timestamp} ${text}\n`;
-    })
-    .join("");
+  return lines.map((line) => `${line.timestamp} ${plainText(line.message)}\n`).join("");
+}
+
+// The whole line as indented JSON. A message that is itself JSON shows as data, not as an
+// escaped string.
+export function logJson(line: LogLine, serviceName?: string): string {
+  const message = plainText(line.message);
+  const data = parseJsonMessage(message);
+  return JSON.stringify(
+    {
+      timestamp: line.timestamp,
+      level: line.level,
+      ...(serviceName ? { service: serviceName } : {}),
+      ...(data === undefined ? { message } : { data }),
+    },
+    null,
+    2,
+  );
+}
+
+function parseJsonMessage(message: string): unknown {
+  const text = message.trim();
+  if (!text.startsWith("{") && !text.startsWith("[")) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+export type JsonTokenKind = "key" | "string" | "number" | "literal" | "plain";
+
+export interface JsonToken {
+  readonly text: string;
+  readonly kind: JsonTokenKind;
+}
+
+// A whole string first, so the digits and words inside it stay part of it.
+const JSON_TOKEN =
+  /("(?:[^"\\]|\\.)*")(\s*:)?|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\b(?:true|false|null)\b/g;
+
+// Splits JSON text into colored tokens. Rendered as text: nothing here becomes markup.
+export function jsonTokens(json: string): JsonToken[] {
+  const tokens: JsonToken[] = [];
+  let last = 0;
+  for (const match of json.matchAll(JSON_TOKEN)) {
+    const [text, quoted, colon] = match;
+    if (match.index > last) {
+      tokens.push({ text: json.slice(last, match.index), kind: "plain" });
+    }
+    if (quoted === undefined) {
+      tokens.push({ text, kind: /\d/.test(text) ? "number" : "literal" });
+    } else {
+      tokens.push({ text: quoted, kind: colon ? "key" : "string" });
+      if (colon) {
+        tokens.push({ text: colon, kind: "plain" });
+      }
+    }
+    last = match.index + text.length;
+  }
+  if (last < json.length) {
+    tokens.push({ text: json.slice(last), kind: "plain" });
+  }
+  return tokens;
 }

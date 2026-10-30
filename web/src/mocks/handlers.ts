@@ -16,7 +16,7 @@ import {
   stageChange,
 } from "./db";
 import { backlog, deploymentLogs, liveLine } from "./logs";
-import { repositories } from "./seed";
+import { branchesOf, repositories } from "./seed";
 
 // Enough to see loading states, not enough to get in the way.
 const LATENCY_MS = 150;
@@ -59,6 +59,15 @@ export const handlers = [
   http.get("/api/github/repositories", async () => {
     await delay(LATENCY_MS * 2);
     return HttpResponse.json(repositories);
+  }),
+
+  http.get("/api/github/repositories/:owner/:name/branches", async ({ params }) => {
+    await delay(LATENCY_MS);
+    const fullName = `${String(params.owner)}/${String(params.name)}`;
+    if (!repositories.some((repository) => repository.fullName === fullName)) {
+      return HttpResponse.json({ message: "Dépôt introuvable." }, { status: 404 });
+    }
+    return HttpResponse.json(branchesOf(fullName));
   }),
 
   http.get("/api/services/:serviceId/settings", async ({ params }) => {

@@ -22,9 +22,12 @@ export function LimitSetting({ label, steps, value, staged, format, onCommit }: 
 
   return (
     <SettingField label={label} staged={staged}>
-      <div className="flex flex-col gap-3 rounded-lg border bg-background px-4 py-3">
-        <span className="text-sm">
-          {label} : <span className="font-medium">{format(shown)}</span>
+      <div className="flex flex-col gap-4 rounded-lg border bg-background px-5 pt-4 pb-5">
+        <span className="flex items-baseline justify-between gap-4 text-sm">
+          <span>
+            {label} : <span className="font-medium">{format(shown)}</span>
+          </span>
+          <span className="text-muted-foreground">jusqu'à {format(steps.at(-1) ?? value)}</span>
         </span>
         <Slider
           min={0}

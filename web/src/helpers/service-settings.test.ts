@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { DecodeError } from "./decode";
 import type { Service, ServiceKind } from "~/api/types";
 
-import { parseServiceSettings, settingsSections } from "./service-settings";
+import { currentSection, parseServiceSettings, settingsSections } from "./service-settings";
 
 const raw = {
   source: { kind: "github", repository: "planchon/brume", branch: "main", autoDeploy: true },
@@ -65,5 +65,26 @@ describe("settingsSections", () => {
       "resources",
       "danger",
     ]);
+  });
+});
+
+const positions = (tops: readonly number[]) =>
+  (["source", "network", "deploy"] as const).map((id, index) => ({ id, top: tops[index] ?? 0 }));
+
+describe("currentSection", () => {
+  it("is the first section before any scroll", () => {
+    expect(currentSection(positions([24, 600, 1200]), false)).toBe("source");
+  });
+
+  it("is the last section whose title reached the top", () => {
+    expect(currentSection(positions([-700, 100, 600]), false)).toBe("network");
+  });
+
+  it("is the last section at the bottom of the page", () => {
+    expect(currentSection(positions([-1200, -600, 300]), true)).toBe("deploy");
+  });
+
+  it("is undefined without sections", () => {
+    expect(currentSection([], false)).toBeUndefined();
   });
 });

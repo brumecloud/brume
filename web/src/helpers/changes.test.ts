@@ -64,6 +64,7 @@ describe("parseChanges", () => {
 
 describe("settingValue and withStagedSettings", () => {
   it("reads the current value of each field", () => {
+    expect(settingValue(settings, [], "repository")).toBe("planchon/brume");
     expect(settingValue(settings, [], "branch")).toBe("main");
     expect(settingValue(settings, ["api.brume.dev"], "domains")).toEqual(["api.brume.dev"]);
     expect(settingValue(settings, [], "image")).toBeUndefined();
@@ -73,10 +74,19 @@ describe("settingValue and withStagedSettings", () => {
     const staged = withStagedSettings(
       settings,
       ["api.brume.dev"],
-      [setting("branch", "develop"), setting("port", 8080), setting("domains", [])],
+      [
+        setting("repository", "brumecloud/brume"),
+        setting("branch", "develop"),
+        setting("port", 8080),
+        setting("domains", []),
+      ],
     );
 
-    expect(staged.settings.source).toEqual({ ...settings.source, branch: "develop" });
+    expect(staged.settings.source).toEqual({
+      ...settings.source,
+      repository: "brumecloud/brume",
+      branch: "develop",
+    });
     expect(staged.settings.port).toBe(8080);
     expect(staged.domains).toEqual([]);
   });
@@ -118,7 +128,6 @@ describe("settingChange", () => {
 describe("validateSetting", () => {
   it("accepts valid values", () => {
     expect(validateSetting("port", " 8080 ")).toEqual({ value: 8080 });
-    expect(validateSetting("branch", "feat/logs")).toEqual({ value: "feat/logs" });
     expect(validateSetting("healthcheckPath", "/ready")).toEqual({ value: "/ready" });
     expect(validateSetting("image", "redis:7")).toEqual({ value: "redis:7" });
     expect(validateSetting("startCommand", "node dist/index.js")).toEqual({
@@ -129,8 +138,6 @@ describe("validateSetting", () => {
   it.each([
     ["port", "70000"],
     ["port", "80a"],
-    ["branch", "bad branch"],
-    ["branch", ""],
     ["healthcheckPath", "ready"],
     ["image", "Not An Image"],
     ["startCommand", "x".repeat(501)],

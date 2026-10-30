@@ -8,7 +8,7 @@ import { deploymentById } from "~/api/deployments";
 import { serviceById } from "~/api/services";
 import type { DeploymentId, ServiceId } from "~/api/types";
 import { ServiceIcon } from "~/components/services/service-icon";
-import { TAB_CLASSES } from "~/components/service-panel/panel-tabs";
+import { NavTab, NavTabs } from "~/components/layout/nav-tabs";
 import { Button } from "~/components/ui/button";
 import { Spinner } from "~/components/ui/spinner";
 import { type DeploymentSearch, deploymentShortId, formatDateTime } from "~/helpers/deployments";
@@ -26,8 +26,8 @@ interface DeploymentPanelProps {
   readonly tab: DeploymentSearch["tab"];
 }
 
-// Reference: infra/screens/05a-deployment-details.png. Stacked over the service panel, whose
-// edge stays visible on the left; closing it goes back to the list of deployments.
+// Reference: infra/screens/05a-deployment-details.png. Stacked over the service panel, offset
+// down and right so its top and left edges stay visible; closing it goes back to the list.
 export function DeploymentPanel({ serviceId, deploymentId, tab }: DeploymentPanelProps) {
   const { data: service } = useLiveSuspenseQuery({ query: serviceById(serviceId) });
   const { data: deployment } = useLiveSuspenseQuery({ query: deploymentById(deploymentId) });
@@ -42,7 +42,7 @@ export function DeploymentPanel({ serviceId, deploymentId, tab }: DeploymentPane
       initial={{ opacity: 0, transform: reduceMotion ? "none" : "translateX(24px)" }}
       animate={{ opacity: 1, transform: "translateX(0px)" }}
       transition={PANEL_TRANSITION}
-      className="absolute inset-y-0 right-0 left-6 z-10 flex flex-col overflow-hidden rounded-l-xl border-l bg-card shadow-2xl"
+      className="absolute top-6 right-0 bottom-0 left-6 z-10 flex flex-col overflow-hidden rounded-tl-xl border-t border-l bg-card shadow-2xl"
     >
       <header className="flex items-center gap-3 px-6 pt-6">
         <ServiceIcon kind={service.kind} />
@@ -62,35 +62,17 @@ export function DeploymentPanel({ serviceId, deploymentId, tab }: DeploymentPane
           <XIcon />
         </Button>
       </header>
-      <nav className="mt-4 flex gap-6 border-b px-6">
-        <Link
-          from={FROM}
-          to="."
-          search={{}}
-          activeOptions={{ exact: true }}
-          className={TAB_CLASSES}
-        >
+      <NavTabs>
+        <NavTab from={FROM} to="." search={{}} activeOptions={{ exact: true }}>
           Détails
-        </Link>
-        <Link
-          from={FROM}
-          to="."
-          search={{ tab: "build" }}
-          activeOptions={{ exact: true }}
-          className={TAB_CLASSES}
-        >
+        </NavTab>
+        <NavTab from={FROM} to="." search={{ tab: "build" }} activeOptions={{ exact: true }}>
           Logs de build
-        </Link>
-        <Link
-          from={FROM}
-          to="."
-          search={{ tab: "deploy" }}
-          activeOptions={{ exact: true }}
-          className={TAB_CLASSES}
-        >
+        </NavTab>
+        <NavTab from={FROM} to="." search={{ tab: "deploy" }} activeOptions={{ exact: true }}>
           Logs d'exécution
-        </Link>
-      </nav>
+        </NavTab>
+      </NavTabs>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         <Suspense
           fallback={

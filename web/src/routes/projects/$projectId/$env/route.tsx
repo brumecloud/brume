@@ -3,7 +3,6 @@ import { Outlet, createFileRoute, notFound } from "@tanstack/react-router";
 import { changesCollection } from "~/api/changes";
 import { environmentsCollection, projectsCollection } from "~/api/projects";
 import { servicesCollection } from "~/api/services";
-import { StagedChangesBar } from "~/components/changes/staged-changes-bar";
 import { ProjectShell } from "~/components/layout/project-shell";
 import { findEnvironment, parseEnvironmentName, parseProjectId } from "~/helpers/projects";
 
@@ -37,13 +36,8 @@ export const Route = createFileRoute("/projects/$projectId/$env")({
 
 function ProjectLayout() {
   const { projectId, env } = Route.useParams();
-  const { environment } = Route.useLoaderData();
   return (
-    <ProjectShell
-      projectId={projectId}
-      environmentName={env}
-      actions={<StagedChangesBar environmentId={environment.id} />}
-    >
+    <ProjectShell projectId={projectId} environmentName={env}>
       <Outlet />
     </ProjectShell>
   );

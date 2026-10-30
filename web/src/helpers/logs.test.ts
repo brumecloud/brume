@@ -4,12 +4,13 @@ import type { LogLevel, LogLine, ServiceId } from "~/api/types";
 
 import { DecodeError } from "./decode";
 import {
-  barHeights,
   filterLogs,
   formatLogTime,
   isNearBottom,
+  jsonTokens,
   logCountLabel,
   logHistogram,
+  logJson,
   logsAsText,
   mergeLogLines,
   parseLogLines,
@@ -107,20 +108,27 @@ describe("formatLogTime", () => {
   });
 });
 
+const heights = (lines: readonly LogLine[], buckets: number) =>
+  logHistogram(lines, buckets).map((bar) => bar.height);
+
 describe("logHistogram", () => {
-  it("counts the lines per time bucket", () => {
+  it("counts the lines per time bucket, scaled against the busiest", () => {
     const lines = [
       line("1", "", "info", "s", "2026-10-28T22:00:00Z"),
-      line("2", "", "info", "s", "2026-10-28T22:00:10Z"),
-      line("3", "", "info", "s", "2026-10-28T22:00:59Z"),
-      line("4", "", "info", "s", "2026-10-28T22:01:00Z"),
+      line("2", "", "info", "s", "2026-10-28T22:00:59Z"),
+      line("3", "", "info", "s", "2026-10-28T22:01:00Z"),
     ];
 
-    expect(logHistogram(lines, 2)).toEqual([2, 2]);
+    expect(heights(lines, 2)).toEqual([50, 100]);
   });
 
-  it("puts every line in one bucket when they share a timestamp", () => {
-    expect(logHistogram([line("1", ""), line("2", "")], 3)).toEqual([2, 0, 0]);
+  it("splits each bucket by level", () => {
+    const lines = [line("1", "", "info"), line("2", "", "error"), line("3", "", "error")];
+
+    expect(logHistogram(lines, 2)).toEqual([
+      { height: 100, counts: { info: 1, warn: 0, error: 2 } },
+      { height: 0, counts: { info: 0, warn: 0, error: 0 } },
+    ]);
   });
 
   it("handles a large buffer", () => {
@@ -128,7 +136,9 @@ describe("logHistogram", () => {
       line(String(index), "", "info", "s", new Date(index * 1000).toISOString()),
     );
 
-    expect(logHistogram(lines, 4)).toEqual([50_000, 50_000, 50_000, 50_000]);
+    expect(logHistogram(lines, 4).map((bar) => bar.counts.info)).toEqual([
+      50_000, 50_000, 50_000, 50_000,
+    ]);
   });
 
   it("returns no bucket without lines", () => {
@@ -144,16 +154,6 @@ describe("isNearBottom", () => {
 
   it("is false once the admin scrolled up", () => {
     expect(isNearBottom(500, 1000, 2000)).toBe(false);
-  });
-});
-
-describe("barHeights", () => {
-  it("scales each bucket against the busiest one, in percent", () => {
-    expect(barHeights([2, 4, 0])).toEqual([50, 100, 0]);
-  });
-
-  it("handles empty buckets", () => {
-    expect(barHeights([0, 0])).toEqual([0, 0]);
   });
 });
 
@@ -177,5 +177,59 @@ describe("logsAsText", () => {
     expect(logsAsText(lines)).toBe(
       "2026-10-28T22:48:00Z INFO started\n2026-10-28T22:48:01Z done\n",
     );
+  });
+});
+
+describe("logJson", () => {
+  it("shows a JSON message as data", () => {
+    const json = logJson(line("1", '{"t":{"$date":"2026-10-28"},"msg":"ok"}', "info"), "MongoDB");
+
+    expect(JSON.parse(json)).toEqual({
+      timestamp: "2026-10-28T22:48:00Z",
+      level: "info",
+      service: "MongoDB",
+      data: { t: { $date: "2026-10-28" }, msg: "ok" },
+    });
+  });
+
+  it("keeps a text message as text, without its ANSI codes", () => {
+    const json = logJson(line("1", "\u001B[31mERROR\u001B[0m {not json"));
+
+    expect(JSON.parse(json)).toEqual({
+      timestamp: "2026-10-28T22:48:00Z",
+      level: "info",
+      message: "ERROR {not json",
+    });
+  });
+});
+
+describe("jsonTokens", () => {
+  it("tells keys, strings, numbers and literals apart", () => {
+    expect(jsonTokens('{"a": "x:1", "b": -2.5e3, "c": [true, null]}')).toEqual([
+      { text: "{", kind: "plain" },
+      { text: '"a"', kind: "key" },
+      { text: ":", kind: "plain" },
+      { text: " ", kind: "plain" },
+      { text: '"x:1"', kind: "string" },
+      { text: ", ", kind: "plain" },
+      { text: '"b"', kind: "key" },
+      { text: ":", kind: "plain" },
+      { text: " ", kind: "plain" },
+      { text: "-2.5e3", kind: "number" },
+      { text: ", ", kind: "plain" },
+      { text: '"c"', kind: "key" },
+      { text: ":", kind: "plain" },
+      { text: " [", kind: "plain" },
+      { text: "true", kind: "literal" },
+      { text: ", ", kind: "plain" },
+      { text: "null", kind: "literal" },
+      { text: "]}", kind: "plain" },
+    ]);
+  });
+
+  it("keeps escaped quotes inside their string", () => {
+    expect(jsonTokens('"<script>\\"1\\"</script>"')).toEqual([
+      { text: '"<script>\\"1\\"</script>"', kind: "string" },
+    ]);
   });
 });

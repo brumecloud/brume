@@ -24,6 +24,7 @@ import { domainUrl, formatCpu, formatMemory } from "./services";
 import type { ResolvedVariable } from "./variables";
 
 const FIELDS: readonly SettingField[] = [
+  "repository",
   "branch",
   "autoDeploy",
   "image",
@@ -38,6 +39,7 @@ const FIELDS: readonly SettingField[] = [
 const KINDS: readonly VariableKind[] = ["plain", "build", "secret"];
 
 const FIELD_LABELS: Record<SettingField, string> = {
+  repository: "Dépôt",
   branch: "Branche",
   autoDeploy: "Déploiement automatique",
   image: "Image",
@@ -62,7 +64,6 @@ export function limitStep(steps: readonly number[], value: number): number {
   );
 }
 
-const BRANCH = /^(?!\/)(?!.*\.\.)[A-Za-z0-9._/-]{1,200}(?<![./])$/;
 const MAX_COMMAND_LENGTH = 500;
 
 export function parseChanges(raw: unknown): StagedChange[] {
@@ -117,6 +118,8 @@ export function settingValue(
 ): SettingValue | undefined {
   const { source } = settings;
   switch (field) {
+    case "repository":
+      return source.kind === "github" ? source.repository : undefined;
     case "branch":
       return source.kind === "github" ? source.branch : undefined;
     case "autoDeploy":
@@ -173,6 +176,7 @@ export function withStagedSettings(
         source.kind === "github"
           ? {
               ...source,
+              repository: text("repository", source.repository),
               branch: text("branch", source.branch),
               autoDeploy: flag("autoDeploy", source.autoDeploy),
             }
@@ -219,7 +223,7 @@ export function settingChange(
   return { action: "stage" };
 }
 
-type TextField = "branch" | "image" | "startCommand" | "port" | "healthcheckPath";
+type TextField = "image" | "startCommand" | "port" | "healthcheckPath";
 
 export function validateSetting(
   field: TextField,
@@ -233,8 +237,6 @@ export function validateSetting(
         ? { value: port }
         : { error: "Un port entre 1 et 65535." };
     }
-    case "branch":
-      return BRANCH.test(text) ? { value: text } : { error: "Nom de branche invalide." };
     case "healthcheckPath":
       return text === "" || /^\/\S{0,200}$/.test(text)
         ? { value: text }

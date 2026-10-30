@@ -118,6 +118,8 @@
 
 /* Brand colors of the services, and the easing curves of src/lib/motion.ts. */
 @theme {
+  /* Width of the side panel of the canvas: what stays free of it on its left. */
+  --spacing-panel: 56rem;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --color-brand-postgres: #4169e1;

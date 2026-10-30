@@ -39,7 +39,7 @@ export function LogToolbar({ search, services, count, paused, onTogglePause }: L
     navigate({ search: parseLogsSearch({ ...search, ...changes }), replace: true });
 
   return (
-    <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+    <div className="flex flex-wrap items-center gap-2 p-4 pb-3">
       <InputGroup className="min-w-48 flex-1">
         <InputGroupAddon>
           <SearchIcon />

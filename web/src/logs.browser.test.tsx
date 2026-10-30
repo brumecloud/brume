@@ -31,6 +31,18 @@ describe("log explorer", () => {
     expect(document.querySelector("main")?.textContent).not.toContain("\u001B");
   });
 
+  it("opens a line as JSON, its message as data", async () => {
+    const screen = await renderApp(`${production}/logs`);
+
+    await screen
+      .getByRole("button", { name: /Connection accepted/ })
+      .first()
+      .click();
+
+    await expect.element(screen.getByText('"data"')).toBeVisible();
+    await expect.element(screen.getByText('"10.0.1.7:51834"')).toBeVisible();
+  });
+
   it("filters on the level from the URL", async () => {
     const screen = await renderApp(`${production}/logs?level=error`);
 

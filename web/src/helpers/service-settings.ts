@@ -64,3 +64,26 @@ export function settingsSections(service: Pick<Service, "kind" | "volume">): Set
     "danger",
   ];
 }
+
+// How far below the top of the scroll area a section title becomes the one being read.
+const SECTION_ACTIVATION_PX = 120;
+
+export interface SectionPosition {
+  readonly id: SettingsSectionId;
+  // From the top of the scroll area, negative once scrolled past.
+  readonly top: number;
+}
+
+// The section being read: the last one whose title reached the top of the scroll area. At the
+// bottom, the last section, which may be too short to ever reach the top.
+export function currentSection(
+  sections: readonly SectionPosition[],
+  atBottom: boolean,
+): SettingsSectionId | undefined {
+  if (atBottom) {
+    return sections.at(-1)?.id;
+  }
+  return (
+    sections.findLast((section) => section.top <= SECTION_ACTIVATION_PX)?.id ?? sections[0]?.id
+  );
+}
