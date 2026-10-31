@@ -125,6 +125,8 @@ pub struct Engine<S: Storage> {
     pub(crate) jobs_sent: BTreeSet<DeploymentId>,
     /// The last `WakeAt` sent.
     pub(crate) wake_at: Option<Timestamp>,
+    /// Another server writes to the same bucket: every write is refused.
+    pub(crate) read_only: bool,
 }
 
 impl<S: Storage> Engine<S> {
@@ -144,6 +146,7 @@ impl<S: Storage> Engine<S> {
             sent_position: None,
             jobs_sent: BTreeSet::new(),
             wake_at: None,
+            read_only: false,
         };
         for stored in events {
             let seq = stored.seq;
@@ -223,6 +226,17 @@ impl<S: Storage> Engine<S> {
         self.world.machine()
     }
 
+    /// Refuses every write from now on: another server ships to the same bucket, and two
+    /// writers would fork the log.
+    pub fn set_read_only(&mut self) {
+        self.read_only = true;
+    }
+
+    /// Whether `set_read_only` was called.
+    pub fn is_read_only(&self) -> bool {
+        self.read_only
+    }
+
     /// The current state.
     pub fn world(&self) -> &World {
         &self.world
@@ -242,6 +256,7 @@ impl<S: Storage> Engine<S> {
         command: &Command,
         mut tx: Transaction,
     ) -> Result<Vec<EventEnvelope>, ApiFailure> {
+        self.check_writable()?;
         let events = decide(&self.world, command).map_err(rejected)?;
         let at = ctx.now();
         let mut hash = self.last_hash;
@@ -278,6 +293,7 @@ impl<S: Storage> Engine<S> {
 
     /// Writes a transaction without events, such as a session or a staged change.
     pub(crate) fn write(&mut self, tx: Transaction) -> Result<(), ApiFailure> {
+        self.check_writable()?;
         let empty = tx.events.is_empty()
             && tx.blobs.is_empty()
             && tx.secrets.is_empty()
@@ -289,6 +305,16 @@ impl<S: Storage> Engine<S> {
             return Ok(());
         }
         self.storage.commit(tx).map_err(storage_failure)
+    }
+
+    fn check_writable(&self) -> Result<(), ApiFailure> {
+        if self.read_only {
+            return Err(failure(
+                FailureKind::Conflict,
+                "Another server writes to this bucket.".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     /// The admin's identity, for the panel.

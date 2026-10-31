@@ -988,3 +988,36 @@ fn reveal_follows_a_reference_and_set_reports_its_users() {
         ApiValue::RevealedValue(revealed) if revealed.value == "second-value"
     ));
 }
+
+#[test]
+fn read_only_engine_refuses_every_write() {
+    let mut harness = Harness::new();
+    let (service, environment, _) = active_project(&mut harness, &[]);
+    let position = harness.engine.position();
+    harness.engine.set_read_only();
+    assert!(harness.engine.is_read_only());
+
+    for call in [
+        ApiCall::Redeploy {
+            service_id: service.clone(),
+        },
+        ApiCall::StageChange(setting(
+            &service,
+            SettingField::Egress,
+            SettingValueDto::Bool(true),
+        )),
+        ApiCall::DeployEnvironmentChanges {
+            environment_id: environment.clone(),
+        },
+        ApiCall::Logout,
+    ] {
+        let failure = harness.call(call).expect_err("refused");
+        assert_eq!(failure.kind, FailureKind::Conflict);
+        assert_eq!(failure.message, "Another server writes to this bucket.");
+    }
+    // Reads still work, and agent reports change nothing.
+    assert_eq!(harness.services().len(), 1);
+    harness.ctx.advance(DEPLOYMENT_TIMEOUT_MILLIS);
+    harness.input(Input::Tick);
+    assert_eq!(harness.engine.position(), position);
+}

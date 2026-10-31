@@ -3,3 +3,15 @@
 //! bucket.
 
 #![forbid(unsafe_code)]
+
+mod relay;
+mod shell;
+mod shipper;
+mod sqlite;
+
+pub use shell::run;
+pub use shipper::{
+    GENERATION, MAX_SEGMENT_EVENTS, SHIP_PERIOD, ShipError, ShipOutcome, Shipper, segment_bytes,
+    segment_key,
+};
+pub use sqlite::SqliteStorage;
