@@ -6,6 +6,8 @@ import type { ReactNode } from "react";
 interface HoverAnimateProps {
   readonly as?: "article" | "div";
   readonly className?: string;
+  // Lets the reading line light the block: see ReadingLight.
+  readonly light?: boolean;
   readonly children: ReactNode;
 }
 
@@ -17,10 +19,17 @@ interface HoverAnimateProps {
  * component reaches the client as a lazy reference, which it drops, and the
  * page no longer matches the server HTML.
  */
-export function HoverAnimate({ as: Element = "div", className = "", children }: HoverAnimateProps) {
+export function HoverAnimate({
+  as: Element = "div",
+  className = "",
+  light = false,
+  children,
+}: HoverAnimateProps) {
   return (
     <AnimateIcon animateOnHover loop loopDelay={250} asChild>
-      <Element className={className}>{children}</Element>
+      <Element className={className} data-light={light || undefined}>
+        {children}
+      </Element>
     </AnimateIcon>
   );
 }

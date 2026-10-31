@@ -3,31 +3,30 @@ import Image from "next/image";
 import logo from "~/assets/logo.png";
 import { BrandIcon } from "~/components/brand-icon";
 import { Card } from "~/components/card";
+import { PinnedGrid } from "~/components/pinned-grid";
 import { Section } from "~/components/section";
-import { brumeComparison, comparison, designDoc, principles } from "~/content";
+import { logoLit } from "~/components/tone";
+import { brumeComparison, comparison, copy, designDoc, principles } from "~/content";
 
 import { ArchitectureDiagram } from "./architecture-diagram";
 
 export function Security() {
   return (
-    <Section
-      id="security"
-      kicker="Security"
-      tone="emerald"
-      title="Built as if every part of it will be attacked."
-      lede="Brume is one signed binary, split into several services. Each runs as its own system user, with its own permissions. A flaw in one of them doesn't hand over the others."
-      className="pt-8"
-    >
+    <Section id="security" title={copy.security.title} lede={copy.security.lede} className="pt-8">
       <ArchitectureDiagram />
 
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <PinnedGrid
+        count={principles.length}
+        className="mt-10"
+        gridClassName="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+      >
         {principles.map((principle) => (
           <Card key={principle.title} {...principle} />
         ))}
-      </div>
+      </PinnedGrid>
 
       <h3 id="comparison-title" className="mt-20 text-xl font-semibold tracking-[-0.02em]">
-        If the admin panel is compromised…
+        {copy.security.comparisonTitle}
       </h3>
       <div className="pixel-border reveal mt-5 overflow-x-auto bg-surface">
         <table
@@ -52,33 +51,44 @@ export function Security() {
           </thead>
           <tbody>
             {comparison.map((row) => (
-              <tr key={row.tool} className="border-b border-edge text-ink-muted">
+              <tr key={row.tool} data-light className="group border-b border-edge text-ink-muted">
                 <th scope="row" className="px-5 py-3.5 font-semibold text-ink">
                   <span className="flex items-center gap-2.5">
-                    {row.icon ? <BrandIcon name={row.icon} className="size-5 shrink-0" /> : null}
+                    {row.icon ? (
+                      <BrandIcon name={row.icon} className={`size-5 shrink-0 ${logoLit}`} />
+                    ) : null}
                     {row.tool}
                   </span>
                 </th>
                 <td className="px-5 py-3.5">{row.panel}</td>
                 <td className="px-5 py-3.5">{row.docker}</td>
                 <td className="px-5 py-3.5">
-                  <span aria-hidden="true" className="mr-1.5 text-rose-400">
+                  <span
+                    aria-hidden="true"
+                    className="mr-1.5 text-ink-dim transition-colors duration-300 lit:text-rose-400"
+                  >
                     ×
                   </span>
                   {row.attackerGets}
                 </td>
               </tr>
             ))}
-            <tr className="bg-highlight">
+            <tr data-light className="group bg-highlight">
               <th scope="row" className="px-5 py-3.5 font-semibold">
                 <span className="flex items-center gap-2.5">
-                  <Image src={logo} alt="" width={20} height={20} className="shrink-0 rounded" />
+                  <Image
+                    src={logo}
+                    alt=""
+                    width={20}
+                    height={20}
+                    className={`shrink-0 rounded ${logoLit}`}
+                  />
                   {brumeComparison.tool}
                 </span>
               </th>
               <td className="px-5 py-3.5">{brumeComparison.panel}</td>
               <td className="px-5 py-3.5">{brumeComparison.docker}</td>
-              <td className="px-5 py-3.5 text-emerald-400">
+              <td className="px-5 py-3.5 transition-colors duration-300 lit:text-emerald-400">
                 <span aria-hidden="true" className="mr-1.5">
                   ✓
                 </span>
@@ -89,7 +99,7 @@ export function Security() {
         </table>
       </div>
       <p className="mt-3.5 text-[13px] text-ink-dim">
-        Based on each project&apos;s installation docs. Details in{" "}
+        {copy.security.comparisonSource} Details in{" "}
         <a
           href={designDoc("11-comparatif.md")}
           className="border-b border-dashed border-edge-strong text-ink-muted hover:text-brand"

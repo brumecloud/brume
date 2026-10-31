@@ -26,7 +26,8 @@ export const metadata: Metadata = {
   title: site.title,
   description: site.description,
   applicationName: site.name,
-  alternates: { canonical: "/" },
+  // Agents that read the HTML find the page in Markdown there.
+  alternates: { canonical: "/", types: { "text/markdown": "/index.md" } },
   openGraph: {
     type: "website",
     url: "/",

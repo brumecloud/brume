@@ -41,9 +41,13 @@ export function InstallCommand({ command, className = "" }: InstallCommandProps)
 
   return (
     <div
-      className={`pixel-border flex items-center gap-3.5 bg-terminal px-4 py-3.5 font-mono text-[13px] ${className}`}
+      data-light
+      className={`group pixel-border flex items-center gap-3.5 bg-terminal px-4 py-3.5 font-mono text-[13px] ${className}`}
     >
-      <span aria-hidden="true" className="text-brand">
+      <span
+        aria-hidden="true"
+        className="text-ink-dim transition-colors duration-300 lit:text-brand"
+      >
         $
       </span>
       <code

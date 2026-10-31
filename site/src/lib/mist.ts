@@ -3,7 +3,9 @@
 // A low resolution fog field, quantized to a fixed blue palette with a 4x4
 // Bayer matrix, then scaled up by CSS with `image-rendering: pixelated`. A
 // canvas only animates while it is on screen, and never when the visitor
-// prefers reduced motion.
+// prefers reduced motion. The pointer stirs it: the fog follows its motion and
+// parts where it passes, then settles back. A click breathes a puff of mist,
+// which swells and fades.
 
 export type MistShape = "hero" | "band" | "floor";
 export type MistPalette = keyof typeof PALETTES;
@@ -18,6 +20,32 @@ export interface MistOptions {
 /** CSS pixels per mist pixel. */
 const PIXEL = 4;
 const FRAME_MS = 90;
+/** Smoother while the pointer stirs the fog. */
+const FRAME_STIRRED_MS = 40;
+
+/** How the pointer stirs the fog, in mist pixels and seconds. */
+const STIR_RADIUS = 26;
+/** The share of the pointer's motion the fog follows, up to `MAX_SHIFT`. */
+const STIR_DRAG = 0.6;
+const MAX_SHIFT = 30;
+/** The fog parts under the pointer: density taken off at its center. */
+const PARTING = 0.75;
+/** Time constants of the fog drifting back and closing over the trail. */
+const SHIFT_SETTLE_S = 1.1;
+const PARTING_SETTLE_S = 0.7;
+
+/**
+ * A puff of mist from a click: it swells from `PUFF_RADIUS` to `PUFF_SPREAD`
+ * mist pixels while it fades, and adds up to `PUFF_DENSITY` to the fog.
+ */
+const PUFF_RADIUS = 12;
+const PUFF_SPREAD = 46;
+const PUFF_DENSITY = 0.95;
+const PUFF_SWELL_S = 1.4;
+const PUFF_FADE_S = 2.2;
+const PUFF_LIFE_S = 8;
+/** The oldest puffs go first past this many. */
+const MAX_PUFFS = 12;
 
 /**
  * From the page background (`--color-night`) to the brightest fog. Every
@@ -25,8 +53,6 @@ const FRAME_MS = 90;
  */
 const PALETTES = {
   night: ["#020818", "#05112e", "#0a1d4a", "#11306f", "#1b4c9e", "#2f74d0", "#5ea8f5", "#b4dcff"],
-  aurora: ["#020818", "#04172a", "#062b39", "#0a4447", "#0f6655", "#1f9a72", "#4fd59a", "#c4f7dc"],
-  dawn: ["#020818", "#0d0f2b", "#1e1440", "#3b1d55", "#6b2a63", "#a33e63", "#e0685a", "#ffc08a"],
 } as const;
 const STAR_COLORS = ["#3b4f7a", "#c9d8ff", "#ffffff"];
 
@@ -130,6 +156,19 @@ const fbm = (x: number, y: number, octaves: number): number => {
   return sum / norm;
 };
 
+interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+const clampShift = (value: number): number =>
+  value < -MAX_SHIFT ? -MAX_SHIFT : value > MAX_SHIFT ? MAX_SHIFT : value;
+
+interface Puff extends Point {
+  /** When the click happened, on the mist's clock, in seconds. */
+  readonly born: number;
+}
+
 interface Star {
   readonly x: number;
   readonly y: number;
@@ -148,6 +187,14 @@ class MistField {
   private rowShape = new Float32Array(0);
   private stars: Star[] = [];
   private readonly palette: Uint32Array;
+  // How far the pointer moved the fog, and how much it parted it, per mist pixel.
+  private shiftX = new Float32Array(0);
+  private shiftY = new Float32Array(0);
+  private parting = new Float32Array(0);
+  private stirred = false;
+  // The puffs of mist the clicks left, and the density they add, per mist pixel.
+  private puffs: Puff[] = [];
+  private added = new Float32Array(0);
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -174,29 +221,152 @@ class MistField {
     const shape = SHAPES[this.options.shape];
     this.rowShape = Float32Array.from({ length: height }, (_, y) => shape(y / height));
     this.stars = this.options.stars ? this.makeStars() : [];
+    this.shiftX = new Float32Array(width * height);
+    this.shiftY = new Float32Array(width * height);
+    this.parting = new Float32Array(width * height);
+    this.added = new Float32Array(width * height);
+    this.stirred = false;
+  }
+
+  /** Whether the fog still carries a trace of the pointer, or a puff still lives. */
+  get isStirred(): boolean {
+    return this.stirred || this.puffs.length > 0;
+  }
+
+  /** A click at `at`, in mist pixels, at `time` on the mist's clock. */
+  puff(at: Point, time: number): void {
+    this.puffs = [...this.puffs.slice(1 - MAX_PUFFS), { ...at, born: time }];
+  }
+
+  /** The pointer went from `from` to `to`, in mist pixels, since the last frame. */
+  stir(from: Point, to: Point): void {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (STIR_RADIUS / 4)));
+    for (let step = 1; step <= steps; step++) {
+      this.stamp(
+        from.x + (dx * step) / steps,
+        from.y + (dy * step) / steps,
+        (dx * STIR_DRAG) / steps,
+        (dy * STIR_DRAG) / steps,
+      );
+    }
+    this.stirred = true;
+  }
+
+  /** Lets the fog drift back and close over the pointer's trail. */
+  settle(seconds: number): void {
+    if (!this.stirred) return;
+    const { shiftX, shiftY, parting } = this;
+    const shiftKeep = Math.exp(-seconds / SHIFT_SETTLE_S);
+    const partingKeep = Math.exp(-seconds / PARTING_SETTLE_S);
+    let left = 0;
+    for (let i = 0; i < parting.length; i++) {
+      const x = shiftX[i]! * shiftKeep;
+      const y = shiftY[i]! * shiftKeep;
+      const part = parting[i]! * partingKeep;
+      shiftX[i] = x;
+      shiftY[i] = y;
+      parting[i] = part;
+      left = Math.max(left, Math.abs(x), Math.abs(y), part * 10);
+    }
+    if (left < 0.05) {
+      shiftX.fill(0);
+      shiftY.fill(0);
+      parting.fill(0);
+      this.stirred = false;
+    }
+  }
+
+  /** A soft disc around the pointer: it carries the fog by `push` and parts it. */
+  private stamp(cx: number, cy: number, pushX: number, pushY: number): void {
+    const { width, height, shiftX, shiftY, parting } = this;
+    const r2 = STIR_RADIUS * STIR_RADIUS;
+    const top = Math.max(0, Math.floor(cy - STIR_RADIUS));
+    const bottom = Math.min(height - 1, Math.ceil(cy + STIR_RADIUS));
+    const left = Math.max(0, Math.floor(cx - STIR_RADIUS));
+    const right = Math.min(width - 1, Math.ceil(cx + STIR_RADIUS));
+    for (let y = top; y <= bottom; y++) {
+      for (let x = left; x <= right; x++) {
+        const d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        if (d2 >= r2) continue;
+        const falloff = 1 - d2 / r2;
+        const weight = falloff * falloff;
+        const i = y * width + x;
+        shiftX[i] = clampShift(shiftX[i]! + pushX * weight);
+        shiftY[i] = clampShift(shiftY[i]! + pushY * weight);
+        parting[i] = Math.max(parting[i]!, weight);
+      }
+    }
   }
 
   draw(time: number): void {
     if (!this.image) return;
-    const { width, height, pixels, rowShape, palette } = this;
+    const { width, height, pixels, rowShape, palette, stirred, shiftX, shiftY, parting, added } =
+      this;
+    const puffed = this.addPuffs(time);
     const offset = this.options.seed * 37;
     for (let y = 0; y < height; y++) {
       const shape = rowShape[y]!;
       const bayerRow = (y & 3) << 2;
       const row = y * width;
       for (let x = 0; x < width; x++) {
-        const detail = fbm(x * 0.024 + time * 0.06 + offset, y * 0.06 + time * 0.01, 3);
-        const drift = fbm(x * 0.009 - time * 0.025 + 40 + offset, y * 0.03 + 20, 2);
-        const density = clamp01((detail - 0.45) * 1.7 + shape + (drift - 0.5) * 0.5);
+        // Where the pointer carried the fog, it shows the fog from further back.
+        const i = row + x;
+        const fx = stirred ? x - shiftX[i]! : x;
+        const fy = stirred ? y - shiftY[i]! : y;
+        const detail = fbm(fx * 0.024 + time * 0.06 + offset, fy * 0.06 + time * 0.01, 3);
+        const drift = fbm(fx * 0.009 - time * 0.025 + 40 + offset, fy * 0.03 + 20, 2);
+        const parted = stirred ? parting[i]! * PARTING : 0;
+        const puff = puffed ? added[i]! : 0;
+        const density = clamp01(
+          (detail - 0.45) * 1.7 + shape + (drift - 0.5) * 0.5 - parted + puff,
+        );
         const level = density * (LEVELS - 1);
         const base = level | 0;
         const index = base + (level - base > BAYER[bayerRow | (x & 3)]! ? 1 : 0);
-        pixels[row + x] = palette[Math.min(index, LEVELS - 1)]!;
+        pixels[i] = palette[Math.min(index, LEVELS - 1)]!;
       }
     }
     this.drawStars(time);
     if (this.options.stars) this.drawMeteor(time);
     this.context.putImageData(this.image, 0, 0);
+  }
+
+  /**
+   * Adds up what the living puffs bring to each mist pixel into `added`, and
+   * drops the spent ones. A puff follows the fog the pointer carries. Returns
+   * whether any puff is left.
+   */
+  private addPuffs(time: number): boolean {
+    this.puffs = this.puffs.filter((puff) => time - puff.born < PUFF_LIFE_S);
+    if (this.puffs.length === 0) return false;
+    const { width, height, added, shiftX, shiftY, stirred } = this;
+    added.fill(0);
+    const reach = stirred ? MAX_SHIFT : 0;
+    for (const puff of this.puffs) {
+      const age = time - puff.born;
+      const radius =
+        PUFF_RADIUS + (PUFF_SPREAD - PUFF_RADIUS) * (1 - Math.exp(-age / PUFF_SWELL_S));
+      const strength = PUFF_DENSITY * Math.exp(-age / PUFF_FADE_S);
+      const r2 = radius * radius;
+      const top = Math.max(0, Math.floor(puff.y - radius - reach));
+      const bottom = Math.min(height - 1, Math.ceil(puff.y + radius + reach));
+      const left = Math.max(0, Math.floor(puff.x - radius - reach));
+      const right = Math.min(width - 1, Math.ceil(puff.x + radius + reach));
+      for (let y = top; y <= bottom; y++) {
+        for (let x = left; x <= right; x++) {
+          const i = y * width + x;
+          const px = stirred ? x - shiftX[i]! : x;
+          const py = stirred ? y - shiftY[i]! : y;
+          const d2 = (px - puff.x) * (px - puff.x) + (py - puff.y) * (py - puff.y);
+          if (d2 >= r2) continue;
+          const falloff = 1 - d2 / r2;
+          added[i] = Math.min(1.2, added[i]! + strength * falloff * falloff);
+        }
+      }
+    }
+    return true;
   }
 
   private makeStars(): Star[] {
@@ -281,12 +451,39 @@ export function startMist(canvas: HTMLCanvasElement, options: MistOptions): () =
   let visible = false;
   let frame = 0;
   let last = 0;
+  // Where the pointer is, and where it was at the last frame, in mist pixels.
+  let pointer: Point | undefined;
+  let previous: Point | undefined;
 
   const tick = (timestamp: number) => {
     frame = requestAnimationFrame(tick);
-    if (timestamp - last < FRAME_MS) return;
+    const moved = pointer !== previous;
+    if (timestamp - last < (moved || field.isStirred ? FRAME_STIRRED_MS : FRAME_MS)) return;
+    const seconds = last === 0 ? 0 : Math.min(0.2, (timestamp - last) / 1000);
     last = timestamp;
+    if (pointer && previous && moved) field.stir(previous, pointer);
+    previous = pointer;
+    field.settle(seconds);
     field.draw(elapsed());
+  };
+
+  // The content above the canvas takes the pointer: listen on the parent, which it bubbles to.
+  const onPointerMove = (event: PointerEvent) => {
+    const box = canvas.getBoundingClientRect();
+    pointer = { x: (event.clientX - box.left) / PIXEL, y: (event.clientY - box.top) / PIXEL };
+  };
+  // A click breathes a puff of mist where it lands.
+  const onPointerDown = (event: PointerEvent) => {
+    if (event.button !== 0 || reducedMotion.matches) return;
+    const box = canvas.getBoundingClientRect();
+    field.puff(
+      { x: (event.clientX - box.left) / PIXEL, y: (event.clientY - box.top) / PIXEL },
+      elapsed(),
+    );
+  };
+  const onPointerLeave = () => {
+    pointer = undefined;
+    previous = undefined;
   };
 
   const update = () => {
@@ -311,11 +508,17 @@ export function startMist(canvas: HTMLCanvasElement, options: MistOptions): () =
   intersection.observe(canvas);
   resize.observe(parent);
   reducedMotion.addEventListener("change", update);
+  parent.addEventListener("pointermove", onPointerMove, { passive: true });
+  parent.addEventListener("pointerleave", onPointerLeave);
+  parent.addEventListener("pointerdown", onPointerDown, { passive: true });
 
   return () => {
     intersection.disconnect();
     resize.disconnect();
     reducedMotion.removeEventListener("change", update);
+    parent.removeEventListener("pointermove", onPointerMove);
+    parent.removeEventListener("pointerleave", onPointerLeave);
+    parent.removeEventListener("pointerdown", onPointerDown);
     cancelAnimationFrame(frame);
   };
 }

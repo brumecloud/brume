@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-import { type Tone, toneTile } from "./tone";
+import { type Tone, toneTileLit } from "./tone";
 
 /** An Animate UI icon: it animates when a parent `AnimateIcon` is hovered. */
 export type AnimatedIcon = ComponentType<{ readonly className?: string; readonly size?: number }>;
@@ -14,7 +14,7 @@ export function IconTile({ icon: Icon, tone }: IconTileProps) {
   return (
     <span
       aria-hidden="true"
-      className={`grid size-10 shrink-0 place-items-center rounded-md ring-1 ring-inset ${toneTile[tone]}`}
+      className={`grid size-10 shrink-0 place-items-center rounded-md bg-highlight text-ink-muted ring-1 ring-edge-strong transition duration-300 ring-inset ${toneTileLit[tone]}`}
     >
       <Icon size={20} className="[stroke-width:1.75]" />
     </span>
