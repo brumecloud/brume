@@ -180,4 +180,9 @@ fn another_servers_object_is_a_conflict() {
         shipper.ship_once().expect("checks"),
         ShipOutcome::Conflict { .. }
     ));
+    let connection = rusqlite::Connection::open(db(home.path())).expect("opens");
+    let checkpoints: i64 = connection
+        .query_row("SELECT COUNT(*) FROM shipper", [], |row| row.get(0))
+        .expect("counts");
+    assert_eq!(checkpoints, 0, "the checkpoint did not move");
 }

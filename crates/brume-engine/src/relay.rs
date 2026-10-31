@@ -37,7 +37,10 @@ where
         }
     };
     let (mut from_telemetry, to_telemetry) = telemetry.into_split();
-    FramedWriter::new(to_telemetry).write(&query).await?;
+    // Dropping the write half would shut it down: telemetry would read the end of the stream
+    // and could take it for a client that left. It lives until the relay ends.
+    let mut to_telemetry = FramedWriter::new(to_telemetry);
+    to_telemetry.write(&query).await?;
     client_writer
         .write(&ApiReply {
             id: request,
@@ -46,10 +49,12 @@ where
         .await?;
     let mut to_client = client_writer.into_inner();
     let mut from_client = client_reader.into_inner();
-    tokio::select! {
+    let relayed = tokio::select! {
         copied = tokio::io::copy(&mut from_telemetry, &mut to_client) => copied.map(|_| ()),
         () = closed(&mut from_client) => Ok(()),
-    }
+    };
+    drop(to_telemetry);
+    relayed
 }
 
 /// Returns once the client closes its side; anything it sends is ignored.

@@ -156,7 +156,10 @@ impl<O: ObjectStore> Shipper<O> {
             PutOutcome::AlreadyExists => {
                 // An earlier run may have put it and crashed before its checkpoint, with fewer
                 // events than there are now: it is ours if it is exactly our first ones.
-                let existing = self.store.get(&key)?.unwrap_or_default();
+                // An object that vanished since the put is a bucket failure: retry.
+                let existing = self.store.get(&key)?.ok_or_else(|| {
+                    std::io::Error::new(std::io::ErrorKind::NotFound, "a segment vanished")
+                })?;
                 match ours(&existing, first_seq, &events) {
                     Some(count) => count,
                     None => return Ok(ShipOutcome::Conflict { key }),

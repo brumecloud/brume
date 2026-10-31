@@ -244,14 +244,18 @@ fn failed_transaction_leaves_nothing() {
     storage
         .commit(Transaction {
             events: vec![event(1)],
+            secrets: vec![(variable(), 1, SecretString::from(SECRET))],
             ..Transaction::default()
         })
         .expect("commits");
     let failed = storage.commit(Transaction {
-        // The second event of the transaction reuses a sequence number.
-        events: vec![event(2), event(2)],
+        events: vec![event(2), event(3)],
         blobs: vec![(blob(1), b"hello".to_vec())],
-        secrets: vec![(variable(), 1, SecretString::from(SECRET))],
+        // Version 2 goes in, then version 1 again fails, after the events and the blob.
+        secrets: vec![
+            (variable(), 2, SecretString::from("new")),
+            (variable(), 1, SecretString::from("again")),
+        ],
         staged_upserts: vec![change(1, StagedBody::VariableRemoval { name: name("X") })],
         sessions_upserts: vec![session(1)],
         ..Transaction::default()
@@ -259,7 +263,14 @@ fn failed_transaction_leaves_nothing() {
     assert!(failed.is_err());
     assert_eq!(storage.load_events().expect("loads"), vec![event(1)]);
     assert_eq!(storage.blob(&blob(1)).expect("reads"), None);
-    assert!(storage.secret(&variable(), 1).expect("reads").is_none());
+    assert!(storage.secret(&variable(), 2).expect("reads").is_none());
+    assert_eq!(
+        storage
+            .secret(&variable(), 1)
+            .expect("reads")
+            .map(|secret| secret.expose_secret().to_owned()),
+        Some(SECRET.to_owned())
+    );
     assert!(storage.staged_changes().expect("reads").is_empty());
     assert_eq!(storage.session(&[1; 32]).expect("reads"), None);
 }

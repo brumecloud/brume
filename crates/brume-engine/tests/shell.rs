@@ -161,19 +161,26 @@ async fn engine_serves_its_sockets_and_relays_log_streams() {
     }
     assert!(matches!(job, Some(Job::ResolveImage { image, .. }) if image == "nginx:1.29"));
 
-    // A fake telemetry answers the query with one batch of lines, then ends.
+    // A fake telemetry answers the query with one batch of lines, then ends. The engine keeps
+    // its side open while the stream lives, and closes it once the client leaves.
     let telemetry = UnixListener::bind(paths.telemetry_query_socket()).expect("binds");
     let expected = environment.clone();
     let fake = tokio::spawn(async move {
         let (stream, _) = telemetry.accept().await.expect("accepts");
         let (read, write) = stream.into_split();
-        let query = FramedReader::new(read)
+        let mut reader = FramedReader::new(read);
+        let query = reader
             .read::<LogQuery>()
             .await
             .expect("reads")
             .expect("a query");
         assert_eq!(query.environment_id, expected);
         assert!(query.follow);
+        let early = timeout(Duration::from_millis(300), reader.read::<LogQuery>()).await;
+        assert!(
+            early.is_err(),
+            "the engine closed its side of a live stream"
+        );
         let mut writer = FramedWriter::new(write);
         writer
             .write(&LogStreamFrame::Lines(vec![LogLineDto {
@@ -186,6 +193,13 @@ async fn engine_serves_its_sockets_and_relays_log_streams() {
             .await
             .expect("writes");
         writer.write(&LogStreamFrame::End).await.expect("writes");
+        let gone = timeout(WAIT, reader.read::<LogQuery>())
+            .await
+            .expect("in time");
+        assert!(
+            matches!(gone, Ok(None)),
+            "the engine closes once the client leaves"
+        );
     });
 
     let mut stream = connect(&paths.api_socket()).await;
@@ -211,6 +225,7 @@ async fn engine_serves_its_sockets_and_relays_log_streams() {
         .expect("in time")
         .expect("reads");
     assert_eq!(end, Some(LogStreamFrame::End));
+    drop(stream);
     fake.await.expect("the fake telemetry is done");
 
     // Without a session, the stream is one failure reply.
@@ -304,6 +319,61 @@ async fn bucket_conflict_makes_the_engine_read_only() {
             .expect("reads")
             .is_some_and(|bytes| bytes.ends_with(b"\n{}\n"))
     );
+
+    engine.abort();
+}
+
+#[tokio::test]
+async fn a_new_agent_connection_replaces_the_old_one() {
+    let home = home();
+    let paths = Paths::new(home.path().to_path_buf());
+    let (engine, session) = start(&paths).await;
+    let hello = AgentToEngine::Hello {
+        version: "test".to_owned(),
+        applied_position: None,
+    };
+    let mut old = connect(&paths.agent_socket()).await;
+    old.writer.write(&hello).await.expect("writes");
+    let first = timeout(WAIT, old.reader.read::<EngineToAgent>())
+        .await
+        .expect("in time");
+    assert!(matches!(first, Ok(Some(EngineToAgent::DesiredState(_)))));
+
+    let mut new = connect(&paths.agent_socket()).await;
+    new.writer.write(&hello).await.expect("writes");
+    let first = timeout(WAIT, new.reader.read::<EngineToAgent>())
+        .await
+        .expect("in time");
+    assert!(matches!(first, Ok(Some(EngineToAgent::DesiredState(_)))));
+    // The old connection leaving does not disconnect the new one.
+    drop(old);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let mut api = connect(&paths.api_socket()).await;
+    let reply = api
+        .call(
+            1,
+            Some(&session),
+            ApiCall::CreateProject {
+                source: NewProjectSourceDto::Image {
+                    image: "redis:8".to_owned(),
+                },
+            },
+        )
+        .await;
+    assert!(reply.result.is_ok());
+    let job = timeout(WAIT, async {
+        loop {
+            match new.reader.read::<EngineToAgent>().await {
+                Ok(Some(EngineToAgent::Job(job))) => return job,
+                Ok(Some(EngineToAgent::DesiredState(_))) => {}
+                other => panic!("the agent connection ended: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("a job in time");
+    assert!(matches!(job, Job::ResolveImage { image, .. } if image == "redis:8"));
 
     engine.abort();
 }

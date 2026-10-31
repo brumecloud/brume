@@ -205,6 +205,8 @@ impl<S: Storage> Engine<S> {
     /// Fails the deployments past their deadline. It also re-reads the last observation, for a
     /// healthcheck whose grace ended since; the agent reports at least every 10 seconds anyway.
     pub(crate) fn tick(&mut self, ctx: &mut impl Ctx) {
+        // The shell's timer fired and is gone: `drive` asks again for the next deadline.
+        self.wake_at = None;
         let now = ctx.now();
         let overdue = self
             .world

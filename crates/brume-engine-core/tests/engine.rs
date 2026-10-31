@@ -1021,3 +1021,21 @@ fn read_only_engine_refuses_every_write() {
     harness.input(Input::Tick);
     assert_eq!(harness.engine.position(), position);
 }
+
+#[test]
+fn every_tick_rearms_the_next_deadline() {
+    let mut harness = Harness::new();
+    harness.create_project("nginx:1.29");
+    let deployment = harness.deployments()[0].clone();
+    let deadline = Timestamp::parse_rfc3339(&deployment.created_at)
+        .expect("an instant")
+        .plus_millis(DEPLOYMENT_TIMEOUT_MILLIS);
+    // The shell drops its timer when it fires: a tick that leaves the deadline must ask again.
+    for _ in 0..2 {
+        let out = harness.input(Input::Tick);
+        assert_eq!(wake_at(&out), Some(deadline));
+    }
+    // Other inputs do not repeat it.
+    let out = harness.input(Input::AgentDisconnected);
+    assert_eq!(wake_at(&out), None);
+}

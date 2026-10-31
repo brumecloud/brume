@@ -85,6 +85,9 @@ enum Socket {
     Agent,
 }
 
+/// How long to wait before accepting again after a failed accept, such as too many open files.
+const ACCEPT_BACKOFF: Duration = Duration::from_millis(100);
+
 /// Runs the engine: opens the database and the master key, listens on `api.sock`,
 /// `admin.sock` and `agent.sock`, and ships the log to the bucket. Returns on a fatal error.
 pub async fn run(paths: Paths) -> anyhow::Result<()> {
@@ -157,6 +160,7 @@ async fn accept(
             Ok((stream, _)) => stream,
             Err(error) => {
                 tracing::warn!(%error, ?socket, "accepting a connection failed");
+                tokio::time::sleep(ACCEPT_BACKOFF).await;
                 continue;
             }
         };
@@ -176,9 +180,8 @@ async fn accept(
         let telemetry = telemetry.clone();
         tokio::spawn(async move {
             let result = match socket {
-                Socket::Api | Socket::Admin => {
-                    client(stream, socket, ClientId(id), sender, &telemetry).await
-                }
+                Socket::Api => client(stream, false, ClientId(id), sender, &telemetry).await,
+                Socket::Admin => client(stream, true, ClientId(id), sender, &telemetry).await,
                 Socket::Agent => agent(stream, id, sender).await,
             };
             if let Err(error) = result {
@@ -188,10 +191,11 @@ async fn accept(
     }
 }
 
-/// A connection of `brume api` (multiplexed calls, or one log stream) or of a local command.
+/// A connection of `brume api` (multiplexed calls, or one log stream) or, with `admin`, of a
+/// local command. However it ends, the loop forgets it.
 async fn client(
     stream: UnixStream,
-    socket: Socket,
+    admin: bool,
     client: ClientId,
     sender: mpsc::Sender<LoopMessage>,
     telemetry: &Path,
@@ -210,7 +214,7 @@ async fn client(
         .map_err(|_| closed())?;
     let result = loop {
         tokio::select! {
-            input = read_input(&mut reader, socket, client) => match input {
+            input = read_input(&mut reader, admin, client) => match input {
                 Ok(Some(input)) => {
                     if sender.send(LoopMessage::Input(input)).await.is_err() {
                         break Err(closed());
@@ -219,14 +223,19 @@ async fn client(
                 Ok(None) => break Ok(()),
                 Err(error) => break Err(error),
             },
-            message = messages.recv() => match message {
-                Some(ClientMessage::Reply(reply)) => writer.write(&reply).await?,
-                Some(ClientMessage::Admin(reply)) => writer.write(&reply).await?,
-                Some(ClientMessage::Stream { request, query }) => {
-                    break relay(telemetry, request, query, reader, writer).await;
+            message = messages.recv() => {
+                let written = match message {
+                    Some(ClientMessage::Reply(reply)) => writer.write(&reply).await,
+                    Some(ClientMessage::Admin(reply)) => writer.write(&reply).await,
+                    Some(ClientMessage::Stream { request, query }) => {
+                        break relay(telemetry, request, query, reader, writer).await;
+                    }
+                    None => break Ok(()),
+                };
+                if let Err(error) = written {
+                    break Err(error);
                 }
-                None => break Ok(()),
-            },
+            }
         }
     };
     let _ = sender.send(LoopMessage::ClientGone(client)).await;
@@ -235,22 +244,24 @@ async fn client(
 
 async fn read_input<R: tokio::io::AsyncRead + Unpin>(
     reader: &mut FramedReader<R>,
-    socket: Socket,
+    admin: bool,
     client: ClientId,
 ) -> std::io::Result<Option<Input>> {
-    Ok(match socket {
-        Socket::Admin => reader
+    Ok(if admin {
+        reader
             .read::<AdminRequest>()
             .await?
-            .map(|request| Input::Admin { client, request }),
-        Socket::Api | Socket::Agent => reader
+            .map(|request| Input::Admin { client, request })
+    } else {
+        reader
             .read::<ApiRequest>()
             .await?
-            .map(|request| Input::Api { client, request }),
+            .map(|request| Input::Api { client, request })
     })
 }
 
-/// The agent's connection: its reports in, the desired state and jobs out.
+/// The agent's connection: its reports in, the desired state and jobs out. However it ends,
+/// the loop learns that the agent is gone.
 async fn agent(
     stream: UnixStream,
     connection: u64,
@@ -280,7 +291,11 @@ async fn agent(
                 Err(error) => break Err(error),
             },
             message = messages.recv() => match message {
-                Some(message) => writer.write(&message).await?,
+                Some(message) => {
+                    if let Err(error) = writer.write(&message).await {
+                        break Err(error);
+                    }
+                }
                 None => break Ok(()),
             },
         }
