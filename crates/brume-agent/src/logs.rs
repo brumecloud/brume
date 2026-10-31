@@ -25,8 +25,8 @@ use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
 use crate::docker::LogSource;
-use crate::framed::FramedWriter;
 use crate::{Throttle, WARN_INTERVAL};
+use brume_runtime::framed::FramedWriter;
 
 /// The most lines waiting for the shipper.
 pub const QUEUE_LINES: usize = 10_000;
@@ -232,7 +232,7 @@ async fn send_batch(
         }
     };
     for lines in chunk_by_encoded_size(batch, MAX_LOG_CHUNK_BYTES) {
-        writer.send(&LogBatch { lines }).await?;
+        writer.write(&LogBatch { lines }).await?;
     }
     Ok(())
 }
@@ -251,7 +251,7 @@ mod tests {
     use tokio::time::timeout;
 
     use super::{message, parse_line, ship};
-    use crate::framed::FramedReader;
+    use brume_runtime::framed::FramedReader;
 
     const WAIT: Duration = Duration::from_secs(5);
 
@@ -302,7 +302,7 @@ mod tests {
         let mut lines = Vec::new();
         let mut sizes = Vec::new();
         while lines.len() < count {
-            let batch = timeout(WAIT, reader.next::<LogBatch>())
+            let batch = timeout(WAIT, reader.read::<LogBatch>())
                 .await
                 .expect("a batch")
                 .expect("decodes")

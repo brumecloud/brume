@@ -7,23 +7,20 @@ mod csrf;
 #[cfg(test)]
 mod dto_ts;
 mod engine_client;
-pub mod framed;
-pub mod paths;
 mod routes;
 mod session;
 mod sse;
 mod static_files;
 
 use std::net::{Ipv4Addr, SocketAddr};
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context as _;
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
+use brume_runtime::paths::Paths;
 
 use crate::engine_client::EngineClient;
-use crate::paths::Paths;
 
 /// The port of the panel's Vite dev server, which proxies `/api` here.
 const VITE_DEV_PORT: u16 = 5173;
@@ -60,9 +57,9 @@ pub(crate) struct AppState {
 
 /// The routes of the API and the panel, behind the checks of `csrf`, calling the engine on
 /// `<home>/run/api.sock`.
-pub fn app(home: PathBuf, config: &ApiConfig) -> Router {
+pub fn app(paths: &Paths, config: &ApiConfig) -> Router {
     let state = Arc::new(AppState {
-        engine: EngineClient::new(Paths::new(home).api_socket()),
+        engine: EngineClient::new(paths.api_socket()),
         allowed_hosts: config.allowed_hosts.clone(),
     });
     Router::new()
@@ -77,13 +74,13 @@ pub fn app(home: PathBuf, config: &ApiConfig) -> Router {
 }
 
 /// Serves the API and the panel on `127.0.0.1:<port>` until the listener fails.
-pub async fn run(home: PathBuf, config: ApiConfig) -> anyhow::Result<()> {
+pub async fn run(paths: Paths, config: ApiConfig) -> anyhow::Result<()> {
     let address = SocketAddr::from((Ipv4Addr::LOCALHOST, config.port));
     let listener = tokio::net::TcpListener::bind(address)
         .await
         .with_context(|| format!("cannot listen on {address}"))?;
     tracing::info!(%address, "the API is listening");
-    axum::serve(listener, app(home, &config))
+    axum::serve(listener, app(&paths, &config))
         .await
         .context("the API server stopped")
 }

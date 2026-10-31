@@ -10,8 +10,8 @@ use brume_proto::agent::{AgentToEngine, DesiredState, EngineToAgent, Job};
 use tokio::net::UnixStream;
 use tokio::sync::{mpsc, watch};
 
-use crate::framed::{FramedReader, FramedWriter};
 use crate::{Throttle, WARN_INTERVAL};
+use brume_runtime::framed::{FramedReader, FramedWriter};
 
 /// The wait before each new attempt to reach the engine.
 pub const RETRY: Duration = Duration::from_secs(5);
@@ -95,13 +95,13 @@ impl Session<'_> {
             applied_position: *self.applied,
         };
         for message in std::iter::once(hello).chain(queued).chain(newest_report) {
-            if let Err(error) = writer.send(&message).await {
+            if let Err(error) = writer.write(&message).await {
                 return Ended::Disconnected(error);
             }
         }
         loop {
             tokio::select! {
-                message = reader.next::<EngineToAgent>() => {
+                message = reader.read::<EngineToAgent>() => {
                     let message = match message {
                         Ok(Some(message)) => message,
                         Ok(None) => {
@@ -118,7 +118,7 @@ impl Session<'_> {
                         }
                     };
                     if let Some(reply) = reply
-                        && let Err(error) = writer.send(&reply).await
+                        && let Err(error) = writer.write(&reply).await
                     {
                         return Ended::Disconnected(error);
                     }
@@ -127,7 +127,7 @@ impl Session<'_> {
                     let Some(message) = message else {
                         return Ended::OutboxClosed;
                     };
-                    if let Err(error) = writer.send(&message).await {
+                    if let Err(error) = writer.write(&message).await {
                         return Ended::Disconnected(error);
                     }
                 }
@@ -160,7 +160,7 @@ mod tests {
     use tokio::sync::{mpsc, watch};
     use tokio::time::timeout;
 
-    use crate::framed::{FramedReader, FramedWriter};
+    use brume_runtime::framed::{FramedReader, FramedWriter};
 
     const WAIT: Duration = Duration::from_secs(5);
 
@@ -202,7 +202,7 @@ mod tests {
         let (read, write) = stream.into_split();
         let mut engine_in = FramedReader::new(read);
         let mut engine_out = FramedWriter::new(write);
-        let hello = timeout(WAIT, engine_in.next::<AgentToEngine>())
+        let hello = timeout(WAIT, engine_in.read::<AgentToEngine>())
             .await
             .expect("hello");
         assert!(matches!(
@@ -214,10 +214,10 @@ mod tests {
         ));
 
         engine_out
-            .send(&EngineToAgent::DesiredState(state(5)))
+            .write(&EngineToAgent::DesiredState(state(5)))
             .await
             .expect("sends");
-        let applied = timeout(WAIT, engine_in.next::<AgentToEngine>())
+        let applied = timeout(WAIT, engine_in.read::<AgentToEngine>())
             .await
             .expect("applied");
         assert_eq!(
@@ -235,14 +235,14 @@ mod tests {
 
         // An older state is ignored; the same position is applied again.
         engine_out
-            .send(&EngineToAgent::DesiredState(state(3)))
+            .write(&EngineToAgent::DesiredState(state(3)))
             .await
             .expect("sends");
         engine_out
-            .send(&EngineToAgent::DesiredState(state(5)))
+            .write(&EngineToAgent::DesiredState(state(5)))
             .await
             .expect("sends");
-        let applied = timeout(WAIT, engine_in.next::<AgentToEngine>())
+        let applied = timeout(WAIT, engine_in.read::<AgentToEngine>())
             .await
             .expect("applied");
         assert_eq!(
@@ -256,7 +256,7 @@ mod tests {
             image: "nginx:1.29-alpine".to_owned(),
         };
         engine_out
-            .send(&EngineToAgent::Job(job.clone()))
+            .write(&EngineToAgent::Job(job.clone()))
             .await
             .expect("sends");
         assert_eq!(timeout(WAIT, jobs_rx.recv()).await.expect("job"), Some(job));
@@ -267,7 +267,7 @@ mod tests {
             },
         };
         outbox_tx.send(result.clone()).await.expect("queues");
-        let sent = timeout(WAIT, engine_in.next::<AgentToEngine>())
+        let sent = timeout(WAIT, engine_in.read::<AgentToEngine>())
             .await
             .expect("result");
         assert_eq!(sent.expect("reads"), Some(result));
@@ -280,7 +280,7 @@ mod tests {
             .expect("accepts");
         let (read, _write) = stream.into_split();
         let mut engine_in = FramedReader::new(read);
-        let hello = timeout(WAIT, engine_in.next::<AgentToEngine>())
+        let hello = timeout(WAIT, engine_in.read::<AgentToEngine>())
             .await
             .expect("hello");
         assert!(matches!(
@@ -322,7 +322,7 @@ mod tests {
             .expect("connects")
             .expect("accepts");
         let mut engine_in = FramedReader::new(stream);
-        let hello = timeout(WAIT, engine_in.next::<AgentToEngine>())
+        let hello = timeout(WAIT, engine_in.read::<AgentToEngine>())
             .await
             .expect("hello");
         assert!(matches!(
@@ -359,14 +359,14 @@ mod tests {
             .expect("reconnects")
             .expect("accepts");
         let mut engine_in = FramedReader::new(stream);
-        let hello = timeout(WAIT, engine_in.next::<AgentToEngine>())
+        let hello = timeout(WAIT, engine_in.read::<AgentToEngine>())
             .await
             .expect("hello");
         assert!(matches!(
             hello.expect("reads"),
             Some(AgentToEngine::Hello { .. })
         ));
-        let next = timeout(WAIT, engine_in.next::<AgentToEngine>())
+        let next = timeout(WAIT, engine_in.read::<AgentToEngine>())
             .await
             .expect("result");
         assert_eq!(next.expect("reads"), Some(result));
@@ -400,7 +400,7 @@ mod tests {
             .expect("connects")
             .expect("accepts");
         let mut engine_in = FramedReader::new(stream);
-        let hello = timeout(WAIT, engine_in.next::<AgentToEngine>())
+        let hello = timeout(WAIT, engine_in.read::<AgentToEngine>())
             .await
             .expect("hello");
         assert!(matches!(

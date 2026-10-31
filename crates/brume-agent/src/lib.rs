@@ -5,14 +5,12 @@
 
 pub mod docker;
 pub mod engine_link;
-mod framed;
 pub mod jobs;
 pub mod logs;
 pub mod probe;
 
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bollard::Docker;
@@ -22,6 +20,7 @@ use brume_agent_core::health::{ProbeResults, report};
 use brume_agent_core::observed::DockerSnapshot;
 use brume_agent_core::plan::{Action, Refusal, Resource, plan, refusals};
 use brume_proto::agent::{AgentToEngine, DesiredState, ObservedState};
+use brume_runtime::paths::Paths;
 use futures_util::FutureExt;
 use futures_util::future::join_all;
 use tokio::sync::{mpsc, watch};
@@ -31,16 +30,6 @@ use tokio::time::{Instant, MissedTickBehavior};
 use crate::docker::{DockerShell, LogSource, Observation, Outcome};
 use crate::logs::LogForwarder;
 use crate::probe::PROBE_IMAGE;
-
-/// The sockets of the agent. The binary builds it from `brume_runtime::paths::Paths`
-/// (`agent_socket()`, `telemetry_ingest_socket()`).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AgentPaths {
-    /// Where the engine listens for its agent.
-    pub agent_socket: PathBuf,
-    /// Where telemetry listens for log batches.
-    pub telemetry_ingest_socket: PathBuf,
-}
 
 /// How often the agent reconciles, besides each new desired state.
 pub const RECONCILE_INTERVAL: Duration = Duration::from_secs(2);
@@ -58,17 +47,17 @@ const JOB_QUEUE: usize = 16;
 
 /// Runs the agent. It returns only if one of its tasks stops, which is a bug: each one loops
 /// forever, through an unreachable engine, Docker or telemetry.
-pub async fn run(paths: AgentPaths) -> anyhow::Result<()> {
+pub async fn run(paths: Paths) -> anyhow::Result<()> {
     let (desired_tx, desired_rx) = watch::channel(None);
     let (jobs_tx, jobs_rx) = mpsc::channel(JOB_QUEUE);
     let (outbox_tx, outbox_rx) = mpsc::channel(OUTBOX);
     let (docker_tx, docker_rx) = watch::channel(None);
-    let logs = LogForwarder::start(&paths.telemetry_ingest_socket);
+    let logs = LogForwarder::start(&paths.telemetry_ingest_socket());
 
     let mut tasks = JoinSet::new();
     tasks.spawn(async move {
         engine_link::run(
-            &paths.agent_socket,
+            &paths.agent_socket(),
             engine_link::RETRY,
             desired_tx,
             jobs_tx,

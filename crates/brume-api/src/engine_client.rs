@@ -14,7 +14,7 @@ use tokio::net::UnixStream;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::framed::{FramedReader, FramedWriter};
+use brume_runtime::framed::{FramedReader, FramedWriter};
 
 /// An engine that does not answer within this time fails the call.
 const CALL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -157,10 +157,10 @@ impl EngineClient {
             },
         };
         writer
-            .send(&request)
+            .write(&request)
             .await
             .map_err(|_| EngineError::Unreachable)?;
-        let reply = match tokio::time::timeout(CALL_TIMEOUT, reader.next::<ApiReply>()).await {
+        let reply = match tokio::time::timeout(CALL_TIMEOUT, reader.read::<ApiReply>()).await {
             Ok(Ok(Some(reply))) => reply,
             Ok(Ok(None)) => return Err(EngineError::Unreachable),
             Ok(Err(_)) => return Err(EngineError::Protocol),
@@ -216,7 +216,7 @@ async fn write_requests(
     pending: Arc<Mutex<Pending>>,
 ) {
     while let Some(request) = requests.recv().await {
-        if let Err(error) = writer.send(&request).await {
+        if let Err(error) = writer.write(&request).await {
             tracing::warn!(%error, "cannot write to the engine");
             break;
         }
@@ -229,7 +229,7 @@ async fn write_requests(
 /// Hands each reply to the caller that waits for its `id`, until the connection closes.
 async fn route_replies(mut reader: FramedReader<OwnedReadHalf>, pending: Arc<Mutex<Pending>>) {
     loop {
-        match reader.next::<ApiReply>().await {
+        match reader.read::<ApiReply>().await {
             Ok(Some(reply)) => {
                 let Ok(mut pending) = lock(&pending) else {
                     return;
@@ -265,7 +265,7 @@ pub struct LogStream {
 impl LogStream {
     /// The next lines, or `None` at the end of the stream, or when it breaks.
     pub async fn next(&mut self) -> Option<Vec<LogLineDto>> {
-        match self.reader.next::<LogStreamFrame>().await {
+        match self.reader.read::<LogStreamFrame>().await {
             Ok(Some(LogStreamFrame::Lines(lines))) => Some(lines),
             Ok(Some(LogStreamFrame::End) | None) => None,
             Err(error) => {

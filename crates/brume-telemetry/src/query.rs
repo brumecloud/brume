@@ -14,8 +14,8 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
 
 use crate::Shared;
-use crate::framed::{FramedReader, FramedWriter};
 use crate::store::{HistoryQuery, StoredLine};
+use brume_runtime::framed::{FramedReader, FramedWriter};
 
 /// The most lines of history that one query gets.
 const MAX_HISTORY_LINES: u32 = 5_000;
@@ -45,7 +45,7 @@ async fn answer(stream: UnixStream, shared: Arc<Shared>) -> anyhow::Result<()> {
     let (read, write) = stream.into_split();
     let mut reader = FramedReader::new(read);
     let mut writer = FramedWriter::new(write);
-    let Some(query) = reader.next::<LogQuery>().await? else {
+    let Some(query) = reader.read::<LogQuery>().await? else {
         return Ok(());
     };
     // Subscribe before reading the history: a line stored in between comes from one or the
@@ -61,7 +61,7 @@ async fn answer(stream: UnixStream, shared: Arc<Shared>) -> anyhow::Result<()> {
     let mut last_id = lines.iter().map(|line| line.id).max().unwrap_or(0);
     send_lines(&mut writer, &lines).await?;
     let Some(mut live) = live else {
-        writer.send(&LogStreamFrame::End).await?;
+        writer.write(&LogStreamFrame::End).await?;
         return Ok(());
     };
 
@@ -69,7 +69,7 @@ async fn answer(stream: UnixStream, shared: Arc<Shared>) -> anyhow::Result<()> {
         let first = tokio::select! {
             received = live.recv() => received,
             // The engine sends nothing after the query: any frame, or the end, closes the stream.
-            _ = reader.next::<LogQuery>() => return Ok(()),
+            _ = reader.read::<LogQuery>() => return Ok(()),
         };
         let mut pending = Vec::new();
         let mut lagged = false;
@@ -107,7 +107,7 @@ async fn answer(stream: UnixStream, shared: Arc<Shared>) -> anyhow::Result<()> {
             send_lines(&mut writer, &missed).await?;
         }
         if closed {
-            writer.send(&LogStreamFrame::End).await?;
+            writer.write(&LogStreamFrame::End).await?;
             return Ok(());
         }
     }
@@ -137,7 +137,7 @@ async fn send_lines(
     }
     let dtos = lines.iter().map(StoredLine::to_dto).collect();
     for chunk in chunk_by_encoded_size(dtos, MAX_LOG_CHUNK_BYTES) {
-        writer.send(&LogStreamFrame::Lines(chunk)).await?;
+        writer.write(&LogStreamFrame::Lines(chunk)).await?;
     }
     Ok(())
 }
