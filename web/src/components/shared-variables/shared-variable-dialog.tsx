@@ -116,8 +116,11 @@ function SharedVariableForm({ level, ownerId, initial, onSaved }: SharedVariable
   const [value, setValue] = useState(initial?.value ?? "");
   const [kind, setKind] = useState<VariableKind>(initial?.kind ?? "plain");
   const [nameInvalid, setNameInvalid] = useState(false);
+  // A secret's edit starts empty: saving it untouched would wipe the secret.
+  const [valueMissing, setValueMissing] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const mutation = useMutation({ mutationFn: setSharedVariable, onSuccess: onSaved });
+  // `gcTime: 0`: the input holds the value of a secret, it must not linger in the cache.
+  const mutation = useMutation({ mutationFn: setSharedVariable, onSuccess: onSaved, gcTime: 0 });
   const save = () => mutation.mutate({ level, ownerId, name, kind, value });
 
   return (
@@ -127,10 +130,15 @@ function SharedVariableForm({ level, ownerId, initial, onSaved }: SharedVariable
         onSubmit={(event) => {
           event.preventDefault();
           const validName = parseVariableName(name);
+          const missing = kind === "secret" && value === "";
           setNameInvalid(!validName);
-          if (validName && kind === "secret") {
+          setValueMissing(missing);
+          if (!validName || missing) {
+            return;
+          }
+          if (kind === "secret") {
             save();
-          } else if (validName) {
+          } else {
             setConfirming(true);
           }
         }}
@@ -188,8 +196,12 @@ function SharedVariableForm({ level, ownerId, initial, onSaved }: SharedVariable
                 autoFocus={Boolean(initial)}
                 value={value}
                 type={kind === "secret" ? "password" : "text"}
+                aria-invalid={valueMissing || undefined}
                 onChange={(event) => setValue(event.target.value)}
               />
+              {valueMissing && (
+                <p className="text-destructive-foreground text-sm">A secret needs a value.</p>
+              )}
             </Field>
             {sharedVariableWarnings(level, name, value, kind).map((warning) => (
               <p

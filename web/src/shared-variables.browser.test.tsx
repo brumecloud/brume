@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { userEvent } from "vite-plus/test/browser";
 
 import { db } from "~/mocks/db";
 import { northbean, tallybook } from "~/mocks/seed";
@@ -9,6 +10,7 @@ const sharedPage = (projectId: string) => `/projects/${projectId}/production/var
 const deploymentCount = () => db.deployments.length;
 
 // Each test leaves no change staged: the mocked API keeps its state across the tests of a file.
+// A test closes the dialogs it opened: a modal left open hides the next test's page.
 describe("shared variables", () => {
   it("shows the project's and the environment's variables", async () => {
     const screen = await renderApp(sharedPage(northbean.id));
@@ -56,6 +58,18 @@ describe("shared variables", () => {
     expect(deploymentCount()).toBeGreaterThan(before);
   });
 
+  it("does not save a shared secret without a value", async () => {
+    const screen = await renderApp(sharedPage(northbean.id));
+
+    await screen.getByRole("button", { name: "Edit SENTRY_DSN" }).click();
+    await screen.getByRole("button", { name: "Save" }).click();
+
+    await expect.element(screen.getByText("A secret needs a value.")).toBeVisible();
+    expect(db.secretValues.get(`${northbean.id}-SENTRY_DSN`)).not.toBe("");
+    await userEvent.keyboard("{Escape}");
+    await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("reminds that a project secret also reaches staging", async () => {
     const screen = await renderApp(sharedPage(northbean.id));
 
@@ -73,6 +87,8 @@ describe("shared variables", () => {
         ),
       )
       .toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("shows why a secret still in use cannot be deleted", async () => {
@@ -82,6 +98,8 @@ describe("shared variables", () => {
     await screen.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
 
     await expect.element(screen.getByText(/SENTRY_DSN is still referenced by/)).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
   });
 });
 

@@ -79,7 +79,7 @@ function ImpactConfirmation({
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogClose render={<Button variant="ghost" />}>Cancel</AlertDialogClose>
-        <Button disabled={!impact.data} loading={pending} onClick={onConfirm}>
+        <Button disabled={!impact.data || impact.isFetching} loading={pending} onClick={onConfirm}>
           {impactConfirmLabel(count)}
         </Button>
       </AlertDialogFooter>

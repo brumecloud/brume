@@ -38,13 +38,17 @@ export async function redeploy(serviceId: ServiceId): Promise<void> {
 }
 
 // After a shared secret changes: its services take the new value at their next deployment.
+// Some redeploys may go through when another fails: refresh either way.
 export async function redeployServices(serviceIds: readonly ServiceId[]): Promise<void> {
-  await Promise.all(
-    serviceIds.map((serviceId) =>
-      apiPost(`/api/services/${serviceId}/redeploy`, {}, () => undefined),
-    ),
-  );
-  await refresh();
+  try {
+    await Promise.all(
+      serviceIds.map((serviceId) =>
+        apiPost(`/api/services/${serviceId}/redeploy`, {}, () => undefined),
+      ),
+    );
+  } finally {
+    await refresh();
+  }
 }
 
 // Puts an old revision back in service, by its digest, without a rebuild.
