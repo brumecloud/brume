@@ -27,14 +27,14 @@ Tailnet (panel, CLI) ──► tailscale serve ──► brume api ────�
                                                                    ▲      │
                                              observations, facts   │      │   desired state, jobs
                                                                    │      ▼   (agent.sock)
-                      S3: backups, artifacts ◄────────────────── brume agent ──► dockerd ──► containers
+                      S3: backups ◄───────────────────────────── brume agent ──► dockerd ──► containers
                                                                                    │
                                                        brume telemetry ◄───────────┘ app logs
 ```
 
 Public traffic enters through Cloudflare and Traefik, which route it to the apps, to Caddy and to the webhook. Administration enters through the tailnet and `tailscale serve`, which lead to `brume api`, from the browser or from the [CLI](/docs/how-it-works/cli-and-ai-agents). The webhook and the API reach `brume engine` only through their unix sockets.
 
-The engine decides, and `brume agent` acts: the engine sends the agent the desired state of its machine, and the agent, which alone holds the Docker socket, makes it exist. The engine ships the state to S3, the agent ships the backups and the build artifacts. Every service also sends its own telemetry to `brume telemetry`: see [Observability](/docs/how-it-works/observability).
+The engine decides, and `brume agent` acts: the engine sends the agent the desired state of its machine, and the agent, which alone holds the Docker socket, makes it exist. The engine ships the state to S3, and the agent ships the backups. Built images stay in the local dockerd. Every service also sends its own telemetry to `brume telemetry`: see [Observability](/docs/how-it-works/observability).
 
 The diagram shows the recommended modes: Cloudflare Tunnel for public traffic, Tailscale for administration. The other modes are chosen on the host: see [Networking](/docs/how-it-works/networking#other-modes) and [Admin panel](/docs/how-it-works/admin-panel).
 

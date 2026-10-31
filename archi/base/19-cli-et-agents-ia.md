@@ -58,6 +58,7 @@ Une deuxième source à côté de GitHub, pour déployer sans repo ni push.
 - **L'extraction est bornée :** les chemins en `../` et les symlinks qui sortent du dossier sont rejetés, et la taille décompressée comme le nombre de fichiers sont limités.
 - **Le même builder que pour GitHub,** avec le même cache par environnement et les mêmes secrets de build. Voir [06-builds-et-deploiement.md](06-builds-et-deploiement.md#le-builder).
 - **L'archive est supprimée après le build.** Un rollback repart de l'image, comme pour GitHub.
+- **Ni l'archive ni l'image ne vont sur S3.** Après une restauration, un service déployé depuis un dossier reste arrêté jusqu'au prochain `deploy` : il n'a pas de commit à reconstruire. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#risques-acceptés).
 - **La révision note son origine :** l'empreinte de l'archive et, si le dossier est un repo git, le commit et le fait qu'il ait ou non des modifications non commitées. La CLI déclare ces deux derniers champs : ils servent à l'affichage, pas à la sécurité.
 - **Sur un service relié à GitHub,** un `deploy` depuis un dossier est accepté. Le prochain push redéploie depuis la branche, comme après un rollback.
 

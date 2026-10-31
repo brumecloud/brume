@@ -7,7 +7,7 @@
 3. `brume webhook` vérifie la signature et appelle `enqueue_build(repo_id, ref)` sur l'engine.
 4. L'engine vérifie que la ref correspond à la branche configurée, puis demande le build à l'agent.
 5. L'agent lance le builder, qui clone le repo et construit l'image avec Railpack.
-6. L'agent charge l'image dans dockerd et l'envoie sur S3. L'engine crée la révision, puis la déploie par digest.
+6. L'agent charge l'image dans dockerd. Elle ne part pas sur S3 : voir [15-etat-et-restauration.md](15-etat-et-restauration.md#ce-qui-va-sur-s3). L'engine crée la révision, puis la déploie par digest.
 
 ## Les trois sources
 

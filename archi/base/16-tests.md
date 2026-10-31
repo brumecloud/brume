@@ -57,7 +57,7 @@ fn simulate(seed: u64) -> Result<(), Violation> {
 |---|---|
 | engine | crash à n'importe quel moment (après le commit, avant l'envoi, pendant un PUT), disque plein |
 | agent | crash, déconnexion, messages retardés |
-| S3 | erreurs, timeouts, écriture réussie mais réponse perdue, longue panne, deuxième serveur sur le même bucket |
+| S3 | erreurs, timeouts, écriture réussie mais réponse perdue, longue panne, deuxième serveur sur le même bucket, segment illisible |
 | Docker | création refusée, container qui meurt, OOM, redémarrage de dockerd, image supprimée à la main, container créé à la main |
 | horloge | sauts de l'heure murale |
 
@@ -68,7 +68,7 @@ Chaque graine tire un profil de pannes : beaucoup de crashs, une longue panne S3
 **À chaque pas :**
 
 - aucun container hors de `policy.toml` : `SimDocker` vérifie chaque création ;
-- **aucune valeur de secret** dans les événements, dans les objets S3 déchiffrés ni dans la télémétrie. La charge connaît toutes les valeurs qu'elle a posées : il suffit de les chercher ;
+- **aucune valeur de secret** dans les événements, dans les segments envoyés en clair sur S3 ni dans la télémétrie : elles ne vivent que dans les blobs, chiffrés. La charge connaît toutes les valeurs qu'elle a posées : il suffit de les chercher ;
 - aucun email d'admin dans un événement : il ne doit apparaître que dans un blob ;
 - le log sur S3 est toujours un préfixe du log local, et la chaîne de hash est valide ;
 - la position de l'état voulu appliqué par un agent ne recule jamais ;
@@ -99,7 +99,7 @@ Ils simulent le temps et le réseau de tokio, en remplaçant tokio au build. Doc
 ## Les tests de conformité
 
 - **Une même suite tourne contre chaque faux et contre le vrai :** `SimLog` et rusqlite, `SimDocker` et Docker en CI, `SimS3` et MinIO. Un vrai fournisseur S3 s'y ajoute chaque nuit.
-- **Elle couvre ce dont la simulation dépend :** `If-None-Match`, les erreurs de Docker, l'ordre de ses événements, la durabilité d'un commit SQLite.
+- **Elle couvre ce dont la simulation dépend :** `If-None-Match`, y compris à l'assemblage d'un envoi en plusieurs parties, les erreurs de Docker, l'ordre de ses événements, la durabilité d'un commit SQLite.
 - **Un faux qui diverge du vrai fait échouer la suite.** Un faux trop optimiste rendrait la simulation inutile.
 
 ## Sur une vraie VM

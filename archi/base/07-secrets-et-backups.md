@@ -45,10 +45,10 @@
 
 ### Le stockage
 
-- **Hors du VPS,** sur un stockage compatible S3. Un seul bucket reçoit l'état, les artefacts et les backups : voir [15-etat-et-restauration.md](15-etat-et-restauration.md#ce-qui-va-sur-s3).
+- **Hors du VPS,** sur un stockage compatible S3. Un seul bucket reçoit l'état et les backups : voir [15-etat-et-restauration.md](15-etat-et-restauration.md#ce-qui-va-sur-s3).
 - **Obligatoire dès l'install, et modifiable seulement sur l'hôte,** en root, jamais depuis le panel. Une session volée ne peut donc pas envoyer les backups suivants ailleurs.
 - **Tout changement de bucket déclenche une alerte.**
-- **Credentials en lecture et écriture, sans droit de suppression, ni sur le cycle de vie, ni sur le versioning.** Un credential qui peut poser une règle de cycle de vie ou suspendre le versioning efface tout en un jour, sans jamais supprimer un objet. `brume install` vérifie que ces trois opérations échouent, et refuse le credential sinon. La lecture ne révèle rien : tout est chiffré, et les backups le sont pour une clé que le serveur n'a pas.
+- **Credentials en lecture et écriture, sans droit de suppression, ni sur le cycle de vie, ni sur le versioning.** Un credential qui peut poser une règle de cycle de vie ou suspendre le versioning efface tout en un jour, sans jamais supprimer un objet. `brume install` vérifie que ces trois opérations échouent, et refuse le credential sinon. La lecture ne révèle aucun secret : les blobs sont chiffrés, et les backups le sont pour une clé que le serveur n'a pas. Le log, en clair, montre la structure de l'infra.
 - **Un bucket chez un autre fournisseur que le VPS est conseillé,** avec un compte protégé par une 2FA matérielle. Qui tient ce compte peut supprimer le bucket, quels que soient les droits du credential.
 - **Versioning du bucket ou Object Lock obligatoire :** `PutObject` peut écraser un objet existant dont on connaît le nom. Brume écrit avec `If-None-Match`, et `brume verify` vérifie le versioning ou l'Object Lock.
 - **La rétention se fait par des règles de cycle de vie du bucket,** pas par Brume, qui ne peut rien supprimer. Seuls les backups expirent : le log, les blobs et les clés jamais.
@@ -61,4 +61,4 @@
 
 ## Journal d'audit
 
-C'est le log d'événements, envoyé en continu sur S3, chiffré et chaîné par hash. Voir [09-observabilite.md](09-observabilite.md#journal-daudit) et [15-etat-et-restauration.md](15-etat-et-restauration.md).
+C'est le log d'événements, envoyé en continu sur S3, en clair et chaîné par hash. Voir [09-observabilite.md](09-observabilite.md#journal-daudit) et [15-etat-et-restauration.md](15-etat-et-restauration.md).

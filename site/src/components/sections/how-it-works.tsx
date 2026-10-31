@@ -49,7 +49,7 @@ const visuals: Record<StepId, StepVisual> = {
           </>,
           <>
             <Ok />
-            state saved to s3://brume-state, encrypted
+            state saved to s3://brume-state
           </>,
           <>
             <Arrow />

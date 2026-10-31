@@ -5,7 +5,7 @@
 - **Un VPS vierge.** Sur un serveur existant, les ports déjà publiés et les services déjà exposés resteraient ouverts.
 - **Debian 12 ou 13, Ubuntu 24.04 ou 26.04,** en amd64 ou arm64. Les systemd credentials demandent au moins Debian 12 ou Ubuntu 24.04. La famille Red Hat viendra plus tard : voir [12-plus-tard.md](12-plus-tard.md).
 - **Docker 28.5.2 minimum.** Voir [03-reseau.md](03-reseau.md#réseaux-docker).
-- **Un bucket compatible S3,** avec versioning ou Object Lock, et des credentials en lecture et écriture, sans suppression ni droit sur le cycle de vie ou le versioning. `brume install` le vérifie. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#le-bucket).
+- **Un bucket compatible S3,** avec versioning ou Object Lock, et des credentials en lecture et écriture, sans suppression ni droit sur le cycle de vie ou le versioning. Brume peut s'installer dans un dossier d'un bucket existant. `brume install` le vérifie. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#le-bucket).
 - **En mode recommandé :** un domaine sur le DNS Cloudflare et un tailnet. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#lentrée-et-ladministration).
 
 ## install.sh
@@ -30,7 +30,7 @@ Ordre :
 5. Créer le compte de l'admin : son login Tailscale pour l'allowlist, ou un mot de passe sans Tailscale.
 6. Avec Cloudflare : créer le tunnel, sa config locale et le CNAME wildcard, et activer HSTS et la redirection vers HTTPS, avec un token API, puis oublier ce token. Demander un second token, en lecture seule (tunnel et DNS), que l'engine garde pour détecter un connecteur ou un enregistrement inconnu. En entrée directe, l'admin fait pointer le DNS sur l'IP du serveur.
 7. Générer la paire age et afficher la clé privée une seule fois, ou importer les clés publiques de l'utilisateur. Plusieurs destinataires sont conseillés. L'admin déchiffre un code pour prouver qu'il a gardé sa clé.
-8. Configurer le bucket S3 et le tester : écriture, lecture, `If-None-Match`, puis l'échec d'une suppression, d'une règle de cycle de vie et d'une suspension du versioning. Un credential qui réussit l'une de ces trois opérations est refusé. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#le-bucket).
+8. Configurer le bucket S3, et son dossier facultatif, qui doit être vide, et le tester : écriture, lecture, `If-None-Match`, y compris à l'assemblage d'un envoi en plusieurs parties, puis l'échec d'une suppression, d'une règle de cycle de vie et d'une suspension du versioning. Un credential qui réussit l'une de ces trois opérations est refusé. Conseiller une règle du bucket qui nettoie les envois incomplets après 7 jours. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#le-bucket).
 9. Créer les utilisateurs système (dont `brume-agent`), les unités systemd et la clé maître (systemd credentials). Déposer la clé maître sur S3, chiffrée pour les clés age, puis démarrer les services.
 10. SSH. Avec Tailscale : activer Tailscale SSH et vérifier qu'il fonctionne. Seulement ensuite : SSH par clé uniquement, port 22 fermé au public, UFW fermé en entrée sauf depuis le réseau `ingress` vers le webhook. Sans Tailscale : SSH par clé uniquement sur le port 22, seul port ouvert avec 80 et 443 en entrée directe.
 11. Configurer `unattended-upgrades` : dépôts de la distribution, de Docker et de Tailscale, version majeure de Docker épinglée, reboot automatique. Voir [Mises à jour](#mises-à-jour).

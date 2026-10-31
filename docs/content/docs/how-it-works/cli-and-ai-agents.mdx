@@ -7,6 +7,7 @@ sources:
   - archi/base/19-cli-et-agents-ia.md
   - archi/base/04-panel-admin.md
   - archi/base/01-modele-de-menace.md
+  - archi/base/15-etat-et-restauration.md
 ---
 
 Brume is agent first: everything the panel does, the CLI does too, and an AI agent can drive the CLI directly or through MCP. The CLI keeps the panel's security model. It reaches the server over your tailnet, the engine checks every request, and anything you cannot undo waits for your second factor in the panel.
@@ -84,6 +85,7 @@ The CLI can deploy a folder from your laptop, without a repository or a push. Th
 - **Extraction is bounded.** Paths with `../` and symlinks that leave the folder are rejected, and both the extracted size and the number of files are limited.
 - **The same builder as for GitHub,** with the same cache per environment and the same build secrets. See [Builds and deployments](/docs/how-it-works/builds-and-deployments).
 - **The archive is deleted after the build.** A rollback starts from the image, as with GitHub.
+- **Neither the archive nor the image goes to S3.** After a restore, a service deployed from a folder stays stopped until your next `deploy`: it has no commit to rebuild from. See [Secrets and backups](/docs/how-it-works/secrets-and-backups#accepted-risks).
 - **The revision records where it came from:** the archive hash and, if the folder is a git repository, the commit and whether it had uncommitted changes. The CLI declares those last two, so they are for display, not for security.
 
 ## The MCP server

@@ -86,11 +86,12 @@ Projet                              variables et secrets communs
 
 ## Rétention et purge
 
-- **Immuable ne veut pas dire éternel.** Les images construites vivent dans le dockerd local et, chiffrées, sur S3. Le disque du VPS, lui, est limité.
-- **dockerd garde les artefacts des 10 dernières révisions de chaque service.** Au-delà, l'artefact n'est plus que sur S3 : un rollback le télécharge d'abord. Une image tirée d'un registry est retéléchargée depuis ce registry, par son digest. Si le registry l'a supprimée ou s'il est injoignable, le rollback échoue, et la révision en service continue de tourner. Si une règle d'expiration l'a supprimé de S3, la révision reste dans l'historique mais n'est plus rollbackable, et le panel l'affiche. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#les-credentials).
-- **L'agent ne supprime de dockerd que les artefacts que l'engine ne retient plus,** jamais de `docker image prune` à l'aveugle. Si un artefact retenu disparaît quand même (un `docker image prune -a` lancé à la main), l'agent le recharge depuis S3. S'il manque aussi sur S3, l'engine marque la révision non rollbackable et alerte.
+- **Immuable ne veut pas dire éternel.** Les images construites et les archives des sites statiques ne vivent que sur le disque du VPS, qui est limité. Elles ne sont pas copiées sur S3 : voir [15-etat-et-restauration.md](15-etat-et-restauration.md#ce-qui-va-sur-s3).
+- **dockerd garde les artefacts des 10 dernières révisions de chaque service.** Au-delà, la révision reste dans l'historique mais n'est plus rollbackable, et le panel l'affiche. Une image tirée d'un registry est retéléchargée depuis ce registry, par son digest. Si le registry l'a supprimée ou s'il est injoignable, le rollback échoue, et la révision en service continue de tourner.
+- **L'agent ne supprime de dockerd que les artefacts que l'engine ne retient plus,** jamais de `docker image prune` à l'aveugle. Si un artefact retenu disparaît quand même (un `docker image prune -a` lancé à la main), l'engine marque la révision non rollbackable et alerte.
 - **Une révision peut être purgée définitivement :** son artefact et les valeurs de ses variables sont effacés, la ligne reste dans l'historique. Pour un secret fuité dans un bundle statique, ou une valeur sensible saisie par erreur en variable simple.
-- **Une purge n'atteint rien de ce qui est sur S3 :** ni les backups, ni les blobs, ni l'artefact. Brume ne peut rien supprimer sur S3, voir [07-secrets-et-backups.md](07-secrets-et-backups.md#le-stockage). Ce qui y reste est chiffré. Un secret fuité se révoque chez son émetteur, il ne s'efface pas.
+- **L'artefact n'a jamais quitté le VPS :** la purge l'efface pour de bon.
+- **Une purge n'atteint rien de ce qui est sur S3 :** ni les backups, ni les blobs. Brume ne peut rien supprimer sur S3, voir [07-secrets-et-backups.md](07-secrets-et-backups.md#le-stockage). Ce qui y reste est chiffré. Un secret fuité se révoque chez son émetteur, il ne s'efface pas.
 
 ## Cache de build
 

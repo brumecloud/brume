@@ -16,7 +16,7 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 - Panel d'administration joignable par Tailscale (recommandé), par un tunnel SSH ou en public.
 - Agent first : une CLI et un serveur MCP, par le même accès que le panel. On déploie n'importe quoi en une commande, ou en une phrase à un agent IA.
 - Trafic public par Cloudflare Tunnel (recommandé : aucun port entrant sur le serveur), ou en direct sur les ports 80 et 443.
-- Tout l'état de Brume sur S3, chiffré : un VPS perdu se remonte depuis le bucket.
+- Tout l'état de Brume sur S3, secrets chiffrés : un VPS perdu se remonte depuis le bucket.
 
 **Stack :** Rust (tokio, clap), React (TanStack Query, Router et DB, coss ui, Tailwind, React Flow, compatible mobile), SQLite, DuckDB, S3, OpenTelemetry, Docker Engine, Traefik, Caddy, Cloudflare Tunnel, Tailscale.
 
@@ -56,16 +56,15 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 | [15-etat-et-restauration.md](15-etat-et-restauration.md) | L'état sur S3, chiffrement et clés, envoi asynchrone, restauration, `brume verify` |
 | [16-tests.md](16-tests.md) | Simulation déterministe, tests de conformité, tests sur une vraie VM |
 | [17-telemetrie.md](17-telemetrie.md) | OpenTelemetry : traces, métriques et logs de Brume, sans secret |
-| [18-formats-s3.md](18-formats-s3.md) | Proposition : noms, en-têtes et chiffrement des objets sur S3 |
+| [18-formats-s3.md](18-formats-s3.md) | Noms et formats des objets sur S3, chiffrement des blobs, règles du lecteur |
 | [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md) | La CLI, le serveur MCP et le skill : `brume deploy`, connexion par clé signée, approbations, agents IA |
 
 ## Décisions ouvertes
 
-1. **Formats sur S3 :** la proposition est à valider avant d'écrire `brume-engine`, car un objet écrit sur S3 ne change jamais. Voir [18-formats-s3.md](18-formats-s3.md).
-2. **Accord de contribution (CLA) :** en demander un aux contributeurs, pour garder la possibilité de changer de licence, ou non. Voir [10-developpement.md](10-developpement.md#licence).
-3. **Mises à jour automatiques, avant la première release :** l'heure d'installation (proposition : la fenêtre de 4 h du reboot), le retour local au binaire précédent si le nouveau ne démarre pas, et le déploiement progressif par un pourcentage dans `latest.json`. Voir [08-hote-et-installation.md](08-hote-et-installation.md#mises-à-jour).
-4. **Canal de vérification de la clé de signature hors de GitHub,** puisque brume.dev est déployé depuis le même dépôt. Voir [10-developpement.md](10-developpement.md#signature--minisign).
-5. **Config locale du tunnel Cloudflare, avant d'écrire l'install :** vérifier dans la documentation de Cloudflare qu'elle empêche bien le dashboard d'ajouter des routes, et qu'un tel tunnel se crée par l'API. Voir [03-reseau.md](03-reseau.md#la-config-du-tunnel).
-6. **Pas de Headscale en 0.1 :** proposition à confirmer, plus tard.
-7. **Un domaine dédié aux apps,** séparé du domaine qui porte les emails : un compte Cloudflare volé ne pourrait plus détourner les MX. Conseil à l'install, ou rien. Plus tard. Voir [03-reseau.md](03-reseau.md#domaines).
-8. **Frontend :** décodage des réponses de l'API, graphiques des métriques. Voir [front-architecture.md](front-architecture.md#décisions-ouvertes).
+1. **Accord de contribution (CLA) :** en demander un aux contributeurs, pour garder la possibilité de changer de licence, ou non. Voir [10-developpement.md](10-developpement.md#licence).
+2. **Mises à jour automatiques, avant la première release :** l'heure d'installation (proposition : la fenêtre de 4 h du reboot), le retour local au binaire précédent si le nouveau ne démarre pas, et le déploiement progressif par un pourcentage dans `latest.json`. Voir [08-hote-et-installation.md](08-hote-et-installation.md#mises-à-jour).
+3. **Canal de vérification de la clé de signature hors de GitHub,** puisque brume.dev est déployé depuis le même dépôt. Voir [10-developpement.md](10-developpement.md#signature--minisign).
+4. **Config locale du tunnel Cloudflare, avant d'écrire l'install :** vérifier dans la documentation de Cloudflare qu'elle empêche bien le dashboard d'ajouter des routes, et qu'un tel tunnel se crée par l'API. Voir [03-reseau.md](03-reseau.md#la-config-du-tunnel).
+5. **Pas de Headscale en 0.1 :** proposition à confirmer, plus tard.
+6. **Un domaine dédié aux apps,** séparé du domaine qui porte les emails : un compte Cloudflare volé ne pourrait plus détourner les MX. Conseil à l'install, ou rien. Plus tard. Voir [03-reseau.md](03-reseau.md#domaines).
+7. **Frontend :** décodage des réponses de l'API, graphiques des métriques. Voir [front-architecture.md](front-architecture.md#décisions-ouvertes).

@@ -19,7 +19,7 @@ Brume configures the whole server itself, starting from a fresh VPS. A tiny scri
 - **A fresh VPS.** On an existing server, ports already published and services already exposed would stay open.
 - **Debian 12 or 13, or Ubuntu 24.04 or 26.04,** on amd64 or arm64. systemd credentials need at least Debian 12 or Ubuntu 24.04. The Red Hat family (Alma, Rocky, RHEL) comes later, because it uses SELinux instead of AppArmor and dnf instead of apt: see the [roadmap](/docs/how-it-works/roadmap).
 - **Docker 28.5.2 or later.** [Networking](/docs/how-it-works/networking) explains why.
-- **An S3-compatible bucket,** with versioning or Object Lock, and credentials that can read and write but cannot delete, change lifecycle rules or suspend versioning. `brume install` checks this. See [Secrets and backups](/docs/how-it-works/secrets-and-backups#storage).
+- **An S3-compatible bucket,** with versioning or Object Lock, and credentials that can read and write but cannot delete, change lifecycle rules or suspend versioning. Brume can live in a folder of an existing bucket. `brume install` checks this. See [Secrets and backups](/docs/how-it-works/secrets-and-backups#storage).
 - **In the recommended modes:** a domain on Cloudflare DNS and a tailnet. See [Networking](/docs/how-it-works/networking).
 
 ## The install script
@@ -52,7 +52,7 @@ The steps run in this order:
 5. Create the admin account: your Tailscale login for the identity allowlist, or a password without Tailscale.
 6. With Cloudflare: create the tunnel, its local configuration and the wildcard CNAME, and turn on HSTS and the redirect to HTTPS, with an API token, then forget that token. Then ask for a second, read-only token (tunnel and DNS), which the engine keeps to detect an unknown tunnel connector or DNS record. In direct ingress, you point the DNS to the server's IP yourself.
 7. Generate the age key pair and show the private key once, or import your own public keys. Several recipients are advised. You decrypt a code to prove you kept your key.
-8. Configure the S3 bucket and test it: write, read and `If-None-Match`, then check that a delete, a lifecycle rule and a versioning suspension all fail. A credential that succeeds at any of these three is refused. [Secrets and backups](/docs/how-it-works/secrets-and-backups#storage) explains why.
+8. Configure the S3 bucket, and its optional folder, which must be empty, and test it: write, read, and `If-None-Match`, including when assembling an upload in several parts. Then check that a delete, a lifecycle rule and a versioning suspension all fail. A credential that succeeds at any of these three is refused. Advise a bucket rule that cleans up unfinished uploads after 7 days. [Secrets and backups](/docs/how-it-works/secrets-and-backups#storage) explains why.
 9. Create the system users (including `brume-agent`), the systemd units and the master key (systemd credentials). Store the master key on S3, encrypted for your age keys, then start the services.
 10. Lock down SSH. With Tailscale: enable Tailscale SSH and check that it works. Only then: key-only SSH, port 22 closed to the public, and UFW closed to inbound traffic except from the `ingress` network to the webhook. Without Tailscale: key-only SSH on port 22, the only open port, along with 80 and 443 in direct ingress.
 11. Configure `unattended-upgrades`: the distribution, Docker and Tailscale repositories, the Docker major version pinned, automatic reboot. See [Updates](#updates).

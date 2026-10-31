@@ -22,7 +22,7 @@ Tailnet (panel, CLI) ──► tailscale serve ──► brume api ────�
                                                                    ▲      │
                                              observations, faits   │      │   état voulu, jobs
                                                                    │      ▼   (agent.sock)
-                      S3 : backups, artefacts ◄───────────────── brume agent ──► dockerd ──► containers
+                      S3 : backups ◄──────────────────────────── brume agent ──► dockerd ──► containers
                                                                                    │
                                                        brume telemetry ◄───────────┘ logs des apps
 ```
@@ -52,7 +52,7 @@ Le schéma montre les modes recommandés, voir [L'entrée et l'administration](#
 - **Démarre les containers au boot et les redémarre s'ils s'arrêtent,** après avoir vérifié la table nftables. Les containers n'ont pas de politique de redémarrage Docker : voir [03-reseau.md](03-reseau.md#règles-nftables).
 - **Écrit la config de Traefik** (file provider) **et celle de `tailscale serve`.**
 - **Lance les containers ponctuels :** builder, dumps de backup, vérifications des templates ([templates.md](templates.md#vérifications-au-déploiement)), extraction des sites statiques. Il charge les images construites dans dockerd.
-- **Envoie les backups et les artefacts sur S3 :** voir [15-etat-et-restauration.md](15-etat-et-restauration.md).
+- **Envoie les backups sur S3 :** voir [15-etat-et-restauration.md](15-etat-et-restauration.md). Les images construites restent dans dockerd.
 - **Détecte les écarts** et les signale à l'engine, qui alerte.
 - **N'écoute rien :** c'est lui qui se connecte à l'engine.
 
@@ -193,13 +193,14 @@ Chaque événement porte :
 - **À une mise à jour qui casse le format, l'engine compacte le log.** Il ouvre une nouvelle génération, dont le premier événement, `Genesis`, contient tout le `World`. Le code n'a plus à rejouer les générations précédentes, et leurs upcasters peuvent disparaître.
 - **Les anciennes générations restent,** sur S3 et dans SQLite. L'audit les affiche telles quelles, en JSON.
 - **`Genesis` porte le hash du dernier événement de la génération précédente :** la chaîne continue d'une génération à l'autre.
+- **L'engine ouvre aussi une génération après une restauration arrêtée sur un segment illisible,** pour ne pas écrire sous un nom déjà pris. Voir [18-formats-s3.md](18-formats-s3.md#les-règles-du-lecteur).
 - **Une release qui compacte ne se saute pas.** Son manifeste signé le dit, et l'updater l'installe avant toute release plus récente. Sinon, une install restée sur l'ancienne génération ne pourrait plus lire son log.
 
 ### La chaîne de hash
 
 - **`hash = SHA-256(prev_hash ‖ octets stockés de l'événement)`.** On hache les octets tels qu'ils sont stockés, jamais une nouvelle sérialisation.
 - **Vérifiée au démarrage, à la restauration et par `brume verify`.** Un trou ou une modification se voit. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#brume-verify).
-- **Limite :** un attaquant root sur le serveur détient la clé maître et peut prolonger la chaîne. Elle protège ce qui est déjà parti sur S3, pas le présent.
+- **Elle protège contre la corruption,** pas contre un attaquant : sans clé, quiconque peut écrire dans SQLite ou dans le bucket peut la recalculer. Le log n'est pas authentifié en 0.1, voir [15-etat-et-restauration.md](15-etat-et-restauration.md#risques-acceptés).
 
 ## Les machines
 
