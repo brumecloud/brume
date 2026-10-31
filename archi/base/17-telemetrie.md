@@ -5,7 +5,7 @@ Les métriques, logs et traces de Brume lui-même, en OpenTelemetry. Le but : co
 ## Périmètre
 
 - **Seulement la télémétrie de Brume.** Les apps n'envoient pas d'OTLP à Brume. Leurs logs sont collectés comme avant ([09-observabilite.md](09-observabilite.md#logs-des-apps)), et l'agent mesure leur consommation (CPU, mémoire, réseau).
-- **Elle reste chez l'admin.** Rien ne part vers le projet Brume : la décision « aucune télémétrie » du [README](README.md#décisions-ouvertes) porte sur cet envoi-là.
+- **Elle reste chez l'admin.** Rien de cette télémétrie ne part vers le projet Brume. Le projet n'apprend que ce que révèle la vérification des mises à jour : l'IP du serveur et sa version, quand l'engine lit `brume.dev/latest.json`. Voir [08-hote-et-installation.md](08-hote-et-installation.md#mises-à-jour).
 - **Ce n'est pas l'audit.** L'audit, c'est le log d'événements ([14-architecture-logicielle.md](14-architecture-logicielle.md#event-sourcing)). La télémétrie peut perdre des données, et un service compromis peut en fabriquer.
 - **Aucune décision ni alerte ne repose sur la télémétrie.** Les alertes partent des faits et de l'état observé que l'engine reçoit des agents.
 

@@ -27,7 +27,7 @@
 2. **Un site malveillant ouvert par l'admin.** Le navigateur est sur le tailnet : CSRF, DNS rebinding, clickjacking, WebSocket détournée vers le panel.
 3. **Du contenu contrôlé par l'attaquant affiché dans le panel :** une ligne de log, un nom de branche, un message de commit. Une faille XSS dans le panel donne ses actions : toutes les apps, leurs secrets et leurs données.
 4. **Un registry hors du contrôle du propriétaire :** une image qui change derrière un tag. D'où le déploiement par digest.
-5. **La supply chain de Brume :** compromission de brume.dev, du compte GitHub, d'une GitHub Action ou d'une dépendance Rust ou npm.
+5. **La supply chain de Brume :** compromission de brume.dev, du compte GitHub, d'une GitHub Action ou d'une dépendance Rust ou npm. brume.dev sert aussi `latest.json` : compromis, il peut geler les mises à jour, mais pas en faire installer une fausse ni une ancienne. Voir [08-hote-et-installation.md](08-hote-et-installation.md#mises-à-jour).
 6. **Un accès au tailnet :** appareil compromis, tailnet partagé, nœud ajouté par le serveur de coordination de Tailscale.
 7. **La perte des données :** serveur détruit, rançongiciel, suppression des backups par un attaquant.
 8. **L'épuisement des ressources :** un build qui prend toute la RAM, des logs qui remplissent le disque, un flot de logs provoqué depuis l'extérieur.
@@ -35,11 +35,11 @@
 ## Hors périmètre
 
 - **L'hébergeur** a accès à la VM, à son disque et à sa mémoire. On lui fait confiance. Le compte de l'utilisateur chez l'hébergeur équivaut donc à root (console, mode rescue) : à protéger par une 2FA.
-- **Cloudflare,** en mode recommandé, déchiffre tout le trafic public. C'est accepté en échange de zéro port entrant, et à signaler aux utilisateurs (entreprise américaine, RGPD). Le compte Cloudflare peut aussi ajouter des routes privées au tunnel : voir [03-reseau.md](03-reseau.md#ce-que-ça-coûte-à-dire-aux-utilisateurs).
+- **Cloudflare,** en mode recommandé, déchiffre tout le trafic public. C'est accepté en échange de zéro port entrant, et à signaler aux utilisateurs (entreprise américaine, RGPD). Le compte Cloudflare contrôle aussi tout le DNS du domaine. La config locale du tunnel doit l'empêcher d'y ajouter des routes, à vérifier : voir [03-reseau.md](03-reseau.md#la-config-du-tunnel).
 - **Tailscale** contrôle le serveur de coordination. Pour le panel, le risque est atténué par l'allowlist d'identités et le second facteur. Pour SSH, voir les risques acceptés.
 - **Le poste de l'admin.** Compromis, il détient l'identité Tailscale et le second facteur. Brume ne s'en protège pas.
 - **Le code du propriétaire, dépendances comprises.** Un paquet npm piégé est traité comme du code du propriétaire. Le builder l'exécute avec un sandbox affaibli : voir [06-builds-et-deploiement.md](06-builds-et-deploiement.md#le-builder).
-- **Le DDoS** est délégué à Cloudflare.
+- **Le DDoS** est délégué à Cloudflare, en mode recommandé. En entrée directe, il ne l'est plus : voir les risques acceptés.
 - **Le code hostile venant de plusieurs utilisateurs** (voir Périmètre).
 
 ## Risques acceptés en 0.1
@@ -50,6 +50,8 @@
 | Un accès en écriture à une branche déployée donne l'exécution de code en prod, avec les secrets du service. Il donne aussi l'exécution de code dans le builder, dont le sandbox est affaibli : avec une faille noyau ou runc, jusqu'à root. | C'est le principe du déploiement continu : qui peut pousser est traité comme le propriétaire. À protéger côté GitHub : 2FA, protection de branche, aucun bot qui fusionne seul. | Builder jetable sous gVisor |
 | Traefik analyse tout le HTTP public. Compromis, il lit le trafic et joint les services exposés. | Il faut un proxy. Il est épinglé par digest, sans root, en lecture seule, et ne joint pas les bases. Voir [03-reseau.md](03-reseau.md#traefik). | |
 | L'identité Tailscale seule donne un shell root par Tailscale SSH : le second facteur du panel ne couvre pas SSH. Un compte volé chez le fournisseur d'identité peut ajouter un appareil au tailnet. | Suffisant pour l'alpha. | Tailnet Lock |
+| Une image tirée d'un registry n'est pas copiée sur S3. Si le registry l'a supprimée ou s'il est injoignable, une restauration ne relance pas le service. | La copier doublerait le stockage d'une image que son registry garde déjà. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#risques-acceptés). | |
 | Un engine compromis peut faire construire n'importe quel repo par le builder, dont le sandbox est affaibli : avec une faille du noyau ou de runc, jusqu'à root. | Même famille que l'accès en écriture à une branche déployée. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#lengine--le-plan-de-contrôle). | Builder jetable sous gVisor |
-| L'état sur S3 : la dernière seconde se perd avec le VPS, un ancien VPS qui revient garde ses apps en marche, l'engine est un point unique de défaillance, un attaquant root peut arrêter l'envoi. | Une panne de S3 ne bloque rien, et ce qui est déjà envoyé reste intact. Le détail est dans [15-etat-et-restauration.md](15-etat-et-restauration.md#risques-acceptés). | Alerte externe, haute disponibilité de l'engine |
+| Après une compromission, une restauration rejoue tout le log, y compris ce que l'attaquant y a écrit : une identité ajoutée, une variable détournée, une image piégée. Il n'y a ni restauration à une date, ni rotation de la clé maître : la reprise est manuelle. | Repoussé le 31 octobre : la 0.1 se concentre sur la prévention et la détection. | Restauration à une date, rotation de la clé maître, procédure écrite |
+| L'état sur S3 : la dernière seconde se perd avec le VPS, un ancien VPS qui revient garde ses apps en marche, l'engine est un point unique de défaillance, un attaquant root peut arrêter l'envoi. | Une panne de S3 ne bloque rien, et ce qui est déjà envoyé reste intact. Le détail est dans [15-etat-et-restauration.md](15-etat-et-restauration.md#risques-acceptés). | Battement de cœur externe, haute disponibilité de l'engine |
 | Les modes non recommandés : en entrée directe, l'IP du serveur est publique et le DDoS n'est plus délégué ; sans Tailscale, SSH est ouvert sur Internet ; en administration publique, la page de connexion et l'API du panel aussi. | Choisis explicitement sur l'hôte, et signalés en permanence dans le panel. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#lentrée-et-ladministration). | |

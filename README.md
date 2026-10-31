@@ -5,7 +5,7 @@
 <h1 align="center">Brume</h1>
 
 <p align="center">
-  An open source, self-hostable alternative to Railway, Coolify and Dokploy, with a simpler UX and developer experience.
+  A source-available, self-hostable alternative to Railway, Coolify and Dokploy, with a simpler UX and developer experience.
 </p>
 
 > [!WARNING]
@@ -14,6 +14,7 @@
 ## Goals for alpha 0.1
 
 - A single VPS, a single owner.
+- Debian 12 or 13, Ubuntu 24.04 or 26.04, on amd64 or arm64.
 - One-command install: `curl -sSL https://github.com/brumecloud/brume/releases/latest/download/install.sh | bash`.
 - Deploy any container, plus static sites with instant rollback.
 - Templates with good practices built in: static site, PostgreSQL, MongoDB, Redis.
@@ -23,7 +24,7 @@
 - Public traffic through Cloudflare Tunnel by default: no inbound port open on the server. Direct ingress on ports 80 and 443 is opt-in.
 - All of Brume's state on S3, encrypted: a lost VPS is rebuilt from the bucket.
 
-**Planned stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, coss ui, Tailwind, React Flow), SQLite, DuckDB, S3, OpenTelemetry, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
+**Planned stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, coss ui, Tailwind, React Flow), SQLite, DuckDB, S3, OpenTelemetry, Docker Engine, Traefik, Caddy, Cloudflare Tunnel, Tailscale.
 
 ## Design documents
 
@@ -40,3 +41,7 @@ Rust code follows the [Google Rust style guide](https://google.github.io/stylegu
 ## Status
 
 Brume is in the design phase. Open questions are tracked in [`archi/base/README.md`](archi/base/README.md#décisions-ouvertes).
+
+## License
+
+Brume is source-available under the [Functional Source License, Version 1.1, ALv2 Future License](LICENSE.md) (FSL-1.1-ALv2). You can use it, change it and self-host it, including in a business, for any purpose except a competing product or service. Each version becomes available under the Apache License 2.0 two years after its release.

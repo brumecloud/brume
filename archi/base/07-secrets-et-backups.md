@@ -5,11 +5,12 @@
 | Secret | Détenu par | Remarque |
 |---|---|---|
 | Clé maître des secrets | `brume engine` | systemd credentials, voir plus bas |
-| Clé privée de la GitHub App | `brume engine` | génère des tokens d'une heure |
-| Credentials S3 | `brume engine`, `brume agent` | lecture et écriture, sans suppression |
+| Clé privée de la GitHub App | `brume engine` | une App par installation ; génère des tokens d'une heure, limités au repo construit |
+| Credentials S3 | `brume engine`, `brume agent` | lecture et écriture, sans suppression, sans droit sur le cycle de vie ni le versioning |
 | Clé publique age | `brume engine` | la clé privée reste chez l'utilisateur |
 | Secret HMAC du webhook | `brume webhook` | sauvegardé dans l'état, sur S3 |
-| Token du tunnel Cloudflare | cloudflared | le seul token Cloudflare stocké |
+| Secret du tunnel Cloudflare | cloudflared | permet de lancer un connecteur : l'engine détecte les connecteurs inconnus |
+| Token Cloudflare en lecture seule | `brume engine` | tunnel et DNS, pour alerter sur un connecteur ou un enregistrement inconnu |
 | Token API Cloudflare | personne | utilisé à l'install puis oublié |
 | Clé d'auth Tailscale | personne après l'install | à usage unique |
 
@@ -17,7 +18,7 @@
 
 - **Définis sur le projet, l'environnement ou le service,** résolus au déploiement, jamais copiés dans une révision. Voir [13-modele-de-donnees.md](13-modele-de-donnees.md#variables-et-secrets).
 - **Chiffrés en base avec la clé maître.** Le gain est limité tant que la clé est sur la même machine : la vraie protection porte sur les backups.
-- **Clé maître dans les credentials systemd** (`LoadCredentialEncrypted=`). Elle est chiffrée sur le disque, et seul l'engine la reçoit au démarrage, dans un répertoire privé. Les autres services ne peuvent pas la lire, même avec un bug qui permettrait de lire des fichiers. Il faut Debian 12 ou Ubuntu 24.04.
+- **Clé maître dans les credentials systemd** (`LoadCredentialEncrypted=`). Elle est chiffrée sur le disque, et seul l'engine la reçoit au démarrage, dans un répertoire privé. Les autres services ne peuvent pas la lire, même avec un bug qui permettrait de lire des fichiers. Il faut au moins Debian 12 ou Ubuntu 24.04.
 - **La clé maître est aussi sauvegardée sur S3,** chiffrée pour les clés age de l'admin. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#la-clé-maître-et-les-clés-age).
 - **Déchiffrés uniquement par l'engine,** puis transmis à l'agent, qui les injecte à la création du container.
 - **L'API ne voit jamais un secret en clair,** sauf sur une action « révéler » explicite.
@@ -47,7 +48,8 @@
 - **Hors du VPS,** sur un stockage compatible S3. Un seul bucket reçoit l'état, les artefacts et les backups : voir [15-etat-et-restauration.md](15-etat-et-restauration.md#ce-qui-va-sur-s3).
 - **Obligatoire dès l'install, et modifiable seulement sur l'hôte,** en root, jamais depuis le panel. Une session volée ne peut donc pas envoyer les backups suivants ailleurs.
 - **Tout changement de bucket déclenche une alerte.**
-- **Credentials en lecture et écriture, sans droit de suppression.** La lecture ne révèle rien : tout est chiffré, et les backups le sont pour une clé que le serveur n'a pas.
+- **Credentials en lecture et écriture, sans droit de suppression, ni sur le cycle de vie, ni sur le versioning.** Un credential qui peut poser une règle de cycle de vie ou suspendre le versioning efface tout en un jour, sans jamais supprimer un objet. `brume install` vérifie que ces trois opérations échouent, et refuse le credential sinon. La lecture ne révèle rien : tout est chiffré, et les backups le sont pour une clé que le serveur n'a pas.
+- **Un bucket chez un autre fournisseur que le VPS est conseillé,** avec un compte protégé par une 2FA matérielle. Qui tient ce compte peut supprimer le bucket, quels que soient les droits du credential.
 - **Versioning du bucket ou Object Lock obligatoire :** `PutObject` peut écraser un objet existant dont on connaît le nom. Brume écrit avec `If-None-Match`, et `brume verify` vérifie le versioning ou l'Object Lock.
 - **La rétention se fait par des règles de cycle de vie du bucket,** pas par Brume, qui ne peut rien supprimer. Seuls les backups expirent : le log, les blobs et les clés jamais.
 

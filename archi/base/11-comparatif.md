@@ -12,9 +12,9 @@ D'après leurs docs d'installation :
 
 ## Leçons pour Brume
 
-- **Tous sauf Kamal mettent l'UI web et le socket Docker dans le même process.** C'est leur faiblesse de fond. La séparation engine/API est ce qui distingue Brume.
+- **Tous sauf Kamal mettent l'UI web et le socket Docker dans le même process.** C'est leur faiblesse de fond. La séparation entre l'API, l'engine et l'agent est ce qui distingue Brume : seul l'agent tient le socket Docker.
 - **Monter le socket en `:ro` ne protège rien.** Coolify le fait pour son Traefik, mais un socket monté en lecture seule accepte quand même tous les appels de l'API Docker.
 - **Le premier démarrage est toujours le point faible.** Portainer coupe l'instance si personne ne crée l'admin en 5 minutes, CapRover démarre avec un mot de passe connu. Chez Brume, le compte de l'admin est fixé à l'install, l'URL d'enrôlement porte un jeton à usage unique, et le panel n'est public que si l'admin le choisit sur l'hôte.
 - **Une clé SSH root centrale vers chaque serveur,** comme chez Coolify, est un point unique de compromission. Brume copie plutôt l'Edge Agent de Portainer : l'agent de chaque machine se connecte en sortie au master, qui ne détient aucun accès aux machines. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#le-protocole-entre-lengine-et-lagent).
-- **La pratique courante pour limiter le socket est un proxy filtrant,** comme `docker-socket-proxy` de Tecnativa. L'engine de Brume en est une version beaucoup plus étroite : il expose des opérations métier, pas l'API Docker.
+- **La pratique courante pour limiter le socket est un proxy filtrant,** comme `docker-socket-proxy` de Tecnativa. Brume en a une version beaucoup plus étroite : l'agent ne reçoit de l'engine qu'un état voulu typé, jamais d'appel à l'API Docker, et le vérifie contre sa propre politique.
 - **Kamal montre la surface minimale :** pas de control plane permanent, un proxy piloté par commandes et sans socket. Brume a besoin d'un panel et de webhooks, mais garde l'idée d'un proxy configuré par fichiers, jamais par le socket.

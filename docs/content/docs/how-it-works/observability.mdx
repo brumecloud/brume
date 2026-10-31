@@ -5,37 +5,40 @@ type: concept
 status: planned
 sources:
   - archi/base/09-observabilite.md
+  - archi/base/17-telemetrie.md
+  - archi/base/14-architecture-logicielle.md
 ---
 
-Logs are hostile content: apps copy requests from the outside into them. So Brume collects them in an isolated process with no network, no secrets and no Docker access, and serves them only through the engine, which checks the session. The audit log leaves the server as it is written, so an attacker can stop it but not erase it. Alerts cover drift, failures and sensitive changes.
+Logs are hostile content: apps copy requests from the outside into them. So Brume collects them in an isolated process, `brume telemetry`, with no network, no secrets and no Docker access, and serves them only through the engine, which checks the session. The audit log is the engine's event log: it leaves the server as it is written, so an attacker can stop it but not erase it. Alerts come from the facts the agents report, never from telemetry, and cover drift, failures and sensitive changes.
 
 ## App logs
 
 ```text
 Collection
-  container ─► dockerd ── fluentd driver, unix socket (0600) ──► brume logs (DuckDB)
+  container ─► dockerd ── fluentd driver, unix socket (0600) ──► brume telemetry (DuckDB)
 
 Reading
-  panel ◄── SSE ── brume api ◄── brume engine ◄── brume logs
+  panel ◄── SSE ── brume api ◄── brume engine ◄── brume telemetry
                                  checks the session,
                                  relays the answer without interpreting it
 ```
 
 ### Collection
 
-- **dockerd sends each container's logs to `brume logs`,** with the [`fluentd` logging driver](https://docs.docker.com/engine/logging/drivers/fluentd/) over a unix socket. The socket is `0600`: only root, so only dockerd, can write to it. The engine sets this driver in the configuration of each container.
-- **Asynchronous connection** (`fluentd-async`): a stopped `brume logs` does not prevent a container from starting.
+- **dockerd sends each container's logs to `brume telemetry`,** with the [`fluentd` logging driver](https://docs.docker.com/engine/logging/drivers/fluentd/) over a unix socket. The socket is `0600`: only root, so only dockerd, can write to it. The agent sets this driver in the configuration of each container.
+- **Asynchronous connection** (`fluentd-async`): a stopped `brume telemetry` does not prevent a container from starting.
 - **Non-blocking mode, bounded buffer** (`mode=non-blocking`, `max-buffer-size`). Under a flood of logs, Docker drops lines instead of blocking the app or growing in memory. The engine never sees this flood.
 - **`docker logs` still works:** Docker keeps a bounded local copy of the logs (dual logging).
 
 ### Reading
 
-- **The API asks the engine for logs.** The engine checks the session and relays the answer from `brume logs` without interpreting it. The API streams the logs to the panel over SSE. Without a session, a compromised API reads no logs.
+- **The API asks the engine for logs.** The engine checks the session and relays the answer from `brume telemetry` without interpreting it. The API streams the logs to the panel over SSE. Without a session, a compromised API reads no logs.
+- **Only the session check goes through the engine's core.** The engine's core handles commands one at a time, so a large log stream through it would slow down every command. Once the session is checked, the rest of the engine relays the bytes.
 - **Reads are capped:** number of streams per session, number of lines per response, and duration of a DuckDB query.
 
 ### Isolation and retention
 
-- **`brume logs` is isolated:** DuckDB, `PrivateNetwork=yes`, memory and CPU caps, and no access to Docker or to secrets.
+- **`brume telemetry` is isolated:** DuckDB, `PrivateNetwork=yes`, memory and CPU caps, and no access to Docker or to secrets.
 - **Limited retention,** because apps sometimes write secrets in their logs.
 - **No logs in backups.**
 - **Display:** log content is hostile, because apps copy requests from the outside into it. The XSS rules in [Admin panel](/docs/how-it-works/admin-panel) cover how the panel shows it.
@@ -43,7 +46,7 @@ Reading
 
 ### Hardened DuckDB
 
-Without hardening, an injection could read any file, write files with `COPY ... TO`, or load network extensions. So `brume logs` uses:
+Without hardening, an injection could read any file, write files with `COPY ... TO`, or load network extensions. So `brume telemetry` uses:
 
 - **Parameterized queries.**
 - **`SET enable_external_access = false`** when it opens the database.
@@ -54,27 +57,51 @@ Without hardening, an injection could read any file, write files with `COPY ... 
 
 - **Limited retention:** they contain IP addresses, which are personal data under the GDPR.
 
+## Brume's own telemetry
+
+Brume's own traces, metrics and logs, in [OpenTelemetry](https://opentelemetry.io), are stored by `brume telemetry` next to the app logs. They exist to understand what Brume does. Apps do not send OpenTelemetry data to Brume.
+
+- **It stays with you.** None of it goes to the Brume project, which only learns what the update check reveals: see [Host and installation](/docs/how-it-works/host-and-installation#telemetry-and-the-update-check).
+- **The engine, the agent, the API and the webhook send OTLP** over a unix socket, `/run/brume/otlp.sock`. The kernel identifies the sender (`SO_PEERCRED`), never the `service.name` attribute, so a compromised API cannot pass itself off as the engine.
+- **Reads go through the engine,** as for app logs: the panel never talks to `brume telemetry` directly.
+- **Telemetry never blocks.** Queues are bounded: when they overflow, data is dropped and counted.
+- **journald is the fallback.** Each service also writes its logs to stderr, so `journalctl -u brume-engine` still works if `brume telemetry` goes down.
+- **Limited retention,** by signal type and by size on disk. Telemetry goes neither to S3 nor into backups.
+- **Optional export to your own backend,** in OTLP (Grafana, Honeycomb, Jaeger), through the official OpenTelemetry Collector in a container pinned by digest, on its own outbound network. `brume telemetry` hands it the data over a unix socket and keeps no network. Changing the destination triggers an alert.
+- **Traces link to the audit log.** The trace ID of an action is the correlation ID of its events, so you can go from an audit entry to its trace, and back.
+- **The agent measures each container:** CPU, memory, network, restarts and OOM kills. These feed the metrics tab of each service in the panel.
+- **No secrets in telemetry, by construction.** Only safe types (identifiers, enums, durations, sizes, validated values) can be recorded, and a field of any other type does not compile. Spans of the API and the webhook carry no request headers or bodies.
+- **Not the audit log.** Telemetry can lose data, and a compromised service can forge it. So no decision and no alert relies on it.
+
 ## Audit log
 
-- **Written by the engine,** since every action goes through it. Each entry carries the admin's Tailscale identity.
-- **Sent continuously to S3 with Object Lock.** An attacker can stop the log, but cannot erase what has already left the server.
+- **The audit log is the engine's event log,** since every action goes through the engine. Each change is an event appended to the log, and sensitive actions that change nothing, such as revealing a secret or signing in, are recorded too. See [Architecture](/docs/how-it-works/architecture).
+- **Each event carries an opaque admin ID.** The admin's identity (Tailscale login or email) lives in a blob that can be purged. The log on S3 is never rewritten, so purging the blob is enough to answer a GDPR erasure request.
+- **Sent continuously to S3, encrypted and hash-chained.** An attacker can stop the upload, but cannot erase what has already left the server. See [Secrets and backups](/docs/how-it-works/secrets-and-backups#upload).
 
 ## Drift detection
 
-A container, a network or a published port that Brume did not create triggers an alert. See [Architecture](/docs/how-it-works/architecture).
+A container, a network or a published port that Brume did not create is reported by the agent, and the engine sends an alert. See [Architecture](/docs/how-it-works/architecture).
 
 ## Alerts
 
+- **They come from the facts and the observed state** that the engine receives from the agents, never from telemetry, which can lose data or be forged.
 - **Channels:** email, webhook, [ntfy](https://ntfy.sh).
 - **Events:**
   - new deployment;
   - failed backup;
-  - change of backup destination;
+  - change of bucket;
+  - upload to S3 lagging;
+  - another server writing to the bucket;
+  - change of ingress or administration mode;
   - failed system update;
   - automatic reboot;
   - failed healthcheck;
   - disk almost full;
   - new identity on the panel;
   - drift detected;
-  - Cloudflare tunnel down.
+  - Cloudflare tunnel down;
+  - unknown tunnel connector or DNS record;
+  - Brume update installed or failed;
+  - expired update manifest.
 - **You supply the notification URLs,** so requests to them cannot reach the tailnet, private ranges or metadata endpoints. Otherwise Brume could be used to reach internal machines.

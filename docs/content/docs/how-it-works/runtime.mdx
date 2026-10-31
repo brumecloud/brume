@@ -5,9 +5,10 @@ type: concept
 status: planned
 sources:
   - archi/base/05-runtime.md
+  - archi/base/14-architecture-logicielle.md
 ---
 
-Brume runs each app in a container whose configuration the engine builds itself, field by field. Containers publish no port, have no Internet access by default, and run with root remapped to an unprivileged user on the host. Options that weaken this isolation can only be turned on in a root-owned file on the host, never from the panel. Static sites are served by a read-only nginx container.
+Brume runs each app in a container whose configuration the agent builds itself, field by field. Containers publish no port, have no Internet access by default, and run with root remapped to an unprivileged user on the host. Options that weaken this isolation can only be turned on in a root-owned file on the host, never from the panel, and the agent enforces that file even against the engine. Static sites are served by a rootless Caddy container that reads them from a read-only volume.
 
 ## Container isolation
 
@@ -16,7 +17,7 @@ Brume runs each app in a container whose configuration the engine builds itself,
 - **`userns-remap` on dockerd.** Root in a container maps to an unprivileged UID on the host, so an escape through a runc or kernel flaw does not give root directly. It is turned on at install: turning it on for an existing host means pulling every image again and changing the owner of every volume.
 - **Defaults:** `no-new-privileges`, capabilities dropped, and limits on memory, CPU and pids. Without limits, a single container can take Brume down.
 - **Default seccomp and AppArmor profiles,** never `unconfined`. The only exception is the builder: see [Builds and deployments](/docs/how-it-works/builds-and-deployments).
-- **Configuration built from an allowlist.** The engine sets every field of a container's configuration itself, and copies nothing from a request. A denylist is not enough: several Docker options amount to a host mount, or to joining another container's network.
+- **Configuration built from an allowlist.** The agent sets every field of a container's configuration itself, and copies nothing from a request. A denylist is not enough: several Docker options amount to a host mount, or to joining another container's network.
 - **Forbidden unless allowed in [`policy.toml`](#dangerous-options-in-policytoml),** among others:
   - `--privileged`, host network, host mounts, the Docker socket;
   - named volumes with driver options: `o=bind` turns them into a host mount;
@@ -24,40 +25,45 @@ Brume runs each app in a container whose configuration the engine builds itself,
   - `--volumes-from`;
   - `--pid`, `--ipc`, `--uts` and `--cgroupns` shared with the host or with another container, and `--userns=host`;
   - `--cap-add`, `--device`, `--security-opt`, `--sysctl`, `--runtime`.
-- **No access to the tailnet, private ranges, metadata endpoints or Brume.** Brume listens only on unix sockets, on `127.0.0.1` (the API), and on the host's address in the `ingress` network (the webhook), which only `cloudflared` and Traefik reach.
+- **No access to the tailnet, private ranges, metadata endpoints or Brume.** Brume listens only on unix sockets, on `127.0.0.1` (the API), and on the host's address in the `ingress` network (the webhook, and the API in public administration), which only `cloudflared` and Traefik reach.
 
 ## Dangerous options in `policy.toml`
 
 - **Forbidden options can only be turned on in `/etc/brume/policy.toml`.** Root edits this file over SSH. The panel never can.
-- **The engine applies this policy to every request,** whatever the client. A compromised API cannot bypass it.
+- **The agent applies this policy to every container,** whatever desired state it receives. Neither a compromised API nor a compromised engine can bypass it. The agent is the only Brume component that holds the Docker socket, so its check is the one that protects you.
+- **The engine checks the policy too,** only to show a clear error in the panel.
 - **This is the answer for tools that need the Docker socket,** such as Portainer, Watchtower or a CI runner.
 - **The Docker socket, `--privileged` and host network also require `--userns=host`.** Docker refuses the last two while the container is remapped, and a remapped root cannot open the socket. With `--userns=host`, root in the container is root on the host again.
 
 ## Images
 
 - **The tag is resolved to a digest at deploy time,** and the digest is stored. A rollback redeploys exactly the same image, and a tag changed on the registry does not change production without the admin knowing.
-- **Brume's own components** (Traefik, nginx, `cloudflared`, BuildKit) are pinned by digest and updated with every Brume release.
+- **Brume's own components** (Traefik, Caddy, `cloudflared`, BuildKit) are pinned by digest and updated with every Brume release.
 
 ## App secrets
 
 - **Environment variables in 0.1.** Secrets as files on tmpfs come later: see the [roadmap](/docs/how-it-works/roadmap).
-- **The engine decrypts them** and injects them when it creates the container. See [Secrets and backups](/docs/how-it-works/secrets-and-backups).
+- **The engine decrypts them** and passes them to the agent on the machine, which injects them when it creates the container. See [Secrets and backups](/docs/how-it-works/secrets-and-backups).
 
 ## Databases
 
 - **PostgreSQL, MongoDB and Redis templates:** strong credentials generated by the engine, an app account with minimal rights, and a read-only configuration. See [Templates](/docs/use/templates).
-- **Access from your laptop** is over TCP on the tailnet only, through `tailscale serve`, never through a published port. You turn it on database by database. See [Networking](/docs/how-it-works/networking).
+- **Access from your laptop** is over TCP on the tailnet, through `tailscale serve`, or through an SSH tunnel if you run without Tailscale. Never through a published port. You turn it on database by database. See [Networking](/docs/how-it-works/networking#tailscale).
 
 ## Volumes
 
-- **Deleting a service does not delete its volume right away.** The engine keeps it for a few days.
+- **Deleting a service does not delete its volume right away.** Brume keeps it for a few days.
 - **A rollback never restores a volume.** See [Data model](/docs/how-it-works/data-model).
 
 ## Static sites
 
-- **An nginx container managed by Brume serves them,** with a read-only volume and a rootless nginx image. Caching, headers and artifact limits are set by the static site template: see [Templates](/docs/use/templates).
+- **A Caddy container managed by Brume serves them,** with a read-only volume and without root. It runs the official image, pinned by digest, with no third-party module. Caching, headers and artifact limits are set by the static site template: see [Templates](/docs/use/templates#static-site).
+- **Caddy's automatic HTTPS is turned off.** TLS ends at Cloudflare, or in Traefik in direct ingress. Otherwise Caddy would try to get its own certificates.
+- **Caddy's admin API stays on `localhost`, inside its own container.** It accepts any new config, but no other container shares Caddy's network, since [`policy.toml`](#dangerous-options-in-policytoml) forbids it: only a process in that container can reach the API. The agent reloads the config by running `caddy reload` in the container, with no downtime.
+- **Each domain serves a `current` link** to the folder of its revision, which Brume creates itself, outside any archive. A deploy or a rollback switches this link at once, without touching Caddy's config, which changes only when a domain is added or removed.
+- **The config is JSON, generated by serialization** and mounted read-only, never a Caddyfile built by concatenating strings. See [Injection in what Brume generates](/docs/customize/development#injection-in-what-brume-generates).
 - **Hidden files are refused** (`.env`, `.git`), because many builds leave them in the output folder.
-- **Artifacts are extracted in an unprivileged process,** never in the engine. Paths containing `../` and symlinks are rejected; otherwise nginx could serve files outside the site.
+- **Artifacts are extracted in an unprivileged process,** never in the engine or the agent. Paths containing `../` and symlinks are rejected; otherwise Caddy could serve files outside the site.
 - **Rollback is instant,** because the latest versions stay on disk. A version can be purged for good, for example if a secret leaked into it. See [Data model](/docs/how-it-works/data-model).
 
 <Callout type="warn" title="Build variables are public">

@@ -26,7 +26,7 @@ export const site = {
   url: "https://brume.dev",
   title: "Brume · just push it",
   description:
-    "Brume is an open source, self-hosted platform to deploy containers, static sites and databases on your own server, with zero inbound ports.",
+    "Brume is a source-available, self-hosted platform to deploy containers, static sites and databases on your own server, with zero inbound ports.",
   repo,
   issues: `${repo}/issues`,
   installCommand: "curl -sSL https://brume.dev/install.sh | bash",
@@ -38,7 +38,7 @@ export const designDoc = (file: string): string => `${repo}/blob/main/archi/base
 export const copy = {
   hero: {
     title: "just push it",
-    lede: "Brume deploys your containers, static sites and databases on your own server. Open source, one command to install, and zero inbound ports: your apps are online, your server stays invisible.",
+    lede: "Brume deploys your containers, static sites and databases on your own server. Source-available, one command to install, and zero inbound ports: your apps are online, your server stays invisible.",
   },
   problem: {
     title: "Self-hosting, secure by design.",
@@ -129,7 +129,7 @@ export const features: readonly Feature[] = [
   {
     label: "Static sites",
     title: "Instant rollback",
-    text: "Served by a hardened, read-only nginx. Recent versions stay on disk, so going back is instant.",
+    text: "Served by a hardened, read-only Caddy. Recent versions stay on disk, so going back is instant.",
     icon: RotateCcwIcon,
     tone: "amber",
   },

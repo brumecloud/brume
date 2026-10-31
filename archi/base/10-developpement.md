@@ -37,12 +37,12 @@ Le code Rust suit le [guide de style Rust de Google](https://google.github.io/st
 - **Requêtes SQLite paramétrées** (rusqlite, pour le log de l'engine). Pour DuckDB, voir [09-observabilite.md](09-observabilite.md).
 - **Aucune I/O dans les crates du cœur :** ni horloge, ni hasard, ni `HashMap`. Leur `clippy.toml` l'interdit. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#les-crates).
 - **Seuls les types sûrs entrent dans la télémétrie** (trait `Telemetry`). Voir [17-telemetrie.md](17-telemetrie.md#aucun-secret-dans-la-télémétrie).
+- **Taille limitée** pour tous les bodies HTTP et tous les messages des sockets.
+- **Requêtes vers des URL fournies par l'utilisateur** (notifications, healthchecks) : tailnet, plages privées et endpoints de métadonnées bloqués.
 
 ## Organisation du code
 
 Le découpage en crates, les cœurs sans I/O et les règles de dépendances vérifiées par `cargo deny` sont dans [14-architecture-logicielle.md](14-architecture-logicielle.md#les-crates). Les tests sont dans [16-tests.md](16-tests.md).
-- **Taille limitée** pour tous les bodies HTTP et tous les messages des sockets.
-- **Requêtes vers des URL fournies par l'utilisateur** (notifications, healthchecks) : tailnet, plages privées et endpoints de métadonnées bloqués.
 
 ## Injection dans ce que Brume génère
 
@@ -54,7 +54,7 @@ domaine saisi :  x`) || PathPrefix(`/
 règle générée :  Host(`x`) || PathPrefix(`/`)
 ```
 
-Le même risque existe pour la config nginx, les variables d'environnement (un `\n` dans une valeur) et les commandes `git` (un argument qui commence par `-`).
+Le même risque existe pour la config Caddy, les variables d'environnement (un `\n` dans une valeur) et les commandes `git` (un argument qui commence par `-`).
 
 - **Validation stricte des noms** (domaines, services, variables, branches), par liste blanche.
 - **Toute config générée est sérialisée** (serde), jamais construite par templating de chaînes.
@@ -79,14 +79,26 @@ Le code du panel tourne avec les droits de l'admin : un paquet npm compromis don
 
 ## Releases
 
-- **Binaires et `install.sh` publiés sur GitHub Releases.** Voir [08-hote-et-installation.md](08-hote-et-installation.md#installsh).
+- **Binaires et `install.sh` publiés sur GitHub Releases,** un binaire par architecture : amd64 et arm64. Voir [08-hote-et-installation.md](08-hote-et-installation.md#installsh).
 - **Compte GitHub protégé par une clé 2FA physique.**
 
 ### Signature : minisign
 
-- **minisign, clé privée gardée hors ligne,** clé publique intégrée au binaire. Simple à vérifier dans l'updater.
+- **minisign, clés privées gardées hors ligne,** clés publiques intégrées au binaire. Simple à vérifier dans l'updater.
+- **Deux clés dès la v0.1 :** la clé de signature, et une clé de secours gardée hors ligne, ailleurs. Si la première est perdue ou volée, une release signée par la clé de secours la remplace. Une clé ajoutée plus tard ne protégerait pas les serveurs restés sur les versions antérieures. Le format exact de cette rotation se fixera avec l'updater.
 - **Clé hors ligne :** un compte GitHub compromis (scénario 5 du [modèle de menace](01-modele-de-menace.md)) ne peut pas signer une mise à jour. La première installation, elle, fait confiance à GitHub : voir [08-hote-et-installation.md](08-hote-et-installation.md#installsh).
 - **Manifeste de release signé,** qui porte la version : l'updater refuse les retours en arrière. La version est dans le contenu signé, jamais dans le commentaire non signé de minisign, qui n'est pas authentifié. Voir [08-hote-et-installation.md](08-hote-et-installation.md#mises-à-jour).
+- **`latest.json` sur brume.dev :** le manifeste signé de la dernière release, avec une date d'expiration. Le mainteneur le re-signe régulièrement, même sans release, pour que l'engine distingue un gel des mises à jour d'une absence de release.
+- **Le manifeste est versionné :** il porte la version de son propre format, en plus de celle de la release. Le parseur du premier binaire refuse ainsi proprement un format qu'il ne connaît pas. Voir [08-hote-et-installation.md](08-hote-et-installation.md#mises-à-jour).
+- **Encore ouvert : un canal de vérification hors de GitHub.** brume.dev est déployé depuis le même dépôt, donc un compte GitHub compromis atteint les deux. Voir le [README](README.md#décisions-ouvertes).
+
+## Licence
+
+- **Functional Source License 1.1, avec Apache 2.0 comme licence future** (FSL-1.1-ALv2), dans [`LICENSE.md`](../../LICENSE.md). Décidé le 31 octobre.
+- **Tout usage est permis, sauf l'usage concurrent.** On peut héberger ses propres apps avec Brume, y compris dans une entreprise, le modifier et le redistribuer. Personne ne peut le vendre, ni le proposer comme service, en concurrence avec Brume.
+- **Chaque version passe sous Apache 2.0 deux ans après sa sortie.**
+- **Brume n'est donc pas « open source » au sens de l'OSI,** mais « source disponible ». Le README, les docs et brume.dev le disent ainsi.
+- **Encore ouvert : un accord de contribution (CLA),** pour garder la possibilité de changer de licence. Voir le [README](README.md#décisions-ouvertes).
 
 ## Signalement des failles
 

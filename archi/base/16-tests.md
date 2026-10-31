@@ -104,9 +104,10 @@ Ils simulent le temps et le réseau de tokio, en remplaçant tokio au build. Doc
 
 ## Sur une vraie VM
 
-Chaque nuit, sur une VM Debian 12 et une VM Ubuntu 24.04 neuves, avec des comptes Cloudflare et Tailscale de test :
+Chaque nuit, sur des VM neuves de chaque distribution supportée (Debian 12 et 13, Ubuntu 24.04 et 26.04), en amd64 et en arm64, avec des comptes Cloudflare et Tailscale de test :
 
 - `install.sh`, puis le déploiement de chaque template, avec ses vérifications ([templates.md](templates.md#vérifications-au-déploiement)) ;
 - les règles réseau : un container ne joint ni le tailnet, ni les plages privées, ni les endpoints de métadonnées ([03-reseau.md](03-reseau.md#règles-nftables)) ;
-- une mise à jour de Brume par l'updater ;
+- une mise à jour de Brume par l'updater, depuis un `latest.json` de test, et le refus d'un manifeste mal signé, expiré ou plus ancien ;
+- le refus d'un credential S3 qui peut supprimer, poser une règle de cycle de vie ou suspendre le versioning ;
 - une restauration : écrire, effacer le disque, lancer `brume restore`, comparer l'état.

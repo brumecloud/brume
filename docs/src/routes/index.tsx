@@ -13,7 +13,7 @@ function Home() {
         <img src="/logo.png" alt="" width={72} height={72} className="size-18 rounded-2xl" />
         <h1 className="text-4xl font-semibold tracking-tight">Brume</h1>
         <p className="max-w-xl text-lg text-fd-muted-foreground">
-          An open source, self-hostable alternative to Railway, Coolify and Dokploy, with a simpler
+          A source-available, self-hostable alternative to Railway, Coolify and Dokploy, with a simpler
           UX and developer experience.
         </p>
         <Link

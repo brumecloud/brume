@@ -5,6 +5,9 @@ type: concept
 status: planned
 sources:
   - archi/base/01-modele-de-menace.md
+  - archi/base/15-etat-et-restauration.md
+  - archi/base/10-developpement.md
+  - archi/base/README.md
 ---
 
 Brume protects one server and the apps of one owner. It trusts the code the owner deploys, and treats everything that comes from outside as hostile. This page lists what Brume protects, the attacks it is designed against, what it leaves out of scope, and the risks it accepts in alpha 0.1.
@@ -23,7 +26,8 @@ Brume protects one server and the apps of one owner. It trusts the code the owne
 | Root access to the host | Full control: apps, data, secrets. |
 | App and platform secrets | Access to third-party services: Stripe, databases, GitHub, Cloudflare, S3. |
 | Data (volumes, databases) | The core of what the user values. |
-| Backups | The only way back after data loss or ransomware. |
+| Backups and Brume's state on S3 | The only way back after data loss or ransomware: a lost server is rebuilt from the bucket. |
+| The admin's private age key | The only key that can restore the state, the secrets and the backups. If it is lost, nothing can be restored. |
 | The admin's tailnet | Laptop, NAS, other servers: the server must not become a stepping stone to them. |
 | Deployment integrity | What runs must be exactly what was built from the configured repository. |
 | Brume's release chain | A compromise would reach every installation. |
@@ -37,7 +41,7 @@ Brume is designed against these attacks:
 2. **A malicious site opened by the admin.** The browser is on the tailnet: CSRF, DNS rebinding, clickjacking, or a WebSocket hijacked toward the panel.
 3. **Attacker-controlled content shown in the panel:** a log line, a branch name, a commit message. An XSS flaw in the panel hands over the panel's actions: every app, its secrets and its data.
 4. **A registry outside the owner's control:** an image that changes behind a tag. This is why Brume deploys by digest.
-5. **Brume's supply chain:** a compromise of brume.dev, of the GitHub account, of a GitHub Action, or of a Rust or npm dependency.
+5. **Brume's supply chain:** a compromise of brume.dev, of the GitHub account, of a GitHub Action, or of a Rust or npm dependency. brume.dev also serves `latest.json`, the signed update manifest: once compromised, it can freeze updates, but it cannot make a server install a fake or an older version. See [Host and installation](/docs/how-it-works/host-and-installation). The binary embeds two public keys: the signing key, and a backup key kept offline elsewhere. Since brume.dev is deployed from the same repository, a verification channel outside GitHub is still an [open decision](/docs/how-it-works/roadmap#open-decisions).
 6. **Access to the tailnet:** a compromised device, a shared tailnet, or a node added by Tailscale's coordination server.
 7. **Data loss:** a destroyed server, ransomware, or backups deleted by an attacker.
 8. **Resource exhaustion:** a build that takes all the RAM, logs that fill the disk, or a flood of logs triggered from outside.
@@ -45,11 +49,11 @@ Brume is designed against these attacks:
 ## Out of scope
 
 - **The hosting provider** has access to the VM, its disk and its memory. Brume trusts it. Your account at the hosting provider is therefore equivalent to root, through its console and rescue mode: protect it with two-factor authentication.
-- **Cloudflare** decrypts all public traffic. Brume accepts this in exchange for having no inbound port, and you should know it: Cloudflare is a US company, which matters for GDPR. The Cloudflare account can also add private routes to the tunnel. [Networking](/docs/how-it-works/networking) explains what the tunnel costs.
+- **Cloudflare,** in the recommended mode, decrypts all public traffic. Brume accepts this in exchange for having no inbound port, and you should know it: Cloudflare is a US company, which matters for GDPR. The Cloudflare account also controls all of your domain's DNS. The local tunnel config is meant to stop it from adding routes to the tunnel, which is still to be checked: see [The tunnel config](/docs/how-it-works/networking#the-tunnel-config). [Networking](/docs/how-it-works/networking) explains what the tunnel costs.
 - **Tailscale** controls the coordination server. For the panel, the identity allowlist and the second factor reduce the risk. For SSH, see the [accepted risks](#accepted-risks-in-alpha-01).
 - **The admin's computer.** Once compromised, it holds the Tailscale identity and the second factor. Brume does not protect against it.
 - **The owner's code, dependencies included.** A booby-trapped npm package is treated as the owner's code. The builder runs it in a weakened sandbox: see [Builds and deployments](/docs/how-it-works/builds-and-deployments).
-- **DDoS** is left to Cloudflare.
+- **DDoS** is left to Cloudflare, in the recommended mode. With direct ingress it is not: see the accepted risks below.
 - **Hostile code from several users.** See [Scope](#scope).
 
 ## Accepted risks in alpha 0.1
@@ -62,3 +66,8 @@ These risks are known and accepted for the alpha. The last column names the fix 
 | Write access to a deployed branch gives code execution in production, with the service's secrets. It also gives code execution in the builder, whose sandbox is weakened: with a kernel or runc flaw, up to root. | This is how continuous deployment works: whoever can push is treated as the owner. Protect it on the GitHub side: two-factor authentication, branch protection, and no bot that merges on its own. | A disposable builder under gVisor. |
 | Traefik parses all public HTTP. Once compromised, it reads the traffic and reaches the exposed services. | A proxy is required. Traefik is pinned by digest, runs without root, read-only, and does not reach the databases. See [Networking](/docs/how-it-works/networking). | — |
 | The Tailscale identity alone gives a root shell through Tailscale SSH: the panel's second factor does not cover SSH. A stolen account at the identity provider can add a device to the tailnet. | Good enough for the alpha. | Tailnet Lock. |
+| A compromised engine can have the builder build any repository, and the builder's sandbox is weakened: with a kernel or runc flaw, up to root. | It is the same family of risk as write access to a deployed branch. See [Architecture](/docs/how-it-works/architecture#the-engine). | A disposable builder under gVisor. |
+| After a compromise, a restore replays the whole log, including what the attacker wrote to it: an added identity, a hijacked variable, a booby-trapped image. There is no restore to a point in time and no master key rotation: recovery is manual. | Alpha 0.1 focuses on prevention and detection. | Restore to a point in time, master key rotation, a written recovery procedure. |
+| Brume's state on S3: the last second of state is lost with the VPS. An old VPS that comes back keeps its apps running, without public traffic. The engine is a single point of failure: without it, the apps run but nothing deploys. A root attacker can stop the upload, and the alert would come from the server they control. | An S3 outage blocks nothing, and what is already uploaded stays intact. | An external heartbeat, high availability for the engine. |
+| An image pulled from a registry is not copied to S3. A restore pulls it again by digest: if the registry deleted it or is down, the service does not restart. | Copying it would double the storage of an image that its registry already keeps. | — |
+| The non-recommended modes. With direct ingress, the server's IP is public and DDoS protection is no longer delegated. Without Tailscale, SSH is open to the internet. With public administration, so are the panel's sign-in page and API. | You choose them explicitly on the host, and the panel flags them at all times. See [Networking](/docs/how-it-works/networking#other-modes). | — |

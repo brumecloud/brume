@@ -18,24 +18,26 @@ Un seul bucket, avec versioning ou Object Lock :
 log/<génération>/<seq>.seg    segments d'événements
 blobs/<id>                    valeurs des variables et des secrets, secrets de la plateforme
 keys/master.<n>.age           clé maître, chiffrée pour les clés age de l'admin
-artifacts/sha256/<digest>     couches des images, archives des sites statiques
+artifacts/sha256/<digest>     couches des images construites, archives des sites statiques
 backups/…                     dumps des bases
 ```
 
 - **Les secrets de la plateforme qui doivent survivre à une restauration sont des blobs :** la clé privée de la GitHub App, le secret HMAC du webhook. L'allowlist et les passkeys de l'admin sont dans le log.
-- **Restent hors de S3 :** les sessions, la télémétrie et les logs des apps, le cache de build, l'état observé.
+- **Restent hors de S3 :** les sessions, la télémétrie et les logs des apps, le cache de build, l'état observé, et les images tirées d'un registry.
+- **Les images tirées d'un registry ne sont pas copiées.** Une restauration les retélécharge par leur digest. Si le registry les a supprimées ou s'il est injoignable, le service ne redémarre pas.
+- **Le format des objets** (noms, en-têtes, chiffrement) est proposé dans [18-formats-s3.md](18-formats-s3.md).
 
 ## Le bucket
 
 - **Obligatoire dès l'install.** `brume install` demande le bucket et ses credentials, et ne continue pas sans eux : la clé maître part sur S3 avant la fin de l'install. Voir [08-hote-et-installation.md](08-hote-et-installation.md#brume-install).
-- **Testé à la configuration :** écriture, lecture, et refus d'écraser un objet existant (`If-None-Match`). Object Lock et versioning se vérifient avec [`brume verify`](#brume-verify).
+- **Testé à la configuration :** écriture, lecture, refus d'écraser un objet existant (`If-None-Match`), et échec d'une suppression, d'une règle de cycle de vie et d'une suspension du versioning. Un credential qui réussit l'une de ces trois opérations est refusé. Object Lock et versioning se vérifient avec [`brume verify`](#brume-verify).
 - **Il ne se change que sur l'hôte, en root,** comme les clés age ([07-secrets-et-backups.md](07-secrets-et-backups.md#le-chiffrement)), jamais depuis le panel. Une session volée ne peut ni rediriger l'état, ni couper la restauration sans bruit.
 - **Tout changement déclenche une alerte.**
 
 ## Chiffrement
 
 - **Tout est chiffré, sans option.**
-- **L'état** (segments et blobs) **est chiffré par la clé maître,** avec un chiffrement authentifié (AEAD, par exemple XChaCha20-Poly1305). Sans la clé, personne ne peut fabriquer un segment, même avec les credentials S3. La clé de l'objet fait partie des données authentifiées : un segment ne peut pas être déplacé sous un autre nom.
+- **L'état** (segments et blobs) **est chiffré par la clé maître,** avec un chiffrement authentifié (AEAD : voir la proposition de format dans [18-formats-s3.md](18-formats-s3.md)). Sans la clé, personne ne peut fabriquer un segment, même avec les credentials S3. La clé de l'objet fait partie des données authentifiées : un segment ne peut pas être déplacé sous un autre nom.
 - **Chiffrer l'état avec age seul ne suffirait pas :** n'importe qui avec la clé publique fabrique un fichier valide.
 - **Les artefacts sont chiffrés par une clé dérivée de la clé maître,** que l'engine transmet à l'agent. L'agent ne peut donc pas lire l'état.
 - **Les backups restent chiffrés avec age,** pour les clés de l'admin. Le serveur ne peut pas les lire. Voir [07-secrets-et-backups.md](07-secrets-et-backups.md#le-chiffrement).
@@ -53,7 +55,7 @@ backups/…                     dumps des bases
 
 ## Les credentials
 
-- **Un seul credential, partagé par l'engine et l'agent : lecture et écriture, jamais de suppression.** Brume ne peut toujours rien supprimer sur S3 ([07-secrets-et-backups.md](07-secrets-et-backups.md#le-stockage)).
+- **Un seul credential, partagé par l'engine et l'agent : lecture et écriture, jamais de suppression, ni de droit sur le cycle de vie ou le versioning.** Brume ne peut toujours rien supprimer sur S3 ([07-secrets-et-backups.md](07-secrets-et-backups.md#le-stockage)).
 - **La lecture ne révèle rien.** Tout est chiffré, et les backups le sont pour une clé que le serveur n'a pas. Elle permet à l'engine de vérifier un envoi douteux, voir [L'envoi](#lenvoi).
 - **Le log, les blobs et les clés n'expirent jamais.** Aucune règle de cycle de vie ne doit viser `log/`, `blobs/` ou `keys/` : un blob encore utilisé, écrit il y a deux ans, ressemble à un blob purgé. L'ensemble pèse quelques Mo. Les `backups/` expirent par les règles de [07-secrets-et-backups.md](07-secrets-et-backups.md#le-stockage).
 - **Brume ne supprime jamais d'artefact sur S3.** La rétention des 10 dernières révisions ([13-modele-de-donnees.md](13-modele-de-donnees.md#rétention-et-purge)) ne vaut que pour dockerd. Une couche commune à plusieurs images n'est stockée qu'une fois, et le panel affiche la taille de `artifacts/`.
@@ -86,7 +88,7 @@ backups/…                     dumps des bases
    - avec Cloudflare, il crée un nouveau tunnel et repointe le CNAME wildcard, comme à l'install : si l'ancien serveur revient, il ne reçoit plus le trafic public ;
    - en entrée directe, l'admin repointe lui-même le DNS vers la nouvelle IP ;
    - avec Tailscale, le nouveau serveur rejoint le tailnet comme un nouvel appareil, et l'admin retire l'ancien.
-5. **Il charge dans dockerd les artefacts des révisions en service,** après avoir vérifié leurs empreintes contre le log. Un artefact absent est reconstruit depuis son commit.
+5. **Il charge dans dockerd les artefacts des révisions en service,** après avoir vérifié leurs empreintes contre le log. Un artefact absent est reconstruit depuis son commit. Une image tirée d'un registry est retéléchargée par son digest.
 6. **Il restaure le dernier dump de chaque base,** déchiffré avec la clé age. Pour chaque base, il affiche l'écart entre l'heure du dump et la fin du log. Il propose de remettre les services qui l'utilisent à la révision qui tournait à l'heure du dump : sinon, un code plus récent peut attendre un schéma que la base restaurée n'a pas.
 7. **Il démarre les services.** L'agent fait converger Docker vers l'état voulu, et l'engine reprend l'envoi juste après le dernier segment.
 
@@ -114,6 +116,8 @@ backups/…                     dumps des bases
 | Risque | Pourquoi on l'accepte |
 |---|---|
 | La dernière seconde d'état se perd avec le VPS. | En échange, une panne de S3 ne bloque rien. |
+| Une restauration rejoue tout le log, y compris les événements écrits par un attaquant qui a eu root. Il n'y a ni restauration à une date, ni rotation de la clé maître. | La 0.1 se concentre sur la prévention et la détection. La restauration à une date viendra plus tard : voir [12-plus-tard.md](12-plus-tard.md). |
+| Une image tirée d'un registry n'est pas sur S3. Si le registry l'a supprimée ou s'il est injoignable, une restauration ne relance pas le service. | La copier doublerait le stockage d'une image que son registry garde déjà. Décidé le 31 octobre. |
 | Un ancien VPS qui revient garde ses apps en marche, sans trafic public. Leurs tâches de fond (crons, files) peuvent encore écrire ailleurs. | C'est rare, et le nouveau tunnel coupe le trafic public. |
 | L'engine est un point unique de défaillance. Sans lui, les apps tournent, mais rien ne se déploie. | Une bascule automatique demanderait du consensus, pas seulement S3. |
 | Un attaquant root peut effacer la seconde pas encore envoyée et arrêter l'envoi. L'alerte partirait du serveur qu'il contrôle. | Ce qui est déjà envoyé reste intact. Une alerte externe viendra plus tard, voir [12-plus-tard.md](12-plus-tard.md). |

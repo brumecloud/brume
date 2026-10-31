@@ -8,7 +8,7 @@ sources:
   - archi/base/README.md
 ---
 
-Brume is an open source, self-hostable alternative to Railway, Coolify and Dokploy. You install it on your own server with one command. Then you deploy containers, static sites and databases from a web panel, with the simplicity of a hosted platform.
+Brume is a source-available, self-hostable alternative to Railway, Coolify and Dokploy. You install it on your own server with one command. Then you deploy containers, static sites and databases from a web panel, with the simplicity of a hosted platform.
 
 ## Who it is for
 
@@ -16,16 +16,17 @@ Brume alpha 0.1 targets one person running their projects on one VPS: side proje
 
 ## What alpha 0.1 will do
 
-- **Install in one command** on a fresh VPS.
+- **Install in one command** on a fresh VPS running Debian 12 or 13, or Ubuntu 24.04 or 26.04, on amd64 or arm64.
 - **Deploy any container,** and static sites with instant rollback.
-- **Start databases from templates** with good practices built in: PostgreSQL, MongoDB, Redis.
+- **Start from templates** with good practices built in: static site, PostgreSQL, MongoDB, Redis.
 - **Build and deploy on every push** to GitHub, with [Railpack](https://railpack.com).
 - **Manage backups, logs and secrets** from the panel.
-- **Keep the server closed:** the panel is reachable only over Tailscale, and public traffic arrives only through Cloudflare Tunnel. No inbound port is open.
+- **Keep the server closed by default:** the panel is reachable over Tailscale, and public traffic arrives through Cloudflare Tunnel, so no inbound port is open. Administration through an SSH tunnel or from the public internet, and direct ingress on ports 80 and 443, are opt-in and chosen on the server.
+- **Keep all of Brume's state on S3, encrypted,** so a lost VPS is rebuilt from the bucket.
 
 ## What makes it different
 
-Brume treats your server as the thing to protect. The panel never faces the internet, a compromised app cannot reach the rest of the server, and updates are signed with a key kept offline. [How Brume works](/docs/how-it-works) explains each decision.
+Brume treats your server as the thing to protect. By default the panel never faces the internet, a compromised app cannot reach the rest of the server, dangerous options are set on the server and never in the panel, and updates are signed with a key kept offline. [How Brume works](/docs/how-it-works) explains each decision.
 
 ## Next steps
 

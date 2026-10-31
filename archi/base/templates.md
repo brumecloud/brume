@@ -7,7 +7,7 @@ Brume propose quatre templates : site statique, PostgreSQL, MongoDB et Redis. Ch
 - **Un template est une recette typée, compilée dans le binaire signé.** Aucun fichier YAML à modifier. Chaque template a une version : une nouvelle version arrive avec une release de Brume, et la réconciliation l'applique avec un court redémarrage du service.
 - **Paramètres typés et bornés :** taille, mode Redis, accès par le tailnet, et les réglages listés pour chaque template. Chaque réglage a un nom, un type et des bornes. Brume le traduit dans la config qu'il génère : aucune valeur n'est passée telle quelle.
 - **Aucun flag, variable d'environnement ou fichier de config libre.** Un réglage qui affaiblit la sécurité n'est proposé que s'il est listé ici, désactivé par défaut.
-- **Une base ne reçoit ni les variables ni les secrets partagés** du projet ou de l'environnement. Un site statique reçoit les variables de build partagées, qui alimentent son build et non le container nginx. Voir [13-modele-de-donnees.md](13-modele-de-donnees.md#trois-niveaux--projet-environnement-service).
+- **Une base ne reçoit ni les variables ni les secrets partagés** du projet ou de l'environnement. Un site statique reçoit les variables de build partagées, qui alimentent son build et non le container Caddy. Voir [13-modele-de-donnees.md](13-modele-de-donnees.md#trois-niveaux--projet-environnement-service).
 - **Config générée par sérialisation,** montée en lecture seule dans le container. Voir [10-developpement.md](10-developpement.md#injection-dans-ce-que-brume-génère).
 - **Dernière version majeure uniquement** pour une nouvelle base. Elle ne change plus ensuite : les mises à jour majeures ne sont pas en 0.1, voir [12-plus-tard.md](12-plus-tard.md). Le panel signale une version majeure en fin de support. Les versions mineures suivent les releases de Brume.
 
@@ -53,6 +53,7 @@ Brume propose quatre templates : site statique, PostgreSQL, MongoDB et Redis. Ch
 
 ## Redis
 
+- **`vm.overcommit_memory` garde le réglage par défaut de l'hôte.** Redis recommande `1` pour le fork de ses snapshots, mais ce réglage vaudrait pour tout l'hôte. Sous forte pression mémoire, un snapshot peut donc échouer : `maxmemory` à 75 % de la limite laisse de la marge, et un backup en échec déclenche une alerte.
 - **Utilisateurs ACL,** dans un fichier généré par Brume et monté en lecture seule :
   - `default` désactivé ;
   - l'app : toutes les commandes sauf celles d'administration (`CONFIG`, `DEBUG`, `MODULE`, `ACL`, `SHUTDOWN`, `REPLICAOF`, `MONITOR`, `SAVE`, `BGSAVE`, `BGREWRITEAOF`, `SYNC`, `PSYNC`, `FAILOVER`, `MIGRATE`). `INFO` et `CLIENT` restent permis : des librairies comme BullMQ en ont besoin ;
@@ -68,7 +69,7 @@ Brume propose quatre templates : site statique, PostgreSQL, MongoDB et Redis. Ch
 
 ## Site statique
 
-Le container nginx, l'extraction des artefacts et le rollback sont décrits dans [05-runtime.md](05-runtime.md#sites-statiques). Le template ajoute :
+Le container Caddy, l'extraction des artefacts et le rollback sont décrits dans [05-runtime.md](05-runtime.md#sites-statiques). Le template ajoute :
 
 - **Cache :** `Cache-Control: immutable` pendant un an pour les fichiers dont le nom contient une empreinte, `no-cache` pour le HTML. Un rollback reste instantané, même à travers le cache de Cloudflare.
 - **Headers :** `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Content-Security-Policy: frame-ancestors 'self'` contre le clickjacking. HSTS vient de Cloudflare.

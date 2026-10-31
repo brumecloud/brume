@@ -63,7 +63,7 @@ export function llmsIndex() {
 
 export const llmsHeader = `# Brume
 
-> Brume is an open source, self-hostable alternative to Railway, Coolify and Dokploy. It runs on a single VPS, deploys containers and static sites, and keeps the admin panel off the public internet.
+> Brume is a source-available, self-hostable alternative to Railway, Coolify and Dokploy. It runs on a single VPS, deploys containers and static sites, and keeps the admin panel off the public internet.
 
 Brume is in its design phase: there is no release yet. Pages marked "planned" describe how alpha 0.1 is designed to work.
 

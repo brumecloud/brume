@@ -12,7 +12,7 @@ export const Route = createRootRoute({
       { title: "Brume Docs" },
       {
         name: "description",
-        content: "Documentation of Brume, the open source and self-hostable alternative to Railway.",
+        content: "Documentation of Brume, the source-available, self-hostable alternative to Railway.",
       },
     ],
     links: [

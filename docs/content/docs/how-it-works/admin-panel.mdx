@@ -1,15 +1,18 @@
 ---
 title: Admin panel
-description: How the panel is reachable only over Tailscale, how the admin signs in with two independent factors, and how the panel resists CSRF and XSS.
+description: How the panel is reached over Tailscale or another mode, how the admin signs in with two independent factors, and how the panel resists CSRF and XSS.
 type: concept
 status: planned
 sources:
   - archi/base/04-panel-admin.md
+  - archi/base/03-reseau.md
 ---
 
-The admin panel never faces the internet. `brume api` listens only on localhost, and Tailscale exposes it over HTTPS to your tailnet. Every action needs two independent factors: your Tailscale identity and a second factor that the engine checks. Because your browser is on the tailnet and the panel displays content written by outsiders, the panel also defends itself against CSRF, DNS rebinding, XSS and clickjacking.
+In the recommended mode, the admin panel never faces the internet. `brume api` listens only on localhost, and Tailscale exposes it over HTTPS to your tailnet. Every action needs two independent factors: your Tailscale identity and a passkey that the engine checks. Because your browser is on the tailnet and the panel displays content written by outsiders, the panel also defends itself against CSRF, DNS rebinding, XSS and clickjacking.
 
 ## Network access
+
+This page describes administration over Tailscale, the recommended mode. The other two modes, an SSH tunnel and a public panel, are at the end: see [Without Tailscale](#without-tailscale).
 
 - **`brume api` listens only on `127.0.0.1`.** `tailscale serve` exposes it over HTTPS on the tailnet, with a `*.ts.net` certificate.
 - **HTTPS only.** There is no HTTP listener on the tailnet.
@@ -20,7 +23,7 @@ The admin panel never faces the internet. `brume api` listens only on localhost,
 
 - **The install auth key** is single-use, pre-authorized, tagged and short-lived.
 - **The node is tagged `tag:brume`,** because a tagged node has no key expiry. Without a tag, the key expires after 180 days and you lose access to the panel. The tailnet policy must also forbid the node from opening connections to your devices: see [Networking](/docs/how-it-works/networking).
-- **Tailnet Lock comes later.** It will stop Tailscale's coordination server, or an account stolen from your identity provider, from adding a node to your tailnet. See the [roadmap](/docs/how-it-works/roadmap).
+- **Tailnet Lock comes later.** It will stop Tailscale's coordination server, or an account stolen from your identity provider, from adding a node to your tailnet. See the [roadmap](/docs/how-it-works/roadmap#access-and-isolation).
 
 <Callout type="warn" title="Tailscale SSH skips the second factor">
 In 0.1, your Tailscale identity alone gives a root shell on the server through Tailscale SSH. The panel's second factor does not cover SSH. This is an accepted risk: see the [threat model](/docs/how-it-works/threat-model).
@@ -39,9 +42,7 @@ The panel requires two independent factors.
 
 ### Second factor: at sign-in
 
-<Callout type="info" title="Open decision">
-The second factor is not decided yet: passkey or password. The table compares them, and the recommendation below is not final.
-</Callout>
+The second factor is a passkey (WebAuthn, `webauthn-rs` crate). This comparison with a password settled the choice:
 
 | | Passkey (WebAuthn, `webauthn-rs` crate) | Password |
 |---|---|---|
@@ -50,15 +51,14 @@ The second factor is not decided yet: passkey or password. The table compares th
 | Server side | A public key, nothing secret | argon2id hash, limited attempts |
 | Limit | Bound to the name `brume.xxx.ts.net`: you re-enroll if the machine or the tailnet is renamed | Password reuse |
 
-**Recommendation: passkey.**
-
 - **The engine checks the second factor, not the API.** The engine stores the credentials, generates the challenge, verifies the response and issues the session.
-- **First access:** `brume install` prints a single-use enrollment URL, valid for 15 minutes.
+- **First access:** `brume install` prints a single-use enrollment URL, valid for 15 minutes. It carries a token shown only in the install terminal, because in public administration this URL is reachable from the internet.
 - **Recovery:** the local `brume` CLI, run from your hosting provider's console, through a unix socket with mode `0600`.
 
 ## Session
 
 - **The engine issues the session after the second factor,** on a same-origin request. The engine holds the session; the API only forwards its token.
+- **Sessions stay out of the event log.** They live in a SQLite table, with the token hashed, and are never sent to S3. A restore therefore signs you out. Opening or closing a session still records an audit event.
 - **The engine checks the session on every request.** The API attaches the token and the Tailscale identity to each call, and the engine checks that the session is valid and bound to that identity. A compromised API can do nothing without a session opened by the admin.
 - **The engine sets a short lifetime.** It is the window during which a compromised API can act.
 - **The cookie is `__Host-brume_session`,** with `Secure`, `HttpOnly` and `SameSite=Strict`. A third-party site cannot make the browser send it.
@@ -88,10 +88,21 @@ An XSS flaw in the panel gives the attacker the panel's actions during your sess
 
 - **The API never returns the value of a secret,** except on an explicit "reveal" action.
 - **"Reveal" goes through the session checked by the engine,** like every other action, and it is logged.
+- **Sensitive actions ask for your passkey again,** even during an open session: revealing a secret; deleting a project, an environment, a service or a database; turning a service's egress back on; adding an identity to the allowlist. The engine requires a recent passkey check, and sets how recent it must be. An XSS flaw or a stolen session therefore cannot reveal every secret or delete everything in one loop.
 
 ## Audit log
 
-Every action is logged with the Tailscale identity that performed it. See [Observability](/docs/how-it-works/observability).
+Every action is an event in the engine's log, with the admin's ID. The admin's identity (Tailscale login or email) lives in a blob that can be purged. See [Observability](/docs/how-it-works/observability#audit-log).
+
+## Without Tailscale
+
+You can also administer Brume through an SSH tunnel or through a public panel. Both modes are less safe, chosen at install on the host, and flagged in the panel for as long as they are active. See [Networking](/docs/how-it-works/networking#administration-without-tailscale) for the network side.
+
+- **The first factor becomes a password:** argon2id hash, limited attempts, checked by the engine. There is no Tailscale identity and no allowlist: the admin account is created at install.
+- **The second factor is a passkey,** as in the Tailscale mode. A password plus another password do not make two factors.
+- **The session is bound only to its cookie.** Everything else still applies: Fetch Metadata, `Origin`, the custom header, CSP and Trusted Types.
+- **SSH tunnel:** the panel is served on `http://localhost`. Recent browsers accept `Secure` cookies and passkeys there, but this has to be checked on each browser.
+- **Public:** the panel has its own domain, and `Host` is checked against that domain. Traefik and the engine limit sign-in attempts. Anyone on the internet can reach the sign-in page and the API, so the second factor and the engine's session checks are the only barrier.
 
 ## Not in 0.1
 
