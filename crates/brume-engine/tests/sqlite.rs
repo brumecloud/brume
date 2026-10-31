@@ -274,3 +274,37 @@ fn failed_transaction_leaves_nothing() {
     assert!(storage.staged_changes().expect("reads").is_empty());
     assert_eq!(storage.session(&[1; 32]).expect("reads"), None);
 }
+
+#[test]
+fn database_files_are_readable_by_their_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let home = tempfile::tempdir().expect("a temporary directory");
+    let path = home.path().join("engine/state.sqlite");
+    let mut storage = open(home.path());
+    storage
+        .commit(Transaction {
+            events: vec![event(1)],
+            ..Transaction::default()
+        })
+        .expect("commits");
+    let mode = |path: &Path| {
+        std::fs::metadata(path)
+            .expect("exists")
+            .permissions()
+            .mode()
+            & 0o777
+    };
+    let wal = path.with_file_name("state.sqlite-wal");
+    let shm = path.with_file_name("state.sqlite-shm");
+    for file in [&path, &wal, &shm] {
+        assert_eq!(mode(file), 0o600, "{}", file.display());
+    }
+    assert_eq!(mode(&home.path().join("engine")), 0o700);
+
+    // A database left readable by an older version is restricted when it opens.
+    drop(storage);
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).expect("chmod");
+    let _storage = open(home.path());
+    assert_eq!(mode(&path), 0o600);
+}

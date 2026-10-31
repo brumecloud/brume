@@ -2,7 +2,9 @@
 //! `synchronous=FULL`, so a commit is durable. Secrets are sealed with the master key, bound to
 //! their row. Every query is parameterized.
 
-use std::path::Path;
+use std::fs::{DirBuilder, OpenOptions, Permissions};
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use brume_domain::{
@@ -120,16 +122,51 @@ fn kind_name(kind: SessionKind) -> &'static str {
     }
 }
 
+/// The files of the database at `path`: the database itself, its WAL and its shared memory.
+fn database_files(path: &Path) -> [PathBuf; 3] {
+    let with_suffix = |suffix: &str| {
+        let mut name = path.as_os_str().to_owned();
+        name.push(suffix);
+        PathBuf::from(name)
+    };
+    [path.to_path_buf(), with_suffix("-wal"), with_suffix("-shm")]
+}
+
+/// Restricts each file of the database at `path` that exists to its owner: they hold the log,
+/// the staged changes and the sealed secrets.
+fn restrict(path: &Path) -> std::io::Result<()> {
+    for file in database_files(path) {
+        match std::fs::set_permissions(&file, Permissions::from_mode(0o600)) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err(error),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 impl SqliteStorage {
-    /// Opens or creates the database at `path`, whose directory must exist.
+    /// Opens or creates the database at `path`, and its directory, readable by their owner
+    /// only, whatever the umask: a database that an older version left readable is restricted.
     pub fn open(path: &Path, key: MasterKey) -> Result<Self, StorageError> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(failed)?;
+            DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(parent)
+                .map_err(failed)?;
         }
-        Ok(Self {
-            connection: connect(path).map_err(failed)?,
-            key,
-        })
+        // Created before SQLite opens it, which gives its WAL files the same mode.
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .open(path)
+            .map_err(failed)?;
+        restrict(path).map_err(failed)?;
+        let connection = connect(path).map_err(failed)?;
+        restrict(path).map_err(failed)?;
+        Ok(Self { connection, key })
     }
 
     fn change_json(&self, change: &StoredChange) -> Result<String, StorageError> {
