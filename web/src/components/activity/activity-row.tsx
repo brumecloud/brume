@@ -27,8 +27,8 @@ export function ActivityRow({ event, entity }: ActivityRowProps) {
         <Badge variant={TONE_VARIANTS[activityTone(event.type)]}>{event.type}</Badge>
       </span>
       <span className="flex min-w-0 flex-col sm:col-span-4">
-        <span className="truncate">{event.summary}</span>
-        {entity && <span className="truncate text-muted-foreground text-xs">{entity}</span>}
+        <span className="break-words">{event.summary}</span>
+        {entity && <span className="break-words text-muted-foreground text-xs">{entity}</span>}
       </span>
       <span className="truncate text-muted-foreground sm:col-span-2 sm:text-end">
         {event.actor}

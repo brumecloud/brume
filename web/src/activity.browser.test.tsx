@@ -41,6 +41,23 @@ describe("activity", () => {
     await expect.element(screen.getByText("DeploymentSucceeded").first()).toBeVisible();
   });
 
+  it("records a reveal without the value", async () => {
+    await page.viewport(1280, 800);
+    const service = `${northbean.id}-production-order-worker`;
+    const screen = await renderApp(
+      `/projects/${northbean.id}/production/services/${service}/variables`,
+    );
+    await screen.getByRole("button", { name: "Reveal REDIS_URL" }).click();
+    await expect.element(screen.getByText("redis://default:Hn4xT8wz@redis:6379")).toBeVisible();
+    // A second render in the same test would blank the next tests: navigate instead.
+    await screen.getByRole("link", { name: "Activity" }).click();
+
+    const last = screen.getByRole("listitem").last();
+    await expect.element(last.getByText("SecretRevealed")).toBeVisible();
+    await expect.element(last.getByText("Revealed REDIS_URL")).toBeVisible();
+    expect(document.body.textContent).not.toContain("Hn4xT8wz");
+  });
+
   it("renders a summary as text, never as HTML", async () => {
     network.use(
       http.get("/api/events", () =>
