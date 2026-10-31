@@ -28,7 +28,7 @@ Projet                              variables et secrets communs
 
 | Dans la révision : suit le rollback | Sur le service : ne suit pas le rollback |
 |---|---|
-| artefact (digest), commit d'origine | source (repo, branche), slug, nom affiché |
+| artefact (digest), origine : commit, ou empreinte du dossier envoyé par la CLI | source (repo et branche, image, ou dossier envoyé par la CLI), slug, nom affiché |
 | commande, port, healthcheck | domaines et routes publiques |
 | limites CPU, mémoire, pids | egress |
 | valeurs des variables simples et de build | volumes rattachés |
@@ -38,7 +38,7 @@ Projet                              variables et secrets communs
 
 ## Déploiements
 
-- **Un déploiement met une révision en service.** Il note la révision, la version de chaque secret injecté, le statut, l'auteur et la date.
+- **Un déploiement met une révision en service.** Il note la révision, la version de chaque secret injecté, le statut, l'auteur et la date. Quand la demande vient de la CLI, l'auteur est l'admin, avec la clé de l'appareil et le client (CLI ou MCP).
 - **L'historique ne fait que s'allonger.** Un rollback est un nouveau déploiement d'une ancienne révision : rien n'est réécrit.
 - **Changer un secret redéploie la même révision.** La spec n'a pas changé, il n'y a pas de nouvelle révision.
 - **On sait quelle version d'un secret tournait à une date donnée.** C'est la première question après une fuite.
@@ -82,7 +82,7 @@ Projet                              variables et secrets communs
 - **Par service.** Revenir en arrière sur un backend ne touche pas le frontend qui appelle son API. L'état d'un environnement entier à une date donnée pourra se reconstruire plus tard depuis l'historique des déploiements, sans nouvelle entité.
 - **Les données ne reviennent jamais en arrière.** Après une migration, l'ancien code tourne sur le nouveau schéma. Le panel avertit avant le rollback d'un service qui a un volume.
 - **La version majeure d'une base créée depuis un template ne change pas en 0.1,** donc un rollback ne peut pas la croiser. Voir [12-plus-tard.md](12-plus-tard.md).
-- **Le déploiement automatique continue après un rollback :** le prochain push sur la branche configurée redéploie.
+- **Le déploiement automatique continue après un rollback :** le prochain push sur la branche configurée redéploie. Il en va de même après un déploiement depuis un dossier envoyé par la CLI, voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-dossier-envoyé-par-la-cli).
 
 ## Rétention et purge
 

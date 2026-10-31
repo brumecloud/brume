@@ -21,6 +21,7 @@ Brume alpha 0.1 targets one person running their projects on one VPS: side proje
 - **Start from templates** with good practices built in: static site, PostgreSQL, MongoDB, Redis.
 - **Build and deploy on every push** to GitHub, with [Railpack](https://railpack.com).
 - **Manage backups, logs and secrets** from the panel.
+- **Deploy from your terminal or your AI agent:** `brume deploy` deploys a folder, a GitHub repository, a database or an image in one command, and an AI agent can do it from one sentence.
 - **Keep the server closed by default:** the panel is reachable over Tailscale, and public traffic arrives through Cloudflare Tunnel, so no inbound port is open. Administration through an SSH tunnel or from the public internet, and direct ingress on ports 80 and 443, are opt-in and chosen on the server.
 - **Keep all of Brume's state on S3, encrypted,** so a lost VPS is rebuilt from the bucket.
 
@@ -36,5 +37,8 @@ Brume treats your server as the thing to protect. By default the panel never fac
   </Card>
   <Card title="Core concepts" href="/docs/use/concepts">
     Projects, environments, services and revisions.
+  </Card>
+  <Card title="Deploy with an AI agent" href="/docs/use/deploy-with-an-ai-agent">
+    Let a coding agent deploy on your server in one sentence.
   </Card>
 </Cards>

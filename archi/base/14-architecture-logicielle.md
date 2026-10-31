@@ -16,7 +16,7 @@ Comment le code de Brume est organisé : les processus et leurs responsabilités
 Internet ─► Cloudflare ─► cloudflared ─► Traefik ─┬─► apps, Caddy
                                                   └─► brume webhook ──┐
                                                                       │ webhook.sock
-Tailnet ──► tailscale serve ──► brume api ────────────────────────────┤ api.sock
+Tailnet (panel, CLI) ──► tailscale serve ──► brume api ───────────────┤ api.sock
                                                                       ▼
                       GitHub, notifications ◄─────────────────── brume engine ──► S3 : log, blobs, clés
                                                                    ▲      │
@@ -33,7 +33,7 @@ Le schéma montre les modes recommandés, voir [L'entrée et l'administration](#
 
 - **Seul propriétaire de l'état :** le log d'événements dans SQLite, et le `World` en mémoire.
 - **Décide chaque commande, une à la fois.** Les invariants qui touchent plusieurs entités se vérifient donc sur l'état complet, sans course : slug unique dans un environnement, un nom est soit une variable soit un secret à tous les niveaux, refus de supprimer un secret encore référencé.
-- **Propriétaire des sessions et du second facteur,** comme avant : voir [04-panel-admin.md](04-panel-admin.md#session).
+- **Propriétaire des sessions, du second facteur et des clés de la CLI,** comme avant : voir [04-panel-admin.md](04-panel-admin.md#session). Il vérifie la signature de chaque requête de la CLI, voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#des-requêtes-signées-plutôt-quun-jeton).
 - **Pilote les opérations longues** (builds, déploiements, backups, rollbacks) et leurs délais.
 - **Détient** la clé maître, la clé privée de la GitHub App, les credentials S3 de l'état et le token Cloudflare en lecture seule.
 - **Envoie le log sur S3** en arrière-plan : voir [15-etat-et-restauration.md](15-etat-et-restauration.md#lenvoi).
@@ -119,12 +119,12 @@ impl<L: EventLog> Engine<L> {
 
 | Sorte | Exemples | Modifie le `World` |
 |---|---|---|
-| Décision | `ProjectCreated`, `ServiceCreated`, `RevisionCreated`, `DeploymentRequested`, `SecretVersionAdded`, `EgressEnabled` | oui |
+| Décision | `ProjectCreated`, `ServiceCreated`, `RevisionCreated`, `DeploymentRequested`, `SecretVersionAdded`, `EgressEnabled`, `ApprovalRequested`, `ApprovalGranted`, `ApprovalExpired` | oui |
 | Fait rapporté | `BuildSucceeded`, `DeploymentSucceeded`, `DeploymentFailed`, `DriftDetected`, `BackupCompleted`, `ArtifactMissing` | oui |
-| Audit | `LoginSucceeded`, `LoginFailed`, `SessionRevoked`, `SecretRevealed`, `CommandRejected` | non |
+| Audit | `LoginSucceeded`, `LoginFailed`, `SessionRevoked`, `CliKeyRegistered`, `CliKeyRevoked`, `SecretRevealed`, `CommandRejected` | non |
 
 - **L'état observé n'est pas event-sourcé.** Le statut des containers, les healthchecks et la consommation changent tout le temps : l'engine les garde en mémoire, tels que les agents les rapportent. Seuls les faits qui comptent deviennent des événements.
-- **Les sessions non plus.** Elles vivent dans une table SQLite hors du log, avec le jeton haché, jamais envoyée sur S3.
+- **Les sessions non plus.** Elles vivent dans une table SQLite hors du log, avec le jeton haché, jamais envoyée sur S3. Les clés de la CLI aussi, dans la table `cli_keys` : une restauration déconnecte l'admin et révoque toutes les clés.
 - **Une action sensible sans effet sur l'état est un événement d'audit :** révéler un secret, ouvrir une session, voir une commande refusée par la politique.
 
 ### Les métadonnées
@@ -137,7 +137,7 @@ Chaque événement porte :
 - `type` et `schema_version` ;
 - `at` : l'heure de l'engine ;
 - `actor` : l'identifiant opaque de l'admin, `github` pour un webhook, l'agent pour un fait rapporté, `engine` pour un délai expiré. L'identité de l'admin (son email) n'est pas dans l'événement, voir la section suivante ;
-- `session`, quand il y en a une ;
+- `session`, quand il y en a une, ou la clé de la CLI et son client (CLI ou MCP) ;
 - `correlation_id` : le `trace_id` OpenTelemetry de l'action, voir [17-telemetrie.md](17-telemetrie.md#traces) ;
 - `causation_id` : la commande ou l'événement qui l'a provoqué ;
 - `prev_hash` et `hash`, voir [La chaîne de hash](#la-chaîne-de-hash).
@@ -152,13 +152,13 @@ Chaque événement porte :
 ### Le `World` et SQLite
 
 - **Le `World` est la seule copie de l'état courant.** L'engine le garde en mémoire et le reconstruit au démarrage en rejouant la génération courante du log. Quelques dizaines de milliers d'événements se rejouent en moins d'une seconde.
-- **SQLite contient** le log (`events`), les tables hors log (`secret_versions`, `blobs`, `sessions`, les points de reprise) et des index d'historique : déploiements par service, audit par acteur. Ces index ne reçoivent que des ajouts, dans la transaction qui ajoute les événements.
+- **SQLite contient** le log (`events`), les tables hors log (`secret_versions`, `blobs`, `sessions`, `cli_keys`, les points de reprise) et des index d'historique : déploiements par service, audit par acteur. Ces index ne reçoivent que des ajouts, dans la transaction qui ajoute les événements.
 - **Aucune projection de l'état courant en SQL :** il n'y a rien à garder synchronisé avec le `World`.
 - **SQLite en WAL, avec `synchronous=FULL` :** un commit est durable.
 
 ### Le cycle d'une commande
 
-1. L'engine reçoit une commande typée et validée, avec la session qui la porte.
+1. L'engine reçoit une commande typée et validée, avec la session ou la requête signée qui la porte.
 2. `decide(&World, cmd)` rend des événements, ou un rejet. Un rejet par la politique produit un événement `CommandRejected`.
 3. Une transaction SQLite ajoute les événements, chaînés, et les lignes d'index, puis le commit les rend durables.
 4. `evolve` applique les événements au `World`. Il ne peut pas échouer, puisqu'un événement est un fait : s'il ne s'applique pas, c'est un bug, donc une panique.
@@ -237,18 +237,21 @@ crates/
 ├── brume-engine        coquille de l'engine : sockets, log (rusqlite), S3, GitHub
 ├── brume-agent         coquille de l'agent : bollard, nftables, S3
 ├── brume-runtime       commun aux coquilles : framing des sockets, client S3, chiffrement, OTEL
-├── brume-api           HTTP, SSE, sert le panel
+├── brume-api           HTTP, SSE, sert le panel et la CLI
+├── brume-client        client typé de l'API, signature des requêtes, config locale de la CLI
+├── brume-mcp           serveur MCP en stdio (rmcp), sur brume-client
 ├── brume-webhook       HMAC, payload GitHub
 ├── brume-telemetry     réception OTLP et logs des apps, DuckDB
 ├── brume-updater       minisign
 ├── brume-sim           simulateur et faux, pour les tests seulement
-└── brume               le binaire unique : clap, une sous-commande par service
+└── brume               le binaire unique : clap, une sous-commande par service et les commandes de la CLI
 ```
 
 - **Les crates du cœur ne font aucune I/O.** `brume-domain`, `brume-proto`, `brume-engine-core` et `brume-agent-core` ne dépendent ni de tokio, ni de rusqlite, ni de bollard. Leur `clippy.toml` interdit `Instant::now`, `SystemTime::now`, `thread_rng` et `HashMap` (`disallowed-methods`, `disallowed-types`). On utilise `BTreeMap`, dont l'ordre de parcours est stable.
 - **Seul `brume-agent` dépend de `bollard`, seul `brume-telemetry` de `duckdb`, seul `brume-engine` de `rusqlite`.**
 - **Seul le binaire `brume` dépend de `brume-webhook`.** L'engine ne voit jamais le code qui lit les payloads GitHub : « l'engine n'analyse aucune donnée non fiable » devient une propriété du graphe de dépendances.
 - **`brume-sim` n'entre jamais dans le binaire.**
+- **Le binaire du laptop est compilé sans les services** (feature cargo) : il ne contient ni `brume-engine`, ni `brume-agent`, ni `brume-telemetry`. Voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-code).
 - **`cargo deny` vérifie ces règles en CI,** avec `bans` et `wrappers`.
 - **Les types de `brume-proto` deviennent des types de `brume-domain` par `TryFrom`,** donc validés. Une valeur non validée n'atteint jamais `decide`.
 - **Des traits seulement là où il existe deux implémentations :** le log, et les effets que la simulation remplace.

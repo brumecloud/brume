@@ -10,7 +10,9 @@
     "concepts",
     "---Deploy---",
     "templates",
+    "deploy-with-the-cli",
     "---Work with agents---",
+    "deploy-with-an-ai-agent",
     "ai-agents"
   ]
 }

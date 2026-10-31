@@ -34,7 +34,7 @@ Les traces, métriques et logs de Brume lui-même, en OpenTelemetry, stockés pa
 ## Journal d'audit
 
 - **C'est le log d'événements de l'engine,** puisque toutes les actions passent par lui. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#event-sourcing).
-- **Chaque événement porte l'identifiant de l'admin.** Son identité (login Tailscale ou email) vit dans un blob qu'on peut purger.
+- **Chaque événement porte l'identifiant de l'admin.** Une action venue de la CLI porte aussi la clé de l'appareil et le client (CLI ou MCP) : on sait depuis quel appareil, et par quel client, chaque action est arrivée. Son identité (login Tailscale ou email) vit dans un blob qu'on peut purger.
 - **Envoyé en continu sur S3, chiffré et chaîné par hash.** Un attaquant peut arrêter l'envoi, mais pas effacer ce qui est déjà parti. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#lenvoi).
 
 ## Détection des écarts
@@ -45,5 +45,5 @@ Un container, un réseau ou un port publié que Brume n'a pas créé est signal�
 
 - **Elles partent des faits et de l'état observé** que l'engine reçoit des agents, jamais de la télémétrie, qui peut perdre des données ou être falsifiée.
 - **Canaux :** email, webhook, ntfy.
-- **Événements :** nouveau déploiement, backup en échec, changement de bucket, retard de l'envoi vers S3, autre serveur qui écrit dans le bucket, changement de mode d'entrée ou d'administration, mise à jour système en échec, reboot automatique, healthcheck en échec, disque presque plein, nouvelle identité sur le panel, écart détecté, tunnel Cloudflare coupé, connecteur de tunnel ou enregistrement DNS inconnu, mise à jour de Brume installée ou en échec, manifeste de mise à jour expiré, changement de destination de l'export de télémétrie.
+- **Événements :** nouveau déploiement, backup en échec, changement de bucket, retard de l'envoi vers S3, autre serveur qui écrit dans le bucket, changement de mode d'entrée ou d'administration, mise à jour système en échec, reboot automatique, healthcheck en échec, disque presque plein, nouvelle identité sur le panel, nouvelle clé de la CLI, action en attente d'approbation, écart détecté, tunnel Cloudflare coupé, connecteur de tunnel ou enregistrement DNS inconnu, mise à jour de Brume installée ou en échec, manifeste de mise à jour expiré, changement de destination de l'export de télémétrie.
 - **Les URL de notification sont fournies par l'utilisateur :** les requêtes bloquent le tailnet, les plages privées et les endpoints de métadonnées, sinon Brume pourrait servir à atteindre des machines internes.

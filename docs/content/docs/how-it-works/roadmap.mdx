@@ -11,6 +11,7 @@ sources:
   - archi/base/10-developpement.md
   - archi/base/18-formats-s3.md
   - archi/base/front-architecture.md
+  - archi/base/19-cli-et-agents-ia.md
 ---
 
 Alpha 0.1 leaves some features and some hardening out on purpose. This page lists them, with what each one brings once it lands, and then the design decisions that are still open. For what 0.1 does include, see the [overview](/docs/how-it-works).
@@ -47,7 +48,8 @@ Alpha 0.1 leaves some features and some hardening out on purpose. This page list
 | Item | What it brings |
 |---|---|
 | Web shell into containers | The most powerful feature of the panel, so it needs careful design. |
-| API tokens, remote CLI, deploys from GitHub Actions | Access from outside Tailscale, with its own rules. |
+| Tokens for CI, deploys from GitHub Actions | In 0.1, the CLI goes through the tailnet with the admin's Tailscale identity. A CI runner is not on the tailnet, or is tagged and so has no identity. It needs access from outside Tailscale, with its own rules. See [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#the-key). |
+| Remote MCP server | An MCP server served by `brume api`, for AI agents that cannot run a local command. It needs OAuth and another way to tie an AI agent to the admin. In 0.1, `brume mcp` runs on your laptop. |
 | PR previews | One rule is already set: a PR from a fork is never built with secrets. |
 | Outbound internet filtering by domain | Needs an egress proxy. |
 

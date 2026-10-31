@@ -8,6 +8,7 @@ sources:
   - archi/base/15-etat-et-restauration.md
   - archi/base/10-developpement.md
   - archi/base/README.md
+  - archi/base/19-cli-et-agents-ia.md
 ---
 
 Brume protects one server and the apps of one owner. It trusts the code the owner deploys, and treats everything that comes from outside as hostile. This page lists what Brume protects, the attacks it is designed against, what it leaves out of scope, and the risks it accepts in alpha 0.1.
@@ -45,13 +46,15 @@ Brume is designed against these attacks:
 6. **Access to the tailnet:** a compromised device, a shared tailnet, or a node added by Tailscale's coordination server.
 7. **Data loss:** a destroyed server, ransomware, or backups deleted by an attacker.
 8. **Resource exhaustion:** a build that takes all the RAM, logs that fill the disk, or a flood of logs triggered from outside.
+9. **A hijacked AI agent,** misled by content it reads: a log line, a commit message, an issue, a web page. It acts with the admin's CLI key. It can deploy, but it cannot reveal a secret or do anything irreversible without the admin's approval. See [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#what-a-cli-key-can-do).
 
 ## Out of scope
 
 - **The hosting provider** has access to the VM, its disk and its memory. Brume trusts it. Your account at the hosting provider is therefore equivalent to root, through its console and rescue mode: protect it with two-factor authentication.
 - **Cloudflare,** in the recommended mode, decrypts all public traffic. Brume accepts this in exchange for having no inbound port, and you should know it: Cloudflare is a US company, which matters for GDPR. The Cloudflare account also controls all of your domain's DNS. The local tunnel config is meant to stop it from adding routes to the tunnel, which is still to be checked: see [The tunnel config](/docs/how-it-works/networking#the-tunnel-config). [Networking](/docs/how-it-works/networking) explains what the tunnel costs.
 - **Tailscale** controls the coordination server. For the panel, the identity allowlist and the second factor reduce the risk. For SSH, see the [accepted risks](#accepted-risks-in-alpha-01).
-- **The admin's computer.** Once compromised, it holds the Tailscale identity and the second factor. Brume does not protect against it.
+- **The admin's computer.** Once compromised, it holds the Tailscale identity, the second factor and the CLI key. Brume does not protect against it.
+- **The AI agent's provider** sees what the agent reads through the CLI: logs, configuration, the names of secrets, never their values. As with Cloudflare, you should know it (GDPR).
 - **The owner's code, dependencies included.** A booby-trapped npm package is treated as the owner's code. The builder runs it in a weakened sandbox: see [Builds and deployments](/docs/how-it-works/builds-and-deployments).
 - **DDoS** is left to Cloudflare, in the recommended mode. With direct ingress it is not: see the accepted risks below.
 - **Hostile code from several users.** See [Scope](#scope).
@@ -65,6 +68,7 @@ These risks are known and accepted for the alpha. The last column names the fix 
 | An app compromised from outside reads its secrets and reaches the services of its environment. | Every platform has this problem: an app needs its secrets and its databases. | Secrets as files on tmpfs. |
 | Write access to a deployed branch gives code execution in production, with the service's secrets. It also gives code execution in the builder, whose sandbox is weakened: with a kernel or runc flaw, up to root. | This is how continuous deployment works: whoever can push is treated as the owner. Protect it on the GitHub side: two-factor authentication, branch protection, and no bot that merges on its own. | A disposable builder under gVisor. |
 | Traefik parses all public HTTP. Once compromised, it reads the traffic and reaches the exposed services. | A proxy is required. Traefik is pinned by digest, runs without root, read-only, and does not reach the databases. See [Networking](/docs/how-it-works/networking). | — |
+| A hijacked AI agent that can deploy runs code with the service's secrets, so it can send them out without ever revealing them. | Same family as write access to a deployed branch: deploying means trusting the code. Irreversible actions wait for the admin's approval, egress is closed by default, and a protected environment makes every deploy wait for approval too. See [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#risks). | — |
 | The Tailscale identity alone gives a root shell through Tailscale SSH: the panel's second factor does not cover SSH. A stolen account at the identity provider can add a device to the tailnet. | Good enough for the alpha. | Tailnet Lock. |
 | A compromised engine can have the builder build any repository, and the builder's sandbox is weakened: with a kernel or runc flaw, up to root. | It is the same family of risk as write access to a deployed branch. See [Architecture](/docs/how-it-works/architecture#the-engine). | A disposable builder under gVisor. |
 | After a compromise, a restore replays the whole log, including what the attacker wrote to it: an added identity, a hijacked variable, a booby-trapped image. There is no restore to a point in time and no master key rotation: recovery is manual. | Alpha 0.1 focuses on prevention and detection. | Restore to a point in time, master key rotation, a written recovery procedure. |

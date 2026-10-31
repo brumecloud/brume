@@ -147,11 +147,11 @@ The panel's name appears in public Certificate Transparency logs, so your tailne
 
 <Step>
 
-### Enroll your second factor
+### Enroll your passkey
 
-Being on the tailnet is not enough to log in: a compromised device or a shared tailnet would then reach the panel. Each login needs your Tailscale identity and a second factor, checked by the engine.
+Being on the tailnet is not enough to log in: a compromised device or a shared tailnet would then reach the panel. Each login needs your Tailscale identity and a passkey, checked by the engine.
 
-The second factor is a passkey (WebAuthn), unlocked with Touch ID or Face ID for example. It resists phishing because it is bound to the panel's origin. It is also bound to the name `brume.xxx.ts.net`: if you rename the machine or the tailnet, you enroll it again. Sensitive actions, such as revealing a secret or deleting a service, ask for your passkey again even during an open session, so a stolen session cannot reveal or delete everything in one go. See [Admin panel](/docs/how-it-works/admin-panel#second-factor-at-sign-in).
+The second factor is a passkey (WebAuthn), unlocked with Touch ID or Face ID for example. It resists phishing because it is bound to the panel's origin. It is also bound to the name `brume.xxx.ts.net`: if you rename the machine or the tailnet, you enroll it again. Sensitive actions, such as revealing a secret or deleting a service, ask for your passkey again even during an open session, so a stolen session cannot reveal or delete everything in one go. See [Admin panel](/docs/how-it-works/admin-panel#second-factor-a-passkey).
 
 Enroll your passkey from the enrollment URL. It works once, and carries a token shown only in your install terminal. After that, each login opens a short session, issued by the engine and tied to your Tailscale identity.
 

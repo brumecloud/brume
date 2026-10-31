@@ -27,7 +27,7 @@ Deux facteurs indépendants.
 - **Un process local qui atteint `127.0.0.1` peut forger le header.** Aucun container n'est en réseau host, et sans session émise par l'engine, un header forgé ne donne rien.
 - **Être sur le tailnet ne suffit pas :** un appareil compromis ou un tailnet partagé donnerait accès au panel. D'où le second facteur.
 
-### 2. Un second facteur à la connexion
+### 2. Une passkey à la connexion
 
 **Une passkey** (WebAuthn, crate `webauthn-rs`), décidé le 31 octobre. La comparaison qui a tranché :
 
@@ -38,9 +38,11 @@ Deux facteurs indépendants.
 | Côté serveur | Clé publique, rien de secret | Hash argon2id, limite de tentatives |
 | Limite | Liée au nom `brume.xxx.ts.net` : à ré-enrôler si la machine ou le tailnet change de nom | Réutilisation de mots de passe |
 
+- **Vérification de l'utilisateur exigée** (`userVerification: required`) : Touch ID, Face ID ou le code de l'appareil, à chaque usage. Ni un process ni un agent IA ne peuvent la présenter à la place de l'admin.
+- **Après un changement de nom** de la machine ou du tailnet, la CLI de secours réinitialise la passkey, puis l'admin la ré-enrôle.
 - **Vérifié par l'engine, pas par l'API.** L'engine stocke les identifiants, génère le challenge, vérifie la réponse et émet la session.
 - **Premier accès :** `brume install` affiche une URL d'enrôlement à usage unique, valable 15 minutes. Elle porte un jeton affiché seulement dans le terminal de l'install : en administration publique, cette URL est joignable depuis Internet.
-- **Récupération :** la CLI `brume` en local, depuis la console de l'hébergeur, via un socket unix en `0600`.
+- **Récupération :** la CLI de secours `brume`, en local, depuis la console de l'hébergeur, via un socket unix en `0600`. C'est une autre porte que la CLI du laptop : voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-code).
 
 ## Session
 
@@ -77,9 +79,19 @@ Une faille XSS dans le panel donne ses actions pendant la session de l'admin : t
 - **« Révéler » passe par la session vérifiée par l'engine,** comme toutes les actions, et est journalisé.
 - **Les actions sensibles redemandent la passkey,** même pendant une session ouverte : révéler un secret, supprimer un projet, un environnement, un service ou une base, rouvrir l'egress d'un service, ajouter une identité à l'allowlist. L'engine exige une vérification récente de la passkey, dont il fixe la durée. Une XSS ou une session volée ne peut donc pas tout révéler ni tout supprimer en une boucle.
 
+## La CLI et les approbations
+
+La CLI et le serveur MCP passent par le même accès que le panel. Le détail est dans [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md).
+
+- **Des requêtes signées plutôt qu'une session.** La CLI signe chaque requête avec une clé de l'appareil, et l'engine vérifie la signature. Une API compromise ne peut ni forger ni modifier une requête de la CLI.
+- **Une requête porte soit le cookie de session, soit une signature, jamais les deux.** Les règles CSRF ci-dessus visent le cookie.
+- **Le panel valide chaque connexion de la CLI** avec le second facteur, et liste les clés : appareil, dernier usage, révocation.
+- **Le panel affiche les actions de la CLI qui attendent l'admin :** suppressions, ouverture de l'egress, accès d'une base par le tailnet, domaine personnalisé, et tout changement dans un environnement protégé.
+- **Approuver redemande le second facteur,** même avec une session ouverte. Une session détournée ne suffit pas pour approuver.
+
 ## Journal d'audit
 
-Chaque action est un événement du log, avec l'identifiant de l'admin. Son identité (login Tailscale ou email) vit dans un blob qu'on peut purger. Voir [09-observabilite.md](09-observabilite.md#journal-daudit).
+Chaque action est un événement du log, avec l'identifiant de l'admin. Une action venue de la CLI porte aussi la clé de l'appareil et le client (CLI ou MCP). L'identité de l'admin (login Tailscale ou email) vit dans un blob qu'on peut purger. Voir [09-observabilite.md](09-observabilite.md#journal-daudit).
 
 ## Sans Tailscale
 
@@ -93,4 +105,4 @@ Deux modes, choisis à l'install sur l'hôte : le tunnel SSH et l'administration
 
 ## Hors 0.1
 
-Shell web dans les containers, tokens d'API, CLI distante, déploiement depuis GitHub Actions.
+Shell web dans les containers, et les accès hors du tailnet : jetons pour une CI, déploiement depuis GitHub Actions, MCP distant. Voir [12-plus-tard.md](12-plus-tard.md).

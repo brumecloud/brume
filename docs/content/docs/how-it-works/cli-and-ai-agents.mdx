@@ -1,0 +1,119 @@
+---
+title: CLI and AI agents
+description: How the CLI and the MCP server reach your server the same way as the panel, why each request is signed on your laptop, and which actions wait for your approval.
+type: concept
+status: planned
+sources:
+  - archi/base/19-cli-et-agents-ia.md
+  - archi/base/04-panel-admin.md
+  - archi/base/01-modele-de-menace.md
+---
+
+Brume is agent first: everything the panel does, the CLI does too, and an AI agent can drive the CLI directly or through MCP. The CLI keeps the panel's security model. It reaches the server over your tailnet, the engine checks every request, and anything you cannot undo waits for your second factor in the panel.
+
+Two words to keep apart: **the agent**, or `brume agent`, is the Brume service that drives Docker on each server. **An AI agent** is a coding agent such as Claude Code, Codex or Cursor.
+
+## Principles
+
+- **One API for the panel, the CLI and the MCP server.** An action that the panel offers and the CLI does not is a bug. The only exceptions need your second factor: approving an action, revealing a secret, and confirming a new CLI login.
+- **The CLI is written for AI agents first.** A person uses it just as well. The reverse is not true.
+- **Same security model as the panel.** A compromised API still cannot act without you.
+- **An AI agent reads hostile content.** So irreversible actions wait for you. See [Approvals](#approvals).
+
+## Signing in
+
+`brume login` links a device to your server once.
+
+1. The CLI creates an Ed25519 key pair on your laptop. The private key never leaves it: it goes to the macOS keychain, or to a file with mode `0600` elsewhere.
+2. The CLI sends the public key to the API over the tailnet, with the device name. It opens the panel on the request and shows a short code.
+3. In the panel, you check that the code matches and confirm with your second factor, even if your session is already open.
+4. The engine records the key, bound to your Tailscale identity.
+
+### Signed requests, not a token
+
+- **The CLI signs every request** with the device key. The signature covers the method, the path, a hash of the body, a timestamp and a nonce.
+- **The engine checks the signature, not the API.** It also checks that the timestamp is fresh and refuses a nonce it has already seen.
+- **Why not a plain token:** a token passes through the API on every request. A compromised API would copy it and act alone for as long as it stays valid. A panel session is short, which bounds that window. A CLI key lasts weeks, so it must never travel. At worst, a compromised API can hold back or drop a signed request. It cannot change one or forge another.
+- **A request carries either the session cookie or a signature, never both.** The panel's CSRF defenses protect the cookie, which the browser sends on its own. A browser never adds a signature by itself, so signed requests have nothing to defend against CSRF. See [Admin panel](/docs/how-it-works/admin-panel#csrf-and-cross-site-requests).
+
+### The key
+
+- **Bound to your Tailscale identity.** A request whose `Tailscale-User-Login` header does not match the key is rejected. A tagged device has no Tailscale identity, so a CI runner or a server cannot use the CLI in 0.1.
+- **Expires after 30 days without use.** The panel lists the keys with their device and last use, and revokes any of them. `brume logout` revokes the key, then deletes it from your laptop.
+- **Kept out of the event log,** like sessions, and never sent to S3. A restore therefore revokes every key.
+- **The passkey stays in the panel.** The CLI never asks for it. It is bound to the panel's origin and requires Touch ID, Face ID or the device's PIN, so neither a terminal nor an AI agent can confirm in your place. See [Admin panel](/docs/how-it-works/admin-panel#second-factor-a-passkey).
+- **Without Tailscale,** the CLI goes through the SSH tunnel or the panel's public address, like the browser. The key is then bound to no network identity, the same way a session is bound only to its cookie.
+
+## What a CLI key can do
+
+| Action | With a CLI key |
+|---|---|
+| Read projects, services, deployments, logs, metrics, variables, and the names of secrets | Yes |
+| Create and change projects, environments, services and variables | Yes |
+| Set the value of a secret | Yes, write-only |
+| Deploy, roll back, restart | Yes, except in a [protected environment](#protected-environments) |
+| Delete a service, an environment, a project or a volume; purge a revision | After your approval |
+| Open a service's egress, open a database to the tailnet, add a custom domain | After your approval |
+| Reveal the value of a secret | Never: in the panel only |
+| Register another key | Never: `brume login` goes through the panel |
+| Turn on a dangerous option | Never: on the host only, see [Runtime](/docs/how-it-works/runtime) |
+
+- **Secret values never come out through the CLI.** A value printed in the terminal also lands in the AI agent's context, and at its provider.
+- **`brume secrets import` reads a `.env` file** and sends its values as secrets without printing them. An AI agent can move a `.env` file to Brume without the values passing through its context.
+
+### Approvals
+
+- **An action that needs approval is not refused: it waits.** The CLI returns an `approval_required` status, with its own exit code and the URL of the request in the panel. `--wait` waits for your decision.
+- **The panel shows exactly what will happen:** the diff, the device, and the client (CLI or MCP). You approve with your second factor, even if your session is open, so a hijacked session cannot approve on its own.
+- **A request expires after 15 minutes and runs at most once.** If the state changed in the meantime, it is rejected.
+- **Requests, decisions and expirations are events in the log.** A pending request survives an engine restart.
+
+### Protected environments
+
+- **In a protected environment, every change from the CLI waits for your approval:** deployment, rollback, variable or secret.
+- **Off by default,** so that deploying stays a single command. The panel recommends it for production as soon as another environment exists.
+- **Only the panel turns protection on or off.**
+
+## Deploying a folder
+
+The CLI can deploy a folder from your laptop, without a repository or a push. The archive is the only new input, and Brume handles it like the builder's other inputs: only the builder opens it.
+
+- **The CLI follows `.gitignore`.** It never uploads `.git`, `.env` or `.env.*`: a `COPY . .` would put them in an image layer.
+- **A size-limited archive,** with its SHA-256 hash.
+- **The API writes the archive as is to a drop folder.** The engine only receives its hash and size. The builder checks the hash, then extracts the archive. Neither the engine nor the API opens it.
+- **Extraction is bounded.** Paths with `../` and symlinks that leave the folder are rejected, and both the extracted size and the number of files are limited.
+- **The same builder as for GitHub,** with the same cache per environment and the same build secrets. See [Builds and deployments](/docs/how-it-works/builds-and-deployments).
+- **The archive is deleted after the build.** A rollback starts from the image, as with GitHub.
+- **The revision records where it came from:** the archive hash and, if the folder is a git repository, the commit and whether it had uncommitted changes. The CLI declares those last two, so they are for display, not for security.
+
+## The MCP server
+
+- **`brume mcp` is a local MCP server over stdio,** started by the AI agent on your laptop. It uses the key from `brume login` and needs no other configuration.
+- **One MCP tool per CLI command,** with the same parameters and the same JSON responses. Both use the same client, and CI fails if a command has no tool.
+- **MCP annotations** (`readOnlyHint`, `destructiveHint`, `idempotentHint`) describe each tool. They help the AI agent but protect nothing: the engine decides.
+- **Content from the outside is marked as untrusted in responses:** log lines, commit messages, branch names. That helps the AI agent too, without protecting it. Approvals are the barrier.
+- **No remote MCP server in 0.1.** Served by `brume api`, it would need OAuth and another way to tie an AI agent to you. See the [roadmap](/docs/how-it-works/roadmap).
+
+## A CLI written for AI agents
+
+- **`--json` on every command,** with a stable, versioned schema. The result goes to stdout, progress to stderr.
+- **Never an interactive question outside a terminal.** A missing value is an error that names the flag to add.
+- **Stable, documented exit codes:** success, usage error, refused by policy, approval required, build or deployment failed, server unreachable.
+- **Every error has a stable code, a message, and the next command to run.**
+- **Safe to run again.** Creating something takes a name, so running a command that already succeeded creates no duplicate.
+- **Long commands wait by default,** up to `--timeout`. Outside a terminal, an endless command such as `brume logs --follow` stops at that timeout.
+
+## The binary
+
+- **One binary, `brume`.** On the server, it holds the services and the CLI. For your laptop (macOS, Linux), it is built without the services, so the CLI depends on neither Docker, SQLite nor DuckDB.
+- **Signed and published like the rest:** minisign, in the same GitHub release.
+- **The recovery CLI does not change.** On the host, as root, it goes through a local unix socket, without the API or a key. Recovery commands exist only there. See [Admin panel](/docs/how-it-works/admin-panel#second-factor-a-passkey).
+
+## Risks
+
+<Callout type="warn" title="Deploying means running code with the service's secrets">
+  An AI agent that can deploy can ship code that sends the service's secrets out, without ever revealing them. This is the same risk as write access to a deployed branch, and Brume accepts it for the same reason: deploying means trusting the code. Approvals, egress closed by default and protected environments reduce it. See the [threat model](/docs/how-it-works/threat-model#accepted-risks-in-alpha-01).
+</Callout>
+
+- **An AI agent can be hijacked by content it reads:** a log line, a commit message, an issue, a web page. It then acts with your CLI key. It can deploy, but it cannot reveal a secret or do anything irreversible without your approval.
+- **Your AI agent's provider sees what the agent reads:** logs, configuration, the names of secrets, never their values. Know this before you give an AI agent the CLI, as with Cloudflare and your public traffic.

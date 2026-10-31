@@ -12,6 +12,7 @@
     "---Components---",
     "networking",
     "admin-panel",
+    "cli-and-ai-agents",
     "runtime",
     "builds-and-deployments",
     "secrets-and-backups",

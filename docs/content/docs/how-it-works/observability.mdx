@@ -7,6 +7,7 @@ sources:
   - archi/base/09-observabilite.md
   - archi/base/17-telemetrie.md
   - archi/base/14-architecture-logicielle.md
+  - archi/base/19-cli-et-agents-ia.md
 ---
 
 Logs are hostile content: apps copy requests from the outside into them. So Brume collects them in an isolated process, `brume telemetry`, with no network, no secrets and no Docker access, and serves them only through the engine, which checks the session. The audit log is the engine's event log: it leaves the server as it is written, so an attacker can stop it but not erase it. Alerts come from the facts the agents report, never from telemetry, and cover drift, failures and sensitive changes.
@@ -76,7 +77,7 @@ Brume's own traces, metrics and logs, in [OpenTelemetry](https://opentelemetry.i
 ## Audit log
 
 - **The audit log is the engine's event log,** since every action goes through the engine. Each change is an event appended to the log, and sensitive actions that change nothing, such as revealing a secret or signing in, are recorded too. See [Architecture](/docs/how-it-works/architecture).
-- **Each event carries an opaque admin ID.** The admin's identity (Tailscale login or email) lives in a blob that can be purged. The log on S3 is never rewritten, so purging the blob is enough to answer a GDPR erasure request.
+- **Each event carries an opaque admin ID.** An action from the CLI also carries the device key and the client, CLI or MCP, so you know which device and which client each action came from. The admin's identity (Tailscale login or email) lives in a blob that can be purged. The log on S3 is never rewritten, so purging the blob is enough to answer a GDPR erasure request.
 - **Sent continuously to S3, encrypted and hash-chained.** An attacker can stop the upload, but cannot erase what has already left the server. See [Secrets and backups](/docs/how-it-works/secrets-and-backups#upload).
 
 ## Drift detection
@@ -99,6 +100,8 @@ A container, a network or a published port that Brume did not create is reported
   - failed healthcheck;
   - disk almost full;
   - new identity on the panel;
+  - new CLI key;
+  - action waiting for approval;
   - drift detected;
   - Cloudflare tunnel down;
   - unknown tunnel connector or DNS record;

@@ -6,6 +6,7 @@ status: planned
 sources:
   - archi/base/13-modele-de-donnees.md
   - archi/base/15-etat-et-restauration.md
+  - archi/base/19-cli-et-agents-ia.md
 ---
 
 Brume organizes your apps in levels: project, environment, service and revision, with a history of deployments. This page explains what each level holds, what is immutable, and what a rollback restores.
@@ -36,7 +37,7 @@ Project                             shared variables and secrets
 
 | In the revision: follows a rollback | On the service: does not follow a rollback |
 |---|---|
-| Artifact (digest), source commit | Source (repository, branch), slug, display name |
+| Artifact (digest), origin: a commit, or the hash of a folder uploaded by the CLI | Source (repository and branch, image, or folder uploaded by the CLI), slug, display name |
 | Command, port, healthcheck | Domains and public routes |
 | CPU, memory and pids limits | Egress |
 | Values of simple and build variables | Attached volumes |
@@ -46,7 +47,7 @@ Project                             shared variables and secrets
 
 ## Deployments
 
-- **A deployment puts a revision into service.** It records the revision, the version of each injected secret, the status, the author and the date.
+- **A deployment puts a revision into service.** It records the revision, the version of each injected secret, the status, the author and the date. When the request comes from the CLI, the author is the admin, with the device key and the client (CLI or MCP).
 - **The history only grows.** A rollback is a new deployment of an old revision: nothing is rewritten.
 - **Changing a secret redeploys the same revision.** The spec has not changed, so there is no new revision.
 - **You can tell which version of a secret was running at a given date.** It is the first question after a leak.
@@ -90,7 +91,7 @@ Project                             shared variables and secrets
 - **It works per service.** Rolling back a backend does not touch the frontend that calls its API. Restoring a whole environment to its state at a given date can come later: the deployment history is enough to rebuild that state, without a new entity.
 - **Data never goes back.** After a migration, the old code runs on the new schema. The panel warns you before rolling back a service that has a volume.
 - **The major version of a database created from a template does not change in 0.1,** so a rollback cannot cross a major version. See the [roadmap](/docs/how-it-works/roadmap).
-- **Automatic deployment continues after a rollback.** The next push to the configured branch redeploys.
+- **Automatic deployment continues after a rollback.** The next push to the configured branch redeploys. The same goes after a deploy from a folder uploaded by the CLI, see [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#deploying-a-folder).
 
 ## Retention and purge
 
