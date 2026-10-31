@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": [
+    ".next/**",
+    "out/**",
+    "pnpm-lock.yaml",
+    "next-env.d.ts",
+    "src/components/animate-ui/**"
+  ]
+}

@@ -19,14 +19,15 @@
 - Templates with good practices built in: static site, PostgreSQL, MongoDB, Redis.
 - Automatic CI/CD from GitHub, built with Railpack.
 - Backups, logs and secrets managed from the panel.
-- Admin panel reachable only over Tailscale.
-- Public traffic only through Cloudflare Tunnel: no inbound port open on the server.
+- Admin panel over Tailscale by default. Access through an SSH tunnel or from the public Internet is opt-in.
+- Public traffic through Cloudflare Tunnel by default: no inbound port open on the server. Direct ingress on ports 80 and 443 is opt-in.
+- All of Brume's state on S3, encrypted: a lost VPS is rebuilt from the bucket.
 
-**Planned stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, shadcn, Tailwind), SQLite, DuckDB, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
+**Planned stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, shadcn, Tailwind), SQLite, DuckDB, S3, OpenTelemetry, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
 
 ## Design documents
 
-The architecture decisions live in [`archi/base/`](archi/base/README.md) (written in French): threat model, architecture, data model, networking, admin panel, runtime, templates, builds and deployment, secrets and backups, host setup, observability, development rules, and a comparison with similar tools.
+The architecture decisions live in [`archi/base/`](archi/base/README.md) (written in French): threat model, architecture, data model, networking, admin panel, runtime, templates, builds and deployment, secrets and backups, host setup, observability, development rules, a comparison with similar tools, the software architecture (engine and agent, event sourcing), state and restore on S3, deterministic simulation testing, and telemetry.
 
 ## Documentation
 

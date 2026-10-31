@@ -1,0 +1,35 @@
+{
+  "name": "@brume/site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "oxlint",
+    "fmt": "oxfmt",
+    "typecheck": "tsc --noEmit",
+    "ci": "oxfmt --check && oxlint && tsc --noEmit && next build"
+  },
+  "dependencies": {
+    "@animate-ui/react": "catalog:",
+    "motion": "catalog:",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "babel-plugin-react-compiler": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@12.15.0"
+}

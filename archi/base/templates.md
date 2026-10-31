@@ -15,7 +15,7 @@ Brume propose quatre templates : site statique, PostgreSQL, MongoDB et Redis. Ch
 
 - **Image officielle, épinglée par digest.**
 - **Lancée directement sous l'utilisateur de la base,** sans l'entrypoint root de l'image. Toutes les capabilities supprimées, système de fichiers en lecture seule, tmpfs pour les sockets et `/tmp`.
-- **Réseau d'environnement uniquement.** Jamais de réseau edge, d'egress ni de domaine. L'accès par le tailnet s'active base par base : voir [03-reseau.md](03-reseau.md#tailscale).
+- **Réseau d'environnement uniquement.** Jamais de réseau edge, d'egress ni de domaine. L'accès depuis le laptop, par le tailnet ou par un tunnel SSH, s'active base par base : voir [03-reseau.md](03-reseau.md#tailscale).
 - **Deux identifiants, générés par l'engine :**
   - un compte admin, gardé par l'engine pour les backups et la maintenance, révélable ;
   - un compte pour l'app, avec le minimum de droits.
@@ -24,8 +24,8 @@ Brume propose quatre templates : site statique, PostgreSQL, MongoDB et Redis. Ch
 - **Une taille de mémoire choisie dans une liste fixe.** Le cache de la base en découle. Sinon, la base se dimensionne sur la RAM de l'hôte et l'OOM killer la tue.
 - **Arrêt propre :** le bon signal d'arrêt, et 60 secondes avant `SIGKILL`. Par défaut, Docker tue le container au bout de 10 secondes, et la base doit se réparer au démarrage suivant.
 - **Healthcheck dans le container.** Une base en échec déclenche une alerte.
-- **Backups activés par défaut,** avec le test de restauration de [07-secrets-et-backups.md](07-secrets-et-backups.md#la-vérification). Sans S3 configuré, le panel affiche un avertissement permanent.
-- **Logs envoyés à `brume logs`,** sans jamais journaliser les requêtes.
+- **Backups activés par défaut,** avec le test de restauration de [07-secrets-et-backups.md](07-secrets-et-backups.md#la-vérification). Le bucket S3 est obligatoire dès l'install.
+- **Logs envoyés à `brume telemetry`,** sans jamais journaliser les requêtes.
 - **Pas de TLS entre les apps et la base :** le trafic reste sur le bridge de l'hôte, ou dans WireGuard par le tailnet.
 
 ## PostgreSQL
