@@ -1,26 +1,34 @@
 import { createLink } from "@tanstack/react-router";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { LayoutGroup, motion } from "motion/react";
 import { type ComponentProps, type ReactNode, createContext, use, useId, useState } from "react";
 
+import { HIDDEN_PILL, pillHidden, pillOnTab } from "~/helpers/tabs";
 import { TAB_TRANSITION } from "~/lib/motion";
 
-interface HoverState {
-  readonly hovered: string | undefined;
-  readonly setHovered: (tab: string | undefined) => void;
-}
+const HoverContext = createContext<(tab: HTMLElement) => void>(() => {});
 
-const HoverContext = createContext<HoverState>({ hovered: undefined, setHovered: () => {} });
+// Without a slide, the pill jumps to its tab and only fades in.
+const APPEAR = { ...TAB_TRANSITION, x: { duration: 0 }, width: { duration: 0 } };
 
-// Reference: the tabs of Vercel. A pill follows the hovered tab and the underline slides to
-// the active one. Each tab is a URL: links, not ARIA tabs.
+// Reference: the tabs of Vercel. One pill per bar follows the hovered tab and the underline
+// slides to the active one. Each tab is a URL: links, not ARIA tabs.
 export function NavTabs({ children }: { readonly children: ReactNode }) {
-  const [hovered, setHovered] = useState<string>();
+  const [pill, setPill] = useState(HIDDEN_PILL);
+  const onHover = (tab: HTMLElement) =>
+    setPill((current) => pillOnTab(current, tab.offsetLeft, tab.offsetWidth));
 
-  // The group scopes the shared layout ids: two tab bars can be on screen at once.
+  // The group scopes the layout id of the underline: two tab bars can be on screen at once.
   return (
     <LayoutGroup id={useId()}>
-      <HoverContext value={{ hovered, setHovered }}>
-        <nav className="mt-4 flex border-b px-3" onMouseLeave={() => setHovered(undefined)}>
+      <HoverContext value={onHover}>
+        <nav className="relative mt-4 flex border-b px-3" onMouseLeave={() => setPill(pillHidden)}>
+          <motion.span
+            aria-hidden="true"
+            initial={false}
+            animate={{ x: pill.left, width: pill.width, opacity: pill.visible ? 1 : 0 }}
+            transition={pill.slide ? TAB_TRANSITION : APPEAR}
+            className="absolute top-0 bottom-1.5 left-0 rounded-md bg-accent"
+          />
           {children}
         </nav>
       </HoverContext>
@@ -29,29 +37,15 @@ export function NavTabs({ children }: { readonly children: ReactNode }) {
 }
 
 function TabAnchor({ children, ...props }: ComponentProps<"a">) {
-  const tab = useId();
-  const { hovered, setHovered } = use(HoverContext);
+  const onHover = use(HoverContext);
 
   return (
     <a
       {...props}
       className="relative px-3 pt-1.5 pb-3 text-muted-foreground text-sm transition-colors hover:text-foreground aria-[current=page]:text-foreground"
-      onMouseEnter={() => setHovered(tab)}
+      onMouseEnter={(event) => onHover(event.currentTarget)}
     >
-      <AnimatePresence>
-        {hovered === tab && (
-          <motion.span
-            layoutId="hovered-tab"
-            aria-hidden="true"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={TAB_TRANSITION}
-            className="absolute inset-x-0 top-0 bottom-1.5 rounded-md bg-accent"
-          />
-        )}
-      </AnimatePresence>
-      <span className="relative">{children}</span>
+      {children}
       {props["aria-current"] === "page" && (
         <motion.span
           layoutId="active-tab"

@@ -204,7 +204,7 @@ Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 - **Sous 300 ms**, `ease-out` à l'entrée. Les courbes et les durées sont des variables du thème, jamais tapées dans un composant.
 - **`transform` et `opacity` seulement.** Les popovers partent de leur déclencheur (`--transform-origin` de Base UI).
 - **`prefers-reduced-motion` :** on garde l'opacité, on retire le mouvement. `MotionConfig reducedMotion="user"` à la racine le fait pour les déplacements (`x`, `y`) et les animations de layout.
-- **Onglets à la Vercel** (`NavTabs`) : une pastille suit l'onglet survolé, le soulignement glisse vers l'onglet actif (`layoutId`). Chaque barre d'onglets a son `LayoutGroup` : deux barres peuvent être à l'écran en même temps.
+- **Onglets à la Vercel** (`NavTabs`) : une seule pastille par barre glisse vers l'onglet survolé (`x` et `width`, calculés par `helpers/tabs.ts`). Elle ne s'estompe qu'en entrant dans la barre ou en la quittant ; une pastille par onglet reliée par `layoutId` clignotait, l'une s'estompant pendant que l'autre apparaissait. Le soulignement glisse vers l'onglet actif (`layoutId`). Chaque barre d'onglets a son `LayoutGroup` : deux barres peuvent être à l'écran en même temps.
 
 ## Sécurité appliquée par l'outillage
 
