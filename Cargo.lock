@@ -482,6 +482,7 @@ dependencies = [
  "brume-runtime",
  "brume-telemetry",
  "clap",
+ "futures-util",
  "reqwest",
  "serde_json",
  "tempfile",

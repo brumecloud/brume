@@ -16,6 +16,7 @@ brume-proto.workspace = true
 brume-runtime.workspace = true
 brume-telemetry.workspace = true
 clap.workspace = true
+futures-util.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
