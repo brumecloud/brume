@@ -13,7 +13,9 @@ use crate::observed::{DockerSnapshot, SnapContainer, SnapState};
 /// The shortest interval between two probes of one container.
 pub const PROBE_INTERVAL_MS: u64 = 2_000;
 
-/// The probes of each container since its last start, kept by the agent across reconciliations.
+/// The probes of each container since its last start, kept by the agent across reconciliations
+/// but not across its own restarts: an Http container gets no verdict before a probe of its
+/// current start.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ProbeResults {
     entries: BTreeMap<String, Probes>,
@@ -52,6 +54,12 @@ impl ProbeResults {
     pub fn succeeded(&self, container: &str, started_at_ms: u64) -> bool {
         self.since(container, started_at_ms)
             .is_some_and(|probes| probes.last_success_ms.is_some())
+    }
+
+    /// Whether a probe of `container` ran since its start at `started_at_ms`, whatever its
+    /// result.
+    pub fn attempted(&self, container: &str, started_at_ms: u64) -> bool {
+        self.since(container, started_at_ms).is_some()
     }
 
     /// Whether `container`, started at `started_at_ms`, may be probed at `now_ms`: once every
@@ -151,9 +159,13 @@ pub(crate) fn container_health(
             }
         }
         Healthcheck::Http { timeout_secs, .. } => {
+            // Unhealthy only once a probe of this start ran: without one on record, as after a
+            // restart of the agent, it stays `Starting`, so that `plan` probes it.
             if probes.succeeded(&spec.name, started_at_ms) {
                 ContainerHealth::Healthy
-            } else if running_ms >= secs_to_ms(*timeout_secs) {
+            } else if running_ms >= secs_to_ms(*timeout_secs)
+                && probes.attempted(&spec.name, started_at_ms)
+            {
                 ContainerHealth::Unhealthy {
                     reason: format!("no successful HTTP probe in {timeout_secs} s"),
                 }

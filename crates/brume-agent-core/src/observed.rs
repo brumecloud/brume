@@ -7,8 +7,7 @@ use brume_proto::agent::NetworkAttachment;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DockerSnapshot {
     pub networks: Vec<SnapNetwork>,
-    /// The names of the volumes.
-    pub volumes: Vec<String>,
+    pub volumes: Vec<SnapVolume>,
     /// The digest references of the images present, `name@sha256:…`.
     pub images: Vec<String>,
     pub containers: Vec<SnapContainer>,
@@ -26,6 +25,11 @@ impl DockerSnapshot {
     pub fn network(&self, name: &str) -> Option<&SnapNetwork> {
         self.networks.iter().find(|network| network.name == name)
     }
+
+    /// The volume named `name`, if any.
+    pub fn volume(&self, name: &str) -> Option<&SnapVolume> {
+        self.volumes.iter().find(|volume| volume.name == name)
+    }
 }
 
 /// A Docker network.
@@ -34,6 +38,16 @@ pub struct SnapNetwork {
     pub name: String,
     /// No route to the internet.
     pub internal: bool,
+    /// It has the label `brume.managed=1`. No container of Brume joins a network without it.
+    pub managed: bool,
+}
+
+/// A Docker volume.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SnapVolume {
+    pub name: String,
+    /// It has the label `brume.managed=1`. No container of Brume mounts a volume without it.
+    pub managed: bool,
 }
 
 /// A Docker container, managed by Brume or not.

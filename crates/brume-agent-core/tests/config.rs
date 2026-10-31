@@ -78,6 +78,7 @@ fn full_config_of_an_app_container() {
             env("PORT", plain("80")),
             env("API_TOKEN", secret("s3cr3t-value")),
         ],
+        skipped_env: 0,
         cmd: None,
         labels: BTreeMap::from([
             // Pinned: a change of the hash input replaces every running container.
@@ -217,4 +218,24 @@ fn config_debug_hides_secret_values() {
     let debug = format!("{:?}", container_config(&nginx()));
     assert!(!debug.contains("s3cr3t-value"));
     assert!(debug.contains("hello"));
+}
+
+#[test]
+fn env_names_outside_the_posix_grammar_are_skipped_and_counted() {
+    let mut spec = nginx();
+    spec.env = vec![
+        env("_OK", plain("1")),
+        env("a1", plain("2")),
+        env("", secret("leaked-1")),
+        env("1ABC", plain("3")),
+        env("A-B", plain("4")),
+        env("TOKEN=s3cr3t", plain("5")),
+        env("A B", plain("6")),
+        env("É", plain("7")),
+    ];
+    let config = container_config(&spec);
+    let names: Vec<&str> = config.env.iter().map(|var| var.name.as_str()).collect();
+    assert_eq!(names, ["_OK", "a1"]);
+    assert_eq!(config.skipped_env, 6);
+    assert_eq!(container_config(&nginx()).skipped_env, 0);
 }

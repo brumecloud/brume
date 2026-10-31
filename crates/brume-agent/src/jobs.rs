@@ -1,6 +1,7 @@
 //! The jobs that the engine waits for. `ResolveImage` pulls an image and reports its digest, its
 //! volumes and its ports.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use bollard::Docker;
@@ -8,23 +9,34 @@ use bollard::errors::Error;
 use bollard::query_parameters::CreateImageOptionsBuilder;
 use brume_proto::agent::{AgentToEngine, Job, JobOutcome, MAX_FAILURE_MESSAGE_BYTES};
 use futures_util::StreamExt;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::{Semaphore, mpsc, watch};
 use tokio::time::timeout;
 
 /// How long a job waits for Docker before it fails.
 const DOCKER_WAIT: Duration = Duration::from_secs(10);
 
-/// Runs each job of `jobs` on its own task, with the Docker client of the moment, and sends its
-/// result to `outbox`. A job fails when Docker stays unreachable for `DOCKER_WAIT`.
+/// The most jobs that run at once. Each one pulls an image.
+pub const MAX_PARALLEL_JOBS: usize = 3;
+
+/// Runs each job of `jobs` on its own task, `MAX_PARALLEL_JOBS` at a time, with the Docker
+/// client of the moment, and sends its result to `outbox`. A job fails when Docker stays
+/// unreachable for `DOCKER_WAIT` once its turn comes.
 pub async fn serve(
     mut jobs: mpsc::Receiver<Job>,
     docker: watch::Receiver<Option<Docker>>,
     outbox: mpsc::Sender<AgentToEngine>,
 ) {
+    let turns = Arc::new(Semaphore::new(MAX_PARALLEL_JOBS));
     while let Some(job) = jobs.recv().await {
         let mut docker = docker.clone();
         let outbox = outbox.clone();
+        let turns = Arc::clone(&turns);
+        // The task waits for its turn, not this loop: the engine link keeps handing jobs over.
         tokio::spawn(async move {
+            // The semaphore is never closed.
+            let Ok(_turn) = turns.acquire_owned().await else {
+                return;
+            };
             let client = match timeout(DOCKER_WAIT, docker.wait_for(Option::is_some)).await {
                 Ok(Ok(client)) => client.clone(),
                 Ok(Err(_)) | Err(_) => None,
@@ -174,7 +186,51 @@ fn last_component(reference: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::{exposed_port, pick_digest, pull_reference, repository, truncate};
+    use std::time::Duration;
+
+    use bollard::{API_DEFAULT_VERSION, Docker};
+    use brume_proto::agent::Job;
+    use tokio::net::UnixListener;
+    use tokio::sync::{mpsc, watch};
+    use tokio::time::timeout;
+
+    use super::{exposed_port, pick_digest, pull_reference, repository, serve, truncate};
+
+    #[tokio::test]
+    async fn at_most_three_pulls_run_at_once() {
+        // A Docker that accepts each connection and never answers: each pull holds one.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let socket = dir.path().join("docker.sock");
+        let listener = UnixListener::bind(&socket).expect("binds");
+        let docker = Docker::connect_with_unix(
+            socket.to_str().expect("utf-8 path"),
+            120,
+            API_DEFAULT_VERSION,
+        )
+        .expect("client");
+        let (_docker_tx, docker_rx) = watch::channel(Some(docker));
+        let (jobs_tx, jobs_rx) = mpsc::channel(16);
+        let (outbox_tx, _outbox_rx) = mpsc::channel(16);
+        tokio::spawn(serve(jobs_rx, docker_rx, outbox_tx));
+        for index in 0..5 {
+            let job = Job::ResolveImage {
+                job_id: format!("job-{index}"),
+                image: format!("nginx:1.{index}"),
+            };
+            jobs_tx.send(job).await.expect("queues");
+        }
+
+        let mut held = Vec::new();
+        for _ in 0..3 {
+            let (stream, _) = timeout(Duration::from_secs(5), listener.accept())
+                .await
+                .expect("a pull starts")
+                .expect("accepts");
+            held.push(stream);
+        }
+        let fourth = timeout(Duration::from_millis(500), listener.accept()).await;
+        assert!(fourth.is_err(), "a fourth pull runs");
+    }
 
     fn strings(items: &[&str]) -> Vec<String> {
         items.iter().map(|item| (*item).to_owned()).collect()

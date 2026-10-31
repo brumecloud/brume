@@ -47,6 +47,10 @@ pub struct ContainerConfig {
     pub image: String,
     /// `Env`, as `NAME=value` at the bollard boundary only: a secret stays masked until then.
     pub env: Vec<EnvVar>,
+    /// The variables of the spec left out of `env`, as their name is not
+    /// `[A-Za-z_][A-Za-z0-9_]*`: Docker could refuse one and echo it, value included, in its
+    /// error.
+    pub skipped_env: u32,
     /// `Cmd`: the argv, or `None` to keep the image's.
     pub cmd: Option<Vec<String>>,
     pub labels: BTreeMap<String, String>,
@@ -114,7 +118,8 @@ pub struct VolumeMount {
 /// Builds the config of `spec`'s container, field by field.
 ///
 /// A zero CPU or memory limit becomes the smallest one, which Docker refuses, rather than
-/// Docker's zero, which means no limit.
+/// Docker's zero, which means no limit. A variable whose name is not a POSIX one is left out,
+/// and counted in `skipped_env`.
 pub fn container_config(spec: &ContainerSpec) -> ContainerConfig {
     let network_mode = spec
         .networks
@@ -149,10 +154,18 @@ pub fn container_config(spec: &ContainerSpec) -> ContainerConfig {
         privileged: false,
         publish_all_ports: false,
     };
+    let env: Vec<EnvVar> = spec
+        .env
+        .iter()
+        .filter(|var| is_env_name(&var.name))
+        .cloned()
+        .collect();
+    let skipped_env = u32::try_from(spec.env.len() - env.len()).unwrap_or(u32::MAX);
     let mut config = ContainerConfig {
         name: spec.name.clone(),
         image: spec.image.clone(),
-        env: spec.env.clone(),
+        env,
+        skipped_env,
         cmd: spec.command.clone(),
         labels: BTreeMap::from([
             (LABEL_MANAGED.to_owned(), "1".to_owned()),
@@ -167,6 +180,15 @@ pub fn container_config(spec: &ContainerSpec) -> ContainerConfig {
     let hash = config_hash(&config);
     config.labels.insert(LABEL_CONFIG_HASH.to_owned(), hash);
     config
+}
+
+/// Whether `name` is a POSIX variable name, `[A-Za-z_][A-Za-z0-9_]*`.
+fn is_env_name(name: &str) -> bool {
+    let mut bytes = name.bytes();
+    bytes
+        .next()
+        .is_some_and(|first| first.is_ascii_alphabetic() || first == b'_')
+        && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
 }
 
 /// What the config hash covers: the whole config except secret values and aliases. Aliases

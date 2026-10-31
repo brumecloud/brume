@@ -16,10 +16,11 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bollard::Docker;
+use bollard::errors::Error;
 use brume_agent_core::backoff::Restarts;
 use brume_agent_core::health::{ProbeResults, report};
 use brume_agent_core::observed::DockerSnapshot;
-use brume_agent_core::plan::{Action, plan};
+use brume_agent_core::plan::{Action, Refusal, Resource, plan, refusals};
 use brume_proto::agent::{AgentToEngine, DesiredState, ObservedState};
 use futures_util::FutureExt;
 use futures_util::future::join_all;
@@ -27,7 +28,7 @@ use tokio::sync::{mpsc, watch};
 use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Instant, MissedTickBehavior};
 
-use crate::docker::{DockerShell, LogSource, Outcome};
+use crate::docker::{DockerShell, LogSource, Observation, Outcome};
 use crate::logs::LogForwarder;
 use crate::probe::PROBE_IMAGE;
 
@@ -169,8 +170,8 @@ pub struct Round {
     pub sources: BTreeMap<String, LogSource>,
 }
 
-/// Brings Docker to the desired state, one round at a time, and remembers restarts, probes and
-/// image pulls across rounds.
+/// Brings Docker to the desired state, one round at a time, and remembers restarts, probes,
+/// image pulls and warnings across rounds.
 #[derive(Debug)]
 pub struct Reconciler {
     shell: DockerShell,
@@ -183,6 +184,8 @@ pub struct Reconciler {
     pulled: BTreeMap<String, (Instant, bool)>,
     /// When each failing action was last logged, so that each is logged once per interval.
     warned: BTreeMap<String, Instant>,
+    /// The networks and volumes that `plan` refuses, logged once each.
+    refused: RefusalLog,
 }
 
 impl Reconciler {
@@ -194,6 +197,7 @@ impl Reconciler {
             pulls: BTreeMap::new(),
             pulled: BTreeMap::new(),
             warned: BTreeMap::new(),
+            refused: RefusalLog::default(),
         }
     }
 
@@ -214,15 +218,14 @@ impl Reconciler {
     /// Snapshots Docker, runs the plan, and reports what runs. An action that fails is logged
     /// and retried at the next round; only a failed snapshot is an error. Image pulls start in
     /// the background, and the probes of a plan run together.
-    pub async fn reconcile(
-        &mut self,
-        desired: &DesiredState,
-    ) -> Result<Round, bollard::errors::Error> {
+    pub async fn reconcile(&mut self, desired: &DesiredState) -> Result<Round, Error> {
         self.reap_pulls();
         let before = self.shell.observe().await?;
+        self.warn_unreadable(&before);
         let now = now_ms();
         self.restarts.settle(&before.snapshot, now);
         self.probes.settle(&before.snapshot);
+        self.warn_refusals(desired, &before.snapshot);
         let actions = plan(desired, &before.snapshot, &self.restarts, &self.probes, now);
         if actions.is_empty() {
             let observed = report(desired, &before.snapshot, &self.probes, &self.restarts, now);
@@ -258,18 +261,19 @@ impl Reconciler {
                 }
                 _ => {}
             }
-            self.run_probes(&mut probes, &before.snapshot).await;
+            self.run_probes(&mut probes, &before.snapshot, now).await;
             let result = self.shell.execute(action).await;
             if let Action::StartContainer(name) = action {
                 self.restarts.record_start(name, now_ms());
             }
             if let Err(error) = result {
-                self.warn(describe(action), &error);
+                self.warn(describe(action), failure(action, &error));
             }
         }
-        self.run_probes(&mut probes, &before.snapshot).await;
+        self.run_probes(&mut probes, &before.snapshot, now).await;
 
         let after = self.shell.observe().await?;
+        self.warn_unreadable(&after);
         let observed = report(
             desired,
             &after.snapshot,
@@ -283,9 +287,15 @@ impl Reconciler {
         })
     }
 
-    /// Runs `pending` probes together, records their results, and empties `pending`. Without
-    /// the probe image, it starts its pull and leaves the probes due for a later round.
-    async fn run_probes(&mut self, pending: &mut Vec<&Action>, snapshot: &DockerSnapshot) {
+    /// Runs `pending` probes together, records their results as of `round_ms`, the start of
+    /// the round, and empties `pending`. Without the probe image, it starts its pull and leaves
+    /// the probes due for a later round.
+    async fn run_probes(
+        &mut self,
+        pending: &mut Vec<&Action>,
+        snapshot: &DockerSnapshot,
+        round_ms: u64,
+    ) {
         if pending.is_empty() {
             return;
         }
@@ -295,19 +305,17 @@ impl Reconciler {
         }
         let shell = &self.shell;
         let results = join_all(pending.iter().map(|action| shell.execute(action))).await;
-        for (action, result) in pending.drain(..).zip(results) {
-            let Action::Probe { container, .. } = action else {
-                continue;
-            };
-            let started_at_ms = snapshot
-                .container(container)
-                .and_then(|container| container.started_at_ms);
-            let success = matches!(result, Ok(Outcome::Probed { success: true }));
-            if let Some(started_at_ms) = started_at_ms {
-                self.probes
-                    .record(container, started_at_ms, success, now_ms());
-            }
-        }
+        let outcomes = pending
+            .drain(..)
+            .zip(results)
+            .filter_map(|(action, result)| match action {
+                Action::Probe { container, .. } => Some((
+                    container.as_str(),
+                    matches!(result, Ok(Outcome::Probed { success: true })),
+                )),
+                _ => None,
+            });
+        record_probes(&mut self.probes, snapshot, outcomes, round_ms);
     }
 
     /// Whether the probe image is present; if not, its pull starts.
@@ -356,7 +364,7 @@ impl Reconciler {
             let succeeded = match task.now_or_never() {
                 Some(Ok(Ok(()))) => true,
                 Some(Ok(Err(error))) => {
-                    self.warn(format!("pull {image}"), &error);
+                    self.warn(format!("pull {image}"), error.to_string());
                     false
                 }
                 Some(Err(error)) => {
@@ -369,8 +377,8 @@ impl Reconciler {
         }
     }
 
-    /// Logs that `what` failed, at most once per `WARN_INTERVAL` for each `what`.
-    fn warn(&mut self, what: String, error: &bollard::errors::Error) {
+    /// Logs that `what` failed with `error`, at most once per `WARN_INTERVAL` for each `what`.
+    fn warn(&mut self, what: String, error: String) {
         let now = Instant::now();
         self.warned
             .retain(|_, at| now.duration_since(*at) < WARN_INTERVAL);
@@ -378,6 +386,92 @@ impl Reconciler {
             tracing::warn!(action = %entry.key(), %error, "a Docker action failed");
             entry.insert(now);
         }
+    }
+
+    /// Logs the managed containers that Docker failed to inspect, left out of the round.
+    fn warn_unreadable(&mut self, observation: &Observation) {
+        for (name, error) in &observation.unreadable {
+            self.warn(format!("inspect {name}"), error.clone());
+        }
+    }
+
+    /// Logs each network or volume that `plan` refuses, once while the refusal lasts: the
+    /// containers that need it stay `Missing` without any other sign.
+    fn warn_refusals(&mut self, desired: &DesiredState, snapshot: &DockerSnapshot) {
+        let current = refusals(desired, snapshot);
+        for refusal in self.refused.fresh(&current) {
+            let resource = match refusal.resource {
+                Resource::Network => "network",
+                Resource::Volume => "volume",
+            };
+            tracing::warn!(
+                resource,
+                name = %refusal.name,
+                reason = refusal.reason.describe(),
+                "Brume neither creates nor uses it: the containers that need it stay missing"
+            );
+        }
+    }
+}
+
+/// What to log of `error`, the failure of `action`. For a container's creation, only Docker's
+/// HTTP status or the kind of error: Docker may echo a variable of the body, value included,
+/// as in `invalid environment variable: NAME=value`.
+fn failure(action: &Action, error: &Error) -> String {
+    match (action, error) {
+        (Action::CreateContainer(_), Error::DockerResponseServerError { status_code, .. }) => {
+            format!("Docker answered with status {status_code}")
+        }
+        (Action::CreateContainer(_), _) => error_kind(error),
+        _ => error.to_string(),
+    }
+}
+
+/// The variant of `error`, without its fields: `RequestTimeoutError`, `IOError`…
+fn error_kind(error: &Error) -> String {
+    let debug = format!("{error:?}");
+    debug
+        .split([' ', '{', '('])
+        .next()
+        .unwrap_or_default()
+        .to_owned()
+}
+
+/// Records the result of each probe as of `round_ms`, the start of its round: `plan` decided
+/// the probes at that instant, so a container is due again one `PROBE_INTERVAL_MS` after it,
+/// not after the probe ended. A container gone from `snapshot` records nothing.
+fn record_probes<'a>(
+    probes: &mut ProbeResults,
+    snapshot: &DockerSnapshot,
+    results: impl IntoIterator<Item = (&'a str, bool)>,
+    round_ms: u64,
+) {
+    for (container, success) in results {
+        let started_at_ms = snapshot
+            .container(container)
+            .and_then(|container| container.started_at_ms);
+        if let Some(started_at_ms) = started_at_ms {
+            probes.record(container, started_at_ms, success, round_ms);
+        }
+    }
+}
+
+/// The refusals of `plan` already logged: each is logged once while it lasts, and again if it
+/// comes back after it went away.
+#[derive(Debug, Default)]
+struct RefusalLog {
+    logged: BTreeSet<Refusal>,
+}
+
+impl RefusalLog {
+    /// The refusals of `current` not logged yet, which it now remembers. It forgets those that
+    /// are gone.
+    fn fresh<'a>(&mut self, current: &'a [Refusal]) -> Vec<&'a Refusal> {
+        self.logged.retain(|logged| current.contains(logged));
+        current
+            .iter()
+            .filter(|refusal| self.logged.insert((*refusal).clone()))
+            .collect()
     }
 }
 
@@ -440,9 +534,106 @@ pub(crate) fn now_ms() -> u64 {
 mod tests {
     use std::time::Duration;
 
+    use bollard::errors::Error;
+    use brume_agent_core::config::container_config;
+    use brume_agent_core::health::ProbeResults;
+    use brume_agent_core::observed::{DockerSnapshot, SnapContainer, SnapState};
+    use brume_agent_core::plan::{Action, Refusal, RefusalReason, Resource};
+    use brume_proto::agent::{ContainerSpec, EnvValue, EnvVar, Healthcheck};
     use tokio::time::Instant;
 
-    use super::Throttle;
+    use super::{RefusalLog, Throttle, failure, record_probes};
+
+    #[test]
+    fn create_failures_never_log_docker_message() {
+        let spec = ContainerSpec {
+            name: "brume-web".to_owned(),
+            image: "nginx@sha256:aa".to_owned(),
+            environment_id: "env".to_owned(),
+            service_id: "svc".to_owned(),
+            deployment_id: "dep".to_owned(),
+            env: vec![EnvVar {
+                name: "TOKEN".to_owned(),
+                value: EnvValue::Secret("s3cr3t".into()),
+            }],
+            command: None,
+            networks: Vec::new(),
+            mounts: Vec::new(),
+            cpu_millis: 100,
+            memory_mb: 64,
+            stop_timeout_secs: 10,
+            healthcheck: Healthcheck::Running { grace_secs: 0 },
+        };
+        let create = Action::CreateContainer(Box::new(container_config(&spec)));
+        // What Docker answers to an entry without a name.
+        let echoed = Error::DockerResponseServerError {
+            status_code: 400,
+            message: "invalid environment variable: =s3cr3t".to_owned(),
+        };
+        let logged = failure(&create, &echoed);
+        assert!(logged.contains("400"), "{logged}");
+        assert!(!logged.contains("s3cr3t"), "{logged}");
+        assert!(!logged.contains("invalid environment"), "{logged}");
+        let logged = failure(&create, &Error::RequestTimeoutError);
+        assert_eq!(logged, "RequestTimeoutError");
+
+        // Other actions carry no variable: Docker's message helps.
+        let start = Action::StartContainer("brume-web".to_owned());
+        let refused = Error::DockerResponseServerError {
+            status_code: 500,
+            message: "no such image".to_owned(),
+        };
+        assert!(failure(&start, &refused).contains("no such image"));
+    }
+
+    #[test]
+    fn probes_are_due_one_interval_after_their_round() {
+        let snapshot = DockerSnapshot {
+            containers: vec![SnapContainer {
+                name: "brume-web".to_owned(),
+                managed: true,
+                deployment_id: "dep".to_owned(),
+                image: "nginx@sha256:aa".to_owned(),
+                state: SnapState::Running,
+                started_at_ms: Some(1_000),
+                networks: Vec::new(),
+                config_hash: String::new(),
+                stop_timeout_secs: 10,
+            }],
+            ..DockerSnapshot::default()
+        };
+        let mut probes = ProbeResults::default();
+        // The probe ends after the round's start; the round's start is what counts.
+        record_probes(&mut probes, &snapshot, [("brume-web", false)], 10_000);
+        assert!(probes.attempted("brume-web", 1_000));
+        assert!(!probes.due("brume-web", 1_000, 11_999));
+        assert!(probes.due("brume-web", 1_000, 12_000));
+        // A container gone from the snapshot records nothing.
+        record_probes(&mut probes, &snapshot, [("brume-gone", true)], 10_000);
+        assert!(!probes.attempted("brume-gone", 1_000));
+    }
+
+    #[test]
+    fn each_refusal_is_logged_once_while_it_lasts() {
+        let host = Refusal {
+            resource: Resource::Network,
+            name: "host".to_owned(),
+            reason: RefusalReason::BadName,
+        };
+        let foreign = Refusal {
+            resource: Resource::Volume,
+            name: "brume-vol-a".to_owned(),
+            reason: RefusalReason::Foreign,
+        };
+        let mut log = RefusalLog::default();
+        assert_eq!(log.fresh(std::slice::from_ref(&host)), [&host]);
+        assert!(log.fresh(std::slice::from_ref(&host)).is_empty());
+        let both = [host.clone(), foreign.clone()];
+        assert_eq!(log.fresh(&both), [&foreign]);
+        assert!(log.fresh(std::slice::from_ref(&foreign)).is_empty());
+        // Gone, then back: logged again.
+        assert_eq!(log.fresh(&both), [&host]);
+    }
 
     #[test]
     fn throttle_lets_one_warning_through_per_interval() {

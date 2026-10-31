@@ -84,7 +84,7 @@ async fn cleanup(docker: &Docker) {
 
 fn desired(suffix: &str, image: &str) -> DesiredState {
     let network = format!("brume-test-env-{suffix}");
-    let volume = format!("brume-test-vol-{suffix}");
+    let volume = format!("brume-vol-test-{suffix}");
     DesiredState {
         position: 1,
         networks: vec![NetworkSpec {
@@ -214,8 +214,10 @@ async fn scenario(docker: &Docker) {
     assert_eq!(labels.get("brume.managed").map(String::as_str), Some("1"));
     assert_eq!(labels.get(TEST_LABEL).map(String::as_str), Some("1"));
 
+    reattaches_with_new_aliases(docker, &mut reconciler, &mut state).await;
+
     // Out of the desired state, the container goes.
-    state.position = 2;
+    state.position = 3;
     state.containers.clear();
     let mut gone = false;
     for _ in 0..30 {
@@ -234,6 +236,57 @@ async fn scenario(docker: &Docker) {
         }
     }
     assert!(gone, "{name} is still there");
+}
+
+/// New aliases in the desired state reach the running container through `Reattach`: the same
+/// container, never restarted, answers to the new names only.
+async fn reattaches_with_new_aliases(
+    docker: &Docker,
+    reconciler: &mut Reconciler,
+    state: &mut DesiredState,
+) {
+    let name = state.containers[0].name.clone();
+    let network = state.containers[0].networks[0].network.clone();
+    let before = docker
+        .inspect_container(&name, None::<InspectContainerOptions>)
+        .await
+        .expect("inspects");
+    let started_at = before.state.and_then(|state| state.started_at);
+
+    state.position = 2;
+    state.containers[0].networks[0].aliases = vec!["www".to_owned(), "web-2".to_owned()];
+    let mut observed = None;
+    for _ in 0..30 {
+        let round = reconciler.reconcile(state).await.expect("reconciles");
+        let container = round.observed.containers[0].clone();
+        if container.aliases == ["web-2", "www"] {
+            observed = Some(container);
+            break;
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    let observed = observed.expect("the aliases change");
+    assert_eq!(observed.health, ContainerHealth::Healthy);
+
+    let after = docker
+        .inspect_container(&name, None::<InspectContainerOptions>)
+        .await
+        .expect("inspects");
+    assert_eq!(after.id, before.id, "{name} was recreated");
+    let state_after = after.state.expect("state");
+    assert_eq!(state_after.running, Some(true));
+    assert_eq!(state_after.started_at, started_at, "{name} was restarted");
+    let aliases: BTreeSet<String> = after
+        .network_settings
+        .and_then(|settings| settings.networks)
+        .and_then(|mut networks| networks.remove(&network))
+        .and_then(|endpoint| endpoint.aliases)
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
+    assert!(aliases.contains("www"), "{aliases:?}");
+    assert!(aliases.contains("web-2"), "{aliases:?}");
+    assert!(!aliases.contains("web"), "{aliases:?}");
 }
 
 /// nginx's entrypoint writes to stdout and stderr at start: those lines reach a fake telemetry.

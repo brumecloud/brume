@@ -21,7 +21,9 @@ use brume_agent_core::config::{
     ContainerConfig, LABEL_CONFIG_HASH, LABEL_DEPLOYMENT, LABEL_ENVIRONMENT, LABEL_MANAGED,
     LABEL_SERVICE, RestartPolicy,
 };
-use brume_agent_core::observed::{DockerSnapshot, SnapContainer, SnapNetwork, SnapState};
+use brume_agent_core::observed::{
+    DockerSnapshot, SnapContainer, SnapNetwork, SnapState, SnapVolume,
+};
 use brume_agent_core::plan::Action;
 use brume_proto::agent::{EnvValue, NetworkAttachment};
 use secrecy::ExposeSecret;
@@ -48,6 +50,9 @@ pub struct LogSource {
 pub struct Observation {
     pub snapshot: DockerSnapshot,
     pub sources: BTreeMap<String, LogSource>,
+    /// The managed containers left out of the snapshot because Docker failed to inspect them,
+    /// with its error.
+    pub unreadable: Vec<(String, String)>,
 }
 
 /// What an action gave.
@@ -125,7 +130,8 @@ impl DockerShell {
     }
 
     /// Lists networks, volumes, images and containers. A managed container is inspected for
-    /// its start, exit code, networks and labels.
+    /// its start, exit code, networks and labels; one that Docker fails to inspect is left out,
+    /// in `unreadable`, and the others go on.
     pub async fn observe(&self) -> Result<Observation, Error> {
         let networks = self
             .docker
@@ -134,6 +140,7 @@ impl DockerShell {
             .into_iter()
             .filter_map(|network| {
                 Some(SnapNetwork {
+                    managed: is_managed(network.labels.as_ref()),
                     name: network.name?,
                     internal: network.internal.unwrap_or(false),
                 })
@@ -146,7 +153,10 @@ impl DockerShell {
             .volumes
             .unwrap_or_default()
             .into_iter()
-            .map(|volume| volume.name)
+            .map(|volume| SnapVolume {
+                managed: is_managed(Some(&volume.labels)),
+                name: volume.name,
+            })
             .collect();
         let images = self
             .docker
@@ -171,25 +181,19 @@ impl DockerShell {
             else {
                 continue;
             };
-            let labels = summary.labels.unwrap_or_default();
-            if labels.get(LABEL_MANAGED).map(String::as_str) != Some("1") {
+            if !is_managed(summary.labels.as_ref()) {
                 observation
                     .snapshot
                     .containers
                     .push(unmanaged(name, summary.state));
                 continue;
             }
-            let inspect = match self
+            let inspected = self
                 .docker
                 .inspect_container(&name, None::<InspectContainerOptions>)
-                .await
-            {
-                Ok(inspect) => inspect,
-                // Removed since the listing.
-                Err(Error::DockerResponseServerError {
-                    status_code: 404, ..
-                }) => continue,
-                Err(error) => return Err(error),
+                .await;
+            let Some(inspect) = readable(&name, inspected, &mut observation) else {
+                continue;
             };
             let (container, source) = managed(name, inspect);
             observation.sources.insert(container.name.clone(), source);
@@ -229,6 +233,14 @@ impl DockerShell {
             }
             Action::PullImage(image) => pull(&self.docker, image).await?,
             Action::CreateContainer(config) => {
+                if config.skipped_env > 0 {
+                    // Never their names: a malformed name may hold a value.
+                    tracing::warn!(
+                        container = %config.name,
+                        skipped = config.skipped_env,
+                        "variables whose name is not [A-Za-z_][A-Za-z0-9_]* are left out"
+                    );
+                }
                 let options = CreateContainerOptionsBuilder::new()
                     .name(&config.name)
                     .build();
@@ -330,6 +342,35 @@ impl DockerShell {
         let mut labels: HashMap<String, String> = self.extra_labels().into_iter().collect();
         labels.insert(LABEL_MANAGED.to_owned(), "1".to_owned());
         labels
+    }
+}
+
+/// Whether `labels` has `brume.managed=1`.
+fn is_managed(labels: Option<&HashMap<String, String>>) -> bool {
+    labels
+        .and_then(|labels| labels.get(LABEL_MANAGED))
+        .is_some_and(|value| value == "1")
+}
+
+/// The inspection of the container `name`, or `None` to leave it out of the snapshot: removed
+/// since the listing, or unreadable, which `observation` keeps for the logs.
+fn readable(
+    name: &str,
+    inspected: Result<ContainerInspectResponse, Error>,
+    observation: &mut Observation,
+) -> Option<ContainerInspectResponse> {
+    match inspected {
+        Ok(inspect) => Some(inspect),
+        Err(Error::DockerResponseServerError {
+            status_code: NOT_FOUND,
+            ..
+        }) => None,
+        Err(error) => {
+            observation
+                .unreadable
+                .push((name.to_owned(), error.to_string()));
+            None
+        }
     }
 }
 
@@ -517,22 +558,43 @@ pub(crate) fn create_body(
 mod tests {
     use std::collections::{BTreeMap, HashMap};
 
+    use bollard::errors::Error;
     use bollard::models::{
-        EndpointSettings, HostConfig, HostConfigLogConfig, Mount, MountType, RestartPolicy,
-        RestartPolicyNameEnum,
+        ContainerConfig as DockerConfig, ContainerInspectResponse, ContainerState,
+        ContainerStateStatusEnum, EndpointSettings, HostConfig, HostConfigLogConfig, Mount,
+        MountType, NetworkSettings, RestartPolicy, RestartPolicyNameEnum,
     };
     use brume_agent_core::config::container_config;
+    use brume_agent_core::observed::SnapState;
     use brume_proto::agent::{
         ContainerSpec, EnvValue, EnvVar, Healthcheck, Mount as SpecMount, NetworkAttachment,
     };
 
-    use bollard::models::{
-        ContainerConfig as DockerConfig, ContainerInspectResponse, ContainerState,
-        ContainerStateStatusEnum, NetworkSettings,
-    };
-    use brume_agent_core::observed::SnapState;
+    use super::{Observation, create_body, epoch_ms, managed, readable};
 
-    use super::{create_body, epoch_ms, managed};
+    #[test]
+    fn an_unreadable_container_is_left_out_not_fatal() {
+        let mut observation = Observation::default();
+        let removed = Err(Error::DockerResponseServerError {
+            status_code: 404,
+            message: "No such container".to_owned(),
+        });
+        assert!(readable("brume-gone", removed, &mut observation).is_none());
+        assert!(observation.unreadable.is_empty());
+
+        let broken = Err(Error::DockerResponseServerError {
+            status_code: 500,
+            message: "boom".to_owned(),
+        });
+        assert!(readable("brume-web", broken, &mut observation).is_none());
+        assert_eq!(observation.unreadable.len(), 1);
+        assert_eq!(observation.unreadable[0].0, "brume-web");
+        assert!(observation.unreadable[0].1.contains("500"));
+
+        let fine = Ok(ContainerInspectResponse::default());
+        assert!(readable("brume-db", fine, &mut observation).is_some());
+        assert_eq!(observation.unreadable.len(), 1);
+    }
 
     #[test]
     fn docker_zero_time_is_never_started() {
