@@ -155,6 +155,8 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
                     reason: reason.clone(),
                     author: author.clone(),
                     created_at: at,
+                    started_at: None,
+                    healthy_at: None,
                     finished_at: None,
                     secrets: Vec::new(),
                 },
@@ -206,6 +208,7 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
             target.revision = Some(revision.clone());
             target.secrets = secrets.clone();
             target.phase = DeploymentPhase::Starting;
+            target.started_at = Some(at);
         }
         Event::DeploymentHealthy { deployment } => {
             let target = deployment_mut(world, deployment);
@@ -215,6 +218,7 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
                 "DeploymentHealthy for a deployment that is not starting"
             );
             target.phase = DeploymentPhase::Promoting;
+            target.healthy_at = Some(at);
         }
         Event::DeploymentSucceeded { deployment } => {
             let target = deployment_mut(world, deployment);

@@ -241,6 +241,10 @@ pub struct Deployment {
     pub reason: DeployReason,
     pub author: AdminId,
     pub created_at: Timestamp,
+    /// When its container was asked to start.
+    pub started_at: Option<Timestamp>,
+    /// When its container passed the healthcheck.
+    pub healthy_at: Option<Timestamp>,
     pub finished_at: Option<Timestamp>,
     /// The secret versions resolved when it started.
     pub secrets: Vec<ResolvedSecret>,
