@@ -119,6 +119,9 @@ impl Store {
                 stored_line(id, line)
             })
             .collect();
+        // Reserved before appending: a failed append may still flush its first rows, and their
+        // ids must never be handed out again. Gaps are harmless.
+        self.next_id = next_id;
         let mut appender = self
             .connection
             .appender("logs")
@@ -138,7 +141,6 @@ impl Store {
                 .context("cannot append a log line")?;
         }
         appender.flush().context("cannot write the log lines")?;
-        self.next_id = next_id;
         Ok(stored)
     }
 
