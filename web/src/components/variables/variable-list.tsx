@@ -38,7 +38,7 @@ export function VariableList({ serviceId, environment }: VariableListProps) {
             trigger={
               <Button variant="outline" size="sm">
                 <PlusIcon />
-                Nouvelle variable
+                New variable
               </Button>
             }
           />
@@ -46,8 +46,8 @@ export function VariableList({ serviceId, environment }: VariableListProps) {
       </div>
       {isDatabase(service.kind) && (
         <p className="text-muted-foreground text-sm">
-          Une base créée depuis un template n'accepte que ses réglages typés, ni variable libre ni
-          variable partagée.
+          A database created from a template only takes its typed settings: no free-form or shared
+          variables.
         </p>
       )}
       {rows.length > 0 && (

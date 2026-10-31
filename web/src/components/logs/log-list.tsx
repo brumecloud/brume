@@ -53,8 +53,8 @@ export function LogList({ lines, serviceNames }: LogListProps) {
           <EmptyMedia variant="icon">
             <ScrollTextIcon />
           </EmptyMedia>
-          <EmptyTitle>Aucune ligne</EmptyTitle>
-          <EmptyDescription>Aucun log ne correspond à ces filtres pour l'instant.</EmptyDescription>
+          <EmptyTitle>No log lines</EmptyTitle>
+          <EmptyDescription>No logs match these filters yet.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -106,7 +106,7 @@ export function LogList({ lines, serviceNames }: LogListProps) {
           onClick={() => setFollowing(true)}
         >
           <ArrowDownIcon />
-          Suivre le flux
+          Follow logs
         </Button>
       )}
     </div>

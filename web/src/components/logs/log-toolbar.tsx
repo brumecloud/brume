@@ -14,9 +14,9 @@ import {
 import { type LogsSearch, logCountLabel, parseLogsSearch } from "~/helpers/logs";
 
 const LEVELS = [
-  { value: "all", label: "Tous les niveaux" },
-  { value: "warn", label: "Avertissements et erreurs" },
-  { value: "error", label: "Erreurs" },
+  { value: "all", label: "All levels" },
+  { value: "warn", label: "Warnings and errors" },
+  { value: "error", label: "Errors" },
 ] as const;
 
 interface LogToolbarProps {
@@ -31,7 +31,7 @@ interface LogToolbarProps {
 export function LogToolbar({ search, services, count, paused, onTogglePause }: LogToolbarProps) {
   const navigate = useNavigate({ from: "/projects/$projectId/$env/logs" });
   const serviceItems = [
-    { value: "all", label: "Tous les services" },
+    { value: "all", label: "All services" },
     ...services.map((service) => ({ value: service.id, label: service.name })),
   ];
   // The whole search is validated again: choosing "all" drops the filter from the URL.
@@ -46,8 +46,8 @@ export function LogToolbar({ search, services, count, paused, onTogglePause }: L
         </InputGroupAddon>
         <InputGroupInput
           type="search"
-          aria-label="Rechercher dans les logs"
-          placeholder="Rechercher dans les logs…"
+          aria-label="Search logs"
+          placeholder="Search logs…"
           defaultValue={search.q ?? ""}
           onChange={(event) => update({ q: event.target.value })}
         />
@@ -57,7 +57,7 @@ export function LogToolbar({ search, services, count, paused, onTogglePause }: L
         value={search.level ?? "all"}
         onValueChange={(level) => update({ level })}
       >
-        <SelectTrigger className="w-auto" aria-label="Niveau">
+        <SelectTrigger className="w-auto" aria-label="Level">
           <SelectValue />
         </SelectTrigger>
         <SelectPopup>
@@ -87,7 +87,7 @@ export function LogToolbar({ search, services, count, paused, onTogglePause }: L
       <span className="text-muted-foreground text-sm">{logCountLabel(count)}</span>
       <Button variant="outline" size="sm" onClick={onTogglePause}>
         {paused ? <PlayIcon /> : <PauseIcon />}
-        {paused ? "Reprendre" : "Pause"}
+        {paused ? "Resume" : "Pause"}
       </Button>
     </div>
   );

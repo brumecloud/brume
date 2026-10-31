@@ -28,15 +28,15 @@ import {
 import { parseVariableKind, parseVariableName, variableWarnings } from "~/helpers/variables";
 
 const KINDS = [
-  { value: "plain", label: "Variable simple" },
-  { value: "build", label: "Variable de build" },
+  { value: "plain", label: "Plain variable" },
+  { value: "build", label: "Build variable" },
   { value: "secret", label: "Secret" },
 ] as const;
 
 const KIND_DESCRIPTIONS: Record<VariableKind, string> = {
-  plain: "Suit la révision : un rollback la restaure.",
-  build: "Finit dans l'artefact : changer sa valeur relance un build.",
-  secret: "Résolu au déploiement, jamais copié dans une révision.",
+  plain: "Follows the revision: a rollback restores it.",
+  build: "Baked into the artifact: changing its value triggers a new build.",
+  secret: "Resolved at deploy time, never copied into a revision.",
 };
 
 // What an edit starts from. A secret starts empty: its value never comes back to the browser.
@@ -94,15 +94,15 @@ function VariableForm({ serviceId, initial, onStaged }: VariableFormProps) {
       }}
     >
       <DialogHeader>
-        <DialogTitle>{initial ? `Modifier ${initial.name}` : "Nouvelle variable"}</DialogTitle>
+        <DialogTitle>{initial ? `Edit ${initial.name}` : "New variable"}</DialogTitle>
         <DialogDescription>
-          Le changement attend le prochain déploiement de cet environnement.
+          The change waits for the next deployment of this environment.
         </DialogDescription>
       </DialogHeader>
       <DialogPanel>
         <div className="flex flex-col gap-4">
           <Field>
-            <FieldLabel>Nom</FieldLabel>
+            <FieldLabel>Name</FieldLabel>
             <Input
               autoFocus={!initial}
               disabled={Boolean(initial)}
@@ -113,7 +113,7 @@ function VariableForm({ serviceId, initial, onStaged }: VariableFormProps) {
             />
             {nameInvalid && (
               <p className="text-destructive-foreground text-sm">
-                Lettres, chiffres et _ seulement, sans commencer par un chiffre.
+                Letters, digits and _ only, not starting with a digit.
               </p>
             )}
           </Field>
@@ -138,7 +138,7 @@ function VariableForm({ serviceId, initial, onStaged }: VariableFormProps) {
             <FieldDescription>{KIND_DESCRIPTIONS[kind]}</FieldDescription>
           </Field>
           <Field>
-            <FieldLabel>Valeur</FieldLabel>
+            <FieldLabel>Value</FieldLabel>
             <Input
               autoFocus={Boolean(initial)}
               value={value}
@@ -163,9 +163,9 @@ function VariableForm({ serviceId, initial, onStaged }: VariableFormProps) {
         </div>
       </DialogPanel>
       <DialogFooter>
-        <DialogClose render={<Button variant="ghost" />}>Annuler</DialogClose>
+        <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
         <Button type="submit" loading={mutation.isPending}>
-          {initial ? "Modifier" : "Ajouter"}
+          {initial ? "Save" : "Add"}
         </Button>
       </DialogFooter>
     </form>

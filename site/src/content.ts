@@ -34,6 +34,67 @@ export const site = {
 
 export const designDoc = (file: string): string => `${repo}/blob/main/archi/base/${file}`;
 
+/** Headings and ledes of the page, shared with its Markdown version (`/index.md`). */
+export const copy = {
+  hero: {
+    title: "just push it",
+    lede: "Brume deploys your containers, static sites and databases on your own server. Source-available, one command to install, and zero inbound ports: your apps are online, your server stays invisible.",
+  },
+  problem: {
+    title: "Self-hosting, secure by design.",
+    lede: "Most self-hosted platforms run their admin panel on a public port, in the same process as the Docker socket. One bug in the panel, and an attacker is root on your machine.",
+  },
+  howItWorks: { title: "From a fresh VPS to production in three steps." },
+  console: {
+    title: "Clear and calm, even at 3 a.m.",
+    lede: "Every service on one canvas. Stage your changes and ship them in one deploy, roll back in a click, search the logs as they stream.",
+    // Only on the page, which embeds the console.
+    invitation: "Open it and look around: it runs right here, on demo data.",
+  },
+  features: { title: "Everything your apps need to run. Nothing you have to babysit." },
+  security: {
+    title: "Built as if every part of it will be attacked.",
+    lede: "Brume is one signed binary, split into several services. Each runs as its own system user, with its own permissions. A flaw in one of them doesn't hand over the others.",
+    architecture:
+      "Public traffic goes from the internet through a Cloudflare tunnel and Traefik to your apps and to the Brume webhook. Admin traffic goes from your tailnet to the Brume API. Both reach the engine over unix sockets. The engine keeps the state and the secrets, saves them to S3, and sends the desired state to the agent, the only component with the Docker socket.",
+    architectureCaption:
+      "The public path and the admin path never meet. The engine never touches Docker, and the agent listens on nothing.",
+    comparisonTitle: "If the admin panel is compromised…",
+    comparisonSource: "Based on each project's installation docs.",
+  },
+  roadmap: { title: "What ships first, and what comes next." },
+  closing: { title: "Make your server invisible.", lede: "One command on a fresh VPS." },
+} as const;
+
+export type StepId = "install" | "github" | "push";
+
+export interface Step {
+  readonly id: StepId;
+  readonly title: string;
+  readonly text: string;
+  // The title is a command to type.
+  readonly command?: boolean;
+}
+
+export const steps: readonly Step[] = [
+  {
+    id: "install",
+    title: "Install",
+    text: "One command on a fresh Debian 12 or Ubuntu 24.04 server. Brume checks its own signature, closes the firewall, joins your tailnet, creates a Cloudflare tunnel and starts saving its state to your bucket.",
+  },
+  {
+    id: "github",
+    title: "Connect GitHub",
+    text: "Install the Brume GitHub App on a repository and pick the branch to deploy. Each build gets a token that expires within the hour, never a personal token.",
+  },
+  {
+    id: "push",
+    title: "git push",
+    command: true,
+    text: "Every push to that branch builds with Railpack and deploys by image digest. A rollback redeploys the exact same image, with no rebuild.",
+  },
+];
+
 export const usualSetup = [
   "Admin panel on a public port",
   "Web UI and Docker socket in one process",

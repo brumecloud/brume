@@ -17,7 +17,7 @@ export function WorkspaceShell({ children }: { readonly children: ReactNode }) {
             className="flex h-9 items-center gap-3 rounded-lg px-2 text-sidebar-foreground text-sm hover:bg-sidebar-accent data-[status=active]:bg-sidebar-accent data-[status=active]:text-sidebar-accent-foreground"
           >
             <LayoutGridIcon className="size-4" />
-            Projets
+            Projects
           </Link>
         </nav>
       </aside>

@@ -17,9 +17,9 @@ interface Database {
 
 // The three database templates of archi/base/templates.md.
 const DATABASES: readonly Database[] = [
-  { value: "postgres", label: "PostgreSQL", description: "Base relationnelle" },
-  { value: "mongodb", label: "MongoDB", description: "Base orientée documents" },
-  { value: "redis", label: "Redis", description: "Cache et files d'attente" },
+  { value: "postgres", label: "PostgreSQL", description: "Relational database" },
+  { value: "mongodb", label: "MongoDB", description: "Document database" },
+  { value: "redis", label: "Redis", description: "Cache and queues" },
 ];
 
 interface DatabaseStepProps {
@@ -30,9 +30,9 @@ interface DatabaseStepProps {
 export function DatabaseStep({ disabled, onCreate }: DatabaseStepProps) {
   return (
     <Command items={DATABASES}>
-      <CommandInput placeholder="Rechercher une base…" />
+      <CommandInput placeholder="Search databases…" />
       <CommandPanel>
-        <CommandEmpty>Aucune base ne correspond.</CommandEmpty>
+        <CommandEmpty>No matching databases.</CommandEmpty>
         <CommandList>
           {(database: Database) => (
             <CommandItem

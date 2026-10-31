@@ -3,7 +3,8 @@ import { type BrandIconName, brandIcons } from "~/components/brand-icons";
 import { InstallCommand } from "~/components/install-command";
 import { MistCanvas } from "~/components/mist-canvas";
 import { TextLink } from "~/components/text-link";
-import { site } from "~/content";
+import { logoLit } from "~/components/tone";
+import { copy, site } from "~/content";
 
 const worksWith: readonly BrandIconName[] = ["github", "cloudflare", "tailscale", "docker"];
 
@@ -20,16 +21,14 @@ export function Hero() {
           id="hero-title"
           className="text-[clamp(3.5rem,11vw,8rem)] leading-[0.95] font-semibold tracking-[-0.05em]"
         >
-          just push it
+          {copy.hero.title}
           <span
             aria-hidden="true"
-            className="ml-[0.12em] inline-block h-[0.78em] w-[0.4em] translate-y-[0.06em] animate-blink bg-brand motion-reduce:animate-none"
+            className="ml-[0.12em] inline-block h-[0.78em] w-[0.4em] translate-y-[0.06em] animate-blink bg-ink motion-reduce:animate-none"
           />
         </h1>
         <p className="mt-8 max-w-[38rem] text-lg leading-relaxed text-pretty text-ink-muted">
-          Brume deploys your containers, static sites and databases on your own server.
-          Source-available, one command to install, and zero inbound ports: your apps are online,
-          your server stays invisible.
+          {copy.hero.lede}
         </p>
         <InstallCommand command={site.installCommand} className="mt-9 max-w-[52rem]" />
         <p className="mt-6 flex flex-wrap gap-7 text-sm text-ink-muted">
@@ -38,10 +37,10 @@ export function Hero() {
         </p>
         <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-ink-muted">
           <span className="text-label text-ink-dim">Works with</span>
-          <ul className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <ul data-light className="flex flex-wrap items-center gap-x-6 gap-y-3">
             {worksWith.map((item) => (
-              <li key={item} className="flex items-center gap-2">
-                <BrandIcon name={item} className="size-4" />
+              <li key={item} className="group flex items-center gap-2">
+                <BrandIcon name={item} className={`size-4 ${logoLit}`} />
                 {brandIcons[item].title}
               </li>
             ))}

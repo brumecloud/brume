@@ -1,4 +1,6 @@
 import { type BrandIconName, brandIcons } from "~/components/brand-icons";
+import { logoLit } from "~/components/tone";
+import { copy } from "~/content";
 
 // The diagram is drawn on a fixed grid: four columns of nodes, five rows.
 const NODE_WIDTH = 196;
@@ -81,25 +83,25 @@ const nodes: readonly DiagramNode[] = [
   },
 ];
 
-/** Each path gets its own color, with packets flowing along it. */
+/** Each path gets its own color while the diagram is lit, with packets flowing along it. */
 type Flow = "public" | "admin" | "socket" | "control" | "storage" | "docker";
 
 const flowStroke: Record<Flow, string> = {
-  public: "stroke-orange-400",
-  admin: "stroke-sky-400",
-  socket: "stroke-violet-400",
-  control: "stroke-fuchsia-400",
-  storage: "stroke-emerald-400",
-  docker: "stroke-teal-400",
+  public: "lit:stroke-orange-400",
+  admin: "lit:stroke-sky-400",
+  socket: "lit:stroke-violet-400",
+  control: "lit:stroke-fuchsia-400",
+  storage: "lit:stroke-emerald-400",
+  docker: "lit:stroke-teal-400",
 };
 
 const flowFill: Record<Flow, string> = {
-  public: "fill-orange-400",
-  admin: "fill-sky-400",
-  socket: "fill-violet-400",
-  control: "fill-fuchsia-400",
-  storage: "fill-emerald-400",
-  docker: "fill-teal-400",
+  public: "lit:fill-orange-400",
+  admin: "lit:fill-sky-400",
+  socket: "lit:fill-violet-400",
+  control: "lit:fill-fuchsia-400",
+  storage: "lit:fill-emerald-400",
+  docker: "lit:fill-teal-400",
 };
 
 interface Edge {
@@ -279,14 +281,14 @@ function NodeIconMark({
   switch (icon.kind) {
     case "brume":
       return (
-        <text x={x + 11} y={y + 18} textAnchor="middle" fontSize="18">
+        <text x={x + 11} y={y + 18} textAnchor="middle" fontSize="18" className={logoLit}>
           ☁️
         </text>
       );
     case "brand": {
       const { path, color, viewBox, fillRule } = brandIcons[icon.name];
       return (
-        <svg x={x} y={y} width="22" height="22" viewBox={viewBox}>
+        <svg x={x} y={y} width="22" height="22" viewBox={viewBox} className={logoLit}>
           <path d={path} fillRule={fillRule} style={{ fill: color }} />
         </svg>
       );
@@ -320,13 +322,17 @@ function DiagramNodeBox({ node }: { readonly node: DiagramNode }) {
         d={boxPath(x, y)}
         strokeWidth="2"
         shapeRendering="crispEdges"
-        className={isBrume ? "fill-highlight stroke-brand" : "fill-surface stroke-edge-strong"}
+        className={
+          isBrume
+            ? "fill-highlight stroke-ink-dim transition duration-300 lit:stroke-brand"
+            : "fill-surface stroke-edge-strong"
+        }
       />
       <NodeIconMark icon={node.icon} x={x + 14} y={y + 17} />
       <text
         x={x + 48}
         y={y + 25}
-        className={`text-[14px] font-medium ${isBrume ? "fill-brand-soft" : "fill-ink"}`}
+        className={`text-[14px] font-medium fill-ink ${isBrume ? "transition duration-300 lit:fill-brand-soft" : ""}`}
       >
         {node.label}
       </text>
@@ -339,7 +345,7 @@ function DiagramNodeBox({ node }: { readonly node: DiagramNode }) {
 
 export function ArchitectureDiagram() {
   return (
-    <figure className="pixel-border reveal mt-12 bg-terminal">
+    <figure data-light className="group pixel-border reveal mt-12 bg-terminal">
       <div className="overflow-x-auto px-4 py-6 sm:px-6">
         <svg
           // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an inline SVG needs role="img" to be read as one image
@@ -348,13 +354,7 @@ export function ArchitectureDiagram() {
           viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
           className="w-full min-w-[760px] font-sans"
         >
-          <title id="architecture-title">
-            Public traffic goes from the internet through a Cloudflare tunnel and Traefik to your
-            apps and to the Brume webhook. Admin traffic goes from your tailnet to the Brume API.
-            Both reach the engine over unix sockets. The engine keeps the state and the secrets,
-            saves them to S3, and sends the desired state to the agent, the only component with the
-            Docker socket.
-          </title>
+          <title id="architecture-title">{copy.security.architecture}</title>
           <defs>
             {Object.entries(flowFill).map(([flow, fill]) => (
               <marker
@@ -368,7 +368,10 @@ export function ArchitectureDiagram() {
                 markerUnits="userSpaceOnUse"
                 orient="auto"
               >
-                <path d="M0 0L8 4L0 8Z" className={fill} />
+                <path
+                  d="M0 0L8 4L0 8Z"
+                  className={`fill-ink-dim transition duration-300 ${fill}`}
+                />
               </marker>
             ))}
           </defs>
@@ -390,7 +393,7 @@ export function ArchitectureDiagram() {
                   strokeWidth="2"
                   strokeDasharray="4 10"
                   shapeRendering="crispEdges"
-                  className={`flow ${flowStroke[edge.flow]}`}
+                  className={`flow stroke-ink-dim transition duration-300 ${flowStroke[edge.flow]}`}
                 />
                 {edge.label ? (
                   <text
@@ -411,8 +414,7 @@ export function ArchitectureDiagram() {
         </svg>
       </div>
       <figcaption className="border-t-2 border-edge px-6 py-3.5 text-sm text-ink-muted">
-        The public path and the admin path never meet. The engine never touches Docker, and the
-        agent listens on nothing.
+        {copy.security.architectureCaption}
       </figcaption>
     </figure>
   );

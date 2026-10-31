@@ -6,5 +6,5 @@ export function apiErrorMessage(status: number, body: unknown): string {
   if (typeof message === "string" && message) {
     return message.slice(0, MAX_MESSAGE_LENGTH);
   }
-  return `Erreur ${status} du serveur.`;
+  return `Server error ${status}.`;
 }

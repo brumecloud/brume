@@ -81,13 +81,13 @@ describe("deploymentTitle", () => {
     expect(deploymentTitle(deployment("d", "active", "", { image: "redis:7.4" }))).toBe(
       "redis:7.4",
     );
-    expect(deploymentTitle(deployment("d", "active", ""))).toBe("Déploiement");
+    expect(deploymentTitle(deployment("d", "active", ""))).toBe("Deployment");
   });
 });
 
 describe("formatDateTime", () => {
-  it("formats a date and an hour in French", () => {
-    expect(formatDateTime("2026-10-11T12:53:00Z")).toMatch(/^11 oct\. 2026, \d{2}:53$/);
+  it("formats a date and an hour in US English", () => {
+    expect(formatDateTime("2026-10-11T12:53:00Z")).toMatch(/^Oct 11, 2026, \d{1,2}:53\s[AP]M$/);
   });
 });
 

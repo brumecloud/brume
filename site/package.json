@@ -3,12 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "console": "pnpm --dir ../web install --frozen-lockfile && pnpm --dir ../web run build:demo",
+    "dev": "(test -f public/demo/index.html || pnpm run console) && next dev",
+    "build": "pnpm run console && next build",
     "lint": "oxlint",
     "fmt": "oxfmt",
     "typecheck": "tsc --noEmit",
-    "ci": "oxfmt --check && oxlint && tsc --noEmit && next build"
+    "ci": "oxfmt --check && oxlint && tsc --noEmit && pnpm run build"
   },
   "dependencies": {
     "@animate-ui/react": "catalog:",

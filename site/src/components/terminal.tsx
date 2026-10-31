@@ -2,6 +2,9 @@ import { Fragment, type CSSProperties, type ReactNode } from "react";
 
 import { PlayOnView } from "./play-on-view";
 
+// The colors of a terminal fade in while it is lit.
+const HOVER = "transition-colors duration-300";
+
 interface TerminalProps {
   readonly title: string;
   /** One entry per line. */
@@ -10,14 +13,17 @@ interface TerminalProps {
   readonly wrap?: boolean;
 }
 
-/** A terminal window whose lines appear one by one when it scrolls into view. */
+/** A terminal window whose lines appear one by one when it scrolls into view. Its colors show while it is lit. */
 export function Terminal({ title, lines, wrap = false }: TerminalProps) {
   return (
-    <PlayOnView className="pixel-border min-w-0 bg-terminal">
+    <PlayOnView className="group pixel-border min-w-0 bg-terminal">
       <div className="flex items-center gap-1.5 border-b-2 border-edge px-3.5 py-2.5 font-mono text-[11.5px] text-ink-dim">
-        <span aria-hidden="true" className="size-2 bg-rose-400/70" />
-        <span aria-hidden="true" className="size-2 bg-amber-400/70" />
-        <span aria-hidden="true" className="size-2 bg-emerald-400/70" />
+        <span aria-hidden="true" className={`size-2 bg-edge-strong ${HOVER} lit:bg-rose-400/70`} />
+        <span aria-hidden="true" className={`size-2 bg-edge-strong ${HOVER} lit:bg-amber-400/70`} />
+        <span
+          aria-hidden="true"
+          className={`size-2 bg-edge-strong ${HOVER} lit:bg-emerald-400/70`}
+        />
         <span className="ml-2.5">{title}</span>
       </div>
       <pre
@@ -47,15 +53,15 @@ export function Terminal({ title, lines, wrap = false }: TerminalProps) {
 }
 
 export function Prompt() {
-  return <span className="text-amber-300">$ </span>;
+  return <span className={`text-ink-dim ${HOVER} lit:text-amber-300`}>$ </span>;
 }
 
 export function Ok() {
-  return <span className="text-emerald-400">✓ </span>;
+  return <span className={`text-ink-dim ${HOVER} lit:text-emerald-400`}>✓ </span>;
 }
 
 export function Arrow() {
-  return <span className="text-sky-400">→ </span>;
+  return <span className={`text-ink-dim ${HOVER} lit:text-sky-400`}>→ </span>;
 }
 
 export function Dim({ children }: { readonly children: ReactNode }) {
@@ -64,7 +70,9 @@ export function Dim({ children }: { readonly children: ReactNode }) {
 
 export function Link({ children }: { readonly children: ReactNode }) {
   return (
-    <span className="text-sky-300 underline decoration-sky-300/40 underline-offset-2">
+    <span
+      className={`text-ink underline decoration-ink-dim/60 underline-offset-2 ${HOVER} lit:text-sky-300 lit:decoration-sky-300/40`}
+    >
       {children}
     </span>
   );

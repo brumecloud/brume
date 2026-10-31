@@ -25,9 +25,9 @@ export function ProjectSwitcher({ projectId }: { readonly projectId: ProjectId }
       itemLabel={projectName}
       isSameItem={sameProject}
       trigger={<Button variant="ghost" size="sm" />}
-      label="Projet"
-      searchPlaceholder="Rechercher un projet…"
-      emptyText="Aucun projet"
+      label="Project"
+      searchPlaceholder="Search projects…"
+      emptyText="No projects"
     >
       {project?.name}
       <ChevronsUpDownIcon />

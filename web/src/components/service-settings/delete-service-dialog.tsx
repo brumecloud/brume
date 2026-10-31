@@ -40,19 +40,19 @@ export function DeleteServiceDialog({
   return (
     <AlertDialog>
       <AlertDialogTrigger render={<Button variant="destructive-outline" size="sm" />}>
-        Supprimer le service
+        Delete service
       </AlertDialogTrigger>
       <AlertDialogPopup>
         <AlertDialogHeader>
-          <AlertDialogTitle>Supprimer {service.name} ?</AlertDialogTitle>
+          <AlertDialogTitle>Delete {service.name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Le container s'arrête et ses déploiements disparaissent.
+            The container stops and its deployments are deleted.
             {service.volume &&
-              ` Le volume ${service.volume.name} est supprimé avec ses données.`}{" "}
-            Tapez {service.name} pour confirmer.
+              ` The ${service.volume.name} volume is deleted with its data.`} Type{" "}
+            {service.name} to confirm.
           </AlertDialogDescription>
           <Input
-            aria-label="Nom du service"
+            aria-label="Service name"
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
           />
@@ -63,14 +63,14 @@ export function DeleteServiceDialog({
           )}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button variant="ghost" />}>Annuler</AlertDialogClose>
+          <AlertDialogClose render={<Button variant="ghost" />}>Cancel</AlertDialogClose>
           <Button
             variant="destructive"
             disabled={typed !== service.name}
             loading={mutation.isPending}
             onClick={() => mutation.mutate()}
           >
-            Supprimer
+            Delete
           </Button>
         </AlertDialogFooter>
       </AlertDialogPopup>

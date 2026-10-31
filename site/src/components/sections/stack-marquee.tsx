@@ -1,4 +1,5 @@
 import { BrandIcon } from "~/components/brand-icon";
+import { logoLit } from "~/components/tone";
 import { stackItems } from "~/content";
 
 function StackList({ hidden = false }: { readonly hidden?: boolean }) {
@@ -7,9 +8,9 @@ function StackList({ hidden = false }: { readonly hidden?: boolean }) {
       {stackItems.map((item) => (
         <li
           key={item.name}
-          className="flex items-center gap-2.5 text-[15px] whitespace-nowrap text-ink-muted"
+          className="group flex items-center gap-2.5 text-[15px] whitespace-nowrap text-ink-muted"
         >
-          <BrandIcon name={item.icon} className="size-6" />
+          <BrandIcon name={item.icon} className={`size-6 ${logoLit}`} />
           {item.name}
         </li>
       ))}
@@ -24,7 +25,10 @@ export function StackMarquee() {
       <h2 id="stack-title" className="text-label text-center text-ink-dim">
         Bring your stack: if it builds into a container, it runs on Brume
       </h2>
-      <div className="mt-7 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]">
+      <div
+        data-light
+        className="mt-7 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
+      >
         <div className="flex w-max animate-marquee hover:[animation-play-state:paused] motion-reduce:animate-none">
           <StackList />
           {/* The copy makes the loop seamless: the track moves by half its width. */}

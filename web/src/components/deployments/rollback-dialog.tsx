@@ -33,16 +33,15 @@ export function RollbackDialog({ service, deployment, open, onOpenChange }: Roll
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogPopup>
         <AlertDialogHeader>
-          <AlertDialogTitle>Revenir à ce déploiement ?</AlertDialogTitle>
+          <AlertDialogTitle>Roll back to this deployment?</AlertDialogTitle>
           <AlertDialogDescription>
-            {service.name} va redéployer « {deploymentTitle(deployment)} », sans rebuild. Les
-            variables simples et de build reviennent avec cette révision ; les secrets gardent leur
-            valeur actuelle.
+            {service.name} will redeploy “{deploymentTitle(deployment)}” without a rebuild. Plain
+            and build variables come back with this revision; secrets keep their current value.
           </AlertDialogDescription>
           {service.volume && (
             <p className="rounded-lg border border-warning/32 bg-warning/8 px-3 py-2 text-sm text-warning-foreground">
-              Les données de {service.volume.name} ne reviennent pas en arrière. Après une
-              migration, l'ancien code tournera sur le nouveau schéma.
+              The data in {service.volume.name} does not roll back. After a migration, the old code
+              will run against the new schema.
             </p>
           )}
           {mutation.error && (
@@ -52,9 +51,9 @@ export function RollbackDialog({ service, deployment, open, onOpenChange }: Roll
           )}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button variant="ghost" />}>Annuler</AlertDialogClose>
+          <AlertDialogClose render={<Button variant="ghost" />}>Cancel</AlertDialogClose>
           <Button loading={mutation.isPending} onClick={() => mutation.mutate()}>
-            Revenir à ce déploiement
+            Roll back
           </Button>
         </AlertDialogFooter>
       </AlertDialogPopup>

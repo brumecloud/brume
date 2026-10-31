@@ -32,7 +32,7 @@ export function DeploymentCard({ service, deployment }: DeploymentCardProps) {
         </Link>
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
           <span>
-            {formatDateTime(deployment.createdAt)} · par {deployment.author}
+            {formatDateTime(deployment.createdAt)} · by {deployment.author}
           </span>
           {deployment.commit && (
             <>
@@ -51,15 +51,15 @@ export function DeploymentCard({ service, deployment }: DeploymentCardProps) {
       {deployment.status !== "active" && (
         <Menu>
           <MenuTrigger
-            render={<Button variant="ghost" size="icon-sm" aria-label="Actions du déploiement" />}
+            render={<Button variant="ghost" size="icon-sm" aria-label="Deployment actions" />}
           >
             <EllipsisVerticalIcon />
           </MenuTrigger>
           <MenuPopup align="end">
             <MenuItem disabled={!deployment.rollbackable} onClick={() => setRollbackOpen(true)}>
               {deployment.rollbackable
-                ? "Revenir à ce déploiement"
-                : "Artefact purgé : retour impossible"}
+                ? "Roll back to this deployment"
+                : "Artifact purged: can't roll back"}
             </MenuItem>
           </MenuPopup>
         </Menu>

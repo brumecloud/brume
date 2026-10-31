@@ -13,7 +13,7 @@ export function NewProjectHeader({ step }: { readonly step: NewProjectStep | und
       <BrumeLogo />
       <span className="mx-2 h-5 w-px bg-border" />
       <Link to="/projects/new" className="font-medium text-sm">
-        Nouveau projet
+        New project
       </Link>
       {step && (
         <>
@@ -25,7 +25,7 @@ export function NewProjectHeader({ step }: { readonly step: NewProjectStep | und
         className="ms-auto"
         variant="ghost"
         size="icon"
-        aria-label="Fermer"
+        aria-label="Close"
         render={<Link to="/projects" />}
       >
         <XIcon />

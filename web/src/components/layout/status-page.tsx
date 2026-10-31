@@ -18,14 +18,14 @@ export function NotFoundPage() {
         <EmptyMedia variant="icon">
           <CloudOffIcon />
         </EmptyMedia>
-        <EmptyTitle>Page introuvable</EmptyTitle>
+        <EmptyTitle>Page not found</EmptyTitle>
         <EmptyDescription>
-          Ce projet, cet environnement ou ce service n'existe pas, ou plus.
+          This project, environment or service doesn't exist, or no longer does.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         <Button variant="outline" render={<Link to="/projects" />}>
-          Retour aux projets
+          Back to projects
         </Button>
       </EmptyContent>
     </Empty>
@@ -40,14 +40,14 @@ export function ErrorPage() {
         <EmptyMedia variant="icon">
           <TriangleAlertIcon />
         </EmptyMedia>
-        <EmptyTitle>Quelque chose s'est mal passé</EmptyTitle>
+        <EmptyTitle>Something went wrong</EmptyTitle>
         <EmptyDescription>
-          Rechargez la page. Si l'erreur revient, consultez les logs de Brume.
+          Reload the page. If the error comes back, check the Brume logs.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         <Button variant="outline" render={<Link to="/projects" />}>
-          Retour aux projets
+          Back to projects
         </Button>
       </EmptyContent>
     </Empty>

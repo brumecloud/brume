@@ -14,8 +14,8 @@ export function ProjectSearch({ query }: { readonly query: string | undefined })
       </InputGroupAddon>
       <InputGroupInput
         type="search"
-        aria-label="Rechercher un projet"
-        placeholder="Rechercher un projet…"
+        aria-label="Search projects"
+        placeholder="Search projects…"
         defaultValue={query ?? ""}
         onChange={(event) =>
           navigate({

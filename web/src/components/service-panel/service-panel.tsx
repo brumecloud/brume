@@ -57,7 +57,7 @@ export function ServicePanel({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Fermer le panneau"
+            aria-label="Close panel"
             render={
               <Link to="/projects/$projectId/$env" params={{ projectId, env: environmentName }} />
             }

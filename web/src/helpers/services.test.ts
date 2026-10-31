@@ -50,8 +50,8 @@ describe("domainUrl", () => {
 
 describe("formatLimits", () => {
   it("formats the CPU and memory limits", () => {
-    expect(formatLimits(1, 512)).toBe("1 vCPU · 512 Mo");
-    expect(formatLimits(0.5, 2048)).toBe("0,5 vCPU · 2 Go");
+    expect(formatLimits(1, 512)).toBe("1 vCPU · 512 MB");
+    expect(formatLimits(0.5, 2048)).toBe("0.5 vCPU · 2 GB");
   });
 });
 

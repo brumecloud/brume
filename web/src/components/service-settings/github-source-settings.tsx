@@ -19,15 +19,15 @@ export function RepositorySetting({ value, staged, onCommit }: SourceSettingProp
   const { data: repositories, isPending } = useQuery(repositoriesQuery);
 
   return (
-    <SettingField label="Dépôt" staged={staged}>
+    <SettingField label="Repository" staged={staged}>
       <SearchSelect
         items={repositories?.map((repository) => repository.fullName) ?? []}
         value={value}
         onValueChange={onCommit}
         trigger={<Button variant="outline" className="w-full justify-start" />}
-        label="Dépôt"
-        searchPlaceholder="Rechercher un dépôt…"
-        emptyText={isPending ? "Chargement…" : "Aucun dépôt"}
+        label="Repository"
+        searchPlaceholder="Search repositories…"
+        emptyText={isPending ? "Loading…" : "No repositories"}
       >
         <GitHubIcon />
         <span className="flex-1 truncate text-start">{value}</span>
@@ -53,8 +53,8 @@ export function BranchSetting({
 
   return (
     <SettingField
-      label={`Branche déployée en ${environmentName}`}
-      description="Un push sur cette branche déclenche un déploiement."
+      label={`Branch deployed to ${environmentName}`}
+      description="A push to this branch triggers a deployment."
       staged={staged}
     >
       <SearchSelect
@@ -62,9 +62,9 @@ export function BranchSetting({
         value={value}
         onValueChange={onCommit}
         trigger={<Button variant="outline" className="w-full justify-start" />}
-        label="Branche"
-        searchPlaceholder="Rechercher une branche…"
-        emptyText={isPending ? "Chargement…" : "Aucune branche"}
+        label="Branch"
+        searchPlaceholder="Search branches…"
+        emptyText={isPending ? "Loading…" : "No branches"}
       >
         <GitBranchIcon />
         <span className="flex-1 truncate text-start">{value}</span>

@@ -1,6 +1,8 @@
 node_modules/
 .next/
 out/
+# The console demo, built from ../web by `pnpm console`.
+public/demo/
 next-env.d.ts
 *.tsbuildinfo
 .vercel/

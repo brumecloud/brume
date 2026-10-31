@@ -24,9 +24,9 @@ export function EnvironmentSwitcher({ projectId, environmentName }: EnvironmentS
         navigate({ to: "/projects/$projectId/$env", params: { projectId, env } })
       }
       trigger={<Button variant="ghost" size="sm" />}
-      label="Environnement"
-      searchPlaceholder="Rechercher un environnement…"
-      emptyText="Aucun environnement"
+      label="Environment"
+      searchPlaceholder="Search environments…"
+      emptyText="No environments"
     >
       {environmentName}
       <ChevronsUpDownIcon />

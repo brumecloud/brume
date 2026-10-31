@@ -19,10 +19,10 @@ export function DomainsSetting({ domains, staged, onCommit }: DomainsSettingProp
 
   return (
     <SettingField
-      label="Domaines publics"
-      description="Joignables sur Internet par Cloudflare Tunnel, en HTTPS."
+      label="Public domains"
+      description="Reachable from the internet over HTTPS, through Cloudflare Tunnel."
       staged={staged}
-      error={invalid ? "Un nom de domaine, sans https:// ni chemin." : undefined}
+      error={invalid ? "A domain name, without https:// or a path." : undefined}
     >
       <div className="flex flex-col divide-y rounded-lg border bg-background">
         {domains.map((domain) => (
@@ -32,7 +32,7 @@ export function DomainsSetting({ domains, staged, onCommit }: DomainsSettingProp
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label={`Retirer ${domain}`}
+              aria-label={`Remove ${domain}`}
               onClick={() => onCommit(domains.filter((other) => other !== domain))}
             >
               <Trash2Icon />
@@ -53,13 +53,13 @@ export function DomainsSetting({ domains, staged, onCommit }: DomainsSettingProp
         >
           <Input
             value={draft}
-            aria-label="Nouveau domaine"
+            aria-label="New domain"
             placeholder="app.example.com"
             onChange={(event) => setDraft(event.target.value)}
           />
           <Button type="submit" variant="outline">
             <PlusIcon />
-            Ajouter
+            Add
           </Button>
         </form>
       </div>

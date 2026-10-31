@@ -52,7 +52,7 @@ export function createProject(source: NewProjectSource): CreatedProject {
   const serviceName = firstServiceName(source);
   const project: Project = {
     id: crypto.randomUUID() as ProjectId,
-    name: uniqueProjectName(serviceName?.toLowerCase() ?? "nouveau-projet"),
+    name: uniqueProjectName(serviceName?.toLowerCase() ?? "new-project"),
     description: "",
     updatedAt: new Date().toISOString(),
   };
@@ -75,7 +75,7 @@ export function createProject(source: NewProjectSource): CreatedProject {
       image: source.kind === "image" ? source.image : null,
       rollbackable: true,
     });
-    db.services.push({
+    const service: Service = {
       id: serviceId,
       environmentId: environment.id,
       name: serviceName,
@@ -88,7 +88,15 @@ export function createProject(source: NewProjectSource): CreatedProject {
           ? { name: `${serviceName.toLowerCase()}-data`, mountPath: "/data" }
           : null,
       dependencies: [],
-    } satisfies Service);
+    };
+    db.services.push(service);
+    // The repository picked, not the one guessed from the service name.
+    if (source.kind === "github" || source.kind === "static") {
+      db.settings.set(serviceId, {
+        ...settingsFor(service),
+        source: { kind: "github", repository: source.repository, branch: "main", autoDeploy: true },
+      });
+    }
   }
   return { projectId: project.id, environmentName: environment.name };
 }
@@ -189,17 +197,18 @@ function settingsFor(service: Service): ServiceSettings {
   switch (service.kind) {
     case "github":
     case "static": {
-      const project = service.name.split("-")[0] ?? service.name;
+      const app = seed.apps[service.name];
+      const runtime = service.kind === "github" ? seed.runtimes[app?.runtime ?? "node"] : null;
       return {
         source: {
           kind: "github",
-          repository: project === "brume" ? "brumecloud/brume" : `planchon/${project}`,
+          repository: app?.repository ?? `${service.slug}/${service.slug}`,
           branch: environment?.name === "production" ? "main" : (environment?.name ?? "main"),
           autoDeploy: true,
         },
-        startCommand: service.kind === "github" ? "pnpm start" : null,
-        port: service.kind === "github" ? 3000 : null,
-        healthcheckPath: service.kind === "github" ? "/health" : null,
+        startCommand: runtime?.startCommand ?? null,
+        port: runtime?.port ?? null,
+        healthcheckPath: runtime ? "/health" : null,
         ...limits,
         egress: true,
       };
@@ -270,7 +279,7 @@ export function stageChange(raw: unknown): string | StagedChange {
   const body = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
   const service = db.services.find(({ id }) => id === body.serviceId);
   if (!service) {
-    return "Service introuvable.";
+    return "Service not found.";
   }
   const input = body as unknown as NewChange;
   const sameTarget = (change: StagedChange) =>

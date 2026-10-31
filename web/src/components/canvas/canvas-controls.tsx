@@ -13,17 +13,17 @@ export function CanvasControls({ services }: { readonly services: readonly Servi
 
   return (
     <Panel position="bottom-left" className="flex flex-col gap-1">
-      <ControlButton label="Zoom avant" onClick={() => zoomIn()}>
+      <ControlButton label="Zoom in" onClick={() => zoomIn()}>
         <PlusIcon />
       </ControlButton>
-      <ControlButton label="Zoom arrière" onClick={() => zoomOut()}>
+      <ControlButton label="Zoom out" onClick={() => zoomOut()}>
         <MinusIcon />
       </ControlButton>
-      <ControlButton label="Tout afficher" onClick={() => fitView({ maxZoom: 1 })}>
+      <ControlButton label="Fit view" onClick={() => fitView({ maxZoom: 1 })}>
         <MaximizeIcon />
       </ControlButton>
       <ControlButton
-        label="Réorganiser"
+        label="Reset layout"
         onClick={() => {
           forgetNodePositions(services.map((service) => service.id));
           setNodes(canvasNodes(services, []));

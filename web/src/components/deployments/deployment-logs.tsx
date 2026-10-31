@@ -37,8 +37,8 @@ export function DeploymentLogs({ deploymentId, stream, fileName }: DeploymentLog
           </InputGroupAddon>
           <InputGroupInput
             type="search"
-            aria-label="Filtrer les logs"
-            placeholder="Filtrer les logs…"
+            aria-label="Filter logs"
+            placeholder="Filter logs…"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -46,7 +46,7 @@ export function DeploymentLogs({ deploymentId, stream, fileName }: DeploymentLog
         <Button
           variant="outline"
           size="icon"
-          aria-label="Télécharger les logs"
+          aria-label="Download logs"
           disabled={lines.length === 0}
           onClick={() => {
             const url = URL.createObjectURL(new Blob([logsAsText(lines)], { type: "text/plain" }));
@@ -67,9 +67,9 @@ export function DeploymentLogs({ deploymentId, stream, fileName }: DeploymentLog
               <EmptyMedia variant="icon">
                 <ScrollTextIcon />
               </EmptyMedia>
-              <EmptyTitle>Aucun log</EmptyTitle>
+              <EmptyTitle>No logs</EmptyTitle>
               <EmptyDescription>
-                Les logs apparaissent ici dès que le déploiement en produit.
+                Logs show up here as soon as the deployment writes some.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

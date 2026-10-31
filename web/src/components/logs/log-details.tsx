@@ -30,7 +30,7 @@ export function LogDetails({ line, serviceName }: LogDetailsProps) {
         className="absolute top-2 right-2"
         variant="ghost"
         size="icon-sm"
-        aria-label="Copier le JSON"
+        aria-label="Copy JSON"
         onClick={() => {
           void navigator.clipboard.writeText(json).then(() => setCopied(true));
         }}

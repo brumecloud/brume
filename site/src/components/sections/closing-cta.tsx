@@ -1,7 +1,7 @@
 import { InstallCommand } from "~/components/install-command";
 import { MistCanvas } from "~/components/mist-canvas";
 import { TextLink } from "~/components/text-link";
-import { requirements, site } from "~/content";
+import { copy, requirements, site } from "~/content";
 
 export function ClosingCta() {
   return (
@@ -10,15 +10,15 @@ export function ClosingCta() {
       aria-labelledby="install-title"
       className="relative isolate overflow-hidden pt-28 pb-60"
     >
-      <MistCanvas shape="floor" palette="dawn" seed={3} stars />
+      <MistCanvas shape="floor" seed={3} stars />
       <div className="mx-auto flex w-full max-w-page flex-col items-center px-6 text-center">
         <h2
           id="install-title"
           className="text-[clamp(1.875rem,4.4vw,3.25rem)] leading-[1.1] font-semibold tracking-[-0.035em] text-balance"
         >
-          Make your server invisible.
+          {copy.closing.title}
         </h2>
-        <p className="mt-4 text-[17px] text-ink-muted">One command on a fresh VPS.</p>
+        <p className="mt-4 text-[17px] text-ink-muted">{copy.closing.lede}</p>
         <InstallCommand
           command={site.installCommand}
           className="mt-9 w-full max-w-[52rem] text-left"

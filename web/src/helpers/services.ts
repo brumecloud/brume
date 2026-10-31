@@ -49,7 +49,7 @@ export function isDatabase(kind: ServiceKind): boolean {
 }
 
 const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
+const NUMBER_FORMAT = new Intl.NumberFormat("en-US");
 
 // Domains come from the API: link to them only over https, and only when they are hostnames.
 export function domainUrl(domain: string): string | undefined {
@@ -61,7 +61,7 @@ export function formatCpu(cpu: number): string {
 }
 
 export function formatMemory(memoryMb: number): string {
-  return memoryMb >= 1024 ? `${NUMBER_FORMAT.format(memoryMb / 1024)} Go` : `${memoryMb} Mo`;
+  return memoryMb >= 1024 ? `${NUMBER_FORMAT.format(memoryMb / 1024)} GB` : `${memoryMb} MB`;
 }
 
 export function formatLimits(cpu: number, memoryMb: number): string {

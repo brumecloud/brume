@@ -43,7 +43,7 @@ const service = (env: Environment, name: string, status: ServiceStatus = "online
   dependencies: [],
 });
 
-const brume = project("brume", "2026-10-29T10:00:00Z", "API et worker");
+const brume = project("brume", "2026-10-29T10:00:00Z", "API and worker");
 const eve = project("eve", "2026-10-12T10:00:00Z");
 const melled = project("melled", "2026-10-21T10:00:00Z");
 const brumeProd = environment("brume", "production");
@@ -126,18 +126,18 @@ describe("projectSummaries", () => {
 
 describe("servicesOnlineLabel", () => {
   it.each([
-    [0, 0, "Aucun service"],
-    [0, 1, "0/1 service en ligne"],
-    [2, 2, "2/2 services en ligne"],
-    [4, 5, "4/5 services en ligne"],
+    [0, 0, "No services"],
+    [0, 1, "0/1 service online"],
+    [2, 2, "2/2 services online"],
+    [4, 5, "4/5 services online"],
   ])("%i of %i → %s", (online, total, label) => {
     expect(servicesOnlineLabel(online, total)).toBe(label);
   });
 });
 
 describe("formatDay", () => {
-  it("formats a date in French", () => {
-    expect(formatDay("2026-10-28T12:00:00Z")).toBe("28 oct. 2026");
+  it("formats a date in US English", () => {
+    expect(formatDay("2026-10-28T12:00:00Z")).toBe("Oct 28, 2026");
   });
 });
 
@@ -155,9 +155,9 @@ describe("normalizeQuery", () => {
 
 describe("projectCountLabel", () => {
   it.each([
-    [0, "Aucun projet"],
-    [1, "1 projet"],
-    [4, "4 projets"],
+    [0, "No projects"],
+    [1, "1 project"],
+    [4, "4 projects"],
   ])("%i → %s", (count, label) => {
     expect(projectCountLabel(count)).toBe(label);
   });

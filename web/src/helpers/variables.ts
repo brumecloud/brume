@@ -82,19 +82,17 @@ export function variableWarnings(name: string, value: string, kind: VariableKind
   }
   return [
     ...(SECRET_NAME.test(name)
-      ? [
-          "Ce nom ressemble à celui d'un secret : sa valeur resterait dans l'historique des révisions.",
-        ]
+      ? ["This name looks like a secret: its value would stay in the revision history."]
       : []),
     ...(CREDENTIALS_IN_URL.test(value)
-      ? ["Cette valeur contient des identifiants : faites-en plutôt un secret."]
+      ? ["This value contains credentials: make it a secret instead."]
       : []),
   ];
 }
 
 export function variableCountLabel(count: number): string {
   if (count === 0) {
-    return "Aucune variable";
+    return "No variables";
   }
   return `${count} ${count > 1 ? "variables" : "variable"}`;
 }

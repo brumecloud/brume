@@ -1,6 +1,8 @@
+import { ReadingLight } from "~/components/reading-light";
 import { SiteFooter } from "~/components/site-footer";
 import { SiteHeader } from "~/components/site-header";
 import { ClosingCta } from "~/components/sections/closing-cta";
+import { ConsoleDemo } from "~/components/sections/console-demo";
 import { Features } from "~/components/sections/features";
 import { Hero } from "~/components/sections/hero";
 import { HowItWorks } from "~/components/sections/how-it-works";
@@ -40,6 +42,7 @@ export default function HomePage() {
         <StackMarquee />
         <Problem />
         <HowItWorks />
+        <ConsoleDemo />
         <Features />
         <MistBand />
         <Security />
@@ -47,6 +50,7 @@ export default function HomePage() {
         <ClosingCta />
       </main>
       <SiteFooter />
+      <ReadingLight />
     </>
   );
 }

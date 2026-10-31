@@ -28,17 +28,17 @@ export function ImageStep({ disabled, onCreate }: ImageStepProps) {
       <Input
         name="image"
         autoFocus
-        aria-label="Image Docker"
+        aria-label="Docker image"
         aria-invalid={invalid || undefined}
-        placeholder="ghcr.io/organisation/app:1.0"
+        placeholder="ghcr.io/acme/app:1.0"
       />
       {invalid && (
         <p className="text-destructive-foreground text-sm">
-          Référence d'image invalide. Exemple : redis:7 ou ghcr.io/organisation/app:1.0.
+          Invalid image reference. For example: redis:7 or ghcr.io/acme/app:1.0.
         </p>
       )}
       <Button type="submit" loading={disabled}>
-        Déployer l'image
+        Deploy image
       </Button>
     </form>
   );

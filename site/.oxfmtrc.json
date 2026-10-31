@@ -3,6 +3,7 @@
   "ignorePatterns": [
     ".next/**",
     "out/**",
+    "public/demo/**",
     "pnpm-lock.yaml",
     "next-env.d.ts",
     "src/components/animate-ui/**"

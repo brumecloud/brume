@@ -155,8 +155,8 @@ describe("parseDomain", () => {
 
 describe("changeCountLabel", () => {
   it.each([
-    [1, "Appliquer 1 changement"],
-    [3, "Appliquer 3 changements"],
+    [1, "Apply 1 change"],
+    [3, "Apply 3 changes"],
   ])("%i → %s", (count, label) => {
     expect(changeCountLabel(count)).toBe(label);
   });
@@ -164,10 +164,10 @@ describe("changeCountLabel", () => {
 
 describe("describeChange", () => {
   it.each([
-    [setting("branch", "develop"), "Branche → develop"],
-    [setting("autoDeploy", false), "Déploiement automatique → désactivé"],
-    [setting("memoryLimitMb", 2048), "Limite mémoire → 2 Go"],
-    [setting("domains", []), "Domaines publics → aucun"],
+    [setting("branch", "develop"), "Branch → develop"],
+    [setting("autoDeploy", false), "Auto deploy → off"],
+    [setting("memoryLimitMb", 2048), "Memory limit → 2 GB"],
+    [setting("domains", []), "Public domains → none"],
     [
       {
         id: "v" as ChangeId,
@@ -181,7 +181,7 @@ describe("describeChange", () => {
     ],
     [
       { id: "v" as ChangeId, ...target, type: "variable-removal", name: "PORT" } as const,
-      "PORT supprimée",
+      "PORT deleted",
     ],
   ] as const)("%j", (change, label) => {
     expect(describeChange(change)).toBe(label);

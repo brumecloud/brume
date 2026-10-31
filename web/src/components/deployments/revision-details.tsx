@@ -7,7 +7,7 @@ import type { Deployment } from "~/api/types";
 import { Badge } from "~/components/ui/badge";
 
 // Chips for what differs from the default only: a plain variable of the service has none.
-const ORIGINS = { project: "Projet", environment: "Environnement" } as const;
+const ORIGINS = { project: "Project", environment: "Environment" } as const;
 const KINDS = { build: "Build", secret: "Secret" } as const;
 
 // A revision is immutable: what ran then.
@@ -34,16 +34,14 @@ export function RevisionDetails({ deployment }: { readonly deployment: Deploymen
       <Block title="Configuration">
         <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
           <dt className="text-muted-foreground">Build</dt>
-          <dd className="sm:col-span-2">
-            {revision.builder ?? "Aucun : image utilisée telle quelle"}
-          </dd>
-          <dt className="text-muted-foreground">Artefact</dt>
+          <dd className="sm:col-span-2">{revision.builder ?? "None: image used as is"}</dd>
+          <dt className="text-muted-foreground">Artifact</dt>
           <dd className="truncate font-mono sm:col-span-2">{revision.digest}</dd>
-          <dt className="text-muted-foreground">Commande</dt>
-          <dd className="font-mono sm:col-span-2">{revision.startCommand ?? "Celle de l'image"}</dd>
+          <dt className="text-muted-foreground">Start command</dt>
+          <dd className="font-mono sm:col-span-2">{revision.startCommand ?? "Image default"}</dd>
         </dl>
       </Block>
-      <Block title={`Variables de la révision (${revision.variables.length})`}>
+      <Block title={`Revision variables (${revision.variables.length})`}>
         <ul className="flex flex-col gap-2">
           {revision.variables.map((variable) => (
             <li key={variable.name} className="flex flex-wrap items-center gap-2 text-sm">

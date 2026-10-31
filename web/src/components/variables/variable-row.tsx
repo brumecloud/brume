@@ -11,8 +11,8 @@ import type { VariableDraftRow } from "~/helpers/changes";
 import { VariableDialog } from "./variable-dialog";
 
 const KIND_LABELS = { build: "Build", secret: "Secret" } as const;
-const ORIGIN_LABELS = { project: "Projet", environment: "Environnement" } as const;
-const DRAFT_LABELS = { added: "Nouvelle", modified: "Modifiée", removed: "Supprimée" } as const;
+const ORIGIN_LABELS = { project: "Project", environment: "Environment" } as const;
+const DRAFT_LABELS = { added: "New", modified: "Modified", removed: "Deleted" } as const;
 
 interface VariableRowProps {
   readonly serviceId: ServiceId;
@@ -50,7 +50,7 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={reveal.data ? `Masquer ${row.name}` : `Révéler ${row.name}`}
+            aria-label={reveal.data ? `Hide ${row.name}` : `Reveal ${row.name}`}
             loading={reveal.isPending}
             onClick={() => (reveal.data ? reveal.reset() : reveal.mutate())}
           >
@@ -61,7 +61,7 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={`Annuler le changement de ${row.name}`}
+            aria-label={`Discard the change to ${row.name}`}
             onClick={() => unstageChange(changeId)}
           >
             <Undo2Icon />
@@ -77,7 +77,7 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
                   value: row.kind === "secret" ? "" : (row.value ?? ""),
                 }}
                 trigger={
-                  <Button variant="ghost" size="icon-sm" aria-label={`Modifier ${row.name}`}>
+                  <Button variant="ghost" size="icon-sm" aria-label={`Edit ${row.name}`}>
                     <PencilIcon />
                   </Button>
                 }
@@ -85,7 +85,7 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label={`Supprimer ${row.name}`}
+                aria-label={`Delete ${row.name}`}
                 loading={removal.isPending}
                 onClick={() =>
                   removal.mutate({ serviceId, type: "variable-removal", name: row.name })
