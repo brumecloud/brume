@@ -5,7 +5,7 @@ mod fake_storage;
 mod harness;
 
 use brume_domain::Timestamp;
-use brume_engine_core::{DEPLOYMENT_TIMEOUT_MILLIS, Engine, Input, OpenError};
+use brume_engine_core::{DEPLOYMENT_TIMEOUT_MILLIS, Engine, Input, OpenError, short_id};
 use brume_proto::agent::{ContainerHealth, EnvValue, Healthcheck, Job};
 use brume_proto::api::{
     ApiCall, ApiValue, DeploymentStatusDto, FailureKind, LogStream, NewChangeDto,
@@ -211,7 +211,7 @@ fn deploy_flow_reaches_active() {
     assert_eq!(state.networks.len(), 1);
     assert_eq!(
         state.networks[0].name,
-        format!("brume-env-{}", &service.environment_id[..8])
+        format!("brume-env-{}", short_id(&service.environment_id))
     );
     assert!(state.networks[0].internal);
 
@@ -222,7 +222,7 @@ fn deploy_flow_reaches_active() {
     let container = &state.containers[0];
     assert_eq!(
         container.name,
-        format!("brume-nginx-{}", &deployment.id[..8])
+        format!("brume-nginx-{}", short_id(&deployment.id))
     );
     assert_eq!(container.image, format!("nginx@sha256:{DIGEST}"));
     assert!(container.networks[0].aliases.is_empty());
@@ -270,6 +270,24 @@ fn deploy_flow_reaches_active() {
             "Starting container",
             "Healthcheck passed",
             "Deployment active"
+        ]
+    );
+    let build = match harness.ok(ApiCall::DeploymentLogs {
+        deployment_id: deployment.id.clone(),
+        stream: LogStream::Build,
+    }) {
+        ApiValue::LogLines(lines) => lines,
+        other => panic!("unexpected {other:?}"),
+    };
+    let messages = build
+        .iter()
+        .map(|line| line.message.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        messages,
+        [
+            "Resolving image nginx:1.29".to_owned(),
+            format!("Resolved nginx@sha256:{DIGEST}"),
         ]
     );
 }
@@ -346,7 +364,7 @@ fn volume_service_stops_old_container_then_restores_it_on_failure() {
     let mut harness = Harness::new();
     let (service, _, first) = active_project(&mut harness, &["/data"]);
     let state = harness.desired_now();
-    let volume = format!("brume-vol-{}-0", &service[..8]);
+    let volume = format!("brume-vol-{}-0", short_id(&service));
     assert_eq!(state.volumes.len(), 1);
     assert_eq!(state.volumes[0].name, volume);
     assert_eq!(state.containers[0].mounts[0].volume, volume);
@@ -413,17 +431,21 @@ fn reopen_resumes_resolving_deployment() {
 fn deployment_times_out_after_five_minutes() {
     let mut harness = Harness::new();
     harness.create_project("nginx:1.29");
-    let deployment = harness.deployments()[0].id.clone();
+    let deployment = harness.deployments()[0].clone();
     let service = harness.services()[0].id.clone();
     harness.connect_agent();
+    let deadline = Timestamp::parse_rfc3339(&deployment.created_at)
+        .expect("an instant")
+        .plus_millis(DEPLOYMENT_TIMEOUT_MILLIS);
+    let deployment = deployment.id;
 
-    harness.ctx.advance(DEPLOYMENT_TIMEOUT_MILLIS - 1);
+    // Each input comes one millisecond later: this tick is one before the deadline.
+    harness.ctx.now = Timestamp::from_millis(deadline.as_millis() - 2);
     harness.input(Input::Tick);
     assert_eq!(
         harness.deployment(&deployment).status,
         DeploymentStatusDto::Building
     );
-    harness.ctx.advance(1);
     harness.input(Input::Tick);
     assert_eq!(
         harness.deployment(&deployment).status,
@@ -702,4 +724,267 @@ fn shared_plain_variable_redeploys_impacted_services() {
                     && env.value == EnvValue::Plain("debug".to_owned()))
         );
     }
+}
+
+#[test]
+fn docker_names_are_unique_for_ids_drawn_together() {
+    let mut harness = Harness::new();
+    let (nginx, production, _) = active_project(&mut harness, &[]);
+    let ApiValue::Projects(projects) = harness.ok(ApiCall::ListProjects) else {
+        panic!("projects");
+    };
+    let ApiValue::Environment(staging) = harness.ok(ApiCall::CreateEnvironment {
+        project_id: projects[0].id.clone(),
+        name: "staging".to_owned(),
+    }) else {
+        panic!("environment");
+    };
+    // Everything below is drawn within a few milliseconds: the ids share their clock prefix.
+    for (environment, image) in [(&staging.id, "redis:8"), (&production, "postgres:17")] {
+        let ApiValue::Service(service) = harness.ok(ApiCall::CreateService {
+            environment_id: environment.clone(),
+            image: image.to_owned(),
+            name: None,
+        }) else {
+            panic!("service");
+        };
+        let deployment = newest_deployment(&mut harness, &service.id);
+        harness.activate(&deployment, &["/data"]);
+    }
+    harness.ok(ApiCall::Redeploy { service_id: nginx });
+
+    let state = harness.desired_now();
+    let unique = |names: Vec<&String>| {
+        let mut sorted = names.clone();
+        sorted.sort();
+        sorted.dedup();
+        sorted.len() == names.len()
+    };
+    assert_eq!(
+        state.containers.len(),
+        4,
+        "two nginx, a redis and a postgres"
+    );
+    assert!(unique(state.containers.iter().map(|c| &c.name).collect()));
+    assert_eq!(state.networks.len(), 2);
+    assert!(unique(state.networks.iter().map(|n| &n.name).collect()));
+    assert_eq!(state.volumes.len(), 2);
+    assert!(unique(state.volumes.iter().map(|v| &v.name).collect()));
+}
+
+#[test]
+fn failed_commit_changes_nothing() {
+    let mut harness = Harness::new();
+    let position = harness.engine.position();
+    harness.storage.fail_next_commit();
+    assert_eq!(
+        harness
+            .call(ApiCall::CreateProject {
+                source: brume_proto::api::NewProjectSourceDto::Image {
+                    image: "nginx:1.29".to_owned(),
+                },
+            })
+            .map_err(|failure| failure.kind),
+        Err(FailureKind::Internal)
+    );
+    assert_eq!(harness.engine.position(), position);
+    assert!(matches!(harness.ok(ApiCall::ListProjects), ApiValue::Projects(p) if p.is_empty()));
+
+    let (service, environment, _) = active_project(&mut harness, &[]);
+    stage(
+        &mut harness,
+        variable(&service, "API_TOKEN", VariableKindDto::Secret, Some(SECRET)),
+    );
+    let deployments = harness.deployments().len();
+    let position = harness.engine.position();
+    harness.storage.fail_next_commit();
+    assert_eq!(
+        harness
+            .call(ApiCall::DeployEnvironmentChanges {
+                environment_id: environment.clone(),
+            })
+            .map_err(|failure| failure.kind),
+        Err(FailureKind::Internal)
+    );
+    assert_eq!(harness.engine.position(), position);
+    assert_eq!(changes(&mut harness).len(), 1, "the change stays staged");
+    assert_eq!(harness.deployments().len(), deployments);
+
+    // The retry writes version 1 of the secret: the failed attempt wrote nothing.
+    deploy_changes(&mut harness, &environment);
+    assert!(changes(&mut harness).is_empty());
+    assert_eq!(harness.deployments().len(), deployments + 1);
+    harness.reopen();
+}
+
+#[test]
+fn accepted_log_stream_is_handed_to_the_shell() {
+    let mut harness = Harness::new();
+    harness.create_project("nginx:1.29");
+    let environment = harness.environments()[0].id.clone();
+    let out = harness.input(Input::Api {
+        client: brume_engine_core::ClientId(5),
+        request: brume_proto::api::ApiRequest {
+            id: 9,
+            session: harness.session.clone(),
+            body: ApiCall::OpenLogStream {
+                environment_id: environment.clone(),
+                since_ms: Some(1_000),
+            },
+        },
+    });
+    let stream = out
+        .iter()
+        .find_map(|output| match output {
+            brume_engine_core::Output::OpenLogStream {
+                client,
+                request,
+                query,
+            } => Some((*client, *request, query.clone())),
+            _ => None,
+        })
+        .expect("a stream to open");
+    assert_eq!(stream.0, brume_engine_core::ClientId(5));
+    assert_eq!(stream.1, 9);
+    assert_eq!(stream.2.environment_id, environment);
+    assert_eq!(stream.2.since_ms, Some(1_000));
+    assert!(stream.2.follow);
+    assert!(
+        !out.iter()
+            .any(|output| matches!(output, brume_engine_core::Output::Reply { .. })),
+        "the shell writes the opening reply"
+    );
+
+    assert_eq!(
+        harness
+            .call(ApiCall::OpenLogStream {
+                environment_id: "0190a3f2-7c1e-7b3a-9f00-1234567890ab".to_owned(),
+                since_ms: None,
+            })
+            .map_err(|failure| failure.kind),
+        Err(FailureKind::NotFound)
+    );
+}
+
+#[test]
+fn reopen_resumes_starting_deployment_and_times_out() {
+    let mut harness = Harness::new();
+    harness.create_project("nginx:1.29");
+    let deployment = harness.deployments()[0].clone();
+    harness.connect_agent();
+    harness.resolve(&deployment.id, &[]);
+    assert_eq!(
+        harness.deployment(&deployment.id).status,
+        DeploymentStatusDto::Deploying
+    );
+
+    harness.reopen();
+    let created_at = Timestamp::parse_rfc3339(&deployment.created_at).expect("an instant");
+    let out = harness.input(Input::Tick);
+    assert_eq!(
+        wake_at(&out),
+        Some(created_at.plus_millis(DEPLOYMENT_TIMEOUT_MILLIS))
+    );
+    harness.ctx.advance(DEPLOYMENT_TIMEOUT_MILLIS);
+    harness.input(Input::Tick);
+    assert_eq!(
+        harness.deployment(&deployment.id).status,
+        DeploymentStatusDto::Failed
+    );
+}
+
+#[test]
+fn failure_while_promoting_keeps_previous_container() {
+    let mut harness = Harness::new();
+    let (service, _, first) = active_project(&mut harness, &[]);
+    harness.ok(ApiCall::Redeploy {
+        service_id: service.clone(),
+    });
+    let second = newest_deployment(&mut harness, &service);
+    let state = harness.desired_now();
+    // Healthy, but the agent has not moved the alias yet.
+    let out = harness.agent(brume_proto::agent::AgentToEngine::Observed(
+        brume_proto::agent::ObservedState {
+            containers: state
+                .containers
+                .iter()
+                .map(|container| brume_proto::agent::ObservedContainer {
+                    name: container.name.clone(),
+                    deployment_id: container.deployment_id.clone(),
+                    health: ContainerHealth::Healthy,
+                    aliases: Vec::new(),
+                    restarts: 0,
+                })
+                .collect(),
+        },
+    ));
+    let state = last_desired(&out).expect("a desired state");
+    assert_eq!(state.containers.len(), 2);
+    assert!(
+        state
+            .containers
+            .iter()
+            .all(|container| container.networks[0].aliases == ["nginx"])
+    );
+
+    let out = harness.observe(
+        &state,
+        &[(second.as_str(), ContainerHealth::Exited { code: 137 })],
+    );
+    assert_eq!(
+        harness.deployment(&second).status,
+        DeploymentStatusDto::Failed
+    );
+    let state = last_desired(&out).expect("a desired state");
+    assert_eq!(state.containers.len(), 1);
+    assert_eq!(state.containers[0].deployment_id, first);
+}
+
+#[test]
+fn reveal_follows_a_reference_and_set_reports_its_users() {
+    let mut harness = Harness::new();
+    let (service, environment, _) = active_project(&mut harness, &[]);
+    let ApiValue::Projects(projects) = harness.ok(ApiCall::ListProjects) else {
+        panic!("projects");
+    };
+    let set_secret = |harness: &mut Harness, value: &str| match harness.ok(
+        ApiCall::SetSharedVariable(NewSharedVariableDto {
+            level: VariableLevelDto::Project,
+            owner_id: projects[0].id.clone(),
+            name: "DB_PASSWORD".to_owned(),
+            kind: VariableKindDto::Secret,
+            value: value.to_owned(),
+        }),
+    ) {
+        ApiValue::SharedVariableSet(set) => set,
+        other => panic!("unexpected {other:?}"),
+    };
+    let first = set_secret(&mut harness, "first-value");
+    assert!(first.referenced_by.is_empty());
+    assert!(first.deployments.is_empty(), "a secret redeploys nothing");
+
+    stage(
+        &mut harness,
+        variable(&service, "DB_PASSWORD", VariableKindDto::Secret, None),
+    );
+    deploy_changes(&mut harness, &environment);
+    let deployment = newest_deployment(&mut harness, &service);
+    harness.activate(&deployment, &[]);
+
+    let second = set_secret(&mut harness, "second-value");
+    assert_eq!(second.variable.id, first.variable.id, "the same variable");
+    assert_eq!(second.referenced_by, vec![service.clone()]);
+
+    let ApiValue::Variables(variables) = harness.ok(ApiCall::ListVariables) else {
+        panic!("variables");
+    };
+    let reference = variables
+        .iter()
+        .find(|variable| variable.owner_id == service && variable.name == "DB_PASSWORD")
+        .expect("the reference");
+    assert!(reference.reference);
+    assert!(matches!(
+        harness.ok(ApiCall::RevealVariable { variable_id: reference.id.clone() }),
+        ApiValue::RevealedValue(revealed) if revealed.value == "second-value"
+    ));
 }

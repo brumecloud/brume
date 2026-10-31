@@ -19,7 +19,7 @@ pub use api::LOG_BACKLOG_LINES;
 pub use deployments::DEPLOYMENT_TIMEOUT_MILLIS;
 pub use desired::{
     HTTP_HEALTHCHECK_TIMEOUT_SECS, RUNNING_GRACE_SECS, container_name, desired_state,
-    egress_network, environment_network, volume_name,
+    egress_network, environment_network, short_id, volume_name,
 };
 pub use engine::{ClientId, Engine, Input, OpenError, Output};
 pub use queries::{derive_slug, image_base_name};

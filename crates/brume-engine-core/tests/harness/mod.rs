@@ -88,7 +88,9 @@ impl Harness {
         self.engine = Engine::open(self.storage.clone(), &mut self.ctx).expect("reopens");
     }
 
+    /// Feeds one input, one millisecond after the previous one, so that ids sort by creation.
     pub fn input(&mut self, input: Input) -> Vec<Output> {
+        self.ctx.advance(1);
         let mut out = Vec::new();
         self.engine.handle(&mut self.ctx, input, &mut out);
         out

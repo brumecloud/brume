@@ -8,7 +8,7 @@ use brume_domain::{
 use brume_proto::agent::{
     AgentToEngine, ContainerHealth, EngineToAgent, Job, JobOutcome, MAX_FAILURE_MESSAGE_BYTES,
 };
-use brume_proto::api::ServiceStatusDto;
+use brume_proto::api::{ApiFailure, FailureKind, ServiceStatusDto};
 
 use crate::desired::{HTTP_HEALTHCHECK_TIMEOUT_SECS, RUNNING_GRACE_SECS, desired_state};
 use crate::engine::{Actor, Engine, Output};
@@ -157,6 +157,7 @@ impl<S: Storage> Engine<S> {
         let Ok(deployment) = DeploymentId::parse(job_id) else {
             return;
         };
+        let deployment_id = deployment.clone();
         let command = match outcome {
             JobOutcome::ImageResolved {
                 digest, volumes, ..
@@ -184,17 +185,25 @@ impl<S: Storage> Engine<S> {
                 message: truncate(&message, MAX_FAILURE_MESSAGE_BYTES),
             },
         };
-        // A refusal means the deployment is no longer resolving: the result is stale.
-        let _ = self.commit(
+        let result = self.commit(
             ctx,
             &Actor::Agent(machine.clone()),
             &command,
             Transaction::default(),
         );
+        // A refusal means the deployment is no longer resolving: the result is stale. A write
+        // that failed loses the result, so the job goes again at the next input.
+        if let Err(ApiFailure {
+            kind: FailureKind::Internal,
+            ..
+        }) = result
+        {
+            self.jobs_sent.remove(&deployment_id);
+        }
     }
 
-    /// Fails the deployments past their deadline, and re-reads the last observation for the
-    /// healthchecks whose grace ended.
+    /// Fails the deployments past their deadline. It also re-reads the last observation, for a
+    /// healthcheck whose grace ended since; the agent reports at least every 10 seconds anyway.
     pub(crate) fn tick(&mut self, ctx: &mut impl Ctx) {
         let now = ctx.now();
         let overdue = self

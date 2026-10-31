@@ -20,29 +20,34 @@ const STOP_TIMEOUT_WITH_VOLUME_SECS: u32 = 60;
 /// How long Docker waits for any other container to stop.
 const STOP_TIMEOUT_SECS: u32 = 10;
 
-/// The first 8 hexadecimal characters of an id.
-fn short(id: &str) -> &str {
-    id.get(..8).unwrap_or(id)
+/// The last 8 hexadecimal characters of an id. A UUIDv7 starts with its millisecond clock, so
+/// its first characters repeat for about a minute; its last ones are random.
+pub fn short_id(id: &str) -> &str {
+    id.get(id.len().saturating_sub(8)..).unwrap_or(id)
 }
 
 /// The internal network of an environment.
 pub fn environment_network(environment: &str) -> String {
-    format!("brume-env-{}", short(environment))
+    format!("brume-env-{}", short_id(environment))
 }
 
 /// The network with an internet route of an environment.
 pub fn egress_network(environment: &str) -> String {
-    format!("brume-egress-{}", short(environment))
+    format!("brume-egress-{}", short_id(environment))
 }
 
 /// The volume of the `index`-th path that the service's images declared.
 pub fn volume_name(service: &ServiceId, index: usize) -> String {
-    format!("brume-vol-{}-{index}", short(service.as_str()))
+    format!("brume-vol-{}-{index}", short_id(service.as_str()))
 }
 
 /// The container of a deployment.
 pub fn container_name(service: &Service, deployment: &Deployment) -> String {
-    format!("brume-{}-{}", service.slug, short(deployment.id.as_str()))
+    format!(
+        "brume-{}-{}",
+        service.slug,
+        short_id(deployment.id.as_str())
+    )
 }
 
 /// Everything that must run on the machine at log position `position`.
