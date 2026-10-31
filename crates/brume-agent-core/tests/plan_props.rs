@@ -248,6 +248,7 @@ fn build_snapshot(
         volumes: volumes.into_iter().map(managed_volume).collect(),
         images: strings(&images),
         containers,
+        uninspected_mounts: Vec::new(),
     }
 }
 
@@ -546,6 +547,7 @@ fn running(spec: &ContainerSpec, state: SnapState, started_at_ms: u64) -> Docker
             config_hash: container_config(spec).config_hash().to_owned(),
             stop_timeout_secs: spec.stop_timeout_secs,
         }],
+        uninspected_mounts: Vec::new(),
     }
 }
 
@@ -731,6 +733,7 @@ fn network_with_the_wrong_isolation_blocks_the_container() {
         volumes: Vec::new(),
         images: strings(&[IMAGES[0]]),
         containers: Vec::new(),
+        uninspected_mounts: Vec::new(),
     };
     let actions = plan(
         &desired,
@@ -858,6 +861,7 @@ fn empty_docker(networks: Vec<SnapNetwork>, volumes: Vec<SnapVolume>) -> DockerS
         volumes,
         images: strings(&[IMAGES[0]]),
         containers: Vec::new(),
+        uninspected_mounts: Vec::new(),
     }
 }
 
@@ -1241,6 +1245,37 @@ fn a_volume_held_by_a_kept_or_foreign_container_blocks_the_container() {
     foreign.managed = false;
     let actions = plan_at(&on_volume(&new), &with_volume(vec![foreign]), 1_000);
     assert!(actions.is_empty(), "{actions:?}");
+}
+
+#[test]
+fn two_missing_containers_on_one_volume_get_one_create_per_round() {
+    let old = postgres("brume-db-old", "dep-old");
+    let new = postgres("brume-db-new", "dep-new");
+    let mut both = on_volume(&old);
+    both.containers.push(new.clone());
+
+    // Docker lists neither: the first takes the volume in this round, the second waits.
+    assert_eq!(
+        plan_at(&both, &with_volume(Vec::new()), 1_000),
+        [
+            Action::CreateContainer(Box::new(container_config(&old))),
+            Action::StartContainer(old.name.clone()),
+        ]
+    );
+}
+
+#[test]
+fn a_volume_of_an_uninspected_container_blocks_the_container() {
+    let new = postgres("brume-db-new", "dep-new");
+    let mut snapshot = with_volume(Vec::new());
+    snapshot.uninspected_mounts = strings(&[VOLUMES[0]]);
+    let actions = plan_at(&on_volume(&new), &snapshot, 1_000);
+    assert!(!creates_container(&actions), "{actions:?}");
+
+    // Another volume does not block it.
+    snapshot.uninspected_mounts = strings(&[VOLUMES[1]]);
+    let actions = plan_at(&on_volume(&new), &snapshot, 1_000);
+    assert!(creates_container(&actions), "{actions:?}");
 }
 
 /// `nginx` with the egress network after its environment network.

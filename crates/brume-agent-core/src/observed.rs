@@ -11,6 +11,10 @@ pub struct DockerSnapshot {
     /// The digest references of the images present, `name@sha256:…`.
     pub images: Vec<String>,
     pub containers: Vec<SnapContainer>,
+    /// The named volumes of the managed containers that Docker listed but failed to inspect,
+    /// which are left out of `containers`. Taken from the listing: no container is created on
+    /// them, so a transient inspect error never lets two containers share a volume.
+    pub uninspected_mounts: Vec<String>,
 }
 
 impl DockerSnapshot {

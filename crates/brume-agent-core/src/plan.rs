@@ -9,7 +9,9 @@
 //!
 //! Two containers never mount one volume at once: two database servers on one data directory
 //! corrupt it. A container is created only once Docker lists no other container on its volumes,
-//! so when a deployment swaps the container of a volume, the old one goes first.
+//! including a container that Docker failed to inspect, and no other create of the same plan
+//! takes one of them: when a deployment swaps the container of a volume, the old one goes
+//! first.
 
 use std::collections::BTreeSet;
 
@@ -134,6 +136,8 @@ struct Steps {
     disconnects: Vec<Action>,
     probes: Vec<Action>,
     removals: Vec<Action>,
+    /// The volumes of the containers that `creates` holds.
+    claimed_volumes: BTreeSet<String>,
 }
 
 impl Steps {
@@ -176,7 +180,12 @@ fn plan_container(
     steps: &mut Steps,
 ) {
     let Some(container) = snapshot.container(&spec.name) else {
-        if can_create(spec, desired, snapshot) && volumes_free(spec, snapshot) {
+        if can_create(spec, desired, snapshot)
+            && volumes_free(spec, snapshot, &steps.claimed_volumes)
+        {
+            steps
+                .claimed_volumes
+                .extend(spec.mounts.iter().map(|mount| mount.volume.clone()));
             let pull = Action::PullImage(spec.image.clone());
             if !snapshot.images.contains(&spec.image) && !steps.pulls.contains(&pull) {
                 steps.pulls.push(pull);
@@ -267,14 +276,20 @@ fn needs_replacement(spec: &ContainerSpec, container: &SnapContainer) -> bool {
         || container.state == SnapState::Other
 }
 
-/// Whether no container, Brume's or not, running or stopped, mounts one of `spec`'s volumes.
-fn volumes_free(spec: &ContainerSpec, snapshot: &DockerSnapshot) -> bool {
-    !snapshot.containers.iter().any(|container| {
-        container
-            .mounts
-            .iter()
-            .any(|volume| spec.mounts.iter().any(|mount| mount.volume == *volume))
-    })
+/// Whether no container mounts one of `spec`'s volumes: none that Docker lists, Brume's or not,
+/// running or stopped, inspected or not, and none that this plan creates (`claimed`).
+fn volumes_free(
+    spec: &ContainerSpec,
+    snapshot: &DockerSnapshot,
+    claimed: &BTreeSet<String>,
+) -> bool {
+    snapshot
+        .containers
+        .iter()
+        .flat_map(|container| &container.mounts)
+        .chain(&snapshot.uninspected_mounts)
+        .chain(claimed)
+        .all(|held| spec.mounts.iter().all(|mount| mount.volume != *held))
 }
 
 /// Whether Docker can create `spec`'s container safely now: each of its networks and volumes
