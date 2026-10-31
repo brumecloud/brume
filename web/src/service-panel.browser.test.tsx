@@ -69,6 +69,16 @@ describe("service panel", () => {
     await expect.element(screen.getByText("order-worker")).toBeVisible();
   });
 
+  it("shows public domains as coming soon", async () => {
+    const screen = await renderApp(`${service("shop-api")}/settings`);
+
+    await expect.element(screen.getByRole("textbox", { name: "New domain" })).toBeDisabled();
+    await expect
+      .element(screen.getByRole("button", { name: "Remove api.northbean.coffee" }))
+      .toBeDisabled();
+    await expect.element(screen.getByText("Coming soon")).toBeVisible();
+  });
+
   it("refuses a service of another environment", async () => {
     const screen = await renderApp(
       `${production}/services/${northbean.id}-staging-shop-api/deployments`,

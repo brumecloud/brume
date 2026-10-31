@@ -3,17 +3,29 @@ import type { ReactNode } from "react";
 interface SettingFieldProps {
   readonly label: string;
   readonly description?: string;
+  // Next to the label, such as a badge.
+  readonly aside?: ReactNode;
   // A value waits for the next deploy: the control gets a blue outline.
   readonly staged: boolean;
   readonly error?: string | undefined;
   readonly children: ReactNode;
 }
 
-export function SettingField({ label, description, staged, error, children }: SettingFieldProps) {
+export function SettingField({
+  label,
+  description,
+  aside,
+  staged,
+  error,
+  children,
+}: SettingFieldProps) {
   return (
     <div className="flex flex-col gap-2">
       <div>
-        <p className="font-medium text-sm">{label}</p>
+        <p className="flex items-center gap-2 font-medium text-sm">
+          {label}
+          {aside}
+        </p>
         {description && <p className="text-muted-foreground text-sm">{description}</p>}
       </div>
       <div

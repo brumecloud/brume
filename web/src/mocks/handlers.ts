@@ -33,6 +33,30 @@ export const handlers = [
     return undefined;
   }),
 
+  // The mocked server has one admin, always signed in: a login link with a well-formed token opens
+  // a session.
+  http.post("/api/session", async ({ request }) => {
+    await delay(LATENCY_MS);
+    const body: unknown = await request.json().catch(() => undefined);
+    const token = typeof body === "object" && body !== null && "token" in body ? body.token : null;
+    return typeof token === "string" && token !== ""
+      ? new HttpResponse(null, { status: 204 })
+      : HttpResponse.json(
+          { message: "This login link has expired or was already used." },
+          { status: 401 },
+        );
+  }),
+
+  http.get("/api/session", async () => {
+    await delay(LATENCY_MS);
+    return HttpResponse.json({ admin: "admin" });
+  }),
+
+  http.delete("/api/session", async () => {
+    await delay(LATENCY_MS);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.get("/api/projects", async () => {
     await delay(LATENCY_MS);
     return HttpResponse.json(db.projects);
@@ -43,6 +67,13 @@ export const handlers = [
     const source = readNewProjectSource(await request.json());
     if (!source) {
       return HttpResponse.json({ message: "Invalid project source." }, { status: 400 });
+    }
+    // This milestone deploys public images only.
+    if (source.kind !== "empty" && source.kind !== "image") {
+      return HttpResponse.json(
+        { message: `${source.kind} sources are not available yet.` },
+        { status: 400 },
+      );
     }
     return HttpResponse.json(createProject(source), { status: 201 });
   }),

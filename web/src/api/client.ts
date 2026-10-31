@@ -1,8 +1,9 @@
 import { apiErrorMessage } from "~/helpers/api-error";
+import { redirectsToLogin } from "~/helpers/session";
 
 // The only code that talks to the server. See archi/base/04-panel-admin.md (CSRF).
 
-class ApiError extends Error {
+export class ApiError extends Error {
   override name = "ApiError";
   readonly status: number;
 
@@ -39,7 +40,21 @@ async function request<T>(
   });
   const payload: unknown = await response.json().catch(() => undefined);
   if (!response.ok) {
+    if (redirectsToLogin(response.status, path)) {
+      redirectToLogin();
+    }
     throw new ApiError(response.status, apiErrorMessage(response.status, payload));
   }
   return decode(payload);
+}
+
+// Every query fails at once when the session expires: the first one leaves for the login page,
+// which reloads the app and its caches.
+let leaving = false;
+
+function redirectToLogin(): void {
+  if (!leaving) {
+    leaving = true;
+    window.location.assign("/login");
+  }
 }

@@ -4,6 +4,7 @@ import { ChevronRightIcon, DatabaseIcon, GlobeIcon, SquareDashedIcon } from "luc
 
 import type { NewProjectSource } from "~/api/types";
 import { DockerIcon, GitHubIcon } from "~/components/icons/brand-icons";
+import { Badge } from "~/components/ui/badge";
 import {
   Command,
   CommandEmpty,
@@ -19,12 +20,14 @@ interface Source {
   readonly label: string;
   readonly icon: ComponentType<{ className?: string }>;
   readonly step?: NewProjectStep;
+  // Shown, not offered: the server cannot build it yet.
+  readonly soon?: boolean;
 }
 
 const SOURCES: readonly Source[] = [
-  { value: "github", label: "GitHub repository", icon: GitHubIcon, step: "github" },
-  { value: "database", label: "Database", icon: DatabaseIcon, step: "database" },
-  { value: "static", label: "Static site", icon: GlobeIcon, step: "static" },
+  { value: "github", label: "GitHub repository", icon: GitHubIcon, step: "github", soon: true },
+  { value: "database", label: "Database", icon: DatabaseIcon, step: "database", soon: true },
+  { value: "static", label: "Static site", icon: GlobeIcon, step: "static", soon: true },
   { value: "image", label: "Docker image", icon: DockerIcon, step: "image" },
   { value: "empty", label: "Empty project", icon: SquareDashedIcon },
 ];
@@ -47,7 +50,7 @@ export function SourceStep({ disabled, onCreate }: SourceStepProps) {
             <CommandItem
               key={source.value}
               value={source}
-              disabled={disabled}
+              disabled={disabled || source.soon}
               onClick={() =>
                 source.step
                   ? navigate({ to: "/projects/new", search: { step: source.step } })
@@ -56,7 +59,11 @@ export function SourceStep({ disabled, onCreate }: SourceStepProps) {
             >
               <source.icon className="size-4" />
               <span className="flex-1">{source.label}</span>
-              {source.step && <ChevronRightIcon className="size-4 text-muted-foreground" />}
+              {source.soon ? (
+                <Badge variant="secondary">Coming soon</Badge>
+              ) : (
+                source.step && <ChevronRightIcon className="size-4 text-muted-foreground" />
+              )}
             </CommandItem>
           )}
         </CommandList>
