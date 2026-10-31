@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use brume_proto::api::LogLevel;
+use brume_proto::api::{LogLevel, LogLineDto};
 use brume_proto::telemetry::{LogBatch, LogQuery, LogStreamFrame, RawLogLine, StdStream};
 use brume_telemetry::framed::{FramedReader, FramedWriter};
 use brume_telemetry::level::classify;
@@ -222,6 +222,30 @@ fn query(environment_id: &str, follow: bool) -> LogQuery {
     }
 }
 
+/// Asks for the history of `environment_id`, without follow, until it is not empty, and checks
+/// that `End` closes it. Ingestion has no acknowledgement.
+async fn wait_for_history(paths: &Paths, environment_id: &str) -> Vec<LogLineDto> {
+    for _ in 0..200 {
+        let (mut reader, mut writer) = connect(paths.telemetry_query_socket()).await;
+        writer
+            .send(&query(environment_id, false))
+            .await
+            .expect("sends");
+        match next_lines(&mut reader).await {
+            Some(LogStreamFrame::Lines(lines)) => {
+                assert_eq!(next_lines(&mut reader).await, Some(LogStreamFrame::End));
+                assert_eq!(next_lines(&mut reader).await, None);
+                return lines;
+            }
+            Some(LogStreamFrame::End) => {
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+            None => panic!("closed without End"),
+        }
+    }
+    panic!("the lines never arrived");
+}
+
 #[tokio::test]
 async fn history_without_follow_ends() {
     let home = home();
@@ -234,25 +258,9 @@ async fn history_without_follow_ends() {
         .await
         .expect("sends");
 
-    // Ingestion has no acknowledgement: ask until the line is there.
-    for _ in 0..200 {
-        let (mut reader, mut writer) = connect(paths.telemetry_query_socket()).await;
-        writer.send(&query("env", false)).await.expect("sends");
-        match next_lines(&mut reader).await {
-            Some(LogStreamFrame::Lines(lines)) => {
-                let messages: Vec<&str> = lines.iter().map(|l| l.message.as_str()).collect();
-                assert_eq!(messages, vec!["one"]);
-                assert_eq!(next_lines(&mut reader).await, Some(LogStreamFrame::End));
-                assert_eq!(next_lines(&mut reader).await, None);
-                return;
-            }
-            Some(LogStreamFrame::End) => {
-                tokio::time::sleep(Duration::from_millis(25)).await;
-            }
-            None => panic!("closed without End"),
-        }
-    }
-    panic!("the line never arrived");
+    let lines = wait_for_history(&paths, "env").await;
+    let messages: Vec<&str> = lines.iter().map(|l| l.message.as_str()).collect();
+    assert_eq!(messages, vec!["one"]);
 }
 
 #[tokio::test]
@@ -266,9 +274,19 @@ async fn follow_receives_a_line_inserted_after_it_opened() {
         })
         .await
         .expect("sends");
+    wait_for_history(&paths, "env").await;
 
+    // The query subscribes before it reads the history: once the history frame is here, a new
+    // line can only come from the live relay.
     let (mut reader, mut writer) = connect(paths.telemetry_query_socket()).await;
     writer.send(&query("env", true)).await.expect("sends");
+    match next_lines(&mut reader).await {
+        Some(LogStreamFrame::Lines(lines)) => {
+            let messages: Vec<&str> = lines.iter().map(|l| l.message.as_str()).collect();
+            assert_eq!(messages, vec!["before"]);
+        }
+        other => panic!("expected the history, got {other:?}"),
+    }
     ingest
         .send(&LogBatch {
             lines: vec![
@@ -279,15 +297,13 @@ async fn follow_receives_a_line_inserted_after_it_opened() {
         .await
         .expect("sends");
 
-    let mut received = Vec::new();
-    while received.len() < 2 {
-        match next_lines(&mut reader).await {
-            Some(LogStreamFrame::Lines(lines)) => received.extend(lines),
-            other => panic!("expected lines, got {other:?}"),
+    match next_lines(&mut reader).await {
+        Some(LogStreamFrame::Lines(lines)) => {
+            assert_eq!(lines.len(), 1);
+            assert_eq!(lines[0].message, "[warn] after");
+            assert_eq!(lines[0].level, LogLevel::Warn);
+            assert_eq!(lines[0].id, "3");
         }
+        other => panic!("expected the live line, got {other:?}"),
     }
-    let messages: Vec<&str> = received.iter().map(|l| l.message.as_str()).collect();
-    assert_eq!(messages, vec!["before", "[warn] after"]);
-    assert_eq!(received[1].level, LogLevel::Warn);
-    assert_eq!(received[1].id, "3");
 }

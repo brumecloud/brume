@@ -183,6 +183,15 @@ impl Reader {
         history(&self.connection, query)
     }
 
+    /// Another connection to the same database.
+    pub fn try_clone(&self) -> anyhow::Result<Reader> {
+        let connection = self
+            .connection
+            .try_clone()
+            .context("cannot open a reader on the log database")?;
+        Ok(Reader { connection })
+    }
+
     /// Stops the query running on this connection, from another thread.
     pub fn interrupt_handle(&self) -> Arc<InterruptHandle> {
         self.connection.interrupt_handle()

@@ -23,9 +23,9 @@ use tokio::sync::broadcast;
 use crate::paths::Paths;
 use crate::store::{Reader, Store, StoredLine};
 
-/// Lines kept for live queries that read slower than the agent writes. A query that falls
-/// further behind catches up from the database.
-const LIVE_CAPACITY: usize = 16_384;
+/// Lines kept for live queries that read slower than the agent writes, at most 64 MiB of
+/// messages. A query that falls further behind catches up from the database.
+const LIVE_CAPACITY: usize = 4_096;
 
 /// Lines older than this are deleted.
 const RETENTION: Duration = Duration::from_secs(7 * 24 * 60 * 60);
@@ -43,10 +43,10 @@ pub async fn run(home: PathBuf) -> anyhow::Result<()> {
     }
     create_private_dir(&paths.run_dir())?;
     let store = Store::open(&db)?;
-    let shared = Arc::new(Shared::new(store));
+    let shared = Arc::new(Shared::new(store)?);
     let ingest = bind(&paths.telemetry_ingest_socket())?;
     let query = bind(&paths.telemetry_query_socket())?;
-    tracing::info!(home = %paths.run_dir().display(), "telemetry is listening");
+    tracing::info!(run_dir = %paths.run_dir().display(), "telemetry is listening");
     tokio::try_join!(
         ingest::serve(ingest, Arc::clone(&shared)),
         query::serve(query, Arc::clone(&shared)),
@@ -58,16 +58,20 @@ pub async fn run(home: PathBuf) -> anyhow::Result<()> {
 /// The state that the connections share.
 pub(crate) struct Shared {
     store: Mutex<Store>,
+    /// The connection that queries clone theirs from. Its own lock, which inserts and deletes
+    /// never take, so a query never waits for them.
+    readers: Mutex<Reader>,
     live: broadcast::Sender<StoredLine>,
 }
 
 impl Shared {
-    fn new(store: Store) -> Self {
+    fn new(store: Store) -> anyhow::Result<Self> {
         let (live, _) = broadcast::channel(LIVE_CAPACITY);
-        Self {
+        Ok(Self {
+            readers: Mutex::new(store.reader()?),
             store: Mutex::new(store),
             live,
-        }
+        })
     }
 
     /// Stores `lines` and publishes them to the live queries. Blocking. Publishing under the
@@ -91,10 +95,10 @@ impl Shared {
 
     /// A connection of its own for a query.
     pub(crate) fn reader(&self) -> anyhow::Result<Reader> {
-        self.store
+        self.readers
             .lock()
-            .map_err(|_| anyhow::anyhow!("the log store lock is poisoned"))?
-            .reader()
+            .map_err(|_| anyhow::anyhow!("the log reader lock is poisoned"))?
+            .try_clone()
     }
 
     /// Deletes the lines older than `RETENTION`. Blocking.
