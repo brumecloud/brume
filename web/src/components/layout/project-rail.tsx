@@ -1,5 +1,5 @@
 import { createLink, useMatchRoute } from "@tanstack/react-router";
-import { ScrollTextIcon, WorkflowIcon } from "lucide-react";
+import { ScrollTextIcon, VariableIcon, WorkflowIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import type { ProjectId } from "~/api/types";
@@ -27,6 +27,7 @@ export function ProjectRail({ projectId, environmentName }: ProjectRailProps) {
   const params = { projectId, env: environmentName };
   // The canvas owns every other page of the environment, service panels included.
   const onLogs = Boolean(matchRoute({ to: "/projects/$projectId/$env/logs", params }));
+  const onVariables = Boolean(matchRoute({ to: "/projects/$projectId/$env/variables", params }));
 
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-2 pt-2 max-md:hidden">
@@ -37,7 +38,7 @@ export function ProjectRail({ projectId, environmentName }: ProjectRailProps) {
               to="/projects/$projectId/$env"
               params={params}
               aria-label="Architecture"
-              data-active={!onLogs}
+              data-active={!onLogs && !onVariables}
             />
           }
         >
@@ -59,6 +60,21 @@ export function ProjectRail({ projectId, environmentName }: ProjectRailProps) {
           <ScrollTextIcon />
         </TooltipTrigger>
         <TooltipPopup side="right">Logs</TooltipPopup>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <RailLink
+              to="/projects/$projectId/$env/variables"
+              params={params}
+              aria-label="Shared variables"
+              data-active={onVariables}
+            />
+          }
+        >
+          <VariableIcon />
+        </TooltipTrigger>
+        <TooltipPopup side="right">Shared variables</TooltipPopup>
       </Tooltip>
     </nav>
   );

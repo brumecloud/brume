@@ -102,6 +102,27 @@ export interface Variable {
   readonly kind: VariableKind;
   // Always null for a secret: the API only sends it through an explicit, audited reveal.
   readonly value: string | null;
+  // A service secret that points to a shared one by name: resolved at deploy time on the
+  // service, then the environment, then the project.
+  readonly reference: boolean;
+}
+
+// The services a shared value reaches: those that do not override it at a more precise level.
+export interface VariableImpact {
+  readonly services: readonly {
+    readonly serviceId: ServiceId;
+    readonly environmentId: EnvironmentId;
+  }[];
+}
+
+export type SharedVariableLevel = Extract<VariableLevel, "project" | "environment">;
+
+export interface SharedVariableResult {
+  readonly variable: Variable;
+  // The redeploys a plain or build variable triggers. Empty for a secret.
+  readonly deployments: readonly Deployment[];
+  // The services referencing a secret: they keep the old value until their next deployment.
+  readonly referencedBy: readonly ServiceId[];
 }
 
 export type ServiceSource =
@@ -207,6 +228,7 @@ export type NewChange =
       readonly type: "variable";
       readonly name: string;
       readonly kind: VariableKind;
-      readonly value: string;
+      // Null for a secret that references a shared one by its name.
+      readonly value: string | null;
     }
   | { readonly serviceId: ServiceId; readonly type: "variable-removal"; readonly name: string };

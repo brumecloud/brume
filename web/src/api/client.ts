@@ -23,8 +23,10 @@ export function apiPost<T>(path: ApiPath, body: unknown, decode: (raw: unknown) 
   return request("POST", path, body, decode);
 }
 
-export function apiDelete(path: ApiPath): Promise<void> {
-  return request("DELETE", path, undefined, () => undefined);
+export function apiDelete(path: ApiPath): Promise<void>;
+export function apiDelete<T>(path: ApiPath, decode: (raw: unknown) => T): Promise<T>;
+export function apiDelete(path: ApiPath, decode: (raw: unknown) => unknown = () => undefined) {
+  return request("DELETE", path, undefined, decode);
 }
 
 async function request<T>(

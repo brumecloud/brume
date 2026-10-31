@@ -7,6 +7,9 @@ import {
   createEnvironment,
   createProject,
   createService,
+  removeSharedVariable,
+  setSharedVariable,
+  variableImpact,
   currentSettings,
   db,
   deleteService,
@@ -166,6 +169,27 @@ export const handlers = [
   http.get("/api/variables", async () => {
     await delay(LATENCY_MS);
     return HttpResponse.json(db.variables);
+  }),
+
+  http.get("/api/variables/impact", async ({ request }) => {
+    await delay(LATENCY_MS);
+    const impact = variableImpact(new URL(request.url).searchParams);
+    return "message" in impact
+      ? HttpResponse.json({ message: impact.message }, { status: impact.status })
+      : HttpResponse.json(impact);
+  }),
+
+  http.post("/api/variables", async ({ request }) => {
+    await delay(LATENCY_MS * 2);
+    return created(setSharedVariable(await request.json()));
+  }),
+
+  http.delete("/api/variables/:variableId", async ({ params }) => {
+    await delay(LATENCY_MS * 2);
+    const removal = removeSharedVariable(String(params.variableId));
+    return "message" in removal
+      ? HttpResponse.json({ message: removal.message }, { status: removal.status })
+      : HttpResponse.json(removal);
   }),
 
   http.get("/api/changes", async () => {

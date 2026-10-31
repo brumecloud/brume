@@ -7,7 +7,14 @@ import type {
   VariableLevel,
 } from "~/api/types";
 
-import { decodeArray, decodeRecord, readNullable, readOneOf, readString } from "./decode";
+import {
+  decodeArray,
+  decodeRecord,
+  readBoolean,
+  readNullable,
+  readOneOf,
+  readString,
+} from "./decode";
 import { isDatabase } from "./services";
 
 const LEVELS: readonly VariableLevel[] = ["project", "environment", "service"];
@@ -25,7 +32,7 @@ export function parseVariables(raw: unknown): Variable[] {
   return decodeArray(raw, parseVariable, "variables");
 }
 
-function parseVariable(raw: unknown): Variable {
+export function parseVariable(raw: unknown): Variable {
   const record = decodeRecord(raw, "variable");
   return {
     id: readString(record, "id", "variable") as VariableId,
@@ -34,6 +41,7 @@ function parseVariable(raw: unknown): Variable {
     name: readString(record, "name", "variable"),
     kind: readOneOf(record, "kind", KINDS, "variable"),
     value: readNullable(record, "value", "variable", readString),
+    reference: readBoolean(record, "reference", "variable"),
   };
 }
 

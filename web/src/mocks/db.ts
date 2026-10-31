@@ -1,8 +1,8 @@
 import { withStagedSettings } from "~/helpers/changes";
 import { parseImageReference } from "~/helpers/new-project";
 import { parseEnvironmentName } from "~/helpers/projects";
-import { serviceNameError } from "~/helpers/services";
-import { resolveVariables } from "~/helpers/variables";
+import { isDatabase, serviceNameError } from "~/helpers/services";
+import { parseVariableKind, parseVariableName, resolveVariables } from "~/helpers/variables";
 
 import type {
   ChangeId,
@@ -15,6 +15,9 @@ import type {
   StagedChange,
   Variable,
   VariableId,
+  VariableImpact,
+  VariableKind,
+  VariableLevel,
   Environment,
   EnvironmentId,
   NewProjectSource,
@@ -383,7 +386,9 @@ export function revisionFor(deployment: Deployment): Revision | undefined {
       name: variable.name,
       kind: variable.kind,
       value: variable.value,
-      origin,
+      origin: variable.reference
+        ? (sharedSecretOrigin(variable.name, environment) ?? origin)
+        : origin,
     })),
   };
 }
@@ -468,6 +473,8 @@ function applyVariableChange(change: StagedChange): void {
   if (change.type === "variable-removal") {
     return;
   }
+  // A secret staged without a value references the shared one of the same name.
+  const reference = change.kind === "secret" && change.value === null;
   const variable: Variable = {
     id: existing?.id ?? (crypto.randomUUID() as VariableId),
     level: "service",
@@ -475,10 +482,198 @@ function applyVariableChange(change: StagedChange): void {
     name: change.name,
     kind: change.kind,
     value: change.kind === "secret" ? null : change.value,
+    reference,
   };
-  if (change.kind === "secret") {
+  if (change.kind === "secret" && !reference) {
     db.secretValues.set(variable.id, db.stagedSecrets.get(change.id) ?? "");
     db.stagedSecrets.delete(change.id);
   }
   db.variables.push(variable);
+}
+
+// Where a referenced secret resolves: the environment, then the project.
+function sharedSecretOrigin(name: string, environment: Environment): VariableLevel | undefined {
+  const holds = (level: VariableLevel, ownerId: string) =>
+    db.variables.some(
+      (variable) =>
+        variable.level === level &&
+        variable.ownerId === ownerId &&
+        variable.name === name &&
+        variable.kind === "secret",
+    );
+  if (holds("environment", environment.id)) {
+    return "environment";
+  }
+  return holds("project", environment.projectId) ? "project" : undefined;
+}
+
+type SharedLevel = Extract<VariableLevel, "project" | "environment">;
+
+const MAX_VALUE_BYTES = 32 * 1024;
+
+// The services a shared value reaches. A plain or build value reaches every service that does not
+// override it, databases aside; a secret only the services that reference it.
+function reachedServices(
+  level: SharedLevel,
+  ownerId: string,
+  name: string,
+  kind: VariableKind,
+): Service[] {
+  const environments = db.environments.filter((environment) =>
+    level === "project" ? environment.projectId === ownerId : environment.id === ownerId,
+  );
+  const named = db.variables.filter((variable) => variable.name === name);
+  const overridden = (at: VariableLevel, holder: string) =>
+    named.some((variable) => variable.level === at && variable.ownerId === holder);
+  return environments.flatMap((environment) =>
+    db.services.filter((service) => {
+      if (service.environmentId !== environment.id) {
+        return false;
+      }
+      if (level === "project" && overridden("environment", environment.id)) {
+        return false;
+      }
+      if (kind === "secret") {
+        return named.some(
+          (variable) =>
+            variable.level === "service" && variable.ownerId === service.id && variable.reference,
+        );
+      }
+      const reaches = !isDatabase(service.kind) && (service.kind !== "static" || kind === "build");
+      return reaches && !overridden("service", service.id);
+    }),
+  );
+}
+
+function sharedOwner(level: unknown, ownerId: unknown): { level: SharedLevel; projectId: string } {
+  if (level === "project" && db.projects.some(({ id }) => id === ownerId)) {
+    return { level, projectId: String(ownerId) };
+  }
+  const environment = db.environments.find(({ id }) => id === ownerId);
+  return level === "environment" && environment
+    ? { level, projectId: environment.projectId }
+    : { level: "project", projectId: "" };
+}
+
+// The variables of every level of a project.
+function projectVariables(projectId: string): Variable[] {
+  const environments = new Set<string>(
+    db.environments
+      .filter((environment) => environment.projectId === projectId)
+      .map(({ id }) => id),
+  );
+  const services = new Set<string>(
+    db.services.filter((service) => environments.has(service.environmentId)).map(({ id }) => id),
+  );
+  return db.variables.filter(
+    (variable) =>
+      variable.ownerId === projectId ||
+      environments.has(variable.ownerId) ||
+      services.has(variable.ownerId),
+  );
+}
+
+export function variableImpact(params: URLSearchParams): VariableImpact | Refusal {
+  const level = params.get("level");
+  const ownerId = params.get("ownerId") ?? "";
+  const name = params.get("name") ?? "";
+  const owner = sharedOwner(level, ownerId);
+  if (!owner.projectId || !parseVariableName(name)) {
+    return refuse(400, "Invalid level, owner or name.");
+  }
+  const existing = db.variables.find(
+    (variable) =>
+      variable.level === owner.level && variable.ownerId === ownerId && variable.name === name,
+  );
+  return {
+    services: reachedServices(owner.level, ownerId, name, existing?.kind ?? "plain").map(
+      (service) => ({ serviceId: service.id, environmentId: service.environmentId }),
+    ),
+  };
+}
+
+const redeployAll = (services: readonly Service[]): Deployment[] =>
+  services.flatMap((service) => {
+    const active = db.deployments.find(
+      (deployment) => deployment.serviceId === service.id && deployment.status === "active",
+    );
+    return active ? [deploy(active, "admin")] : [];
+  });
+
+export function setSharedVariable(
+  raw: unknown,
+): { variable: Variable; deployments: Deployment[]; referencedBy: ServiceId[] } | Refusal {
+  const body = bodyOf(raw);
+  const owner = sharedOwner(body.level, body.ownerId);
+  const name = typeof body.name === "string" ? parseVariableName(body.name) : undefined;
+  const kind = parseVariableKind(body.kind);
+  const value = body.value;
+  if (!owner.projectId || !name || !kind || typeof value !== "string") {
+    return refuse(400, "Invalid shared variable.");
+  }
+  if (new TextEncoder().encode(value).length > MAX_VALUE_BYTES) {
+    return refuse(400, "A value holds 32 KiB at most.");
+  }
+  const ownerId = String(body.ownerId);
+  const existing = db.variables.find(
+    (variable) =>
+      variable.level === owner.level && variable.ownerId === ownerId && variable.name === name,
+  );
+  const clash = projectVariables(owner.projectId).find(
+    (variable) =>
+      variable !== existing &&
+      variable.name === name &&
+      (variable.kind === "secret") !== (kind === "secret"),
+  );
+  if (clash) {
+    return refuse(
+      409,
+      `${name} is already a ${clash.kind === "secret" ? "secret" : "variable"} in this project.`,
+    );
+  }
+  const variable: Variable = {
+    id: existing?.id ?? (crypto.randomUUID() as VariableId),
+    level: owner.level,
+    ownerId,
+    name,
+    kind,
+    value: kind === "secret" ? null : value,
+    reference: false,
+  };
+  db.variables = [...db.variables.filter((other) => other !== existing), variable];
+  const reached = reachedServices(owner.level, ownerId, name, kind);
+  if (kind === "secret") {
+    db.secretValues.set(variable.id, value);
+    return { variable, deployments: [], referencedBy: reached.map((service) => service.id) };
+  }
+  db.secretValues.delete(variable.id);
+  return { variable, deployments: redeployAll(reached), referencedBy: [] };
+}
+
+export function removeSharedVariable(variableId: string): { deployments: Deployment[] } | Refusal {
+  const variable = db.variables.find(({ id }) => id === variableId);
+  if (!variable) {
+    return refuse(404, "Variable not found.");
+  }
+  if (variable.level === "service") {
+    return refuse(400, "A service variable changes through a staged change.");
+  }
+  const reached = reachedServices(variable.level, variable.ownerId, variable.name, variable.kind);
+  if (variable.kind === "secret") {
+    const users = reached.filter((service) =>
+      db.deployments.some(
+        (deployment) => deployment.serviceId === service.id && deployment.status === "active",
+      ),
+    );
+    if (users.length > 0) {
+      const names = users.map((service) => {
+        const environment = db.environments.find(({ id }) => id === service.environmentId);
+        return `${service.name} (${environment?.name ?? "?"})`;
+      });
+      return refuse(409, `${variable.name} is still referenced by ${names.join(", ")}.`);
+    }
+  }
+  db.variables = db.variables.filter((other) => other !== variable);
+  db.secretValues.delete(variable.id);
+  return { deployments: variable.kind === "secret" ? [] : redeployAll(reached) };
 }

@@ -195,6 +195,7 @@ const variable = (name: string, kind: Variable["kind"] = "plain"): Variable => (
   name,
   kind,
   value: kind === "secret" ? null : `${name}-value`,
+  reference: false,
 });
 
 describe("stagedVariableRows", () => {

@@ -34,7 +34,16 @@ async function refresh(): Promise<void> {
 }
 
 export async function redeploy(serviceId: ServiceId): Promise<void> {
-  await apiPost(`/api/services/${serviceId}/redeploy`, {}, () => undefined);
+  await redeployServices([serviceId]);
+}
+
+// After a shared secret changes: its services take the new value at their next deployment.
+export async function redeployServices(serviceIds: readonly ServiceId[]): Promise<void> {
+  await Promise.all(
+    serviceIds.map((serviceId) =>
+      apiPost(`/api/services/${serviceId}/redeploy`, {}, () => undefined),
+    ),
+  );
   await refresh();
 }
 

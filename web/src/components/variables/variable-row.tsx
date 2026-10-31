@@ -27,7 +27,9 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
     gcTime: 0,
   });
   const removal = useMutation({ mutationFn: stageChange });
-  const revealable = row.kind === "secret" && variable && !draft;
+  // A reference has no value of its own: the shared secret resolves at deploy time.
+  const shared = Boolean(variable?.reference) && !draft;
+  const revealable = row.kind === "secret" && variable && !draft && !shared;
 
   return (
     <div
@@ -40,10 +42,15 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
         </span>
         {row.kind !== "plain" && <Badge variant="outline">{KIND_LABELS[row.kind]}</Badge>}
         {row.origin !== "service" && <Badge variant="secondary">{ORIGIN_LABELS[row.origin]}</Badge>}
+        {shared && <Badge variant="secondary">Shared</Badge>}
         {draft && <Badge variant="info">{DRAFT_LABELS[draft]}</Badge>}
       </span>
       <span className="truncate font-mono text-muted-foreground text-sm sm:col-span-5">
-        {row.kind === "secret" ? (reveal.data ?? "••••••••") : row.value}
+        {shared
+          ? "Resolved at deploy time"
+          : row.kind === "secret"
+            ? (reveal.data ?? "••••••••")
+            : row.value}
       </span>
       <span className="flex justify-end gap-1 sm:col-span-2">
         {revealable && (
@@ -69,19 +76,21 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
         ) : (
           row.origin === "service" && (
             <>
-              <VariableDialog
-                serviceId={serviceId}
-                initial={{
-                  name: row.name,
-                  kind: row.kind,
-                  value: row.kind === "secret" ? "" : (row.value ?? ""),
-                }}
-                trigger={
-                  <Button variant="ghost" size="icon-sm" aria-label={`Edit ${row.name}`}>
-                    <PencilIcon />
-                  </Button>
-                }
-              />
+              {!shared && (
+                <VariableDialog
+                  serviceId={serviceId}
+                  initial={{
+                    name: row.name,
+                    kind: row.kind,
+                    value: row.kind === "secret" ? "" : (row.value ?? ""),
+                  }}
+                  trigger={
+                    <Button variant="ghost" size="icon-sm" aria-label={`Edit ${row.name}`}>
+                      <PencilIcon />
+                    </Button>
+                  }
+                />
+              )}
               <Button
                 variant="ghost"
                 size="icon-sm"
