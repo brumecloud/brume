@@ -22,11 +22,11 @@ interface Source {
 }
 
 const SOURCES: readonly Source[] = [
-  { value: "github", label: "Dépôt GitHub", icon: GitHubIcon, step: "github" },
-  { value: "database", label: "Base de données", icon: DatabaseIcon, step: "database" },
-  { value: "static", label: "Site statique", icon: GlobeIcon, step: "static" },
-  { value: "image", label: "Image Docker", icon: DockerIcon, step: "image" },
-  { value: "empty", label: "Projet vide", icon: SquareDashedIcon },
+  { value: "github", label: "GitHub repository", icon: GitHubIcon, step: "github" },
+  { value: "database", label: "Database", icon: DatabaseIcon, step: "database" },
+  { value: "static", label: "Static site", icon: GlobeIcon, step: "static" },
+  { value: "image", label: "Docker image", icon: DockerIcon, step: "image" },
+  { value: "empty", label: "Empty project", icon: SquareDashedIcon },
 ];
 
 interface SourceStepProps {
@@ -39,9 +39,9 @@ export function SourceStep({ disabled, onCreate }: SourceStepProps) {
 
   return (
     <Command items={SOURCES}>
-      <CommandInput placeholder="Que voulez-vous déployer ?" />
+      <CommandInput placeholder="What do you want to deploy?" />
       <CommandPanel>
-        <CommandEmpty>Aucune source ne correspond.</CommandEmpty>
+        <CommandEmpty>No matching sources.</CommandEmpty>
         <CommandList>
           {(source: Source) => (
             <CommandItem

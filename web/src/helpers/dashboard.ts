@@ -3,7 +3,7 @@ import type { Environment, Project, Service } from "~/api/types";
 import { defaultEnvironment } from "./projects";
 
 const MAX_QUERY_LENGTH = 100;
-const DAY_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+const DAY_FORMAT = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   month: "short",
   year: "numeric",
@@ -74,9 +74,9 @@ function byRecentActivity(a: Project, b: Project): number {
 
 export function projectCountLabel(count: number): string {
   if (count === 0) {
-    return "Aucun projet";
+    return "No projects";
   }
-  return `${count} ${count > 1 ? "projets" : "projet"}`;
+  return `${count} ${count > 1 ? "projects" : "project"}`;
 }
 
 export function projectHealth(online: number, total: number): ProjectHealth {
@@ -88,9 +88,9 @@ export function projectHealth(online: number, total: number): ProjectHealth {
 
 export function servicesOnlineLabel(online: number, total: number): string {
   if (total === 0) {
-    return "Aucun service";
+    return "No services";
   }
-  return `${online}/${total} ${total > 1 ? "services" : "service"} en ligne`;
+  return `${online}/${total} ${total > 1 ? "services" : "service"} online`;
 }
 
 export function formatDay(iso: string): string {

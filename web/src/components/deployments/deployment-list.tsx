@@ -44,7 +44,7 @@ export function DeploymentList({ serviceId }: { readonly serviceId: ServiceId })
           onClick={() => redeployment.mutate()}
         >
           <RotateCwIcon />
-          Redéployer
+          Redeploy
         </Button>
       </div>
       {redeployment.error && (
@@ -55,12 +55,12 @@ export function DeploymentList({ serviceId }: { readonly serviceId: ServiceId })
       {active ? (
         <DeploymentCard service={service} deployment={active} />
       ) : (
-        <p className="text-muted-foreground text-sm">Aucun déploiement actif.</p>
+        <p className="text-muted-foreground text-sm">No active deployment.</p>
       )}
       {others.length > 0 && (
         <section className="flex flex-col gap-3">
           <h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-            Historique
+            History
           </h3>
           {others.map((deployment) => (
             <DeploymentCard key={deployment.id} service={service} deployment={deployment} />

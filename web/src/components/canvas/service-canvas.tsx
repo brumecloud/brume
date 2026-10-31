@@ -44,8 +44,8 @@ export function ServiceCanvas({ projectId, environmentName, environmentId }: Ser
           <EmptyMedia variant="icon">
             <BoxesIcon />
           </EmptyMedia>
-          <EmptyTitle>Aucun service</EmptyTitle>
-          <EmptyDescription>Cet environnement ne contient encore aucun service.</EmptyDescription>
+          <EmptyTitle>No services</EmptyTitle>
+          <EmptyDescription>This environment has no services yet.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );

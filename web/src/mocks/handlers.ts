@@ -18,8 +18,9 @@ import {
 import { backlog, deploymentLogs, liveLine } from "./logs";
 import { branchesOf, repositories } from "./seed";
 
-// Enough to see loading states, not enough to get in the way.
-const LATENCY_MS = 150;
+// Enough to see loading states, not enough to get in the way. The demo on brume.dev has to start
+// fast: there, a loading state is something to wait for, not something to check.
+const LATENCY_MS = import.meta.env.MODE === "demo" ? 40 : 150;
 
 export const handlers = [
   // The real server rejects any request without this header: so does the mock. EventSource
@@ -41,7 +42,7 @@ export const handlers = [
     await delay(LATENCY_MS * 4);
     const source = readNewProjectSource(await request.json());
     if (!source) {
-      return HttpResponse.json({ message: "Source de projet invalide." }, { status: 400 });
+      return HttpResponse.json({ message: "Invalid project source." }, { status: 400 });
     }
     return HttpResponse.json(createProject(source), { status: 201 });
   }),
@@ -65,7 +66,7 @@ export const handlers = [
     await delay(LATENCY_MS);
     const fullName = `${String(params.owner)}/${String(params.name)}`;
     if (!repositories.some((repository) => repository.fullName === fullName)) {
-      return HttpResponse.json({ message: "Dépôt introuvable." }, { status: 404 });
+      return HttpResponse.json({ message: "Repository not found." }, { status: 404 });
     }
     return HttpResponse.json(branchesOf(fullName));
   }),
@@ -75,7 +76,7 @@ export const handlers = [
     const service = db.services.find(({ id }) => id === params.serviceId);
     return service
       ? HttpResponse.json(currentSettings(service))
-      : HttpResponse.json({ message: "Service introuvable." }, { status: 404 });
+      : HttpResponse.json({ message: "Service not found." }, { status: 404 });
   }),
 
   http.delete("/api/services/:serviceId", async ({ params }) => {
@@ -96,7 +97,7 @@ export const handlers = [
       (deployment) => deployment.serviceId === params.serviceId && deployment.status === "active",
     );
     if (!active) {
-      return HttpResponse.json({ message: "Aucun déploiement à relancer." }, { status: 409 });
+      return HttpResponse.json({ message: "No deployment to redeploy." }, { status: 409 });
     }
     return HttpResponse.json(deploy(active, "admin"), { status: 201 });
   }),
@@ -106,7 +107,7 @@ export const handlers = [
     const target = db.deployments.find(({ id }) => id === params.deploymentId);
     if (!target?.rollbackable) {
       return HttpResponse.json(
-        { message: "L'artefact de ce déploiement n'existe plus." },
+        { message: "This deployment's artifact no longer exists." },
         { status: 409 },
       );
     }
@@ -153,7 +154,7 @@ export const handlers = [
     await delay(LATENCY_MS);
     const value = db.secretValues.get(String(params.variableId));
     return value === undefined
-      ? HttpResponse.json({ message: "Secret introuvable." }, { status: 404 })
+      ? HttpResponse.json({ message: "Secret not found." }, { status: 404 })
       : HttpResponse.json({ value });
   }),
 
@@ -194,7 +195,7 @@ export const handlers = [
     const revision = deployment && revisionFor(deployment);
     return revision
       ? HttpResponse.json(revision)
-      : HttpResponse.json({ message: "Déploiement introuvable." }, { status: 404 });
+      : HttpResponse.json({ message: "Deployment not found." }, { status: 404 });
   }),
 
   http.get("/api/deployments/:deploymentId/logs", async ({ params, request }) => {
@@ -205,7 +206,7 @@ export const handlers = [
       new URL(request.url).searchParams.get("stream") === "deploy" ? "deploy" : "build";
     return deployment && service
       ? HttpResponse.json(deploymentLogs(deployment, service, stream))
-      : HttpResponse.json({ message: "Déploiement introuvable." }, { status: 404 });
+      : HttpResponse.json({ message: "Deployment not found." }, { status: 404 });
   }),
 
   // An API route without a mock fails clearly instead of returning index.html.

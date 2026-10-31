@@ -27,9 +27,9 @@ export function RepositoryStep({ kind, disabled, onCreate }: RepositoryStepProps
       // Base UI hands back the items given above.
       itemToStringValue={(item) => (item as Repository).fullName}
     >
-      <CommandInput placeholder="Rechercher un dépôt…" />
+      <CommandInput placeholder="Search repositories…" />
       <CommandPanel>
-        <CommandEmpty>Aucun dépôt ne correspond.</CommandEmpty>
+        <CommandEmpty>No matching repositories.</CommandEmpty>
         <CommandList>
           {(repository: Repository) => (
             <CommandItem

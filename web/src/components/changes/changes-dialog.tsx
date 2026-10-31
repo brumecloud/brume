@@ -24,12 +24,12 @@ interface ChangesDialogProps {
 export function ChangesDialog({ changes, services }: ChangesDialogProps) {
   return (
     <Dialog>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>Détails</DialogTrigger>
+      <DialogTrigger render={<Button variant="outline" size="sm" />}>Details</DialogTrigger>
       <DialogPopup>
         <DialogHeader>
-          <DialogTitle>Changements en attente</DialogTitle>
+          <DialogTitle>Pending changes</DialogTitle>
           <DialogDescription>
-            Ils s'appliquent ensemble au prochain déploiement : une nouvelle révision par service.
+            They apply together on the next deployment: one new revision per service.
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
@@ -49,7 +49,7 @@ export function ChangesDialog({ changes, services }: ChangesDialogProps) {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label="Annuler ce changement"
+                        aria-label="Discard this change"
                         onClick={() => unstageChange(change.id)}
                       >
                         <Undo2Icon />

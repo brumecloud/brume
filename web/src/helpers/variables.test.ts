@@ -170,7 +170,7 @@ describe("variableWarnings", () => {
 
 describe("variableCountLabel", () => {
   it.each([
-    [0, "Aucune variable"],
+    [0, "No variables"],
     [1, "1 variable"],
     [14, "14 variables"],
   ])("%i → %s", (count, label) => {

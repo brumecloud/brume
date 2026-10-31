@@ -39,17 +39,17 @@ const FIELDS: readonly SettingField[] = [
 const KINDS: readonly VariableKind[] = ["plain", "build", "secret"];
 
 const FIELD_LABELS: Record<SettingField, string> = {
-  repository: "Dépôt",
-  branch: "Branche",
-  autoDeploy: "Déploiement automatique",
+  repository: "Repository",
+  branch: "Branch",
+  autoDeploy: "Auto deploy",
   image: "Image",
-  startCommand: "Commande de démarrage",
+  startCommand: "Start command",
   port: "Port",
   healthcheckPath: "Healthcheck",
-  cpuLimit: "Limite CPU",
-  memoryLimitMb: "Limite mémoire",
-  egress: "Accès Internet sortant",
-  domains: "Domaines publics",
+  cpuLimit: "CPU limit",
+  memoryLimitMb: "Memory limit",
+  egress: "Outbound internet access",
+  domains: "Public domains",
 };
 
 // The steps of the limit sliders.
@@ -235,20 +235,20 @@ export function validateSetting(
       const port = Number(text);
       return /^\d+$/.test(text) && port >= 1 && port <= 65_535
         ? { value: port }
-        : { error: "Un port entre 1 et 65535." };
+        : { error: "A port between 1 and 65535." };
     }
     case "healthcheckPath":
       return text === "" || /^\/\S{0,200}$/.test(text)
         ? { value: text }
-        : { error: "Un chemin qui commence par /, sans espace." };
+        : { error: "A path that starts with /, with no spaces." };
     case "image": {
       const image = parseImageReference(text);
-      return image ? { value: image } : { error: "Référence d'image invalide." };
+      return image ? { value: image } : { error: "Invalid image reference." };
     }
     case "startCommand":
       return text.length <= MAX_COMMAND_LENGTH
         ? { value: text }
-        : { error: `${MAX_COMMAND_LENGTH} caractères au plus.` };
+        : { error: `${MAX_COMMAND_LENGTH} characters at most.` };
   }
 }
 
@@ -258,15 +258,15 @@ export function parseDomain(raw: string): string | undefined {
 }
 
 export function changeCountLabel(count: number): string {
-  return `Appliquer ${count} ${count > 1 ? "changements" : "changement"}`;
+  return `Apply ${count} ${count > 1 ? "changes" : "change"}`;
 }
 
 function formatSetting(field: SettingField, value: SettingValue): string {
   if (typeof value === "boolean") {
-    return value ? "activé" : "désactivé";
+    return value ? "on" : "off";
   }
   if (Array.isArray(value)) {
-    return value.length === 0 ? "aucun" : value.join(", ");
+    return value.length === 0 ? "none" : value.join(", ");
   }
   if (field === "cpuLimit" && typeof value === "number") {
     return formatCpu(value);
@@ -274,7 +274,7 @@ function formatSetting(field: SettingField, value: SettingValue): string {
   if (field === "memoryLimitMb" && typeof value === "number") {
     return formatMemory(value);
   }
-  return String(value) || "par défaut";
+  return String(value) || "default";
 }
 
 export function describeChange(change: StagedChange): string {
@@ -284,7 +284,7 @@ export function describeChange(change: StagedChange): string {
     case "variable":
       return `${change.name} = ${change.value ?? "••••••••"}`;
     case "variable-removal":
-      return `${change.name} supprimée`;
+      return `${change.name} deleted`;
   }
 }
 

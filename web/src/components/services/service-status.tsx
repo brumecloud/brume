@@ -1,14 +1,14 @@
 import type { ServiceStatus } from "~/api/types";
 
 const STATUSES = {
-  online: { label: "En ligne", dot: "bg-success", text: "text-success-foreground" },
+  online: { label: "Online", dot: "bg-success", text: "text-success-foreground" },
   deploying: {
-    label: "Déploiement…",
+    label: "Deploying…",
     dot: "bg-info motion-safe:animate-pulse",
     text: "text-info-foreground",
   },
-  crashed: { label: "En panne", dot: "bg-destructive", text: "text-destructive-foreground" },
-  stopped: { label: "Arrêté", dot: "bg-muted-foreground", text: "text-muted-foreground" },
+  crashed: { label: "Crashed", dot: "bg-destructive", text: "text-destructive-foreground" },
+  stopped: { label: "Stopped", dot: "bg-muted-foreground", text: "text-muted-foreground" },
 } satisfies Record<ServiceStatus, { label: string; dot: string; text: string }>;
 
 export function ServiceStatusLabel({ status }: { readonly status: ServiceStatus }) {

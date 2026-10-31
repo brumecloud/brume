@@ -6,7 +6,7 @@ import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "~/c
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { type ProjectsSearch, parseProjectsSearch, projectCountLabel } from "~/helpers/dashboard";
 
-const SORT_LABELS = { activity: "Activité récente", name: "Nom" } as const;
+const SORT_LABELS = { activity: "Recent activity", name: "Name" } as const;
 
 interface ProjectToolbarProps {
   readonly count: number;
@@ -23,7 +23,7 @@ export function ProjectToolbar({ count, search }: ProjectToolbarProps) {
       <span className="text-muted-foreground">{projectCountLabel(count)}</span>
       <Menu>
         <MenuTrigger render={<Button variant="ghost" size="sm" />}>
-          Trier : {SORT_LABELS[sort]}
+          Sort: {SORT_LABELS[sort]}
           <ChevronDownIcon />
         </MenuTrigger>
         <MenuPopup align="start">
@@ -50,10 +50,10 @@ export function ProjectToolbar({ count, search }: ProjectToolbarProps) {
           void navigate({ to: "/projects", search: (previous) => ({ ...previous, ...next }) });
         }}
       >
-        <ToggleGroupItem value="grid" aria-label="Grille">
+        <ToggleGroupItem value="grid" aria-label="Grid">
           <LayoutGridIcon />
         </ToggleGroupItem>
-        <ToggleGroupItem value="list" aria-label="Liste">
+        <ToggleGroupItem value="list" aria-label="List">
           <ListIcon />
         </ToggleGroupItem>
       </ToggleGroup>

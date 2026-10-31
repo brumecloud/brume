@@ -31,8 +31,8 @@ export function ProjectDashboard({ search }: { readonly search: ProjectsSearch }
             <EmptyMedia variant="icon">
               <FolderSearchIcon />
             </EmptyMedia>
-            <EmptyTitle>Aucun projet</EmptyTitle>
-            <EmptyDescription>Aucun projet ne correspond à cette recherche.</EmptyDescription>
+            <EmptyTitle>No projects</EmptyTitle>
+            <EmptyDescription>No projects match this search.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}

@@ -39,7 +39,7 @@ export function DeploymentPanel({ serviceId, deploymentId, tab }: DeploymentPane
   return (
     <StackedPanel>
       <motion.section
-        aria-label={`Déploiement ${deploymentShortId(deployment)}`}
+        aria-label={`Deployment ${deploymentShortId(deployment)}`}
         initial={{ x: 24 }}
         animate={{ x: 0 }}
         transition={PANEL_TRANSITION}
@@ -57,7 +57,7 @@ export function DeploymentPanel({ serviceId, deploymentId, tab }: DeploymentPane
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Fermer le déploiement"
+            aria-label="Close deployment"
             render={<Link from={FROM} to=".." />}
           >
             <XIcon />
@@ -65,13 +65,13 @@ export function DeploymentPanel({ serviceId, deploymentId, tab }: DeploymentPane
         </header>
         <NavTabs>
           <NavTab from={FROM} to="." search={{}} activeOptions={{ exact: true }}>
-            Détails
+            Details
           </NavTab>
           <NavTab from={FROM} to="." search={{ tab: "build" }} activeOptions={{ exact: true }}>
-            Logs de build
+            Build logs
           </NavTab>
           <NavTab from={FROM} to="." search={{ tab: "deploy" }} activeOptions={{ exact: true }}>
-            Logs d'exécution
+            Runtime logs
           </NavTab>
         </NavTabs>
         <div className="flex min-h-0 flex-1 flex-col overflow-auto">

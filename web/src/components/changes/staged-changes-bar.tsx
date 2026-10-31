@@ -53,7 +53,7 @@ export function StagedChangesBar({ environmentId }: { readonly environmentId: En
         {pending && (
           <motion.div
             role="region"
-            aria-label="Changements en attente"
+            aria-label="Pending changes"
             initial={{ opacity: 0, transform: reduceMotion ? "none" : "translateY(-8px)" }}
             animate={{ opacity: 1, transform: "translateY(0px)" }}
             exit={{ opacity: 0, transform: reduceMotion ? "none" : "translateY(-8px)" }}
@@ -70,21 +70,21 @@ export function StagedChangesBar({ environmentId }: { readonly environmentId: En
             )}
             <ChangesDialog changes={changes} services={services} />
             <Button size="sm" loading={deployment.isPending} onClick={() => deployAll()}>
-              Déployer
+              Deploy
               <KbdGroup>
                 <Kbd>⇧</Kbd>
-                <Kbd>Entrée</Kbd>
+                <Kbd>Enter</Kbd>
               </KbdGroup>
             </Button>
             <Menu>
               <MenuTrigger
-                render={<Button variant="ghost" size="icon-sm" aria-label="Autres actions" />}
+                render={<Button variant="ghost" size="icon-sm" aria-label="More actions" />}
               >
                 <EllipsisVerticalIcon />
               </MenuTrigger>
               <MenuPopup align="end">
                 <MenuItem variant="destructive" onClick={() => discard.mutate()}>
-                  Annuler tous les changements
+                  Discard all changes
                 </MenuItem>
               </MenuPopup>
             </Menu>

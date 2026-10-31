@@ -40,7 +40,7 @@ export function ServiceNode({ id }: NodeProps) {
         <span className="flex items-center justify-between gap-2">
           <ServiceStatusLabel status={service.status} />
           {changes.length > 0 && (
-            <span className="text-info-foreground text-xs">{changes.length} en attente</span>
+            <span className="text-info-foreground text-xs">{changes.length} pending</span>
           )}
         </span>
         <Handle

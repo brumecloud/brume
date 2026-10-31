@@ -6,25 +6,23 @@ describe("project dashboard", () => {
   it("shows each project with the health of its default environment", async () => {
     const screen = await renderApp("/projects");
 
-    await expect.element(screen.getByText("4 projets")).toBeVisible();
+    await expect.element(screen.getByText("5 projects")).toBeVisible();
     await expect
-      .element(screen.getByRole("link", { name: /eve.*dev.*4\/5 services en ligne/ }))
+      .element(screen.getByRole("link", { name: /routelane.*production.*6\/7 services online/ }))
       .toBeVisible();
   });
 
   it("filters the projects from the search in the URL", async () => {
-    const screen = await renderApp("/projects?q=redis");
+    const screen = await renderApp("/projects?q=invoices");
 
-    await expect.element(screen.getByText("1 projet")).toBeVisible();
-    await expect.element(screen.getByRole("link", { name: /^brume/ })).toBeVisible();
+    await expect.element(screen.getByText("1 project")).toBeVisible();
+    await expect.element(screen.getByRole("link", { name: /^tallybook/ })).toBeVisible();
   });
 
   it("explains an empty search", async () => {
     const screen = await renderApp("/projects?q=nothing-matches");
 
-    await expect
-      .element(screen.getByText("Aucun projet ne correspond à cette recherche."))
-      .toBeVisible();
+    await expect.element(screen.getByText("No projects match this search.")).toBeVisible();
   });
 });
 
@@ -35,19 +33,19 @@ describe("new project", () => {
     await screen.getByRole("option", { name: /Redis/ }).click();
 
     await expect
-      .element(screen.getByRole("combobox", { name: "Projet" }))
+      .element(screen.getByRole("combobox", { name: "Project" }))
       .toHaveTextContent("redis");
     await expect
-      .element(screen.getByRole("combobox", { name: "Environnement" }))
+      .element(screen.getByRole("combobox", { name: "Environment" }))
       .toHaveTextContent("production");
   });
 
   it("refuses an invalid image reference", async () => {
     const screen = await renderApp("/projects/new?step=image");
 
-    await screen.getByRole("textbox", { name: "Image Docker" }).fill("Not An Image");
-    await screen.getByRole("button", { name: "Déployer l'image" }).click();
+    await screen.getByRole("textbox", { name: "Docker image" }).fill("Not An Image");
+    await screen.getByRole("button", { name: "Deploy image" }).click();
 
-    await expect.element(screen.getByText(/Référence d'image invalide/)).toBeVisible();
+    await expect.element(screen.getByText(/Invalid image reference/)).toBeVisible();
   });
 });

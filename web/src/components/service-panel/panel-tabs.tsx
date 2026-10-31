@@ -12,13 +12,13 @@ export function PanelTabs({ projectId, environmentName, serviceId }: PanelTabsPr
   return (
     <NavTabs>
       <NavTab to="/projects/$projectId/$env/services/$serviceId/deployments" params={params}>
-        Déploiements
+        Deployments
       </NavTab>
       <NavTab to="/projects/$projectId/$env/services/$serviceId/variables" params={params}>
         Variables
       </NavTab>
       <NavTab to="/projects/$projectId/$env/services/$serviceId/settings" params={params}>
-        Réglages
+        Settings
       </NavTab>
     </NavTabs>
   );

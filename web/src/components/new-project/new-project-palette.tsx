@@ -11,10 +11,10 @@ import { StepHeader } from "./step-header";
 import { useCreateProject } from "./use-create-project";
 
 export const STEP_TITLES: Record<NewProjectStep, string> = {
-  github: "Dépôt GitHub",
-  static: "Site statique",
-  database: "Base de données",
-  image: "Image Docker",
+  github: "GitHub repository",
+  static: "Static site",
+  database: "Database",
+  image: "Docker image",
 };
 
 export function NewProjectPalette({ step }: { readonly step: NewProjectStep | undefined }) {

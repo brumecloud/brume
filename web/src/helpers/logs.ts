@@ -128,9 +128,9 @@ export function isNearBottom(
 
 export function logCountLabel(count: number): string {
   if (count === 0) {
-    return "Aucune ligne";
+    return "No lines";
   }
-  return `${count} ${count > 1 ? "lignes" : "ligne"}`;
+  return `${count} ${count > 1 ? "lines" : "line"}`;
 }
 
 function plainText(message: string): string {

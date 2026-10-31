@@ -159,9 +159,9 @@ describe("isNearBottom", () => {
 
 describe("logCountLabel", () => {
   it.each([
-    [0, "Aucune ligne"],
-    [1, "1 ligne"],
-    [500, "500 lignes"],
+    [0, "No lines"],
+    [1, "1 line"],
+    [500, "500 lines"],
   ])("%i → %s", (count, label) => {
     expect(logCountLabel(count)).toBe(label);
   });

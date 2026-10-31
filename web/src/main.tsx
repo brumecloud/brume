@@ -1,7 +1,7 @@
 import "./styles.css";
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { RouterProvider, createHashHistory, createRouter } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -10,7 +10,15 @@ import { shouldReloadAfterPreloadError } from "~/helpers/reload";
 
 import { routeTree } from "./routeTree.gen";
 
-const router = createRouter({ routeTree, defaultPreload: "intent" });
+// The demo embedded on brume.dev (`vp build --mode demo`): the mocked API ships with it, and the
+// routes live in the hash, so any static host serves it without rewrites.
+const DEMO = import.meta.env.MODE === "demo";
+
+const router = createRouter({
+  routeTree,
+  defaultPreload: "intent",
+  ...(DEMO ? { history: createHashHistory() } : {}),
+});
 
 declare module "@tanstack/react-router" {
   interface Register {
@@ -29,13 +37,24 @@ window.addEventListener("vite:preloadError", (event) => {
   }
 });
 
-// Data is mocked until the Rust API exists. Outside dev, this block is dropped from the build.
-if (import.meta.env.DEV) {
-  const { network } = await import("virtual:msw");
-  const { handlers } = await import("./mocks/handlers");
+// Data is mocked until the Rust API exists. Outside dev and the demo, this block is dropped from
+// the build.
+if (import.meta.env.DEV || DEMO) {
+  const [{ network }, { handlers }] = await Promise.all([
+    import("virtual:msw"),
+    import("./mocks/handlers"),
+  ]);
   // Only /api is mocked: pages and Vite modules pass through silently.
   network.configure({ handlers, onUnhandledFrame: "bypass" });
   await network.enable();
+}
+
+// Tells the landing page that embeds the demo when the first page is on screen, so it can show it.
+if (DEMO) {
+  const unsubscribe = router.subscribe("onRendered", () => {
+    unsubscribe();
+    window.parent.postMessage("brume-console:ready", window.location.origin);
+  });
 }
 
 const root = document.getElementById("root");

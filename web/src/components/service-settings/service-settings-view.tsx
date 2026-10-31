@@ -34,11 +34,11 @@ import { useSettingCommit } from "./use-setting-commit";
 
 const SECTIONS: Record<SettingsSectionId, { readonly title: string; readonly icon: ReactNode }> = {
   source: { title: "Source", icon: <CodeXmlIcon /> },
-  network: { title: "Réseau", icon: <NetworkIcon /> },
-  deploy: { title: "Déploiement", icon: <RocketIcon /> },
-  resources: { title: "Ressources", icon: <CpuIcon /> },
+  network: { title: "Networking", icon: <NetworkIcon /> },
+  deploy: { title: "Deploy", icon: <RocketIcon /> },
+  resources: { title: "Resources", icon: <CpuIcon /> },
   volume: { title: "Volume", icon: <HardDriveIcon /> },
-  danger: { title: "Zone dangereuse", icon: <TriangleAlertIcon /> },
+  danger: { title: "Danger zone", icon: <TriangleAlertIcon /> },
 };
 
 const TEMPLATE_NAMES = { postgres: "PostgreSQL", mongodb: "MongoDB", redis: "Redis" } as const;
@@ -135,9 +135,9 @@ function SettingsForm({
                   onCommit={(value) => commit("branch", value)}
                 />
                 <SwitchSetting
-                  label="Déploiement automatique"
-                  description="Déployer à chaque push sur la branche."
-                  text="Déployer automatiquement"
+                  label="Auto deploy"
+                  description="Deploy on every push to the branch."
+                  text="Deploy automatically"
                   checked={source.autoDeploy}
                   staged={fields.has("autoDeploy")}
                   onCommit={(checked) => commit("autoDeploy", checked)}
@@ -149,17 +149,14 @@ function SettingsForm({
                 key={`image:${source.image}`}
                 field="image"
                 label="Image"
-                description="Tirée et épinglée par son digest à chaque déploiement."
+                description="Pulled and pinned by its digest on every deployment."
                 value={source.image}
                 staged={fields.has("image")}
                 onCommit={(value) => commit("image", value)}
               />
             )}
             {source.kind === "template" && (
-              <ReadOnlySetting
-                label="Template"
-                description="Les versions mineures suivent les releases de Brume."
-              >
+              <ReadOnlySetting label="Template" description="Minor versions follow Brume releases.">
                 <ServiceIcon kind={source.template} />
                 {TEMPLATE_NAMES[source.template]} {source.version}
               </ReadOnlySetting>
@@ -176,20 +173,20 @@ function SettingsForm({
               />
             )}
             <ReadOnlySetting
-              label="Nom interne"
-              description="Les services de l'environnement le joignent sous ce nom."
+              label="Internal hostname"
+              description="Other services in the environment reach it at this name."
             >
               <span className="font-mono">{service.slug}</span>
             </ReadOnlySetting>
             {isDatabase(service.kind) ? (
-              <ReadOnlySetting label="Accès Internet sortant">
-                Coupé : une base ne sort jamais sur Internet.
+              <ReadOnlySetting label="Outbound internet access">
+                Off: a database never reaches the internet.
               </ReadOnlySetting>
             ) : (
               <SwitchSetting
-                label="Accès Internet sortant"
-                description="Coupez-le pour un service qui n'appelle rien à l'extérieur."
-                text="Autoriser les connexions sortantes"
+                label="Outbound internet access"
+                description="Turn it off for a service that makes no outside calls."
+                text="Allow outbound connections"
                 checked={staged.settings.egress}
                 staged={fields.has("egress")}
                 onCommit={(checked) => commit("egress", checked)}
@@ -202,8 +199,8 @@ function SettingsForm({
             <TextSetting
               key={`startCommand:${staged.settings.startCommand ?? ""}`}
               field="startCommand"
-              label="Commande de démarrage"
-              description="Vide : la commande de l'image."
+              label="Start command"
+              description="Leave empty to use the image's command."
               value={staged.settings.startCommand ?? ""}
               placeholder="pnpm start"
               staged={fields.has("startCommand")}
@@ -213,7 +210,7 @@ function SettingsForm({
               key={`port:${staged.settings.port ?? ""}`}
               field="port"
               label="Port"
-              description="Le port sur lequel le service écoute."
+              description="The port the service listens on."
               value={String(staged.settings.port ?? "")}
               placeholder="3000"
               staged={fields.has("port")}
@@ -223,7 +220,7 @@ function SettingsForm({
               key={`healthcheckPath:${staged.settings.healthcheckPath ?? ""}`}
               field="healthcheckPath"
               label="Healthcheck"
-              description="Le trafic bascule quand ce chemin répond 200. Vide : celui de l'image."
+              description="Traffic switches over once this path returns 200. Leave empty to use the image's."
               value={staged.settings.healthcheckPath ?? ""}
               placeholder="/health"
               staged={fields.has("healthcheckPath")}
@@ -244,7 +241,7 @@ function SettingsForm({
             />
             <LimitSetting
               key={`memory:${staged.settings.memoryLimitMb}`}
-              label="Mémoire"
+              label="Memory"
               steps={MEMORY_LIMITS_MB}
               value={staged.settings.memoryLimitMb}
               format={formatMemory}
@@ -255,8 +252,8 @@ function SettingsForm({
         )}
         {sections.includes("volume") && service.volume && (
           <SettingsSection id="settings-volume" {...SECTIONS.volume}>
-            <ReadOnlySetting label="Nom">{service.volume.name}</ReadOnlySetting>
-            <ReadOnlySetting label="Monté sur">
+            <ReadOnlySetting label="Name">{service.volume.name}</ReadOnlySetting>
+            <ReadOnlySetting label="Mounted at">
               <span className="font-mono">{service.volume.mountPath}</span>
             </ReadOnlySetting>
           </SettingsSection>
@@ -265,7 +262,7 @@ function SettingsForm({
           <SettingsSection id="settings-danger" {...SECTIONS.danger}>
             <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/32 bg-background px-4 py-3">
               <span className="text-muted-foreground text-sm">
-                Supprimer le service, ses déploiements et son volume.
+                Delete the service, its deployments and its volume.
               </span>
               <DeleteServiceDialog
                 projectId={projectId}

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { brume } from "~/mocks/seed";
+import { northbean, routelane } from "~/mocks/seed";
 
 import { renderApp } from "../test/render-app";
 
-const production = `/projects/${brume.id}/production`;
-const api = `${production}/services/${brume.id}-production-brume-api`;
+const production = `/projects/${northbean.id}/production`;
+const api = `${production}/services/${northbean.id}-production-shop-api`;
 
 describe("log explorer", () => {
   it("streams the logs of the environment", async () => {
@@ -19,7 +19,7 @@ describe("log explorer", () => {
     const screen = await renderApp(`${production}/logs`);
 
     // The stream starts with a backlog of 200 lines.
-    await expect.element(screen.getByText(/^2\d\d lignes$/)).toBeVisible();
+    await expect.element(screen.getByText(/^2\d\d lines$/)).toBeVisible();
     expect(document.querySelectorAll("[data-index]").length).toBeLessThan(100);
   });
 
@@ -32,7 +32,7 @@ describe("log explorer", () => {
   });
 
   it("opens a line as JSON, its message as data", async () => {
-    const screen = await renderApp(`${production}/logs`);
+    const screen = await renderApp(`/projects/${routelane.id}/production/logs`);
 
     await screen
       .getByRole("button", { name: /Connection accepted/ })
@@ -53,23 +53,23 @@ describe("log explorer", () => {
 
 describe("deployment details", () => {
   it("shows the revision of a deployment", async () => {
-    const screen = await renderApp(`${api}/deployments/${brume.id}-production-brume-api-d0`);
+    const screen = await renderApp(`${api}/deployments/${northbean.id}-production-shop-api-d0`);
 
-    await expect.element(screen.getByText("Variables de la révision (8)")).toBeVisible();
+    await expect.element(screen.getByText("Revision variables (8)")).toBeVisible();
     await expect.element(screen.getByText("Railpack 0.40.1")).toBeVisible();
   });
 
   it("shows why a build failed", async () => {
     const screen = await renderApp(
-      `${api}/deployments/${brume.id}-production-brume-api-d3?tab=build`,
+      `${api}/deployments/${northbean.id}-production-shop-api-d3?tab=build`,
     );
 
     await expect.element(screen.getByText(/Build failed/)).toBeVisible();
   });
 
   it("refuses a deployment of another service", async () => {
-    const screen = await renderApp(`${api}/deployments/${brume.id}-production-brume-worker-d0`);
+    const screen = await renderApp(`${api}/deployments/${northbean.id}-production-order-worker-d0`);
 
-    await expect.element(screen.getByText("Page introuvable")).toBeVisible();
+    await expect.element(screen.getByText("Page not found")).toBeVisible();
   });
 });

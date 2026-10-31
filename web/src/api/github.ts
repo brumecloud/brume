@@ -16,7 +16,7 @@ export const branchesQuery = (repository: string) =>
     queryFn: () => {
       const path = repositoryPath(repository);
       if (!path) {
-        throw new Error("Dépôt GitHub invalide.");
+        throw new Error("Invalid GitHub repository.");
       }
       return apiGet(`/api/github/repositories/${path}/branches`, parseBranches);
     },

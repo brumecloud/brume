@@ -45,7 +45,7 @@ web/
 - **Un helper est une fonction pure,** sans React, sans TanStack, sans `api/` (sauf ses types) et sans composant. Le lint l'impose.
 - **`*.test.ts` tourne dans Node, `*.browser.test.tsx` dans Chromium.**
 - **Alias `~/`** vers `src/`.
-- **Même règle de commentaires que pour Rust :** en anglais, et pas de commentaire qui répète le code. Le texte de l'interface reste en français.
+- **Même règle de commentaires que pour Rust :** en anglais, et pas de commentaire qui répète le code. Le texte de l'interface est aussi en anglais, dates et nombres au format `en-US`.
 
 ## TypeScript
 
@@ -179,7 +179,9 @@ Un réglage ou une variable modifiés ne s'appliquent pas tout de suite : ils at
 Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 
 - **`src/mocks/` :** un jeu de données (`seed.ts`) et des handlers qui répondent comme l'API, avec une latence. Ils rejettent une requête sans `X-Brume`, comme le vrai serveur. Une route `/api` sans mock répond 501.
-- **Hors du build :** le plugin `msw/vite` ne sert le service worker qu'en dev, et `main.tsx` ne charge les mocks que sous `import.meta.env.DEV`. Le build de production ne contient ni le worker ni les handlers.
+- **Un seul jeu de données :** cinq entreprises fictives, avec leurs services, déploiements, logs et secrets. Il sert au dev, aux tests et à la démo de brume.dev, donc il ne contient rien de réel. La console fait des liens de leurs domaines : ils n'étaient pas enregistrés quand on les a choisis.
+- **Hors du build :** le plugin `msw/vite` ne sert le service worker qu'en dev, et `main.tsx` ne charge les mocks qu'en dev ou en mode démo. Le build de production ne contient ni le worker ni les handlers.
+- **La démo de brume.dev :** `pnpm build:demo` (`vp build --mode demo --base /demo/`) garde le worker et les handlers, et met les routes dans le hash (`createHashHistory`) : n'importe quel hébergeur statique la sert, sans réécriture. Le build l'écrit dans `site/public/demo/`, et la landing l'affiche dans une iframe du même domaine.
 - **Les tests navigateur utilisent les mêmes handlers.**
 - **Les handlers sont le contrat de l'API** en attendant les types partagés avec Rust : voir les décisions ouvertes.
 

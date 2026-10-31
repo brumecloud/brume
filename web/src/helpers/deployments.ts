@@ -30,7 +30,7 @@ const STATUSES: readonly DeploymentStatus[] = [
 ];
 const VARIABLE_KINDS: readonly VariableKind[] = ["plain", "build", "secret"];
 const VARIABLE_LEVELS: readonly VariableLevel[] = ["project", "environment", "service"];
-const DATE_TIME_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+const DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
 });
@@ -76,7 +76,7 @@ export function splitDeployments(deployments: readonly Deployment[]): {
 }
 
 export function deploymentTitle(deployment: Deployment): string {
-  return deployment.commit?.message.split("\n")[0] ?? deployment.image ?? "Déploiement";
+  return deployment.commit?.message.split("\n")[0] ?? deployment.image ?? "Deployment";
 }
 
 export function formatDateTime(iso: string): string {
