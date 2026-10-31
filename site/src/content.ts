@@ -158,7 +158,7 @@ export const features: readonly Feature[] = [
   {
     label: "Recovery",
     title: "Lose the server, not the state",
-    text: "Brume streams its whole state to your bucket, encrypted. A lost VPS comes back from S3 with your age key, and every database dump is test-restored first.",
+    text: "Brume streams its whole state to your bucket, secrets encrypted. A lost VPS comes back from S3 with your age key, and every database dump is test-restored first.",
     icon: CloudUploadIcon,
     tone: "rose",
   },
@@ -217,7 +217,7 @@ export const principles: readonly Feature[] = [
   {
     label: "Audit",
     title: "A log you can't erase",
-    text: "Every action is an event, streamed to S3, encrypted and hash-chained. Brume can't delete from the bucket: an attacker can stop the log, not erase what already left.",
+    text: "Every action is an event, streamed to S3 and hash-chained. Brume can't delete from the bucket: an attacker can stop the log, not erase what already left.",
     icon: ScrollIcon,
     tone: "rose",
   },
@@ -292,7 +292,7 @@ export const milestones: readonly Milestone[] = [
       "Templates: static site, PostgreSQL, MongoDB, Redis",
       "Deploy on push from GitHub, built with Railpack",
       "Backups, logs and secrets from the panel",
-      "All of Brume's state on S3, encrypted",
+      "All of Brume's state on S3, secrets encrypted",
       "Panel over Tailscale, an SSH tunnel or in public",
       "Public traffic through Cloudflare Tunnel, or on ports 80 and 443",
     ],

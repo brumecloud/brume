@@ -12,7 +12,7 @@ Tailnet ──► tailscale serve ──► brume api ────────�
                                                                    ▲      │
                                              observations, faits   │      │   état voulu, jobs
                                                                    │      ▼   (agent.sock)
-                      S3 : backups, artefacts ◄───────────────── brume agent ──► dockerd ──► containers
+                      S3 : backups ◄──────────────────────────── brume agent ──► dockerd ──► containers
                                                                                    │
                                                        brume telemetry ◄───────────┘ logs des apps
 ```

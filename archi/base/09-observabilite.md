@@ -35,7 +35,7 @@ Les traces, métriques et logs de Brume lui-même, en OpenTelemetry, stockés pa
 
 - **C'est le log d'événements de l'engine,** puisque toutes les actions passent par lui. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#event-sourcing).
 - **Chaque événement porte l'identifiant de l'admin.** Son identité (login Tailscale ou email) vit dans un blob qu'on peut purger.
-- **Envoyé en continu sur S3, chiffré et chaîné par hash.** Un attaquant peut arrêter l'envoi, mais pas effacer ce qui est déjà parti. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#lenvoi).
+- **Envoyé en continu sur S3, en clair et chaîné par hash.** Un attaquant peut arrêter l'envoi, mais pas effacer ce qui est déjà parti : le versioning garde l'original d'un segment écrasé. Le log n'est pas authentifié en 0.1 : voir [15-etat-et-restauration.md](15-etat-et-restauration.md#risques-acceptés). Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#lenvoi).
 
 ## Détection des écarts
 

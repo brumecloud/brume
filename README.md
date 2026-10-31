@@ -22,7 +22,7 @@
 - Backups, logs and secrets managed from the panel.
 - Admin panel over Tailscale by default. Access through an SSH tunnel or from the public Internet is opt-in.
 - Public traffic through Cloudflare Tunnel by default: no inbound port open on the server. Direct ingress on ports 80 and 443 is opt-in.
-- All of Brume's state on S3, encrypted: a lost VPS is rebuilt from the bucket.
+- All of Brume's state on S3, with its secrets encrypted: a lost VPS is rebuilt from the bucket.
 
 **Planned stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, coss ui, Tailwind, React Flow), SQLite, DuckDB, S3, OpenTelemetry, Docker Engine, Traefik, Caddy, Cloudflare Tunnel, Tailscale.
 

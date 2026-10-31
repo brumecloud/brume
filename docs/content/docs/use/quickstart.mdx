@@ -21,7 +21,7 @@ sources:
 
 This tutorial takes you from a fresh VPS to an app built from GitHub and served on your own domain. You prepare an S3 bucket and two tokens, install Brume with one command, open the panel over Tailscale, create a GitHub App, and push.
 
-At the end, no inbound port is open on your server. You administer it over Tailscale, public traffic reaches your app through Cloudflare Tunnel, and Brume's state is on your bucket, encrypted.
+At the end, no inbound port is open on your server. You administer it over Tailscale, public traffic reaches your app through Cloudflare Tunnel, and Brume's state is on your bucket, with its secrets encrypted.
 
 This tutorial uses the recommended modes: Cloudflare Tunnel for public traffic and Tailscale for administration. Brume also offers direct ingress on ports 80 and 443, and administration through an SSH tunnel or from the public internet. These modes are less safe, chosen on the host at install, and flagged in the panel at all times. See [Networking](/docs/how-it-works/networking#other-modes).
 
@@ -61,12 +61,14 @@ Then set your tailnet policy so that `tag:brume` cannot open connections to your
 
 ### Prepare an S3 bucket
 
-Brume sends its whole state to this bucket as it changes, encrypted, along with your built images and your database backups. A lost server is rebuilt from it. The bucket is mandatory: `brume install` uploads your master key there before it finishes.
+Brume sends its whole state to this bucket as it changes, with secrets encrypted, along with your encrypted database backups. A lost server is rebuilt from it, and rebuilds your images from their commits. The bucket is mandatory: `brume install` uploads your master key there before it finishes.
 
 - **S3-compatible, with versioning or Object Lock.** A write can overwrite an existing object whose name is known. Brume writes with `If-None-Match`, and versioning or Object Lock keeps the earlier copy. Not every provider supports `If-None-Match`: Brume tests it and warns you if it is missing, because it relies on it to detect a second server writing to the same bucket.
-- **A credential that can read and write, but not delete, change lifecycle rules or suspend versioning.** A credential that can set a lifecycle rule or suspend versioning can wipe everything within a day, without deleting a single object. `brume install` checks that all three operations fail, and refuses the credential otherwise. Read access reveals nothing: everything in the bucket is encrypted.
+- **A credential that can read and write, but not delete, change lifecycle rules or suspend versioning.** A credential that can set a lifecycle rule or suspend versioning can wipe everything within a day, without deleting a single object. `brume install` checks that all three operations fail, and refuses the credential otherwise. Read access reveals no secret: secrets and backups are encrypted. The event log is not, so it shows the names of your projects, services and domains.
 - **At another provider than your VPS, ideally,** with an account protected by hardware 2FA. Whoever holds that account can delete the bucket, whatever the credential's rights.
 - **No lifecycle rule on `log/`, `blobs/` or `keys/`.** Brume cannot delete anything, so your bucket's lifecycle rules handle the retention of backups. The state lives under these three prefixes and never expires: a blob written two years ago and still in use looks like a purged one.
+- **A rule that cleans up unfinished uploads after 7 days.** A large backup goes up in several parts, and the parts of an interrupted upload are billed without being visible.
+- **A dedicated bucket, or a folder in an existing one.** Brume writes everything under that folder.
 
 After the install, the bucket can change only on the host, as root, never from the panel, and every change sends an alert. A stolen panel session cannot send your state and backups elsewhere.
 
@@ -239,7 +241,7 @@ Domains belong to the service, not to a revision: a rollback neither removes nor
 - **A panel reachable only from your tailnet,** behind your Tailscale identity and a passkey.
 - **An app built on every push** and deployed by digest, with a revision you can roll back to.
 - **A public domain** served through Cloudflare Tunnel.
-- **A server you can rebuild.** Brume's state goes to your bucket as it changes, encrypted. With your age private key, `brume restore` rebuilds a lost server from the bucket.
+- **A server you can rebuild.** Brume's state goes to your bucket as it changes, with its secrets encrypted. With your age private key, `brume restore` rebuilds a lost server from the bucket.
 
 Databases you start from a template are backed up by default, as dumps sent to the same bucket and encrypted with your age public keys. From time to time, run `brume verify` from your own machine, with your age private key: it is the only way to know, before you need it, that your bucket can be restored. The panel reminds you. See [Secrets and backups](/docs/how-it-works/secrets-and-backups).
 

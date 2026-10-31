@@ -94,12 +94,13 @@ Project                             shared variables and secrets
 
 ## Retention and purge
 
-- **Immutable does not mean forever.** Built images live in the local dockerd and, encrypted, on S3. The disk of the VPS is limited, so the local dockerd does not keep every artifact.
-- **dockerd keeps the artifacts of the last 10 revisions of each service.** Older artifacts are only on S3: a rollback to one of those revisions downloads its artifact first. Brume never deletes an artifact on S3, but you can add an expiration rule on `artifacts/` in your bucket. If that rule removed the artifact, the revision stays in the history but can no longer be rolled back to, and the panel shows it.
-- **An image pulled from a registry is not on S3.** A rollback past the last 10 revisions pulls it again from that registry, by its digest. See [What goes to the bucket](/docs/how-it-works/secrets-and-backups#what-goes-to-the-bucket).
-- **The agent deletes from dockerd only the artifacts the engine no longer keeps,** never with a blind `docker image prune`. If a kept artifact disappears anyway, for example after a `docker image prune -a` run by hand, the agent loads it again from S3. If it is missing from S3 too, the engine marks the revision as not rollbackable and raises an alert.
+- **Immutable does not mean forever.** Built images and static site archives live only on the disk of the VPS, which is limited, so the local dockerd does not keep every artifact. They are not copied to S3: see [What goes to the bucket](/docs/how-it-works/secrets-and-backups#what-goes-to-the-bucket).
+- **dockerd keeps the artifacts of the last 10 revisions of each service.** An older revision stays in the history, but can no longer be rolled back to, and the panel shows it.
+- **An image pulled from a registry is pulled again** from that registry, by its digest. If the registry deleted it or cannot be reached, the rollback fails, and the revision in service keeps running.
+- **The agent deletes from dockerd only the artifacts the engine no longer keeps,** never with a blind `docker image prune`. If a kept artifact disappears anyway, for example after a `docker image prune -a` run by hand, the engine marks the revision as not rollbackable and raises an alert.
 - **A revision can be purged for good.** Its artifact and its variable values are erased, and its row stays in the history. Use it for a secret leaked into a static bundle, or a sensitive value entered by mistake as a simple variable.
-- **A purge reaches nothing on S3:** not the backups, not the blobs, not the artifact. Brume cannot delete anything on S3, see [Secrets and backups](/docs/how-it-works/secrets-and-backups). What stays there is encrypted. A leaked secret must be revoked at its issuer: it cannot be erased.
+- **The artifact never left the VPS,** so a purge erases it for good.
+- **A purge reaches nothing on S3:** not the backups, not the blobs. Brume cannot delete anything on S3, see [Secrets and backups](/docs/how-it-works/secrets-and-backups). What stays there is encrypted. A leaked secret must be revoked at its issuer: it cannot be erased.
 
 ## Build cache
 

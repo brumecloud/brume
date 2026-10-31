@@ -76,6 +76,6 @@ Brume has three kinds of values:
 - **A rollback applies to one service.** Rolling back a backend does not touch the frontend that calls its API.
 - **Data never goes back.** After a migration, the old code runs on the new schema. The panel warns you before rolling back a service that has a volume.
 - **Automatic deploys continue after a rollback:** the next push to the configured branch deploys again.
-- **Docker on your server keeps the artifacts of the last 10 revisions of each service.** Older artifacts are only in your S3 bucket: a rollback to an older revision downloads its artifact first. An image pulled from a registry is not copied to S3: Brume pulls it again from the registry, by its digest. If an expiration rule removed the artifact from S3 too, the revision stays in the history, but you can no longer roll back to it, and the panel shows it.
+- **Docker on your server keeps the artifacts of the last 10 revisions of each service.** Built images are not copied to your S3 bucket, so an older revision stays in the history, but you can no longer roll back to it, and the panel shows it. An image pulled from a registry is pulled again from the registry, by its digest.
 
 The [data model](/docs/how-it-works/data-model) covers the details: shared values across environments, retention and purge, and the reasons behind each rule. The [templates](/docs/use/templates) page covers what a database service gets.

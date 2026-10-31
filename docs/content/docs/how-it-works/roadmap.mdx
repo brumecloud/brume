@@ -30,7 +30,9 @@ Alpha 0.1 leaves some features and some hardening out on purpose. This page list
 | Item | What it brings |
 |---|---|
 | Hardened backups | Object Lock retention headers on every upload, so that a bucket without Object Lock fails instead of accepting the upload. The rights of the S3 credential are already checked in 0.1: see [Secrets and backups](/docs/how-it-works/secrets-and-backups#storage). |
-| Master key rotation | New objects on S3 use the new key. The key ID that each object carries keeps the old objects readable. |
+| Master key rotation | New blobs on S3 use the new key. The key ID that each blob carries keeps the old blobs readable. |
+| Authenticated events on S3 | Log segments are signed or encrypted by an authorized key, and a new key is added by an event. Whoever holds the S3 credential can no longer write fake events that a restore would replay. In 0.1, the log goes to S3 in clear, protected against corruption by the hash chain: see [Accepted risks](/docs/how-it-works/secrets-and-backups#accepted-risks). |
+| Built images on S3 | A restore without rebuilds, with the exact images, and rollbacks past the last 10 revisions. In 0.1, built images and static site archives stay on the VPS: see [What goes to the bucket](/docs/how-it-works/secrets-and-backups#what-goes-to-the-bucket). |
 | Backups of volumes outside templates | In 0.1, only the databases created from templates are backed up. |
 | Major database upgrades | A backup, then a dump and a restore into the new version. For MongoDB, one version at a time, with Brume running the `setFeatureCompatibilityVersion` step. The engine then refuses a rollback that would run the old version on data written by the new one (PostgreSQL, MongoDB, Redis). |
 | Database replicas and point-in-time recovery | Backups are dumps: you can lose the data written since the last one. Postgres WAL archiving brings that loss down to a few seconds. |
@@ -65,7 +67,6 @@ Alpha 0.1 leaves some features and some hardening out on purpose. This page list
 
 These design decisions are not made yet. Until one is settled, the pages that depend on it describe the options, not an answer.
 
-- **Formats on S3.** A proposal sets the names, headers and encryption of the objects Brume writes to the bucket. It has to be validated before the engine is written, because an object written to S3 never changes. The proposal lives in the repository, in `archi/base/18-formats-s3.md`.
 - **A contributor license agreement (CLA),** which would keep the option of changing the license, or none. See [License](/docs/customize/development#license).
 - **Automatic updates, before the first release.** When to install them (the proposal is the 4 a.m. reboot window), a local fallback to the previous binary if the new one does not start, and a progressive rollout set by a percentage in `latest.json`. See [Host and installation](/docs/how-it-works/host-and-installation#updates).
 - **A way to verify the signing key outside GitHub,** since brume.dev is deployed from the same repository. See [Development rules](/docs/customize/development#signing-with-minisign).

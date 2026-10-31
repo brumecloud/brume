@@ -77,7 +77,7 @@ Brume's own traces, metrics and logs, in [OpenTelemetry](https://opentelemetry.i
 
 - **The audit log is the engine's event log,** since every action goes through the engine. Each change is an event appended to the log, and sensitive actions that change nothing, such as revealing a secret or signing in, are recorded too. See [Architecture](/docs/how-it-works/architecture).
 - **Each event carries an opaque admin ID.** The admin's identity (Tailscale login or email) lives in a blob that can be purged. The log on S3 is never rewritten, so purging the blob is enough to answer a GDPR erasure request.
-- **Sent continuously to S3, encrypted and hash-chained.** An attacker can stop the upload, but cannot erase what has already left the server. See [Secrets and backups](/docs/how-it-works/secrets-and-backups#upload).
+- **Sent continuously to S3, in clear and hash-chained.** An attacker can stop the upload, but cannot erase what has already left the server: versioning keeps the original of an overwritten segment. The log is not authenticated in 0.1: see [Accepted risks](/docs/how-it-works/secrets-and-backups#accepted-risks). See [Secrets and backups](/docs/how-it-works/secrets-and-backups#upload).
 
 ## Drift detection
 

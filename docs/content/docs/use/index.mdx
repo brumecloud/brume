@@ -22,7 +22,7 @@ Brume alpha 0.1 targets one person running their projects on one VPS: side proje
 - **Build and deploy on every push** to GitHub, with [Railpack](https://railpack.com).
 - **Manage backups, logs and secrets** from the panel.
 - **Keep the server closed by default:** the panel is reachable over Tailscale, and public traffic arrives through Cloudflare Tunnel, so no inbound port is open. Administration through an SSH tunnel or from the public internet, and direct ingress on ports 80 and 443, are opt-in and chosen on the server.
-- **Keep all of Brume's state on S3, encrypted,** so a lost VPS is rebuilt from the bucket.
+- **Keep all of Brume's state on S3, with its secrets encrypted,** so a lost VPS is rebuilt from the bucket.
 
 ## What makes it different
 
