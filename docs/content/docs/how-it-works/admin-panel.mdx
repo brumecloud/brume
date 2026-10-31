@@ -6,6 +6,7 @@ status: planned
 sources:
   - archi/base/04-panel-admin.md
   - archi/base/03-reseau.md
+  - archi/base/19-cli-et-agents-ia.md
 ---
 
 In the recommended mode, the admin panel never faces the internet. `brume api` listens only on localhost, and Tailscale exposes it over HTTPS to your tailnet. Every action needs two independent factors: your Tailscale identity and a passkey that the engine checks. Because your browser is on the tailnet and the panel displays content written by outsiders, the panel also defends itself against CSRF, DNS rebinding, XSS and clickjacking.
@@ -40,7 +41,7 @@ The panel requires two independent factors.
 - **A local process that reaches `127.0.0.1` can forge the header.** No container runs on the host network, and without a session issued by the engine, a forged header gets nothing.
 - **Being on the tailnet is not enough.** A compromised device or a shared tailnet would give access to the panel. Hence the second factor.
 
-### Second factor: at sign-in
+### Second factor: a passkey
 
 The second factor is a passkey (WebAuthn, `webauthn-rs` crate). This comparison with a password settled the choice:
 
@@ -51,9 +52,11 @@ The second factor is a passkey (WebAuthn, `webauthn-rs` crate). This comparison 
 | Server side | A public key, nothing secret | argon2id hash, limited attempts |
 | Limit | Bound to the name `brume.xxx.ts.net`: you re-enroll if the machine or the tailnet is renamed | Password reuse |
 
+- **User verification is required** (`userVerification: required`): Touch ID, Face ID or the device's PIN, on every use. Neither a process nor an AI agent can present it in your place.
+- **After a rename** of the machine or the tailnet, you reset the passkey with the recovery CLI, then enroll it again.
 - **The engine checks the second factor, not the API.** The engine stores the credentials, generates the challenge, verifies the response and issues the session.
 - **First access:** `brume install` prints a single-use enrollment URL, valid for 15 minutes. It carries a token shown only in the install terminal, because in public administration this URL is reachable from the internet.
-- **Recovery:** the local `brume` CLI, run from your hosting provider's console, through a unix socket with mode `0600`.
+- **Recovery:** the local recovery CLI, `brume`, run from your hosting provider's console, through a unix socket with mode `0600`. It is a different door from the CLI on your laptop: see [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#the-binary).
 
 ## Session
 
@@ -90,9 +93,19 @@ An XSS flaw in the panel gives the attacker the panel's actions during your sess
 - **"Reveal" goes through the session checked by the engine,** like every other action, and it is logged.
 - **Sensitive actions ask for your passkey again,** even during an open session: revealing a secret; deleting a project, an environment, a service or a database; turning a service's egress back on; adding an identity to the allowlist. The engine requires a recent passkey check, and sets how recent it must be. An XSS flaw or a stolen session therefore cannot reveal every secret or delete everything in one loop.
 
+## CLI and approvals
+
+The CLI and the MCP server reach the API the same way as the panel. [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents) has the details.
+
+- **Signed requests instead of a session.** The CLI signs each request with a key kept on your device, and the engine checks the signature. A compromised API can neither forge nor change a request from the CLI.
+- **A request carries either the session cookie or a signature, never both.** The CSRF rules above protect the cookie.
+- **The panel confirms every CLI login** with your second factor, and lists the keys with their device and last use, so you can revoke them.
+- **The panel shows the CLI actions that wait for you:** deletions, opening egress, opening a database to the tailnet, adding a custom domain, and every change in a protected environment.
+- **Approving asks for your second factor again,** even with an open session. A hijacked session is not enough to approve.
+
 ## Audit log
 
-Every action is an event in the engine's log, with the admin's ID. The admin's identity (Tailscale login or email) lives in a blob that can be purged. See [Observability](/docs/how-it-works/observability#audit-log).
+Every action is an event in the engine's log, with the admin's ID. An action from the CLI also carries the device key and the client, CLI or MCP. The admin's identity (Tailscale login or email) lives in a blob that can be purged. See [Observability](/docs/how-it-works/observability#audit-log).
 
 ## Without Tailscale
 
@@ -106,4 +119,4 @@ You can also administer Brume through an SSH tunnel or through a public panel. B
 
 ## Not in 0.1
 
-These features are left out of alpha 0.1: a web shell into containers, API tokens, a remote CLI, and deploying from GitHub Actions. See the [roadmap](/docs/how-it-works/roadmap).
+These features are left out of alpha 0.1: a web shell into containers, and access from outside the tailnet, such as tokens for CI, deploying from GitHub Actions, or a remote MCP server. See the [roadmap](/docs/how-it-works/roadmap).

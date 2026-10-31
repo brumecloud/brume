@@ -7,6 +7,7 @@ sources:
   - archi/base/06-builds-et-deploiement.md
   - archi/base/14-architecture-logicielle.md
   - archi/base/03-reseau.md
+  - archi/base/19-cli-et-agents-ia.md
 ---
 
 A push to a configured branch starts a build. Each step runs in its own component, with only what it needs: the webhook checks the request and queues a build, the engine decides, the agent starts the builder, and the builder clones and builds the image without touching the runtime. The agent then loads the image, and the engine deploys it by digest.
@@ -19,6 +20,14 @@ A push to a configured branch starts a build. Each step runs in its own componen
 4. The engine checks that the ref matches the configured branch, then asks the agent for the build.
 5. The agent starts the builder, which clones the repository and builds the image with [Railpack](https://railpack.com).
 6. The agent loads the image into dockerd and uploads it to S3. The engine creates the revision, then deploys it by digest.
+
+## Three sources
+
+- **A push to a configured branch,** through the GitHub App: the flow above.
+- **A folder uploaded by the CLI** with `brume deploy`: no clone and no GitHub token. The builder checks the archive's hash, extracts it, then builds with Railpack, with the same sandbox, the same cache and the same build secrets. See [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#deploying-a-folder).
+- **An image from a registry:** no build. The tag is resolved to a digest at deployment, see [Runtime](/docs/how-it-works/runtime).
+
+All three end the same way: a revision that points to a digest, then a deployment.
 
 ## The webhook
 

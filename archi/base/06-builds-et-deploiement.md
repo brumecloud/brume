@@ -9,6 +9,14 @@
 5. L'agent lance le builder, qui clone le repo et construit l'image avec Railpack.
 6. L'agent charge l'image dans dockerd. Elle ne part pas sur S3 : voir [15-etat-et-restauration.md](15-etat-et-restauration.md#ce-qui-va-sur-s3). L'engine crée la révision, puis la déploie par digest.
 
+## Les trois sources
+
+- **Un push sur une branche configurée,** par la GitHub App : le flux ci-dessus.
+- **Un dossier envoyé par la CLI** (`brume deploy`) : ni clone ni token GitHub. Le builder vérifie l'empreinte de l'archive, l'extrait, puis construit avec Railpack, avec le même sandbox, le même cache et les mêmes secrets de build. Voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-dossier-envoyé-par-la-cli).
+- **Une image d'un registry :** aucun build. Le tag est résolu en digest au déploiement, voir [05-runtime.md](05-runtime.md#images).
+
+Les trois finissent de la même façon : une révision qui pointe vers un digest, que l'agent déploie.
+
 ## Le webhook
 
 - **Un process séparé, avec son propre listener,** jamais une route de l'API admin. Les raisons sont dans [02-architecture.md](02-architecture.md).

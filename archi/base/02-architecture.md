@@ -6,7 +6,7 @@
 Internet ─► Cloudflare ─► cloudflared ─► Traefik ─┬─► apps, Caddy
                                                   └─► brume webhook ──┐
                                                                       │ webhook.sock
-Tailnet ──► tailscale serve ──► brume api ────────────────────────────┤ api.sock
+Tailnet (panel, CLI) ──► tailscale serve ──► brume api ───────────────┤ api.sock
                                                                       ▼
                       GitHub, notifications ◄─────────────────── brume engine ──► S3 : log, blobs, clés
                                                                    ▲      │
@@ -27,7 +27,7 @@ Le schéma montre les modes recommandés : Cloudflare Tunnel pour le trafic publ
 |---|---|---|---|
 | `brume engine` | Seul propriétaire de l'état. Décide chaque commande, vérifie les sessions, déchiffre les secrets, envoie l'état sur S3, cherche les mises à jour. | clé maître, état (SQLite), clé de la GitHub App, credentials S3, token Cloudflare en lecture seule | Les apps, leurs secrets et leurs données, dans les limites de `policy.toml`. Pas root sur l'hôte sans une faille du noyau ou de runc. |
 | `brume agent` | Pilote Docker sur sa machine : applique l'état voulu et la politique, lance les builds et les backups. | socket Docker, credentials S3 | Tout, sur sa machine. Avec l'updater, c'est le seul composant de Brume dans ce cas, d'où un code minimal. |
-| `brume api` | Sert le panel et son API. | un socket vers l'engine | Rien sans session ouverte par l'admin : l'engine vérifie chaque session. Pendant une session, les actions du panel, sans les options dangereuses. |
+| `brume api` | Sert le panel et son API, au navigateur comme à la CLI. Reçoit les dossiers envoyés par la CLI, sans les ouvrir. | un socket vers l'engine | Rien sans session ouverte par l'admin : l'engine vérifie chaque session. Pendant une session, les actions du panel, sans les options dangereuses. Il ne peut ni forger ni modifier une requête signée par la CLI, seulement la retenir ou la bloquer. |
 | `brume webhook` | Reçoit les webhooks GitHub. | le secret HMAC, un socket vers l'engine | Mettre en file le build d'un repo déjà configuré. |
 | `brume telemetry` | Reçoit les logs des apps et la télémétrie de Brume, les stocke et les interroge (DuckDB). | les logs, la télémétrie | Lire les logs et la télémétrie. Ni réseau, ni secrets, ni Docker. |
 | `brume updater` | Installe les mises à jour de Brume. | le droit d'écrire les binaires | Équivaut à root, mais ne tourne que le temps d'une mise à jour et n'accepte que des binaires signés. |
@@ -44,7 +44,7 @@ Le schéma montre les modes recommandés : Cloudflare Tunnel pour le trafic publ
 - **Vérifie chaque demande contre `/etc/brume/policy.toml`,** pour afficher une erreur claire dans le panel. C'est l'agent qui applique la politique.
 - **Aucune donnée non fiable.** Chaque parseur dans l'engine serait une porte vers l'état et les secrets. Il ne fait donc ni clone git, ni extraction d'archive, ni parsing de webhook ou de logs. Il ne reçoit que des valeurs typées, déjà validées.
 - **Aucun réseau entrant :** il n'écoute que sur des sockets unix.
-- **Propriétaire des sessions.** L'engine vérifie le second facteur, émet la session et la valide à chaque demande de l'API. Une API compromise ne peut rien faire sans une session ouverte par l'admin. Voir [04-panel-admin.md](04-panel-admin.md#session).
+- **Propriétaire des sessions et des clés de la CLI.** L'engine vérifie le second facteur, émet la session et la valide à chaque demande de l'API. Il vérifie aussi la signature de chaque requête de la CLI. Une API compromise ne peut rien faire sans une session ouverte par l'admin, ni forger une requête de la CLI. Voir [04-panel-admin.md](04-panel-admin.md#session) et [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#des-requêtes-signées-plutôt-quun-jeton).
 - **Pas de socket Docker :** c'est le rôle de l'agent.
 
 ## L'agent
@@ -64,6 +64,7 @@ Le schéma montre les modes recommandés : Cloudflare Tunnel pour le trafic publ
 - **La collecte des logs ne passe pas par l'engine :** dockerd envoie les logs de chaque container directement à `brume telemetry`. Un flot de logs ne peut donc pas saturer l'engine. Voir [09-observabilite.md](09-observabilite.md#logs-des-apps).
 - **La lecture passe par l'engine :** l'API demande les logs à l'engine, qui vérifie la session puis relaie la réponse de `brume telemetry` sans l'interpréter. L'API les diffuse au panel en SSE. `brume telemetry` n'a jamais accès à Docker.
 - **Le builder ne touche jamais le runtime :** il produit une image, l'agent la charge dans dockerd et la déploie par digest.
+- **Un dossier envoyé par la CLI ne passe pas par l'engine.** L'API l'écrit tel quel dans un dossier de dépôt, l'agent le monte dans le builder, et seul le builder l'ouvre. Voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-dossier-envoyé-par-la-cli).
 
 ## Le webhook, séparé de l'API
 

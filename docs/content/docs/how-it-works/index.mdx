@@ -18,6 +18,7 @@ Brume runs on a single server that you own, for a single owner. That server hold
 5. **The owner's code is trusted, the outside is not.** Everything that comes from outside is hostile: requests to your apps, webhook payloads, sites the admin opens. So is everything that keeps a trace of it, such as logs and headers. Every name typed in the panel is validated against an allowlist.
 6. **Dangerous options are decided on the host, never in the panel.**
 7. **Detect as much as prevent:** an audit log out of reach, alerts, drift detection.
+8. **Agent first.** Everything the panel does, the CLI does too, and an AI agent with it. Anything you cannot undo waits for the admin's second factor. See [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents).
 
 ## Alpha 0.1 scope
 
@@ -29,6 +30,7 @@ Brume runs on a single server that you own, for a single owner. That server hold
 - Automatic CI/CD from GitHub, built with Railpack.
 - Backups, logs and secrets managed from the panel.
 - Admin panel reachable over Tailscale (recommended), through an SSH tunnel, or publicly.
+- A CLI and an MCP server, reached the same way as the panel: deploy anything in one command, or in one sentence to an AI agent.
 - Public traffic through Cloudflare Tunnel (recommended: no inbound port open on the server), or directly on ports 80 and 443.
 - All of Brume's state on S3, with its secrets encrypted: a lost VPS is rebuilt from the bucket.
 

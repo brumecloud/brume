@@ -21,6 +21,7 @@
 - Automatic CI/CD from GitHub, built with Railpack.
 - Backups, logs and secrets managed from the panel.
 - Admin panel over Tailscale by default. Access through an SSH tunnel or from the public Internet is opt-in.
+- Agent first: a CLI and an MCP server, reached the same way as the panel. Deploy anything in one command, or in one sentence to your AI agent.
 - Public traffic through Cloudflare Tunnel by default: no inbound port open on the server. Direct ingress on ports 80 and 443 is opt-in.
 - All of Brume's state on S3, with its secrets encrypted: a lost VPS is rebuilt from the bucket.
 
@@ -28,7 +29,7 @@
 
 ## Design documents
 
-The architecture decisions live in [`archi/base/`](archi/base/README.md) (written in French): threat model, architecture, data model, networking, admin panel, runtime, templates, builds and deployment, secrets and backups, host setup, observability, development rules, a comparison with similar tools, the software architecture (engine and agent, event sourcing), state and restore on S3, deterministic simulation testing, and telemetry.
+The architecture decisions live in [`archi/base/`](archi/base/README.md) (written in French): threat model, architecture, data model, networking, admin panel, runtime, templates, builds and deployment, secrets and backups, host setup, observability, development rules, a comparison with similar tools, the software architecture (engine and agent, event sourcing), state and restore on S3, deterministic simulation testing, telemetry, and the CLI and MCP server for AI agents.
 
 ## Documentation
 

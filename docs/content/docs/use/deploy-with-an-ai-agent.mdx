@@ -1,0 +1,86 @@
+---
+title: Deploy with an AI agent
+description: Let a coding agent deploy on your Brume server in one sentence, through the CLI and its skill or through the MCP server, while irreversible actions wait for you.
+type: guide
+status: planned
+sources:
+  - archi/base/19-cli-et-agents-ia.md
+  - archi/base/01-modele-de-menace.md
+---
+
+An AI agent such as Claude Code, Codex or Cursor deploys on your server with the same CLI you use. Once your laptop is linked, one sentence is enough: "deploy this folder to my Brume server, with a Postgres database". The agent deploys on its own, and anything irreversible waits for you in the panel.
+
+## Before you start
+
+- **The CLI installed and linked** with `brume login`. See [Deploy with the CLI](/docs/use/deploy-with-the-cli).
+- **An AI agent that runs on your laptop.** It uses the CLI's key, so it runs where the key is.
+
+## Give your agent access
+
+An AI agent that runs shell commands can use the CLI directly. Pick one of the two ways below.
+
+<Tabs items={["Skill", "MCP server"]}>
+
+<Tab value="Skill">
+
+The Brume skill, in the Agent Skills format (`SKILL.md`), is published with these docs. It teaches a coding agent to deploy with the CLI:
+
+- **Always `--json` and the explicit flags** of `brume deploy` (`--dir`, `--repo`, `--template`, `--image`), so nothing is guessed.
+- **Wait with `--wait`,** and read the exit code.
+- **Hand an approval link to you** instead of looking for a way around it.
+- **Move secrets with `brume secrets import`** instead of reading them.
+
+</Tab>
+
+<Tab value="MCP server">
+
+`brume mcp` is a local MCP server over stdio. Your agent starts it, and it uses the key from `brume login`: there is nothing else to configure.
+
+```json title="MCP configuration"
+{
+  "mcpServers": {
+    "brume": {
+      "command": "brume",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Where this configuration goes depends on your agent. Each CLI command is an MCP tool, with the same parameters and the same JSON responses.
+
+</Tab>
+
+</Tabs>
+
+## Ask for a deploy
+
+Ask in one sentence, for example: "deploy this folder to my Brume server, with a Postgres database". The agent deploys the folder and the Postgres template with `brume deploy`, then gives you the URL once the service is healthy.
+
+## What your agent can do alone
+
+- **Read** projects, services, deployments, logs, metrics, variables, and the names of secrets.
+- **Create and change** projects, environments, services and variables, and set secret values without reading them.
+- **Deploy, roll back and restart,** except in a protected environment.
+
+## What waits for you
+
+<Callout type="warn" title="Your agent reads hostile content">
+  Logs, commit messages, issues and web pages can carry instructions written by an attacker. An agent that follows them acts with your CLI key. This is why irreversible actions wait for your second factor, and why the agent never gets the value of a secret.
+</Callout>
+
+- **Deleting** a service, an environment, a project or a volume, and purging a revision.
+- **Widening exposure:** opening a service's egress, opening a database to the tailnet, adding a custom domain.
+- **Every change in a protected environment,** deploys included. Protect production from the panel once you have a staging environment: your agent can then deploy freely to staging, and production waits for you.
+
+The agent gets an `approval_required` status with a link. You open it in the panel, check the diff, and approve with your second factor. A request expires after 15 minutes.
+
+Some actions are never possible from the CLI: revealing a secret, registering another key, and turning on a dangerous option. [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents) explains each rule.
+
+## What your agent's provider sees
+
+Your agent's provider sees what the agent reads through the CLI: logs, configuration and the names of secrets. It never sees secret values, because the CLI never returns them. Keep this in mind for personal data in your logs.
+
+## Check what your agent did
+
+Every action from the CLI is in the audit log, with the device key and the client, CLI or MCP. See [Observability](/docs/how-it-works/observability#audit-log).

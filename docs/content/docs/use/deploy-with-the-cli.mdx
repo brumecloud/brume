@@ -1,0 +1,116 @@
+---
+title: Deploy with the CLI
+description: Link your laptop to your Brume server once, then deploy a folder, a GitHub repository, a database or an image in one command.
+type: guide
+status: planned
+sources:
+  - archi/base/19-cli-et-agents-ia.md
+  - archi/base/06-builds-et-deploiement.md
+---
+
+Once your laptop is linked to your server, `brume deploy` deploys anything in one command: the current folder, a GitHub repository, a database template or an image. It waits until the service is healthy, then prints its URL.
+
+## Before you start
+
+- **A Brume server,** with the panel reachable from your laptop. See the [quickstart](/docs/use/quickstart).
+- **Your laptop on the tailnet,** signed in with the Tailscale identity you gave at install. A tagged device has no Tailscale identity and cannot use the CLI.
+- **The `brume` binary for your laptop** (macOS or Linux). It is published in the same GitHub release as the server binary, signed with minisign.
+
+## Link your laptop and deploy
+
+<Steps>
+
+<Step>
+
+### Sign in once
+
+```bash
+brume login <panel address>
+```
+
+The CLI creates a key on your laptop, opens the panel on the request and shows a short code. In the panel, check that the code matches, then confirm with your second factor. You do this once per device.
+
+</Step>
+
+<Step>
+
+### Deploy
+
+From the folder of your app:
+
+```bash
+brume deploy
+```
+
+The first deploy from a folder creates a project named after the folder, a `production` environment and the service. Later deploys from the same folder go to the same service.
+
+</Step>
+
+<Step>
+
+### Check it worked
+
+`brume deploy` returns once the service is healthy, and prints its URL. If the build or the deployment fails, it exits with an error code and says what to do next. To read the logs:
+
+```bash
+brume logs --follow
+```
+
+</Step>
+
+</Steps>
+
+## What `brume deploy` accepts
+
+```bash
+brume deploy                         # the current folder
+brume deploy ghcr.io/acme/api:1.4    # an image
+brume deploy github.com/acme/site    # a GitHub repository, through the GitHub App
+brume deploy postgres                # a template
+```
+
+| Argument | Source | Build |
+|---|---|---|
+| Nothing, or a path | The folder, uploaded by the CLI | Railpack, on the server |
+| `github.com/<owner>/<repo>` | The repository, through the GitHub App | Railpack, then on every push to the configured branch |
+| `postgres`, `mongodb`, `redis` | The [template](/docs/use/templates) | None |
+| An image reference | The registry | None: the tag is resolved to a digest |
+
+- **The argument is read in this order:** an existing path, then a template name, then a GitHub repository, then an image. If nothing matches, `deploy` fails and lists what it tried.
+- **`--dir`, `--repo`, `--template` and `--image` remove any guessing.** Use them in scripts.
+- **A service is a container by default.** Use `--static` to create a static site instead. You cannot change the type later.
+- **A service that listens on a port gets a subdomain of your wildcard domain.** `--private` keeps it on its environment's network. A database is never exposed.
+- **Running `deploy` again with nothing changed creates no revision.**
+- **`--no-wait`** returns right away instead of waiting for the service to be healthy.
+
+## Pick another target
+
+`--project`, `--env` and `--service` deploy to another target than the one linked to the folder. The link lives in the CLI's configuration on your laptop, never in your repository.
+
+`brume deploy` applies only its own change. Changes you staged in the panel stay staged.
+
+## What the CLI never uploads
+
+When it uploads a folder, the CLI follows `.gitignore`. It never uploads `.git`, `.env` or `.env.*`, because a `COPY . .` in the build would put them in an image layer, readable by anyone who gets the image.
+
+To move the values of a `.env` file to Brume, import them as secrets:
+
+```bash
+brume secrets import .env
+```
+
+The CLI sends the values without printing them.
+
+## Actions that wait for you
+
+Deleting something, opening a service's egress, opening a database to the tailnet or adding a custom domain does not run right away. The CLI returns `approval_required` with a link to the panel, where you approve with your second factor. In a protected environment, every change from the CLI waits for approval, deploys included.
+
+[CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#what-a-cli-key-can-do) lists every action and explains why.
+
+## Revoke a device
+
+```bash
+brume logout
+```
+
+`brume logout` revokes the device's key, then deletes it from your laptop. You can also revoke any key from the panel. A key expires on its own after 30 days without use.

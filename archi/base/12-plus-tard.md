@@ -19,7 +19,8 @@ Ce qui est volontairement repoussé, et ce que ça apportera.
 | Secrets en fichiers sur tmpfs | Les variables d'environnement fuient vers les processus enfants, les rapports d'erreur (Sentry) et `/proc/<pid>/environ`. En option, car presque toutes les apps attendent des variables d'environnement. |
 | `systemd-analyze security --offline=true` en CI | Note l'exposition de chaque unité systemd. La CI échoue si le score se dégrade. |
 | Shell web dans les containers | La fonctionnalité la plus puissante du panel, donc à concevoir avec soin. |
-| Tokens d'API, CLI distante, déploiement depuis GitHub Actions | Des accès hors Tailscale, avec leurs propres règles. |
+| Jetons pour une CI, déploiement depuis GitHub Actions | En 0.1, la CLI passe par le tailnet avec l'identité Tailscale de l'admin. Une CI n'est pas sur le tailnet, ou y est taguée, donc sans identité. Il lui faudra un accès hors Tailscale, avec ses propres règles. Voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#la-clé). |
+| MCP distant | Un serveur MCP servi par `brume api`, pour les agents IA qui ne lancent pas de commande locale. Il demande OAuth et une autre façon de lier un agent IA à l'admin. En 0.1, `brume mcp` tourne sur le laptop. |
 | Previews de PR | Jamais de build avec des secrets pour une PR venant d'un fork. |
 | Filtrage de l'accès Internet sortant par domaine | Demande un proxy de sortie. |
 | Multi-serveurs | Les agents des autres machines se connectent en sortie au master, par le tailnet, avec le protocole de la 0.1 (modèle Edge Agent). Jamais de clé SSH root centrale. Placement par service, avec un réseau d'environnement qui traverse les machines (overlay ou WireGuard). Entrée publique à décider : relais par le master, ou un tunnel par machine. L'agent garde l'état voulu sur sa machine, pour démarrer sans le master. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#les-machines). |

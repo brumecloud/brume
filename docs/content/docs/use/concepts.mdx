@@ -5,6 +5,7 @@ type: concept
 status: planned
 sources:
   - archi/base/13-modele-de-donnees.md
+  - archi/base/19-cli-et-agents-ia.md
 ---
 
 Everything you deploy in Brume lives in a project, an environment and a service. Each change to a service's spec creates an immutable revision, and each deployment puts one revision into service. A rollback deploys an older revision again.
@@ -36,7 +37,7 @@ Each service has a **slug**, its DNS name on the environment network. The slug n
 
 ## Revision
 
-The immutable spec of a service: everything needed to recreate its container. That covers the artifact (an image digest, or the hash of a static site archive) and the commit it came from, the command, port and healthcheck, the CPU, memory and pids limits, the values of variables, and the names of secrets. Changing any of these creates a new revision.
+The immutable spec of a service: everything needed to recreate its container. That covers the artifact (an image digest, or the hash of a static site archive) and where it came from (a commit, or a folder uploaded by the [CLI](/docs/use/deploy-with-the-cli)), the command, port and healthcheck, the CPU, memory and pids limits, the values of variables, and the names of secrets. Changing any of these creates a new revision.
 
 - **A revision is created after a successful build, never before.** It always points to an artifact that exists. A failed build creates no revision.
 - **A revision never holds data.** Volumes and databases are not versioned.
@@ -75,7 +76,7 @@ Brume has three kinds of values:
 - **Brume checks a rollback before it starts:** the artifact still exists, and every secret named in the revision exists. Otherwise it refuses, and lists what is missing.
 - **A rollback applies to one service.** Rolling back a backend does not touch the frontend that calls its API.
 - **Data never goes back.** After a migration, the old code runs on the new schema. The panel warns you before rolling back a service that has a volume.
-- **Automatic deploys continue after a rollback:** the next push to the configured branch deploys again.
+- **Automatic deploys continue after a rollback:** the next push to the configured branch deploys again. The same goes after a deploy from a folder uploaded by the CLI.
 - **Docker on your server keeps the artifacts of the last 10 revisions of each service.** Built images are not copied to your S3 bucket, so an older revision stays in the history, but you can no longer roll back to it, and the panel shows it. An image pulled from a registry is pulled again from the registry, by its digest.
 
 The [data model](/docs/how-it-works/data-model) covers the details: shared values across environments, retention and purge, and the reasons behind each rule. The [templates](/docs/use/templates) page covers what a database service gets.

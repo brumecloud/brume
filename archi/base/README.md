@@ -14,6 +14,7 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 - CI/CD automatique depuis GitHub, build avec Railpack.
 - Backups, logs et secrets gérés depuis le panel.
 - Panel d'administration joignable par Tailscale (recommandé), par un tunnel SSH ou en public.
+- Agent first : une CLI et un serveur MCP, par le même accès que le panel. On déploie n'importe quoi en une commande, ou en une phrase à un agent IA.
 - Trafic public par Cloudflare Tunnel (recommandé : aucun port entrant sur le serveur), ou en direct sur les ports 80 et 443.
 - Tout l'état de Brume sur S3, secrets chiffrés : un VPS perdu se remonte depuis le bucket.
 
@@ -28,6 +29,9 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 5. **Le code du propriétaire est de confiance, l'extérieur ne l'est pas.** Est hostile tout ce qui vient de l'extérieur : requêtes vers les apps, payloads de webhook, sites ouverts par l'admin. Est hostile aussi tout ce qui en garde la trace : logs, en-têtes. Tout nom saisi dans le panel est validé par liste blanche.
 6. **Les options dangereuses se décident sur l'hôte, jamais dans le panel.**
 7. **Détecter autant que prévenir :** journal d'audit hors de portée, alertes, détection des écarts.
+8. **Agent first.** Tout ce que fait le panel, la CLI le fait aussi, et un agent IA avec elle. Ce qui ne se défait pas attend le second facteur de l'admin.
+
+« L'agent » seul désigne toujours `brume agent`, le service qui pilote Docker. Un agent de code s'appelle un agent IA. Voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#vocabulaire).
 
 ## Documents
 
@@ -53,6 +57,7 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 | [16-tests.md](16-tests.md) | Simulation déterministe, tests de conformité, tests sur une vraie VM |
 | [17-telemetrie.md](17-telemetrie.md) | OpenTelemetry : traces, métriques et logs de Brume, sans secret |
 | [18-formats-s3.md](18-formats-s3.md) | Noms et formats des objets sur S3, chiffrement des blobs, règles du lecteur |
+| [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md) | La CLI, le serveur MCP et le skill : `brume deploy`, connexion par clé signée, approbations, agents IA |
 
 ## Décisions ouvertes
 
