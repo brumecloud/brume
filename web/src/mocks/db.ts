@@ -5,6 +5,8 @@ import { isDatabase, serviceNameError } from "~/helpers/services";
 import { parseVariableKind, parseVariableName, resolveVariables } from "~/helpers/variables";
 
 import type {
+  ActivityEvent,
+  ActivityPage,
   ChangeId,
   CreatedProject,
   Deployment,
@@ -28,6 +30,7 @@ import type {
   ServiceKind,
 } from "~/api/types";
 
+import { type StoredEvent, deploymentEvent, seedEvents } from "./events";
 import * as history from "./history";
 import * as seed from "./seed";
 
@@ -44,7 +47,108 @@ export const db = {
   stagedSecrets: new Map<string, string>(),
   // Settings changed by a deploy; the others come from settingsFor.
   settings: new Map<string, ServiceSettings>(),
+  // The engine's log, as the activity view reads it. Every mocked action appends to it.
+  events: seedEvents(),
 };
+
+type EventFields = Partial<Pick<ActivityEvent, "environmentId" | "serviceId" | "deploymentId">>;
+
+function record(
+  projectId: string,
+  type: string,
+  summary: string,
+  fields: EventFields = {},
+  actor = "admin",
+): void {
+  const event: StoredEvent["event"] = {
+    seq: (db.events.at(-1)?.event.seq ?? 0) + 1,
+    at: new Date().toISOString(),
+    type,
+    actor,
+    environmentId: null,
+    serviceId: null,
+    deploymentId: null,
+    summary,
+    ...fields,
+  };
+  db.events.push({ projectId, event });
+}
+
+// The project and the environment of a service, for the events about it.
+function scopeOf(serviceId: string) {
+  const service = db.services.find(({ id }) => id === serviceId);
+  const environment = db.environments.find(({ id }) => id === service?.environmentId);
+  return service && environment ? { service, environment } : undefined;
+}
+
+function recordDeployment(deployment: Deployment, author = "admin"): void {
+  const scope = scopeOf(deployment.serviceId);
+  if (scope) {
+    const { type, summary } = deploymentEvent(
+      deployment,
+      scope.service.name,
+      scope.environment.name,
+    );
+    record(
+      scope.environment.projectId,
+      type,
+      summary,
+      {
+        environmentId: scope.environment.id,
+        serviceId: scope.service.id,
+        deploymentId: deployment.id,
+      },
+      author,
+    );
+  }
+}
+
+const MAX_EVENTS_PAGE = 200;
+const DEFAULT_EVENTS_PAGE = 100;
+
+// `GET /api/events`: a project's events, newest first, `limit` at a time, older than `before`.
+export function listEvents(params: URLSearchParams): ActivityPage | Refusal {
+  const projectId = params.get("projectId") ?? "";
+  const before = params.has("before") ? Number(params.get("before")) : Number.POSITIVE_INFINITY;
+  const limit = params.has("limit") ? Number(params.get("limit")) : DEFAULT_EVENTS_PAGE;
+  if (!db.projects.some(({ id }) => id === projectId)) {
+    return refuse(404, "Project not found.");
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_EVENTS_PAGE || Number.isNaN(before)) {
+    return refuse(400, "limit is 1 to 200, before a sequence number.");
+  }
+  const older = db.events
+    .filter((stored) => stored.projectId === projectId && stored.event.seq < before)
+    .map((stored) => stored.event)
+    .toReversed();
+  const events = older.slice(0, limit);
+  return {
+    events,
+    nextBefore: older.length > limit ? (events.at(-1)?.seq ?? null) : null,
+  };
+}
+
+// A reveal is audited: it leaves an event, never the value.
+export function revealSecret(variableId: string): string | undefined {
+  const value = db.secretValues.get(variableId);
+  const variable = db.variables.find(({ id }) => id === variableId);
+  const projectId = variable && projectOfOwner(variable.level, variable.ownerId);
+  if (value !== undefined && variable && projectId) {
+    record(projectId, "SecretRevealed", `Revealed ${variable.name}`);
+  }
+  return value;
+}
+
+function projectOfOwner(level: VariableLevel, ownerId: string): string | undefined {
+  switch (level) {
+    case "project":
+      return ownerId;
+    case "environment":
+      return db.environments.find(({ id }) => id === ownerId)?.projectId;
+    default:
+      return scopeOf(ownerId)?.environment.projectId;
+  }
+}
 
 const SERVICE_NAMES: Record<Exclude<ServiceKind, "github" | "static" | "image">, string> = {
   postgres: "PostgreSQL",
@@ -69,6 +173,10 @@ export function createProject(source: NewProjectSource): CreatedProject {
   };
   db.projects.push(project);
   db.environments.push(environment);
+  record(project.id, "ProjectCreated", `Created project ${project.name}`);
+  record(project.id, "EnvironmentCreated", `Created environment ${environment.name}`, {
+    environmentId: environment.id,
+  });
   if (serviceName && source.kind !== "empty") {
     const serviceId = crypto.randomUUID() as ServiceId;
     db.deployments.push({
@@ -96,6 +204,14 @@ export function createProject(source: NewProjectSource): CreatedProject {
       dependencies: [],
     };
     db.services.push(service);
+    record(project.id, "ServiceCreated", `Created service ${service.name} in production`, {
+      environmentId: environment.id,
+      serviceId,
+    });
+    const first = db.deployments.at(-1);
+    if (first) {
+      recordDeployment(first);
+    }
     // The repository picked, not the one guessed from the service name.
     if (source.kind === "github" || source.kind === "static") {
       db.settings.set(serviceId, {
@@ -137,6 +253,9 @@ export function createEnvironment(projectId: string, raw: unknown): Environment 
     name,
   };
   db.environments.push(environment);
+  record(project.id, "EnvironmentCreated", `Created environment ${environment.name}`, {
+    environmentId: environment.id,
+  });
   return environment;
 }
 
@@ -191,6 +310,16 @@ export function createService(environmentId: string, raw: unknown): Service | Re
   };
   db.services.push(service);
   db.deployments.push(deployment);
+  record(
+    environment.projectId,
+    "ServiceCreated",
+    `Created service ${name} in ${environment.name}`,
+    {
+      environmentId: environment.id,
+      serviceId: service.id,
+    },
+  );
+  recordDeployment(deployment);
   db.settings.set(service.id, { ...settingsFor(service), source: { kind: "image", image } });
   setTimeout(() => settle(deployment.id), START_MS);
   return service;
@@ -203,6 +332,7 @@ function settle(deploymentId: DeploymentId): void {
     return;
   }
   db.deployments[index] = { ...deployment, status: "active" };
+  recordDeployment({ ...deployment, status: "active" });
   const serviceIndex = db.services.findIndex(({ id }) => id === deployment.serviceId);
   const service = db.services[serviceIndex];
   if (service) {
@@ -295,6 +425,7 @@ export function deploy(from: Deployment, author: string): Deployment {
     author,
   };
   db.deployments.push(deployment);
+  recordDeployment(deployment, author);
   const index = db.services.findIndex((service) => service.id === from.serviceId);
   const service = db.services[index];
   if (service) {
@@ -304,6 +435,15 @@ export function deploy(from: Deployment, author: string): Deployment {
 }
 
 export function deleteService(serviceId: string): void {
+  const scope = scopeOf(serviceId);
+  if (scope) {
+    record(
+      scope.environment.projectId,
+      "ServiceDeleted",
+      `Deleted service ${scope.service.name} from ${scope.environment.name}`,
+      { environmentId: scope.environment.id, serviceId: scope.service.id },
+    );
+  }
   db.services = db.services.filter((service) => service.id !== serviceId);
   for (const [index, service] of db.services.entries()) {
     if (service.dependencies.includes(serviceId as ServiceId)) {
@@ -445,6 +585,15 @@ export function deployChanges(environmentId: string): number {
       continue;
     }
     const own = changes.filter((change) => change.serviceId === serviceId);
+    const scope = scopeOf(serviceId);
+    if (scope) {
+      record(
+        scope.environment.projectId,
+        "ServiceSpecChanged",
+        `Applied ${own.length} ${own.length === 1 ? "change" : "changes"} to ${service.name} in ${scope.environment.name}`,
+        { environmentId: scope.environment.id, serviceId },
+      );
+    }
     const next = withStagedSettings(currentSettings(service), service.domains, own);
     db.settings.set(serviceId, next.settings);
     db.services[index] = { ...service, domains: next.domains };
@@ -641,6 +790,9 @@ export function setSharedVariable(
     reference: false,
   };
   db.variables = [...db.variables.filter((other) => other !== existing), variable];
+  record(owner.projectId, "SharedVariableSet", `Set ${name} on ${sharedOwnerLabel(variable)}`, {
+    environmentId: variable.level === "environment" ? (ownerId as EnvironmentId) : null,
+  });
   const reached = reachedServices(owner.level, ownerId, name, kind);
   if (kind === "secret") {
     db.secretValues.set(variable.id, value);
@@ -674,6 +826,24 @@ export function removeSharedVariable(variableId: string): { deployments: Deploym
     }
   }
   db.variables = db.variables.filter((other) => other !== variable);
+  const projectId = projectOfOwner(variable.level, variable.ownerId);
+  if (projectId) {
+    record(
+      projectId,
+      "SharedVariableRemoved",
+      `Removed ${variable.name} from ${sharedOwnerLabel(variable)}`,
+      {
+        environmentId:
+          variable.level === "environment" ? (variable.ownerId as EnvironmentId) : null,
+      },
+    );
+  }
   db.secretValues.delete(variable.id);
   return { deployments: variable.kind === "secret" ? [] : redeployAll(reached) };
+}
+
+function sharedOwnerLabel(variable: Variable): string {
+  return variable.level === "project"
+    ? "the project"
+    : (db.environments.find(({ id }) => id === variable.ownerId)?.name ?? "an environment");
 }

@@ -232,3 +232,23 @@ export type NewChange =
       readonly value: string | null;
     }
   | { readonly serviceId: ServiceId; readonly type: "variable-removal"; readonly name: string };
+
+// One event of the engine's log, as the activity view lists it. The summary is written by the
+// server in English, from names it knows: never a secret value. Hostile like any text it quotes.
+export interface ActivityEvent {
+  readonly seq: number;
+  readonly at: string;
+  // `ProjectCreated`, `DeploymentSucceeded`…: open-ended, new types appear with the engine.
+  readonly type: string;
+  readonly actor: string;
+  readonly environmentId: EnvironmentId | null;
+  readonly serviceId: ServiceId | null;
+  readonly deploymentId: DeploymentId | null;
+  readonly summary: string;
+}
+
+export interface ActivityPage {
+  readonly events: readonly ActivityEvent[];
+  // The `before` of the next, older page; null on the oldest one.
+  readonly nextBefore: number | null;
+}

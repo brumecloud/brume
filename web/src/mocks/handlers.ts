@@ -7,7 +7,9 @@ import {
   createEnvironment,
   createProject,
   createService,
+  listEvents,
   removeSharedVariable,
+  revealSecret,
   setSharedVariable,
   variableImpact,
   currentSettings,
@@ -225,7 +227,7 @@ export const handlers = [
   // A reveal is audited by the real server.
   http.post("/api/variables/:variableId/reveal", async ({ params }) => {
     await delay(LATENCY_MS);
-    const value = db.secretValues.get(String(params.variableId));
+    const value = revealSecret(String(params.variableId));
     return value === undefined
       ? HttpResponse.json({ message: "Secret not found." }, { status: 404 })
       : HttpResponse.json({ value });
@@ -280,6 +282,14 @@ export const handlers = [
     return deployment && service
       ? HttpResponse.json(deploymentLogs(deployment, service, stream))
       : HttpResponse.json({ message: "Deployment not found." }, { status: 404 });
+  }),
+
+  http.get("/api/events", async ({ request }) => {
+    await delay(LATENCY_MS);
+    const page = listEvents(new URL(request.url).searchParams);
+    return "message" in page
+      ? HttpResponse.json({ message: page.message }, { status: page.status })
+      : HttpResponse.json(page);
   }),
 
   // An API route without a mock fails clearly instead of returning index.html.
