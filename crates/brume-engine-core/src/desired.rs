@@ -1,6 +1,8 @@
 //! The desired state of the machine, computed from the `World` and the values in storage.
 
-use brume_domain::{Deployment, DeploymentPhase, RevisionValue, Service, ServiceId, World};
+use brume_domain::{
+    ContainerPath, Deployment, DeploymentPhase, RevisionValue, Service, ServiceId, World,
+};
 use brume_proto::agent::{
     ContainerSpec, DesiredState, EnvValue, EnvVar, Healthcheck, Mount, NetworkAttachment,
     NetworkSpec, VolumeSpec,
@@ -90,16 +92,27 @@ pub fn desired_state(
 
     let mut containers = Vec::new();
     for service in world.services().filter(|service| !service.deleted) {
+        let active = world.active_deployment(&service.id);
         let in_progress = world.in_progress_deployment(&service.id);
-        let starting = in_progress.is_some_and(|deployment| {
+        let started = in_progress.filter(|deployment| {
             matches!(
                 deployment.phase,
                 DeploymentPhase::Starting | DeploymentPhase::Promoting
             )
         });
-        // Two containers never share a volume: a service with one stops, then restarts.
-        let stop_active = starting && !service.volumes.is_empty();
-        if let Some(active) = world.active_deployment(&service.id)
+        // Two containers never share a volume: when the new revision mounts a volume of the
+        // active one, the active container stops first, and comes back if the deployment
+        // fails. Only the revisions that run count, never one that failed.
+        let stop_active = match (active, started) {
+            (Some(active), Some(started)) => {
+                let mounted = revision_volumes(world, active);
+                revision_volumes(world, started)
+                    .iter()
+                    .any(|path| mounted.contains(path))
+            }
+            _ => false,
+        };
+        if let Some(active) = active
             && !stop_active
         {
             containers.push(container(world, storage, service, active, true)?);
@@ -123,6 +136,26 @@ pub fn desired_state(
         volumes,
         containers,
     })
+}
+
+/// The volume paths that a deployment's revision mounts; none before it has a revision.
+fn revision_volumes<'a>(world: &'a World, deployment: &Deployment) -> &'a [ContainerPath] {
+    deployment
+        .revision
+        .as_ref()
+        .and_then(|revision| world.revision(revision))
+        .map_or(&[], |revision| revision.spec.volumes.as_slice())
+}
+
+/// The name and path of the first volume that the service's containers mount: those of the
+/// active revision, else of the deployment in progress once it has one.
+pub(crate) fn current_volume(world: &World, service: &Service) -> Option<(String, ContainerPath)> {
+    let deployment = world
+        .active_deployment(&service.id)
+        .or_else(|| world.in_progress_deployment(&service.id))?;
+    let path = revision_volumes(world, deployment).first()?;
+    let index = service.volumes.iter().position(|known| known == path)?;
+    Some((volume_name(&service.id, index), path.clone()))
 }
 
 /// The container of a started deployment. `alias`: whether it holds the service's slug on the

@@ -53,8 +53,11 @@ pub struct Service {
     pub slug: Slug,
     /// Outbound internet access.
     pub egress: bool,
-    /// Every path that one of its images declared as a volume, in the order they appeared. The
-    /// volume of the path at index `n` is the service's volume `n`, so the list only grows.
+    /// Every path that one of its revisions declared as a volume, in the order they appeared:
+    /// it names the volumes. The volume of the path at index `n` is the service's volume `n`,
+    /// so the list only grows, even with the path of a revision that never ran. What a
+    /// container mounts, and whether a deployment stops the active container first, comes
+    /// from the revisions that run, never from this list.
     pub volumes: Vec<ContainerPath>,
     /// What the next deployment starts from.
     pub spec: ServiceSpec,

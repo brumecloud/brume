@@ -6,7 +6,7 @@ use brume_domain::{
     EnvironmentId, ImageRef, NewService, PlainKind, PlainValue, ProjectId, ProjectName,
     RevisionPlan, RevisionValue, SecretValue, Service, ServiceId, ServiceName, ServiceVariable,
     ServiceVariableValue, SharedValue, SharedVariable, Slug, VarName, VariableId, VariableOwner,
-    VariableRef, impacted_services, resolve_secrets, secret_references,
+    VariableRef, impacted_services, resolve_secrets, secret_redeploy_targets,
 };
 use brume_proto::api::{
     ApiFailure, ApiValue, CreatedProjectDto, DeploymentDto, DeploymentStatusDto, EnvironmentDto,
@@ -18,7 +18,7 @@ use brume_proto::api::{
 use secrecy::ExposeSecret;
 
 use crate::api::{invalid, not_found, parse_id};
-use crate::desired::volume_name;
+use crate::desired::current_volume;
 use crate::engine::{Actor, Engine, failure, storage_failure};
 use crate::storage::{Storage, Transaction};
 
@@ -229,8 +229,8 @@ impl<S: Storage> Engine<S> {
             kind: ServiceKindDto::Image,
             status: self.service_status(&service.id),
             domains: Vec::new(),
-            volume: service.volumes.first().map(|path| VolumeDto {
-                name: volume_name(&service.id, 0),
+            volume: current_volume(&self.world, service).map(|(name, path)| VolumeDto {
+                name,
                 mount_path: path.to_string(),
             }),
             // Edges come from template connection secrets, which this milestone does not have.
@@ -318,11 +318,23 @@ impl<S: Storage> Engine<S> {
         service_id: &str,
     ) -> Result<ApiValue, ApiFailure> {
         let service = self.live_service(service_id)?.id.clone();
+        // Its staged changes go with it, in the same transaction.
+        let staged_deletes = self
+            .storage
+            .staged_changes()
+            .map_err(storage_failure)?
+            .into_iter()
+            .filter(|change| change.service == service)
+            .map(|change| change.id)
+            .collect();
         self.commit(
             ctx,
             &Actor::Admin(admin.clone()),
             &Command::DeleteService { service },
-            Transaction::default(),
+            Transaction {
+                staged_deletes,
+                ..Transaction::default()
+            },
         )?;
         Ok(ApiValue::NoContent)
     }
@@ -623,8 +635,10 @@ impl<S: Storage> Engine<S> {
             .shared_variable(&variable)
             .expect("just set")
             .clone();
+        // The services that a redeploy brings to this value: by name, as a deployment
+        // resolves it, so a new override counts though no deployment resolved it yet.
         let referenced_by = if is_secret {
-            secret_references(&self.world, &owner, &name)
+            secret_redeploy_targets(&self.world, &owner, &name)
                 .into_iter()
                 .map(|service| service.to_string())
                 .collect()

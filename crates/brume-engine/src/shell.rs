@@ -382,6 +382,18 @@ async fn serve(
                     let delay = at.as_millis().saturating_sub(ctx.now().as_millis());
                     wake = Some(Instant::now() + Duration::from_millis(delay));
                 }
+                Output::AdminRefused { client, reason } => {
+                    tracing::warn!(%reason, "refused a local command");
+                    // Its sender gone, the connection ends without a reply.
+                    clients.remove(&client);
+                }
+                Output::DesiredStateUnavailable { position, reason } => {
+                    tracing::error!(
+                        position,
+                        %reason,
+                        "the desired state cannot be built: the agent keeps the previous one"
+                    );
+                }
             }
         }
 

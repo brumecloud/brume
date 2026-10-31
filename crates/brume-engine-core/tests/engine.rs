@@ -5,12 +5,17 @@ mod fake_storage;
 mod harness;
 
 use brume_domain::Timestamp;
-use brume_engine_core::{DEPLOYMENT_TIMEOUT_MILLIS, Engine, Input, OpenError, short_id};
-use brume_proto::agent::{ContainerHealth, EnvValue, Healthcheck, Job};
+use brume_engine_core::{
+    ClientId, DEPLOYMENT_TIMEOUT_MILLIS, Engine, Input, OpenError, Output, short_id,
+};
+use brume_proto::admin::{AdminReply, AdminRequest};
+use brume_proto::agent::{
+    ContainerHealth, DesiredState, EngineToAgent, EnvValue, EnvVar, Healthcheck, Job,
+};
 use brume_proto::api::{
-    ApiCall, ApiValue, DeploymentStatusDto, FailureKind, LogStream, NewChangeDto,
-    NewSharedVariableDto, ServiceStatusDto, SettingField, SettingValueDto, StagedChangeDto,
-    VariableKindDto, VariableLevelDto,
+    ApiCall, ApiReply, ApiRequest, ApiValue, DeploymentStatusDto, FailureKind, LogStream,
+    NewChangeDto, NewSharedVariableDto, RevealedValueDto, ServiceStatusDto, SettingField,
+    SettingValueDto, StagedChangeDto, VariableKindDto, VariableLevelDto,
 };
 use secrecy::ExposeSecret;
 
@@ -1063,4 +1068,304 @@ fn an_overdue_deadline_that_cannot_be_written_is_retried_later() {
         harness.deployments()[0].status,
         DeploymentStatusDto::Building
     );
+}
+
+#[test]
+fn read_only_engine_refuses_a_login_link_without_a_reply() {
+    let mut harness = Harness::new();
+    harness.engine.set_read_only();
+    let out = harness.input(Input::Admin {
+        client: ClientId(5),
+        request: AdminRequest::CreateLoginLink,
+    });
+    assert!(
+        !out.iter()
+            .any(|output| matches!(output, Output::AdminReply { .. })),
+        "{out:?}"
+    );
+    // The shell closes the connection: `brume dev` reads the end without a reply as a refusal.
+    assert!(
+        out.iter().any(|output| matches!(
+            output,
+            Output::AdminRefused { client: ClientId(5), reason }
+                if reason == "Another server writes to this bucket."
+        )),
+        "{out:?}"
+    );
+}
+
+#[test]
+fn a_failed_revision_with_a_volume_leaves_later_deploys_side_by_side() {
+    let mut harness = Harness::new();
+    let (service, environment, first) = active_project(&mut harness, &[]);
+
+    // A new image that declares a volume: no volume in common with the active container, which
+    // keeps running beside it. It fails.
+    stage(
+        &mut harness,
+        setting(
+            &service,
+            SettingField::Image,
+            SettingValueDto::Text("postgres:17".to_owned()),
+        ),
+    );
+    deploy_changes(&mut harness, &environment);
+    let second = newest_deployment(&mut harness, &service);
+    harness.resolve(&second, &["/var/lib/postgresql/data"]);
+    let state = harness.desired_now();
+    assert_eq!(state.containers.len(), 2, "{state:?}");
+    harness.observe(
+        &state,
+        &[(second.as_str(), ContainerHealth::Exited { code: 1 })],
+    );
+    assert_eq!(
+        harness.deployment(&second).status,
+        DeploymentStatusDto::Failed
+    );
+    assert!(
+        harness.service(&service).volume.is_none(),
+        "the running revision has no volume"
+    );
+
+    // Back to nginx with a new port: the volume of the failed revision does not make the
+    // service stop before it starts.
+    stage(
+        &mut harness,
+        setting(
+            &service,
+            SettingField::Image,
+            SettingValueDto::Text("nginx:1.29".to_owned()),
+        ),
+    );
+    stage(
+        &mut harness,
+        setting(
+            &service,
+            SettingField::Port,
+            SettingValueDto::Number(8080.0),
+        ),
+    );
+    deploy_changes(&mut harness, &environment);
+    let third = newest_deployment(&mut harness, &service);
+    assert_eq!(
+        harness.deployment(&third).status,
+        DeploymentStatusDto::Deploying
+    );
+    let state = harness.desired_now();
+    let deployments: Vec<&str> = state
+        .containers
+        .iter()
+        .map(|container| container.deployment_id.as_str())
+        .collect();
+    assert_eq!(deployments, [first.as_str(), third.as_str()]);
+    assert!(
+        state
+            .containers
+            .iter()
+            .all(|container| container.mounts.is_empty())
+    );
+}
+
+#[test]
+fn set_reports_the_users_that_an_environment_secret_overrides() {
+    let mut harness = Harness::new();
+    let (service, environment, _) = active_project(&mut harness, &[]);
+    let ApiValue::Projects(projects) = harness.ok(ApiCall::ListProjects) else {
+        panic!("projects");
+    };
+    let set_secret = |harness: &mut Harness, level, owner_id: &str| match harness.ok(
+        ApiCall::SetSharedVariable(NewSharedVariableDto {
+            level,
+            owner_id: owner_id.to_owned(),
+            name: "DB_PASSWORD".to_owned(),
+            kind: VariableKindDto::Secret,
+            value: "a-value".to_owned(),
+        }),
+    ) {
+        ApiValue::SharedVariableSet(set) => set,
+        other => panic!("unexpected {other:?}"),
+    };
+    set_secret(&mut harness, VariableLevelDto::Project, &projects[0].id);
+    stage(
+        &mut harness,
+        variable(&service, "DB_PASSWORD", VariableKindDto::Secret, None),
+    );
+    deploy_changes(&mut harness, &environment);
+    let deployment = newest_deployment(&mut harness, &service);
+    harness.activate(&deployment, &[]);
+
+    // The running deployment resolved the project secret; a redeploy picks the new one.
+    let set = set_secret(&mut harness, VariableLevelDto::Environment, &environment);
+    assert_eq!(set.referenced_by, vec![service.clone()]);
+    // The project secret no longer reaches it.
+    let set = set_secret(&mut harness, VariableLevelDto::Project, &projects[0].id);
+    assert!(set.referenced_by.is_empty(), "{:?}", set.referenced_by);
+}
+
+#[test]
+fn staging_a_secret_never_compares_it_with_the_applied_one() {
+    let mut harness = Harness::new();
+    let (service, environment, _) = active_project(&mut harness, &[]);
+    stage(
+        &mut harness,
+        variable(&service, "API_KEY", VariableKindDto::Secret, Some(SECRET)),
+    );
+    deploy_changes(&mut harness, &environment);
+    let deployment = newest_deployment(&mut harness, &service);
+    harness.activate(&deployment, &[]);
+    assert!(changes(&mut harness).is_empty());
+
+    // The same value again is staged all the same: dropping it would tell the value.
+    stage(
+        &mut harness,
+        variable(&service, "API_KEY", VariableKindDto::Secret, Some(SECRET)),
+    );
+    assert!(matches!(
+        changes(&mut harness).as_slice(),
+        [StagedChangeDto::Variable { name, value: None, .. }] if name == "API_KEY"
+    ));
+}
+
+#[test]
+fn deleting_a_service_drops_its_staged_changes() {
+    let mut harness = Harness::new();
+    let (service, _, _) = active_project(&mut harness, &[]);
+    stage(
+        &mut harness,
+        setting(
+            &service,
+            SettingField::Port,
+            SettingValueDto::Number(8080.0),
+        ),
+    );
+    stage(
+        &mut harness,
+        variable(&service, "API_KEY", VariableKindDto::Secret, Some(SECRET)),
+    );
+    assert_eq!(changes(&mut harness).len(), 2);
+    harness.ok(ApiCall::DeleteService {
+        service_id: service,
+    });
+    assert!(changes(&mut harness).is_empty());
+}
+
+#[test]
+fn a_desired_state_that_cannot_be_built_is_reported_once() {
+    let mut harness = Harness::new();
+    let (service, environment, _) = active_project(&mut harness, &[]);
+    stage(
+        &mut harness,
+        variable(&service, "API_KEY", VariableKindDto::Secret, Some(SECRET)),
+    );
+    deploy_changes(&mut harness, &environment);
+    let deployment = newest_deployment(&mut harness, &service);
+    harness.activate(&deployment, &[]);
+    harness.storage.forget_secrets();
+
+    let unavailable = |out: &[Output]| -> Vec<(u64, String)> {
+        out.iter()
+            .filter_map(|output| match output {
+                Output::DesiredStateUnavailable { position, reason } => {
+                    Some((*position, reason.clone()))
+                }
+                _ => None,
+            })
+            .collect()
+    };
+    harness.ok(ApiCall::Redeploy {
+        service_id: service.clone(),
+    });
+    let out = harness.connect_agent();
+    assert!(last_desired(&out).is_none());
+    let reported = unavailable(&out);
+    assert_eq!(reported.len(), 1, "{out:?}");
+    assert_eq!(reported[0].0, harness.engine.position());
+    assert!(reported[0].1.contains("API_KEY"), "{}", reported[0].1);
+    assert!(!reported[0].1.contains(SECRET));
+    // The next input at the same position does not repeat it.
+    let out = harness.input(Input::Tick);
+    assert!(unavailable(&out).is_empty(), "{out:?}");
+}
+
+#[test]
+fn inputs_and_outputs_mask_secrets_in_debug() {
+    let api = |body| Input::Api {
+        client: ClientId(1),
+        request: ApiRequest {
+            id: 1,
+            session: Some(SECRET.to_owned()),
+            body,
+        },
+    };
+    let inputs = [
+        api(ApiCall::Login {
+            token: SECRET.to_owned(),
+        }),
+        api(ApiCall::StageChange(variable(
+            "svc",
+            "API_KEY",
+            VariableKindDto::Secret,
+            Some(SECRET),
+        ))),
+        api(ApiCall::SetSharedVariable(NewSharedVariableDto {
+            level: VariableLevelDto::Project,
+            owner_id: "project".to_owned(),
+            name: "API_KEY".to_owned(),
+            kind: VariableKindDto::Secret,
+            value: SECRET.to_owned(),
+        })),
+    ];
+    let reply = |value| Output::Reply {
+        client: ClientId(1),
+        reply: ApiReply {
+            id: 1,
+            result: Ok(value),
+        },
+    };
+    let outputs = [
+        reply(ApiValue::RevealedValue(RevealedValueDto {
+            value: SECRET.to_owned(),
+        })),
+        reply(ApiValue::Session {
+            token: SECRET.to_owned(),
+            admin: "admin".to_owned(),
+        }),
+        Output::AdminReply {
+            client: ClientId(2),
+            reply: AdminReply::LoginLink {
+                token: SECRET.to_owned(),
+                expires_at: "2026-10-31T00:00:00Z".to_owned(),
+            },
+        },
+        Output::ToAgent(EngineToAgent::DesiredState(DesiredState {
+            position: 1,
+            networks: Vec::new(),
+            volumes: Vec::new(),
+            containers: vec![brume_proto::agent::ContainerSpec {
+                name: "brume-web-1".to_owned(),
+                image: format!("nginx@sha256:{DIGEST}"),
+                environment_id: "env".to_owned(),
+                service_id: "svc".to_owned(),
+                deployment_id: "dep".to_owned(),
+                env: vec![EnvVar {
+                    name: "API_KEY".to_owned(),
+                    value: EnvValue::Secret(SECRET.into()),
+                }],
+                command: None,
+                networks: Vec::new(),
+                mounts: Vec::new(),
+                cpu_millis: 100,
+                memory_mb: 64,
+                stop_timeout_secs: 10,
+                healthcheck: Healthcheck::Running { grace_secs: 5 },
+            }],
+        })),
+    ];
+    for debug in inputs
+        .iter()
+        .map(|input| format!("{input:?}"))
+        .chain(outputs.iter().map(|output| format!("{output:?}")))
+    {
+        assert!(!debug.contains(SECRET), "{debug}");
+    }
 }

@@ -25,7 +25,8 @@ const ADMIN_IDENTITY: &[u8] = b"admin";
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ClientId(pub u64);
 
-/// What the shell feeds the engine.
+/// What the shell feeds the engine. Its `Debug` masks every secret, as do those of `Output`:
+/// each payload's own `Debug` does, by hand in `brume-proto` or through `SecretString`.
 #[derive(Debug)]
 pub enum Input {
     /// A call from `brume api`.
@@ -69,6 +70,19 @@ pub enum Output {
     },
     /// Feed `Input::Tick` at this instant. Replaces any earlier one.
     WakeAt(Timestamp),
+    /// The engine refused the local command's request: the shell logs `reason` and closes the
+    /// connection without a reply, which the command reads as a refusal.
+    AdminRefused {
+        client: ClientId,
+        reason: String,
+    },
+    /// The desired state at log position `position` could not be built, so the agent keeps
+    /// the previous one. `reason` names what is missing, never a value; the shell logs it. The
+    /// next change of the log tries again.
+    DesiredStateUnavailable {
+        position: u64,
+        reason: String,
+    },
 }
 
 /// Why `Engine::open` failed.
@@ -121,6 +135,8 @@ pub struct Engine<S: Storage> {
     pub(crate) observed: BTreeMap<String, ObservedContainer>,
     /// The position of the last desired state sent on this connection.
     pub(crate) sent_position: Option<u64>,
+    /// The position whose desired state failed to build, once reported on this connection.
+    pub(crate) unavailable_position: Option<u64>,
     /// The image resolutions asked on this connection.
     pub(crate) jobs_sent: BTreeSet<DeploymentId>,
     /// The last `WakeAt` sent.
@@ -144,6 +160,7 @@ impl<S: Storage> Engine<S> {
             agent: None,
             observed: BTreeMap::new(),
             sent_position: None,
+            unavailable_position: None,
             jobs_sent: BTreeSet::new(),
             wake_at: None,
             read_only: false,
@@ -203,10 +220,13 @@ impl<S: Storage> Engine<S> {
                 let reply = match request {
                     AdminRequest::CreateLoginLink => self.create_login_link(ctx),
                 };
-                // A local command that gets no answer reports the closed connection.
-                if let Ok(reply) = reply {
-                    out.push(Output::AdminReply { client, reply });
-                }
+                out.push(match reply {
+                    Ok(reply) => Output::AdminReply { client, reply },
+                    Err(failure) => Output::AdminRefused {
+                        client,
+                        reason: failure.message,
+                    },
+                });
             }
             Input::AgentConnected { machine } => self.agent_connected(machine),
             Input::AgentDisconnected => self.agent_disconnected(),

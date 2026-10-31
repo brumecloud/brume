@@ -54,6 +54,11 @@ impl FakeStorage {
         self.0.borrow_mut().fail_next_commit = true;
     }
 
+    /// Loses every secret version, as a database restored without them would.
+    pub fn forget_secrets(&self) {
+        self.0.borrow_mut().secrets.clear();
+    }
+
     /// Every stored blob.
     pub fn blobs(&self) -> Vec<Vec<u8>> {
         self.0.borrow().blobs.values().cloned().collect()

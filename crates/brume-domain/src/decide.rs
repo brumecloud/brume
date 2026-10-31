@@ -452,7 +452,8 @@ pub fn impacted_services(world: &World, owner: &VariableOwner, name: &VarName) -
         .collect()
 }
 
-/// The live services whose active deployment uses the shared secret `name` of `owner`.
+/// The live services whose active deployment, or deployment in progress, resolved the shared
+/// secret `name` of `owner`: its containers run, or are about to run, with its value.
 pub fn secret_references(world: &World, owner: &VariableOwner, name: &VarName) -> Vec<ServiceId> {
     let Some(shared) = world.shared_variable_named(owner, name) else {
         return Vec::new();
@@ -462,12 +463,42 @@ pub fn secret_references(world: &World, owner: &VariableOwner, name: &VarName) -
         .values()
         .filter(|service| !service.deleted)
         .filter(|service| {
-            world.active_deployment(&service.id).is_some_and(|active| {
-                active
-                    .secrets
-                    .iter()
-                    .any(|secret| secret.variable == shared.id)
+            world.deployments_of(&service.id).any(|deployment| {
+                (deployment.phase == DeploymentPhase::Active || deployment.phase.is_in_progress())
+                    && deployment
+                        .secrets
+                        .iter()
+                        .any(|secret| secret.variable == shared.id)
             })
+        })
+        .map(|service| service.id.clone())
+        .collect()
+}
+
+/// The live services that a redeploy brings to the shared secret `name` of `owner`: their
+/// active deployment uses a secret of that name, and their next deployment would resolve the
+/// name to this secret. A more precise secret of the same name hides it; a less precise one
+/// that the running deployment resolved does not count.
+pub fn secret_redeploy_targets(
+    world: &World,
+    owner: &VariableOwner,
+    name: &VarName,
+) -> Vec<ServiceId> {
+    let Some(shared) = world.shared_variable_named(owner, name) else {
+        return Vec::new();
+    };
+    world
+        .services
+        .values()
+        .filter(|service| !service.deleted)
+        .filter(|service| {
+            world
+                .active_deployment(&service.id)
+                .is_some_and(|active| active.secrets.iter().any(|secret| &secret.name == name))
+        })
+        .filter(|service| {
+            resolve_secrets(world, &service.id, std::slice::from_ref(name))
+                .is_ok_and(|resolved| resolved.iter().any(|secret| secret.variable == shared.id))
         })
         .map(|service| service.id.clone())
         .collect()
@@ -704,6 +735,13 @@ impl Decision {
                 "This deployment does not exist.".to_owned(),
             ));
         };
+        // The active deployment already runs; a failed one never served. The panel offers the
+        // superseded ones only.
+        if earlier.phase != DeploymentPhase::Superseded {
+            return Err(Rejection::conflict(
+                "Only a superseded deployment can be rolled back to.".to_owned(),
+            ));
+        }
         let Some(revision) = earlier
             .revision
             .as_ref()

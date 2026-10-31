@@ -73,7 +73,8 @@ pub use crate::time::Timestamp;
 pub use command::{AuditEvent, Command, NewService, ServiceChanges, SpecChange};
 pub use ctx::Ctx;
 pub use decide::{
-    decide, impacted_services, resolve_revision_variables, resolve_secrets, secret_references,
+    decide, impacted_services, resolve_revision_variables, resolve_secrets,
+    secret_redeploy_targets, secret_references,
 };
 pub use event::{Event, EventEnvelope, GENESIS_PREV_HASH, RevisionPlan, SCHEMA_VERSION};
 pub use evolve::evolve;

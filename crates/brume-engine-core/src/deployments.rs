@@ -48,6 +48,7 @@ impl<S: Storage> Engine<S> {
     fn forget_connection(&mut self) {
         self.observed.clear();
         self.sent_position = None;
+        self.unavailable_position = None;
         self.jobs_sent.clear();
     }
 
@@ -273,10 +274,22 @@ impl<S: Storage> Engine<S> {
                 self.jobs_sent.insert(deployment);
             }
             if self.sent_position != Some(self.position) {
-                // A missing value stops the desired state; the next change retries.
-                if let Ok(state) = desired_state(&self.world, &self.storage, self.position) {
-                    out.push(Output::ToAgent(EngineToAgent::DesiredState(state)));
-                    self.sent_position = Some(self.position);
+                // A missing value stops the desired state, once reported; the next input
+                // retries.
+                match desired_state(&self.world, &self.storage, self.position) {
+                    Ok(state) => {
+                        out.push(Output::ToAgent(EngineToAgent::DesiredState(state)));
+                        self.sent_position = Some(self.position);
+                    }
+                    Err(error) => {
+                        if self.unavailable_position != Some(self.position) {
+                            out.push(Output::DesiredStateUnavailable {
+                                position: self.position,
+                                reason: error.0,
+                            });
+                            self.unavailable_position = Some(self.position);
+                        }
+                    }
                 }
             }
         }

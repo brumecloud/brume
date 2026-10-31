@@ -9,7 +9,7 @@ use brume_domain::{
     RevisionPlan, RevisionValue, SecretSource, ServiceChanges, ServiceId, ServiceName, ServiceSpec,
     ServiceVariable, ServiceVariableValue, SharedValue, Slug, SpecChange, Timestamp, VarName,
     VariableId, VariableOwner, World, decide, evolve, impacted_services,
-    resolve_revision_variables, resolve_secrets, secret_references,
+    resolve_revision_variables, resolve_secrets, secret_redeploy_targets, secret_references,
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
@@ -201,6 +201,21 @@ impl Scenario {
 
     /// Takes a deployment from wherever it is to active.
     fn activate(&mut self, deployment: &DeploymentId) {
+        self.start(deployment);
+        self.run(Command::DeploymentHealthy {
+            deployment: deployment.clone(),
+        });
+        self.run(Command::DeploymentPromoted {
+            deployment: deployment.clone(),
+        });
+        assert_eq!(
+            self.world.deployment(deployment).expect("exists").phase,
+            DeploymentPhase::Active
+        );
+    }
+
+    /// Resolves a deployment's image if it is still resolving, so that it starts.
+    fn start(&mut self, deployment: &DeploymentId) {
         let phase = self
             .world
             .deployment(deployment)
@@ -227,16 +242,16 @@ impl Scenario {
                 volumes,
             });
         }
-        self.run(Command::DeploymentHealthy {
-            deployment: deployment.clone(),
-        });
-        self.run(Command::DeploymentPromoted {
-            deployment: deployment.clone(),
-        });
-        assert_eq!(
-            self.world.deployment(deployment).expect("exists").phase,
-            DeploymentPhase::Active
-        );
+    }
+
+    /// Asks for a rollback to `target`.
+    fn try_rollback(&mut self, target: &DeploymentId) -> Result<Vec<Event>, Rejection> {
+        let deployment = DeploymentId::new(&mut self.ctx);
+        self.try_run(&Command::Rollback {
+            target: target.clone(),
+            deployment,
+            author: self.admin.clone(),
+        })
     }
 
     fn deploy_changes(&mut self, changes: Vec<SpecChange>) -> (DeploymentId, Command) {
@@ -618,6 +633,70 @@ fn shared_secret_in_use_cannot_be_removed() {
     }]);
     scenario.run(command);
     scenario.activate(&deployment);
+
+    let rejection = scenario
+        .try_run(&Command::RemoveSharedVariable {
+            variable: secret,
+            deployments: Vec::new(),
+            author: scenario.admin.clone(),
+        })
+        .expect_err("rejected");
+    assert_eq!(rejection.kind, RejectionKind::Conflict);
+    assert_eq!(rejection.message, "DB_PASSWORD is still used by: nginx.");
+}
+
+#[test]
+fn rollback_targets_a_superseded_deployment_only() {
+    let mut scenario = Scenario::active();
+    let first = scenario.first.clone();
+    let port = |port| SpecChange::Port(Some(Port::new(port).expect("valid port")));
+    let refused = |result: Result<Vec<Event>, Rejection>| {
+        let rejection = result.expect_err("rejected");
+        assert_eq!(rejection.kind, RejectionKind::Conflict);
+        assert_eq!(
+            rejection.message,
+            "Only a superseded deployment can be rolled back to."
+        );
+    };
+
+    // The active deployment already runs.
+    refused(scenario.try_rollback(&first));
+
+    scenario.deploy(vec![port(8080)]);
+    let (failed, command) = scenario.deploy_changes(vec![port(9090)]);
+    scenario.run(command);
+    scenario.start(&failed);
+    scenario.run(Command::DeploymentFailed {
+        deployment: failed.clone(),
+        reason: FailureReason::ContainerExited { code: 1 },
+    });
+    // A failed deployment, though its revision exists.
+    assert!(
+        scenario
+            .world
+            .deployment(&failed)
+            .is_some_and(|deployment| deployment.revision.is_some())
+    );
+    refused(scenario.try_rollback(&failed));
+
+    // The first one, superseded by the second, is a rollback target.
+    assert!(scenario.try_rollback(&first).is_ok());
+}
+
+#[test]
+fn shared_secret_resolved_by_a_deployment_in_progress_cannot_be_removed() {
+    let mut scenario = Scenario::active();
+    let secret = scenario.set_project_secret("DB_PASSWORD");
+    let reference = VariableId::new(&mut scenario.ctx);
+    let (deployment, command) = scenario.deploy_changes(vec![SpecChange::SharedSecretReference {
+        name: var("DB_PASSWORD"),
+        variable: reference,
+    }]);
+    scenario.run(command);
+    scenario.start(&deployment);
+    let starting = scenario.world.deployment(&deployment).expect("exists");
+    assert_eq!(starting.phase, DeploymentPhase::Starting);
+    assert_eq!(starting.secrets[0].variable, secret);
 
     let rejection = scenario
         .try_run(&Command::RemoveSharedVariable {
@@ -1235,6 +1314,44 @@ fn secret_references_lists_the_services_whose_active_deployment_uses_it() {
     let users = secret_references(&scenario.world, &owner, &var("S"));
     assert_eq!(users, vec![scenario.service.clone()]);
     assert!(!users.contains(&staging_service));
+}
+
+#[test]
+fn secret_redeploy_targets_follow_the_resolution_of_the_name() {
+    let mut scenario = Scenario::active();
+    let (_, staging_service) = scenario.add_environment("staging");
+    scenario.set_project_secret("S");
+    let project = VariableOwner::Project(scenario.project.clone());
+    let production = VariableOwner::Environment(scenario.production.clone());
+    let targets = |scenario: &Scenario, owner: &VariableOwner| {
+        secret_redeploy_targets(&scenario.world, owner, &var("S"))
+    };
+    assert!(
+        targets(&scenario, &project).is_empty(),
+        "nothing uses it yet"
+    );
+
+    let reference = VariableId::new(&mut scenario.ctx);
+    scenario.deploy(vec![SpecChange::SharedSecretReference {
+        name: var("S"),
+        variable: reference,
+    }]);
+    assert_eq!(targets(&scenario, &project), vec![scenario.service.clone()]);
+
+    // A new environment secret overrides the project's: the next deployment picks it, though
+    // the running one resolved the project's.
+    scenario.set_secret(production.clone(), "S");
+    assert_eq!(
+        targets(&scenario, &production),
+        vec![scenario.service.clone()]
+    );
+    assert!(targets(&scenario, &project).is_empty());
+    assert!(!targets(&scenario, &production).contains(&staging_service));
+    // Removal still sees the project secret in use: the running deployment resolved it.
+    assert_eq!(
+        secret_references(&scenario.world, &project, &var("S")),
+        vec![scenario.service.clone()]
+    );
 }
 
 #[test]

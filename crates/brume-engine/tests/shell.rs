@@ -313,6 +313,17 @@ async fn bucket_conflict_makes_the_engine_read_only() {
     // Reads still work, and the other server's object is untouched.
     let reply = api.call(1000, Some(&session), ApiCall::ListProjects).await;
     assert!(matches!(reply.result, Ok(ApiValue::Projects(_))));
+    // A login link is a write: the admin connection closes without a reply.
+    let mut admin = connect(&paths.admin_socket()).await;
+    admin
+        .writer
+        .write(&AdminRequest::CreateLoginLink)
+        .await
+        .expect("writes");
+    let ended = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("closed in time");
+    assert!(matches!(ended, Ok(None)), "{ended:?}");
     assert!(
         store
             .get(&segment_key(GENERATION, next))

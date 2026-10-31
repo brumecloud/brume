@@ -11,7 +11,6 @@ use brume_proto::api::{
     ApiFailure, ApiValue, ChangesDeployedDto, FailureKind, NewChangeDto, SettingField,
     SettingValueDto, StagedChangeDto, VariableKindDto,
 };
-use secrecy::ExposeSecret;
 
 use crate::api::{invalid, not_found, parse_id};
 use crate::engine::{Actor, Engine, failure, storage_failure};
@@ -162,7 +161,7 @@ impl<S: Storage> Engine<S> {
     }
 
     /// Stages a change, replacing the one with the same target. A change back to the applied
-    /// value removes the staged one instead.
+    /// value removes the staged one instead, except a secret value, which is never compared.
     pub(crate) fn stage_change(
         &mut self,
         ctx: &mut impl Ctx,
@@ -258,7 +257,7 @@ impl<S: Storage> Engine<S> {
     }
 
     /// Validates a staged variable: its value, the name rule, and whether it equals the
-    /// applied one.
+    /// applied one. A secret value never does.
     fn staged_variable(
         &self,
         service_id: &str,
@@ -289,22 +288,10 @@ impl<S: Storage> Engine<S> {
                 "A variable needs a value.".to_owned(),
             )),
             (VariableKindDto::Secret, Some(value)) => {
+                // Always staged, never compared with the applied value: a change that vanished
+                // when it matched would tell whoever stages guesses the secret.
                 let value = SecretValue::parse(&value).map_err(invalid)?;
-                let applied = match current {
-                    Some(variable) => match variable.value {
-                        ServiceVariableValue::OwnSecret { version } => self
-                            .storage
-                            .secret(&variable.id, version)
-                            .map_err(storage_failure)?
-                            .is_some_and(|stored| stored.expose_secret() == value.expose_secret()),
-                        _ => false,
-                    },
-                    None => false,
-                };
-                Ok((
-                    Some(StagedValue::Secret(value.into_secret_string())),
-                    applied,
-                ))
+                Ok((Some(StagedValue::Secret(value.into_secret_string())), false))
             }
             (VariableKindDto::Secret, None) => {
                 let project = self
