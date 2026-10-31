@@ -406,6 +406,11 @@ fn variables_calls() {
         .find(|variable| variable["level"] == "service" && variable["name"] == "DB_PASSWORD")
         .expect("the reference");
     assert_eq!(reference["reference"], true);
+    for variable in variables.as_array().expect("variables") {
+        if variable != reference {
+            assert_eq!(variable["reference"], false, "{variable}");
+        }
+    }
     assert_eq!(reference["value"], Value::Null);
 
     let revision = body(&world.harness.ok(ApiCall::GetRevision {
@@ -588,12 +593,24 @@ fn changes_calls() {
     }));
     assert_eq!(keys(&deployed), set(&["deployed"]));
     assert_eq!(deployed["deployed"], 2);
+    let deployment = world.newest(&service);
+    world.harness.activate(&deployment, &["/data"]);
+
+    world.stage(NewChangeDto::Setting {
+        service_id: service,
+        field: SettingField::Port,
+        value: SettingValueDto::Number(8080.0),
+    });
     assert_eq!(
         world.harness.ok(ApiCall::DiscardEnvironmentChanges {
             environment_id: world.production.clone(),
         }),
         ApiValue::NoContent
     );
+    assert!(matches!(
+        world.harness.ok(ApiCall::ListChanges),
+        ApiValue::Changes(changes) if changes.is_empty()
+    ));
 }
 
 #[test]
@@ -716,7 +733,12 @@ fn image_resolution_failure_is_shown_and_previous_keeps_running() {
         DeploymentStatusDto::Building
     );
 
-    let docker = format!("manifest for nginx:9.99 not found: {}é", "x".repeat(2000));
+    // `é` straddles byte 1024: the cut falls back to the character boundary before it.
+    let docker = format!(
+        "manifest unknown: {}é{}",
+        "x".repeat(1005),
+        "y".repeat(2000)
+    );
     let out = world.harness.agent(AgentToEngine::JobResult {
         job_id: failed.clone(),
         outcome: JobOutcome::Failed {
@@ -740,7 +762,8 @@ fn image_resolution_failure_is_shown_and_previous_keeps_running() {
         .message
         .strip_prefix("Image resolution failed: ")
         .expect("the failure line");
-    assert_eq!(message.len(), MAX_FAILURE_MESSAGE_BYTES);
+    assert_eq!(message.len(), MAX_FAILURE_MESSAGE_BYTES - 1);
+    assert!(message.ends_with('x'));
     assert!(docker.starts_with(message));
 
     // The active container keeps running, with its alias.
@@ -948,7 +971,9 @@ fn events_page_paginates_and_hides_values() {
 
     let mut events = Vec::new();
     let mut before = None;
+    let mut pages = 0;
     loop {
+        pages += 1;
         let ApiValue::Events(page) = world.harness.ok(ApiCall::ListEvents {
             project_id: project.clone(),
             before,
@@ -957,12 +982,26 @@ fn events_page_paginates_and_hides_values() {
             panic!("events");
         };
         assert!(page.events.len() <= 4);
+        let full = page.events.len() == 4;
         events.extend(page.events);
         match page.next_before {
-            Some(next) => before = Some(next),
+            Some(next) => {
+                assert!(full, "only the last page is short");
+                before = Some(next);
+            }
             None => break,
         }
     }
+    assert!(pages > 2, "{pages} pages");
+    let ApiValue::Events(all) = world.harness.ok(ApiCall::ListEvents {
+        project_id: project.clone(),
+        before: None,
+        limit: MAX_EVENTS_PAGE,
+    }) else {
+        panic!("events");
+    };
+    assert_eq!(all.events.len(), events.len());
+    assert_eq!(all.next_before, None);
     let seqs = events.iter().map(|event| event.seq).collect::<Vec<_>>();
     let mut sorted = seqs.clone();
     sorted.sort_unstable_by(|a, b| b.cmp(a));
