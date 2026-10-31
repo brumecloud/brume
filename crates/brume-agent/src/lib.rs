@@ -45,6 +45,8 @@ pub struct AgentPaths {
 pub const RECONCILE_INTERVAL: Duration = Duration::from_secs(2);
 /// The longest the engine goes without an `Observed`.
 pub const OBSERVED_HEARTBEAT: Duration = Duration::from_secs(10);
+/// The wait before an image is pulled again, after a pull that ended.
+pub const PULL_RETRY: Duration = Duration::from_secs(30);
 /// How often an unreachable Docker or engine is logged.
 pub const WARN_INTERVAL: Duration = Duration::from_secs(60);
 
@@ -177,6 +179,8 @@ pub struct Reconciler {
     /// The pulls in flight, by image. They run beside the rounds, which skip the containers
     /// that wait for them: a slow registry never blocks a round.
     pulls: BTreeMap<String, JoinHandle<Result<(), bollard::errors::Error>>>,
+    /// When the last pull of each image ended, and whether it succeeded, for `PULL_RETRY`.
+    pulled: BTreeMap<String, (Instant, bool)>,
     /// When each failing action was last logged, so that each is logged once per interval.
     warned: BTreeMap<String, Instant>,
 }
@@ -188,6 +192,7 @@ impl Reconciler {
             restarts: Restarts::default(),
             probes: ProbeResults::default(),
             pulls: BTreeMap::new(),
+            pulled: BTreeMap::new(),
             warned: BTreeMap::new(),
         }
     }
@@ -196,8 +201,13 @@ impl Reconciler {
         &self.shell
     }
 
-    /// Swaps the Docker client after a reconnection. Restarts and probes are kept.
+    /// Swaps the Docker client after a reconnection. Restarts and probes are kept; the pulls
+    /// of the old client stop.
     pub fn set_shell(&mut self, shell: DockerShell) {
+        for task in self.pulls.values() {
+            task.abort();
+        }
+        self.pulls.clear();
         self.shell = shell;
     }
 
@@ -223,6 +233,7 @@ impl Reconciler {
         }
 
         let mut probes = Vec::new();
+        let mut missing_images = BTreeSet::new();
         let mut waiting_for_image = BTreeSet::new();
         for action in &actions {
             match action {
@@ -231,10 +242,14 @@ impl Reconciler {
                     continue;
                 }
                 Action::PullImage(image) => {
-                    self.start_pull(image);
+                    if !self.image_pulled(image) {
+                        missing_images.insert(image.as_str());
+                    }
                     continue;
                 }
-                Action::CreateContainer(config) if self.pulls.contains_key(&config.image) => {
+                Action::CreateContainer(config)
+                    if missing_images.contains(config.image.as_str()) =>
+                {
                     waiting_for_image.insert(config.name.as_str());
                     continue;
                 }
@@ -303,19 +318,27 @@ impl Reconciler {
         if self.shell.docker().inspect_image(PROBE_IMAGE).await.is_ok() {
             return true;
         }
-        self.start_pull(PROBE_IMAGE);
-        false
+        self.image_pulled(PROBE_IMAGE)
     }
 
-    /// Pulls `image` in the background, unless it is already being pulled.
-    fn start_pull(&mut self, image: &str) {
+    /// Whether a pull of `image` succeeded in the last `PULL_RETRY`, so that Docker should have
+    /// it. Otherwise its pull starts in the background, unless one runs or failed in the last
+    /// `PULL_RETRY`.
+    fn image_pulled(&mut self, image: &str) -> bool {
+        let now = Instant::now();
+        self.pulled
+            .retain(|_, (ended, _)| now.duration_since(*ended) < PULL_RETRY);
+        if let Some((_, succeeded)) = self.pulled.get(image) {
+            return *succeeded;
+        }
         if self.pulls.contains_key(image) {
-            return;
+            return false;
         }
         let docker = self.shell.docker().clone();
         let reference = image.to_owned();
         let task = tokio::spawn(async move { jobs::pull(&docker, &reference).await });
         self.pulls.insert(image.to_owned(), task);
+        false
     }
 
     /// Forgets the pulls that ended, and logs those that failed.
@@ -330,13 +353,19 @@ impl Reconciler {
             let Some(task) = self.pulls.remove(&image) else {
                 continue;
             };
-            match task.now_or_never() {
-                Some(Ok(Err(error))) => self.warn(format!("pull {image}"), &error),
+            let succeeded = match task.now_or_never() {
+                Some(Ok(Ok(()))) => true,
+                Some(Ok(Err(error))) => {
+                    self.warn(format!("pull {image}"), &error);
+                    false
+                }
                 Some(Err(error)) => {
                     tracing::warn!(%error, image, "the pull of an image panicked");
+                    false
                 }
-                Some(Ok(Ok(()))) | None => {}
-            }
+                None => false,
+            };
+            self.pulled.insert(image, (Instant::now(), succeeded));
         }
     }
 

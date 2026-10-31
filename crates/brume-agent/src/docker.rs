@@ -300,7 +300,8 @@ impl DockerShell {
         Ok(Outcome::Done)
     }
 
-    /// Removes the probe containers that a crash of the agent left behind.
+    /// Removes the probe containers that a crash of the agent left behind. A removal that
+    /// fails is logged, and the others go on.
     pub async fn sweep_probes(&self) -> Result<(), Error> {
         let mut labels = vec![format!("{LABEL_PROBE}=1")];
         if let Some((key, value)) = &self.scope {
@@ -316,10 +317,10 @@ impl DockerShell {
                 continue;
             };
             let options = RemoveContainerOptionsBuilder::new().force(true).build();
-            ignore_status(
-                self.docker.remove_container(&id, Some(options)).await,
-                NOT_FOUND,
-            )?;
+            let removed = self.docker.remove_container(&id, Some(options)).await;
+            if let Err(error) = ignore_status(removed, NOT_FOUND) {
+                tracing::warn!(%error, id, "cannot remove a leftover probe container");
+            }
         }
         Ok(())
     }

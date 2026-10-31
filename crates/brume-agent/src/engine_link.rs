@@ -80,19 +80,21 @@ impl Session<'_> {
         let (read, write) = stream.into_split();
         let mut reader = FramedReader::new(read);
         let mut writer = FramedWriter::new(write);
-        // The reports queued while the engine was away are stale: the next round sends a
-        // fresh one. Job results still matter.
+        // Of the reports queued while the engine was away, only the newest matters. Job
+        // results all do.
         let mut queued = Vec::new();
+        let mut newest_report = None;
         while let Ok(message) = outbox.try_recv() {
-            if !matches!(message, AgentToEngine::Observed(_)) {
-                queued.push(message);
+            match message {
+                AgentToEngine::Observed(_) => newest_report = Some(message),
+                other => queued.push(other),
             }
         }
         let hello = AgentToEngine::Hello {
             version: env!("CARGO_PKG_VERSION").to_owned(),
             applied_position: *self.applied,
         };
-        for message in std::iter::once(hello).chain(queued) {
+        for message in std::iter::once(hello).chain(queued).chain(newest_report) {
             if let Err(error) = writer.send(&message).await {
                 return Ended::Disconnected(error);
             }
@@ -151,7 +153,8 @@ mod tests {
     use std::time::Duration;
 
     use brume_proto::agent::{
-        AgentToEngine, DesiredState, EngineToAgent, Job, JobOutcome, ObservedState,
+        AgentToEngine, ContainerHealth, DesiredState, EngineToAgent, Job, JobOutcome,
+        ObservedContainer, ObservedState,
     };
     use tokio::net::UnixListener;
     use tokio::sync::{mpsc, watch};
@@ -294,7 +297,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stale_reports_are_dropped_on_reconnect() {
+    async fn only_the_newest_report_survives_a_reconnect() {
         let dir = tempfile::tempdir().expect("temp dir");
         let socket = dir.path().join("agent.sock");
         let listener = UnixListener::bind(&socket).expect("binds");
@@ -330,17 +333,26 @@ mod tests {
 
         // The link waits 1 s before it reconnects: meanwhile, a report and a job result queue.
         tokio::time::sleep(Duration::from_millis(300)).await;
-        let report = AgentToEngine::Observed(ObservedState {
-            containers: Vec::new(),
-        });
+        let report = |name: &str| {
+            AgentToEngine::Observed(ObservedState {
+                containers: vec![ObservedContainer {
+                    name: name.to_owned(),
+                    deployment_id: "dep".to_owned(),
+                    health: ContainerHealth::Starting,
+                    aliases: Vec::new(),
+                    restarts: 0,
+                }],
+            })
+        };
         let result = AgentToEngine::JobResult {
             job_id: "job-1".to_owned(),
             outcome: JobOutcome::Failed {
                 message: "no".to_owned(),
             },
         };
-        outbox_tx.send(report).await.expect("queues");
+        outbox_tx.send(report("old")).await.expect("queues");
         outbox_tx.send(result.clone()).await.expect("queues");
+        outbox_tx.send(report("new")).await.expect("queues");
 
         let (stream, _) = timeout(WAIT, listener.accept())
             .await

@@ -54,11 +54,16 @@ async fn run_job(docker: Option<&Docker>, job: Job) -> AgentToEngine {
 /// Pulls `image`, then reads its digest, the paths it declares as volumes and its exposed ports.
 pub async fn resolve_image(docker: &Docker, image: &str) -> JobOutcome {
     let reference = pull_reference(image);
-    match pull_and_inspect(docker, &reference).await {
-        Ok(outcome) => outcome,
-        Err(error) => JobOutcome::Failed {
-            message: truncate(&error.to_string(), MAX_FAILURE_MESSAGE_BYTES),
-        },
+    let message = match pull_and_inspect(docker, &reference).await {
+        Ok(outcome) => return outcome,
+        Err(Error::RequestTimeoutError) => format!(
+            "Pulling {reference} took more than {} minutes.",
+            PULL_TIMEOUT.as_secs() / 60
+        ),
+        Err(error) => error.to_string(),
+    };
+    JobOutcome::Failed {
+        message: truncate(&message, MAX_FAILURE_MESSAGE_BYTES),
     }
 }
 
