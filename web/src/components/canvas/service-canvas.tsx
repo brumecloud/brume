@@ -3,13 +3,15 @@ import "@xyflow/react/dist/style.css";
 import { useLiveSuspenseQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
 import { Background, BackgroundVariant, ReactFlow } from "@xyflow/react";
-import { BoxesIcon } from "lucide-react";
+import { BoxesIcon, PlusIcon } from "lucide-react";
 
 import { allNodePositions, saveNodePosition } from "~/api/canvas";
 import { environmentServices } from "~/api/services";
 import type { EnvironmentId, ProjectId } from "~/api/types";
+import { Button } from "~/components/ui/button";
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -20,6 +22,7 @@ import { parseServiceId } from "~/helpers/services";
 
 import { CanvasControls } from "./canvas-controls";
 import { FocusSelectedService } from "./focus-selected-service";
+import { NewServiceDialog } from "./new-service-dialog";
 import { ServiceNode } from "./service-node";
 
 const NODE_TYPES = { service: ServiceNode };
@@ -47,6 +50,19 @@ export function ServiceCanvas({ projectId, environmentName, environmentId }: Ser
           <EmptyTitle>No services</EmptyTitle>
           <EmptyDescription>This environment has no services yet.</EmptyDescription>
         </EmptyHeader>
+        <EmptyContent>
+          <NewServiceDialog
+            projectId={projectId}
+            environmentName={environmentName}
+            environmentId={environmentId}
+            trigger={
+              <Button variant="outline">
+                <PlusIcon />
+                New service
+              </Button>
+            }
+          />
+        </EmptyContent>
       </Empty>
     );
   }
@@ -73,7 +89,12 @@ export function ServiceCanvas({ projectId, environmentName, environmentId }: Ser
       }}
     >
       <Background variant={BackgroundVariant.Dots} gap={16} />
-      <CanvasControls services={services} />
+      <CanvasControls
+        projectId={projectId}
+        environmentName={environmentName}
+        environmentId={environmentId}
+        services={services}
+      />
       <FocusSelectedService />
     </ReactFlow>
   );

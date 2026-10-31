@@ -1,4 +1,7 @@
 import { withStagedSettings } from "~/helpers/changes";
+import { parseImageReference } from "~/helpers/new-project";
+import { parseEnvironmentName } from "~/helpers/projects";
+import { serviceNameError } from "~/helpers/services";
 import { resolveVariables } from "~/helpers/variables";
 
 import type {
@@ -99,6 +102,128 @@ export function createProject(source: NewProjectSource): CreatedProject {
     }
   }
   return { projectId: project.id, environmentName: environment.name };
+}
+
+// What the server answers instead of the entity: the handler turns it into an error response.
+export interface Refusal {
+  readonly status: 400 | 404 | 409;
+  readonly message: string;
+}
+
+const refuse = (status: Refusal["status"], message: string): Refusal => ({ status, message });
+
+const bodyOf = (raw: unknown) =>
+  (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+
+// A new environment is empty.
+export function createEnvironment(projectId: string, raw: unknown): Environment | Refusal {
+  const project = db.projects.find(({ id }) => id === projectId);
+  if (!project) {
+    return refuse(404, "Project not found.");
+  }
+  const { name } = bodyOf(raw);
+  if (typeof name !== "string" || !parseEnvironmentName(name)) {
+    return refuse(400, "Invalid environment name.");
+  }
+  if (db.environments.some((other) => other.projectId === project.id && other.name === name)) {
+    return refuse(409, `An environment named ${name} already exists.`);
+  }
+  const environment: Environment = {
+    id: crypto.randomUUID() as EnvironmentId,
+    projectId: project.id,
+    name,
+  };
+  db.environments.push(environment);
+  return environment;
+}
+
+// How long the mocked agent takes to start a container.
+const START_MS = 1_500;
+
+// The server resolves the image, then deploys it: `deploying` first, `active` once it runs.
+export function createService(environmentId: string, raw: unknown): Service | Refusal {
+  const environment = db.environments.find(({ id }) => id === environmentId);
+  if (!environment) {
+    return refuse(404, "Environment not found.");
+  }
+  const body = bodyOf(raw);
+  const image = typeof body.image === "string" ? parseImageReference(body.image) : undefined;
+  if (!image) {
+    return refuse(400, "Invalid image reference.");
+  }
+  const typed = typeof body.name === "string" ? body.name.trim() : "";
+  const nameError = serviceNameError(typed);
+  if (nameError) {
+    return refuse(400, nameError);
+  }
+  const taken = new Set(
+    db.services
+      .filter((service) => service.environmentId === environment.id)
+      .map((service) => service.slug),
+  );
+  if (typed && taken.has(slugOf(typed))) {
+    return refuse(409, `A service named ${typed} already exists in this environment.`);
+  }
+  const name = typed || uniqueName(firstServiceName({ kind: "image", image }) ?? "service", taken);
+  const service: Service = {
+    id: crypto.randomUUID() as ServiceId,
+    environmentId: environment.id,
+    name,
+    slug: slugOf(name),
+    kind: "image",
+    status: "deploying",
+    domains: [],
+    volume: null,
+    dependencies: [],
+  };
+  const deployment: Deployment = {
+    id: crypto.randomUUID() as DeploymentId,
+    serviceId: service.id,
+    status: "deploying",
+    createdAt: new Date().toISOString(),
+    author: "admin",
+    commit: null,
+    image,
+    rollbackable: true,
+  };
+  db.services.push(service);
+  db.deployments.push(deployment);
+  db.settings.set(service.id, { ...settingsFor(service), source: { kind: "image", image } });
+  setTimeout(() => settle(deployment.id), START_MS);
+  return service;
+}
+
+function settle(deploymentId: DeploymentId): void {
+  const index = db.deployments.findIndex(({ id }) => id === deploymentId);
+  const deployment = db.deployments[index];
+  if (!deployment || deployment.status !== "deploying") {
+    return;
+  }
+  db.deployments[index] = { ...deployment, status: "active" };
+  const serviceIndex = db.services.findIndex(({ id }) => id === deployment.serviceId);
+  const service = db.services[serviceIndex];
+  if (service) {
+    db.services[serviceIndex] = { ...service, status: "online" };
+  }
+}
+
+// `Cache (EU)` → `cache-eu`: a DNS label, like the server's `Slug`.
+function slugOf(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-+|-+$/g, "")
+    .slice(0, 63)
+    .replace(/-+$/, "");
+  return slug || "service";
+}
+
+function uniqueName(base: string, taken: ReadonlySet<string>): string {
+  let name = base;
+  for (let suffix = 2; taken.has(slugOf(name)); suffix += 1) {
+    name = `${base}-${suffix}`;
+  }
+  return name;
 }
 
 function firstServiceName(source: NewProjectSource): string | undefined {

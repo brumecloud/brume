@@ -17,7 +17,7 @@ export function parseServices(raw: unknown): Service[] {
   return decodeArray(raw, parseService, "services");
 }
 
-function parseService(raw: unknown): Service {
+export function parseService(raw: unknown): Service {
   const record = decodeRecord(raw, "service");
   return {
     id: readString(record, "id", "service") as ServiceId,
@@ -42,6 +42,18 @@ function parseVolume(raw: unknown): Volume {
 
 export function parseServiceId(raw: string): ServiceId | undefined {
   return isId(raw) ? (raw as ServiceId) : undefined;
+}
+
+const MAX_SERVICE_NAME_LENGTH = 64;
+// oxlint-disable-next-line no-control-regex -- the server refuses control characters in a name
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
+// The server's `ServiceName` rules. An empty name is fine: the server takes the image's.
+export function serviceNameError(name: string): string | null {
+  if ([...name].length > MAX_SERVICE_NAME_LENGTH) {
+    return "64 characters at most.";
+  }
+  return CONTROL.test(name) ? "No control characters." : null;
 }
 
 export function isDatabase(kind: ServiceKind): boolean {

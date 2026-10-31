@@ -3,7 +3,10 @@ import { HttpResponse, delay, http } from "msw";
 import type { LogLine } from "~/api/types";
 
 import {
+  type Refusal,
+  createEnvironment,
   createProject,
+  createService,
   currentSettings,
   db,
   deleteService,
@@ -21,6 +24,11 @@ import { branchesOf, repositories } from "./seed";
 // Enough to see loading states, not enough to get in the way. The demo on brume.dev has to start
 // fast: there, a loading state is something to wait for, not something to check.
 const LATENCY_MS = import.meta.env.MODE === "demo" ? 40 : 150;
+
+const created = <T extends object>(result: T | Refusal) =>
+  "message" in result
+    ? HttpResponse.json({ message: result.message }, { status: result.status })
+    : HttpResponse.json(result, { status: 201 });
 
 export const handlers = [
   // The real server rejects any request without this header: so does the mock. EventSource
@@ -81,6 +89,16 @@ export const handlers = [
   http.get("/api/environments", async () => {
     await delay(LATENCY_MS);
     return HttpResponse.json(db.environments);
+  }),
+
+  http.post("/api/projects/:projectId/environments", async ({ params, request }) => {
+    await delay(LATENCY_MS * 2);
+    return created(createEnvironment(String(params.projectId), await request.json()));
+  }),
+
+  http.post("/api/environments/:environmentId/services", async ({ params, request }) => {
+    await delay(LATENCY_MS * 4);
+    return created(createService(String(params.environmentId), await request.json()));
   }),
 
   http.get("/api/services", async () => {

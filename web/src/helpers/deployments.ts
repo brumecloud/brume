@@ -119,3 +119,8 @@ export function parseDeploymentId(raw: string): DeploymentId | undefined {
 export function deploymentShortId(deployment: Deployment): string {
   return (deployment.commit?.sha ?? deployment.id).slice(0, 8);
 }
+
+// A deployment status, or the service status it gives: the outcome is not known yet.
+export function isInFlight(status: string): boolean {
+  return status === "building" || status === "deploying";
+}
