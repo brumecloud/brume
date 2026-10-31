@@ -44,6 +44,7 @@ Once the GitHub app can read the repository, link the project with `site/` as it
 - the security headers: `Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`;
 - the same headers for the console demo under `/demo/`, except that the page itself may frame it (`frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`), and that its scripts get no `'unsafe-inline'`;
 - a year of caching for `/demo/assets/`, whose file names change with their content;
+- `/demo/index.html`, the page the landing frames: the Next.js build on Vercel serves HTML files without their extension, and the demo's service worker only covers URLs under `/demo/`;
 - `/install.sh`, redirected to the script of the latest GitHub release, so the script always comes from the same place as the binaries;
 - `/index.md` instead of the page for agents and terminals: a request whose `Accept` asks for `text/markdown`, or whose `User-Agent` is an HTTP tool or library (`curl`, `wget`, `python-requests`, `node`…) or an AI agent (`ChatGPT-User`, `ClaudeBot`, `PerplexityBot`…). Search engines keep the HTML. `/` answers with `Vary: Accept, User-Agent`. `has` conditions do not work under `vercel dev`: check a deploy with `curl -si https://brume.dev`.
 

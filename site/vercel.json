@@ -41,6 +41,10 @@
       "continue": true
     },
     {
+      "src": "/demo/index\\.html",
+      "dest": "/demo/index"
+    },
+    {
       "src": "/",
       "headers": {
         "Vary": "Accept, User-Agent"
