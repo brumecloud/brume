@@ -11,7 +11,6 @@ interface SwitchSettingProps {
   readonly onCommit: (checked: boolean) => void;
 }
 
-// Reference: the toggle rows of infra/screens/04e-service-settings-6-deploy.png.
 export function SwitchSetting({
   label,
   description,

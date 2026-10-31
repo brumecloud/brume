@@ -10,7 +10,7 @@ import { Badge } from "~/components/ui/badge";
 const ORIGINS = { project: "Projet", environment: "Environnement" } as const;
 const KINDS = { build: "Build", secret: "Secret" } as const;
 
-// Reference: infra/screens/05a-deployment-details.png. A revision is immutable: what ran then.
+// A revision is immutable: what ran then.
 export function RevisionDetails({ deployment }: { readonly deployment: Deployment }) {
   const { data: revision } = useSuspenseQuery(revisionQuery(deployment.id));
 

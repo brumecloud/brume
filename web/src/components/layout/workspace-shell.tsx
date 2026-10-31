@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 
 import { BrumeLogo } from "./brume-logo";
 
-// Reference: infra/screens/01-dashboard.png.
 export function WorkspaceShell({ children }: { readonly children: ReactNode }) {
   return (
     <div className="flex h-dvh bg-sidebar">

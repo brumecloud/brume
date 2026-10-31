@@ -19,7 +19,6 @@ export const Route = createFileRoute("/_workspace/projects/")({
   component: ProjectsPage,
 });
 
-// Reference: infra/screens/01-dashboard.png.
 function ProjectsPage() {
   const search = Route.useSearch();
 

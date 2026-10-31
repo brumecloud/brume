@@ -21,7 +21,7 @@ interface ProjectRailProps {
   readonly environmentName: string;
 }
 
-// Reference: infra/screens/03a-project-canvas-prod.png, the column of icons on the left.
+// The column of icons on the left.
 export function ProjectRail({ projectId, environmentName }: ProjectRailProps) {
   const matchRoute = useMatchRoute();
   const params = { projectId, env: environmentName };

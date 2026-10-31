@@ -19,7 +19,6 @@ interface LogExplorerProps {
   readonly search: LogsSearch;
 }
 
-// Reference: infra/screens/03f-project-logs.png.
 export function LogExplorer({ environmentId, search }: LogExplorerProps) {
   const { data: services } = useLiveSuspenseQuery({ query: environmentServices(environmentId) });
   const [lines, setLines] = useState<LogLine[]>([]);

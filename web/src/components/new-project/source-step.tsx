@@ -34,7 +34,6 @@ interface SourceStepProps {
   readonly onCreate: (source: NewProjectSource) => void;
 }
 
-// Reference: infra/screens/02-create-project.png.
 export function SourceStep({ disabled, onCreate }: SourceStepProps) {
   const navigate = useNavigate();
 

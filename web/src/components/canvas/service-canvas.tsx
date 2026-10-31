@@ -24,8 +24,8 @@ import { ServiceNode } from "./service-node";
 
 const NODE_TYPES = { service: ServiceNode };
 
-// Reference: infra/screens/03a-project-canvas-prod.png. React Flow owns the node state
-// (positions, measures, selection); the graph restarts only when its shape changes.
+// React Flow owns the node state (positions, measures, selection); the graph restarts only when its
+// shape changes.
 interface ServiceCanvasProps {
   readonly projectId: ProjectId;
   readonly environmentName: string;

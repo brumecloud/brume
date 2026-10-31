@@ -49,7 +49,6 @@ interface ServiceSettingsViewProps {
   readonly serviceId: ServiceId;
 }
 
-// Reference: infra/screens/04e-service-settings-*.png.
 export function ServiceSettingsView({
   projectId,
   environmentName,

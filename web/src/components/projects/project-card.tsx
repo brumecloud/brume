@@ -5,7 +5,6 @@ import { type ProjectSummary, projectHealth, servicesOnlineLabel } from "~/helpe
 
 import { HealthDot } from "./health-dot";
 
-// Reference: infra/screens/01-dashboard.png.
 export function ProjectCard({ summary }: { readonly summary: ProjectSummary }) {
   const { project, environment, services, onlineCount } = summary;
 

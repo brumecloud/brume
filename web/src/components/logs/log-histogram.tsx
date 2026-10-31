@@ -5,8 +5,7 @@ import { LEVEL_COLORS, STACKED_LEVELS } from "./log-levels";
 
 const BUCKETS = 60;
 
-// Volume of the visible lines over time, like the bars of infra/screens/03f-project-logs.png.
-// Each bar stacks its levels, sized by their count.
+// Volume of the visible lines over time. Each bar stacks its levels, sized by their count.
 export function LogHistogram({ lines }: { readonly lines: readonly LogLine[] }) {
   return (
     <div aria-hidden="true" className="flex h-10 items-end gap-px px-4">

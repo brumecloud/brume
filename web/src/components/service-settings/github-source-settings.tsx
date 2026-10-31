@@ -14,8 +14,7 @@ interface SourceSettingProps {
   readonly onCommit: (value: string) => void;
 }
 
-// Reference: infra/screens/04e-service-settings-1-source.png. Picked among the repositories the
-// GitHub App can read.
+// Picked among the repositories the GitHub App can read.
 export function RepositorySetting({ value, staged, onCommit }: SourceSettingProps) {
   const { data: repositories, isPending } = useQuery(repositoriesQuery);
 

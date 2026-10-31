@@ -7,7 +7,7 @@ interface SettingsSectionProps {
   readonly children: ReactNode;
 }
 
-// Reference: infra/screens/04e-service-settings-*.png. One step of the timeline on the left.
+// One step of the timeline on the left.
 export function SettingsSection({ id, icon, title, children }: SettingsSectionProps) {
   return (
     <section id={id} className="relative flex scroll-mt-6 gap-5">

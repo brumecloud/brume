@@ -11,7 +11,6 @@ import { domainUrl } from "~/helpers/services";
 
 import { DeploymentCard } from "./deployment-card";
 
-// Reference: infra/screens/04a-service-deployments.png.
 export function DeploymentList({ serviceId }: { readonly serviceId: ServiceId }) {
   const { data: service } = useLiveSuspenseQuery({ query: serviceById(serviceId) });
   const { data: deployments } = useLiveSuspenseQuery({ query: serviceDeployments(serviceId) });

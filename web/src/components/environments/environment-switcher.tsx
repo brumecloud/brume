@@ -12,7 +12,6 @@ interface EnvironmentSwitcherProps {
   readonly environmentName: string;
 }
 
-// Reference: infra/screens/03c-project-environment-switcher.png.
 export function EnvironmentSwitcher({ projectId, environmentName }: EnvironmentSwitcherProps) {
   const { data: environments } = useLiveSuspenseQuery({ query: projectEnvironments(projectId) });
   const navigate = useNavigate();

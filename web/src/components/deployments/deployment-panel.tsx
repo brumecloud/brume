@@ -27,9 +27,8 @@ interface DeploymentPanelProps {
   readonly tab: DeploymentSearch["tab"];
 }
 
-// Reference: infra/screens/05a-deployment-details.png. Takes the place of the service panel,
-// which steps back behind it; closing it goes back to the list. It slides in opaque: a fade
-// would show the header of the service panel through its own.
+// Takes the place of the service panel, which steps back behind it; closing it goes back to the
+// list. It slides in opaque: a fade would show the header of the service panel through its own.
 export function DeploymentPanel({ serviceId, deploymentId, tab }: DeploymentPanelProps) {
   const { data: service } = useLiveSuspenseQuery({ query: serviceById(serviceId) });
   const { data: deployment } = useLiveSuspenseQuery({ query: deploymentById(deploymentId) });

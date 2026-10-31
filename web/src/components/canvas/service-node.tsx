@@ -8,8 +8,8 @@ import { serviceById } from "~/api/services";
 import { ServiceIcon } from "~/components/services/service-icon";
 import { ServiceStatusLabel } from "~/components/services/service-status";
 
-// Reference: infra/screens/03a-project-canvas-prod.png. The node reads its service by id,
-// so a status change re-renders the card without rebuilding the graph.
+// The node reads its service by id, so a status change re-renders the card without rebuilding the
+// graph.
 export function ServiceNode({ id }: NodeProps) {
   const { data: service } = useLiveSuspenseQuery({ query: serviceById(id) });
   const { data: changes } = useLiveSuspenseQuery({ query: serviceChanges(id) });

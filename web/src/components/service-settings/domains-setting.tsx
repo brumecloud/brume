@@ -13,7 +13,6 @@ interface DomainsSettingProps {
   readonly onCommit: (domains: readonly string[]) => void;
 }
 
-// Reference: infra/screens/04e-service-settings-2-networking.png.
 export function DomainsSetting({ domains, staged, onCommit }: DomainsSettingProps) {
   const [draft, setDraft] = useState("");
   const [invalid, setInvalid] = useState(false);

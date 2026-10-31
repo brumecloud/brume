@@ -13,7 +13,7 @@ interface LogRowProps {
   readonly onToggle: () => void;
 }
 
-// Reference: infra/screens/03f-project-logs.png. A click opens the whole line as JSON.
+// A click opens the whole line as JSON.
 export function LogRow({ line, serviceName, open, onToggle }: LogRowProps) {
   return (
     <div>

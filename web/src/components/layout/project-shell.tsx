@@ -13,9 +13,8 @@ interface ProjectShellProps {
   readonly children: ReactNode;
 }
 
-// Reference: infra/screens/03a-project-canvas-prod.png and 03c. The header is as tall as the
-// rail is wide: the main area starts at the same distance from the top and from the left, and
-// the logo sits centered in the corner, above the rail icons.
+// The header is as tall as the rail is wide: the main area starts at the same distance from the top
+// and from the left, and the logo sits centered in the corner, above the rail icons.
 export function ProjectShell({ projectId, environmentName, children }: ProjectShellProps) {
   return (
     <div className="flex h-dvh flex-col bg-sidebar">

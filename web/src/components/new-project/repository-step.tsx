@@ -18,7 +18,6 @@ interface RepositoryStepProps {
   readonly onCreate: (source: NewProjectSource) => void;
 }
 
-// Reference: infra/screens/02a-create-project-github.png.
 export function RepositoryStep({ kind, disabled, onCreate }: RepositoryStepProps) {
   const { data: repositories } = useSuspenseQuery(repositoriesQuery);
 

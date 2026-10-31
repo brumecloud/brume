@@ -22,7 +22,6 @@ interface DeploymentLogsProps {
   readonly fileName: string;
 }
 
-// References: infra/screens/05b-deployment-build-logs-empty.png and 05c.
 export function DeploymentLogs({ deploymentId, stream, fileName }: DeploymentLogsProps) {
   const { data: lines } = useSuspenseQuery(deploymentLogsQuery(deploymentId, stream));
   const [query, setQuery] = useState("");

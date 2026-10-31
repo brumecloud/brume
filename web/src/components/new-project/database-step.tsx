@@ -27,7 +27,6 @@ interface DatabaseStepProps {
   readonly onCreate: (source: NewProjectSource) => void;
 }
 
-// Reference: infra/screens/02c-create-project-template.png.
 export function DatabaseStep({ disabled, onCreate }: DatabaseStepProps) {
   return (
     <Command items={DATABASES}>

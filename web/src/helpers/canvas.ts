@@ -108,8 +108,8 @@ interface FocusedNode {
   readonly height?: number | undefined;
 }
 
-// Where to center the viewport so the selected node sits in the middle of the strip the
-// panel leaves visible, like infra/screens/04a-service-deployments.png.
+// Where to center the viewport so the selected node sits in the middle of the strip the panel
+// leaves visible.
 export function panelFocusCenter(
   node: FocusedNode,
   viewportWidth: number,

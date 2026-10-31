@@ -18,8 +18,7 @@ interface VariableListProps {
   readonly environment: Environment;
 }
 
-// Reference: infra/screens/04b-service-variables.png. The variables as they will be after the
-// next deploy, drafts marked.
+// The variables as they will be after the next deploy, drafts marked.
 export function VariableList({ serviceId, environment }: VariableListProps) {
   const { data: service } = useLiveSuspenseQuery({ query: serviceById(serviceId) });
   const { data: variables } = useLiveSuspenseQuery({ query: allVariables });

@@ -14,8 +14,7 @@ interface LimitSettingProps {
   readonly onCommit: (value: number) => void;
 }
 
-// Reference: infra/screens/04e-service-settings-4-scale.png. The slider moves over fixed steps;
-// the value is staged when the admin lets go of it.
+// The slider moves over fixed steps; the value is staged when the admin lets go of it.
 export function LimitSetting({ label, steps, value, staged, format, onCommit }: LimitSettingProps) {
   const [index, setIndex] = useState(limitStep(steps, value));
   const shown = steps[index] ?? value;

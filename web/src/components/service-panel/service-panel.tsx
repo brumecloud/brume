@@ -19,9 +19,9 @@ interface ServicePanelProps {
   readonly children: ReactNode;
 }
 
-// Reference: infra/screens/04a-service-deployments.png. The panel slides in from the right,
-// where it comes from. When a deployment opens over it, it steps back, down and left, so its
-// edge stays visible under the deployment. With reduced motion, MotionConfig drops the moves.
+// The panel slides in from the right, where it comes from. When a deployment opens over it, it
+// steps back, down and left, so its edge stays visible under the deployment. With reduced motion,
+// MotionConfig drops the moves.
 //
 // The step back is a CSS transform on a plain wrapper, not a motion value: for motion, the
 // deployment rendered through a portal is still a child of this panel, and its layout
