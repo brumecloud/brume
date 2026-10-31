@@ -247,9 +247,22 @@ async fn current_session(State(state): State<Arc<AppState>>, headers: HeaderMap)
     forward(&state, &headers, ApiCall::GetSession, StatusCode::OK).await
 }
 
-/// Clears the cookie whatever the engine answers: the browser forgets the session anyway.
+/// Clears the cookie whatever the engine answers: the browser forgets the session anyway. A
+/// session that already expired is logged out too: 204.
 async fn logout(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
-    let mut response = forward(&state, &headers, ApiCall::Logout, StatusCode::NO_CONTENT).await;
+    let mut response = match state
+        .engine
+        .call(session::token(&headers), ApiCall::Logout)
+        .await
+    {
+        Ok(Err(ApiFailure {
+            kind: FailureKind::Unauthorized,
+            ..
+        })) => StatusCode::NO_CONTENT.into_response(),
+        Ok(Ok(value)) => value_response(value, StatusCode::NO_CONTENT),
+        Ok(Err(failure)) => failure_response(failure),
+        Err(error) => engine_error_response(error),
+    };
     let (name, value) = session::clear_cookie();
     response.headers_mut().insert(name, value);
     response

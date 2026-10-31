@@ -149,7 +149,11 @@ fn bindings_declare_each_dto_once_in_order() {
     sorted.sort_unstable();
     sorted.dedup();
     assert_eq!(names, sorted);
-    assert_eq!(names.len(), 36);
+    // Every DTO that derives `TS` in brume-proto is declared.
+    let derives = include_str!("../../brume-proto/src/api.rs")
+        .matches("derive(ts_rs::TS)")
+        .count();
+    assert_eq!(names.len(), derives);
     for name in [
         "Project",
         "LogLine",

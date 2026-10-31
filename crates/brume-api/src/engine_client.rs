@@ -12,7 +12,7 @@ use brume_proto::api::{ApiCall, ApiFailure, ApiReply, ApiRequest, ApiValue, LogL
 use brume_proto::telemetry::LogStreamFrame;
 use tokio::net::UnixStream;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 
 use crate::framed::{FramedReader, FramedWriter};
 
@@ -50,10 +50,11 @@ pub struct EngineClient {
     connection: tokio::sync::Mutex<Option<Arc<Connection>>>,
 }
 
-/// The multiplexed connection: requests go out under the writer's lock, and a task routes each
-/// reply to its caller by `id`.
+/// The multiplexed connection. Requests go through a channel to a task that alone writes
+/// them, so a request whose HTTP client leaves never cuts a frame in half; another task routes
+/// each reply to its caller by `id`.
 struct Connection {
-    writer: tokio::sync::Mutex<FramedWriter<OwnedWriteHalf>>,
+    requests: mpsc::UnboundedSender<ApiRequest>,
     pending: Arc<Mutex<Pending>>,
 }
 
@@ -61,6 +62,21 @@ struct Connection {
 struct Pending {
     open: bool,
     waiting: BTreeMap<u64, oneshot::Sender<ApiReply>>,
+}
+
+/// A caller's place in `Pending`, removed when the caller stops waiting, whether it got its
+/// reply, timed out, or its HTTP client left.
+struct Waiting<'a> {
+    pending: &'a Mutex<Pending>,
+    id: u64,
+}
+
+impl Drop for Waiting<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut pending) = self.pending.lock() {
+            pending.waiting.remove(&self.id);
+        }
+    }
 }
 
 impl Pending {
@@ -88,29 +104,33 @@ impl EngineClient {
         body: ApiCall,
     ) -> Result<Answer, EngineError> {
         let connection = self.connection().await?;
-        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (sender, receiver) = oneshot::channel();
-        {
+        let id = {
             let mut pending = lock(&connection.pending)?;
             if !pending.open {
                 return Err(EngineError::Unreachable);
             }
+            // Under the lock, so the ids go out in increasing order.
+            let id = self.next_id.fetch_add(1, Ordering::Relaxed);
             pending.waiting.insert(id, sender);
-        }
-        let request = ApiRequest { id, session, body };
-        let sent = connection.writer.lock().await.send(&request).await;
-        if let Err(error) = sent {
-            tracing::warn!(%error, "cannot write to the engine");
-            lock(&connection.pending)?.close();
-            return Err(EngineError::Unreachable);
-        }
+            if connection
+                .requests
+                .send(ApiRequest { id, session, body })
+                .is_err()
+            {
+                pending.close();
+                return Err(EngineError::Unreachable);
+            }
+            id
+        };
+        let _waiting = Waiting {
+            pending: &connection.pending,
+            id,
+        };
         match tokio::time::timeout(CALL_TIMEOUT, receiver).await {
             Ok(Ok(reply)) => Ok(reply.result),
             Ok(Err(_)) => Err(EngineError::Unreachable),
-            Err(_) => {
-                lock(&connection.pending)?.waiting.remove(&id);
-                Err(EngineError::Timeout)
-            }
+            Err(_) => Err(EngineError::Timeout),
         }
     }
 
@@ -176,13 +196,33 @@ impl EngineClient {
             open: true,
             waiting: BTreeMap::new(),
         }));
+        let (requests, outgoing) = mpsc::unbounded_channel();
+        tokio::spawn(write_requests(
+            FramedWriter::new(write),
+            outgoing,
+            Arc::clone(&pending),
+        ));
         tokio::spawn(route_replies(FramedReader::new(read), Arc::clone(&pending)));
-        let connection = Arc::new(Connection {
-            writer: tokio::sync::Mutex::new(FramedWriter::new(write)),
-            pending,
-        });
+        let connection = Arc::new(Connection { requests, pending });
         *slot = Some(Arc::clone(&connection));
         Ok(connection)
+    }
+}
+
+/// Writes the requests in order, each one whole, until the connection breaks or is replaced.
+async fn write_requests(
+    mut writer: FramedWriter<OwnedWriteHalf>,
+    mut requests: mpsc::UnboundedReceiver<ApiRequest>,
+    pending: Arc<Mutex<Pending>>,
+) {
+    while let Some(request) = requests.recv().await {
+        if let Err(error) = writer.send(&request).await {
+            tracing::warn!(%error, "cannot write to the engine");
+            break;
+        }
+    }
+    if let Ok(mut pending) = lock(&pending) {
+        pending.close();
     }
 }
 

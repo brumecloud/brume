@@ -33,6 +33,15 @@ struct FakeEngine {
 
 impl FakeEngine {
     fn start(home: &Path, answer: Answer, frames: Vec<LogStreamFrame>) -> Self {
+        Self::spawn(home, answer, frames, Connections::KeepOpen)
+    }
+
+    fn spawn(
+        home: &Path,
+        answer: Answer,
+        frames: Vec<LogStreamFrame>,
+        connections: Connections,
+    ) -> Self {
         let run = home.join("run");
         std::fs::create_dir_all(&run).expect("creates the run directory");
         let listener = UnixListener::bind(run.join("api.sock")).expect("binds api.sock");
@@ -57,7 +66,9 @@ impl FakeEngine {
                             id: request.id,
                             result,
                         };
-                        if writer.send(&reply).await.is_err() {
+                        if writer.send(&reply).await.is_err()
+                            || connections == Connections::CloseAfterReply
+                        {
                             return;
                         }
                         if opened {
@@ -78,6 +89,13 @@ impl FakeEngine {
     fn requests(&self) -> Vec<ApiRequest> {
         self.requests.lock().expect("lock").clone()
     }
+}
+
+/// Whether the fake engine keeps a connection open after a reply.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Connections {
+    KeepOpen,
+    CloseAfterReply,
 }
 
 /// A home under `/tmp`: macOS limits a unix socket path to 104 bytes.
@@ -577,4 +595,56 @@ async fn sse_refused_by_the_engine_is_a_json_error() {
         body_json(response).await,
         json!({"message": "Log in again."})
     );
+}
+
+#[tokio::test]
+async fn logout_of_an_expired_session_still_clears_the_cookie() {
+    let home = home();
+    let answer: Answer = Box::new(|_| {
+        Err(ApiFailure {
+            kind: FailureKind::Unauthorized,
+            message: "Log in again.".to_owned(),
+        })
+    });
+    let _engine = FakeEngine::start(home.path(), answer, vec![]);
+    let request = panel("DELETE", "/api/session")
+        .header(header::COOKIE, "brume_session=expired")
+        .body(Body::empty())
+        .expect("request");
+    let response = send(&router(home.path()), request).await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        header_of(&response, "set-cookie"),
+        Some("brume_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")
+    );
+}
+
+#[tokio::test]
+async fn reconnects_after_the_engine_closes_the_connection() {
+    let home = home();
+    let engine = FakeEngine::spawn(
+        home.path(),
+        default_answer(),
+        vec![],
+        Connections::CloseAfterReply,
+    );
+    let router = router(home.path());
+    let list = || {
+        panel("GET", "/api/projects")
+            .body(Body::empty())
+            .expect("request")
+    };
+    assert_eq!(send(&router, list()).await.status(), StatusCode::OK);
+    // A call can race the close and get a 503; the client then opens a new connection.
+    let mut statuses = Vec::new();
+    for _ in 0..5 {
+        let status = send(&router, list()).await.status();
+        statuses.push(status);
+        if status == StatusCode::OK {
+            break;
+        }
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    }
+    assert_eq!(statuses.last(), Some(&StatusCode::OK), "{statuses:?}");
+    assert!(engine.requests().len() >= 2);
 }
