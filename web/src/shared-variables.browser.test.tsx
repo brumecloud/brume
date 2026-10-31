@@ -65,7 +65,7 @@ describe("shared variables", () => {
     await screen.getByRole("button", { name: "Save" }).click();
 
     await expect.element(screen.getByText("A secret needs a value.")).toBeVisible();
-    expect(db.secretValues.get(`${northbean.id}-SENTRY_DSN`)).not.toBe("");
+    expect(db.secretValues.get(`${northbean.id}-SENTRY_DSN`)).toBeTruthy();
     await userEvent.keyboard("{Escape}");
     await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
   });
