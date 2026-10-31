@@ -76,3 +76,4 @@ These design decisions are not made yet. Until one is settled, the pages that de
 - **No Headscale in 0.1.** This is a proposal, to be confirmed later. See [Hosting](/docs/how-it-works/roadmap#hosting).
 - **A domain dedicated to your apps,** separate from the domain that carries your email, so that a stolen Cloudflare account can no longer redirect your MX records. The options are advice at install, or nothing. This comes later. See [Networking](/docs/how-it-works/networking#domains).
 - **Frontend.** How the panel decodes API responses, and which library draws the metrics charts. See [Panel frontend](/docs/customize/frontend#open-decisions).
+- **After a `brume deploy` from a folder,** whether the service follows its branch, with each push redeploying it, or stays on the deployed commit until the next `deploy`. See [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#deploying-a-folder).

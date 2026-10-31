@@ -14,6 +14,7 @@ Once your laptop is linked to your server, `brume deploy` deploys anything in on
 
 - **A Brume server,** with the panel reachable from your laptop. See the [quickstart](/docs/use/quickstart).
 - **Your laptop on the tailnet,** signed in with the Tailscale identity you gave at install. A tagged device has no Tailscale identity and cannot use the CLI.
+- **To deploy a folder, a GitHub repository** that the Brume GitHub App covers, with your commits pushed.
 - **The `brume` binary for your laptop** (macOS or Linux). It is published in the same GitHub release as the server binary, signed with minisign.
 
 ## Link your laptop and deploy
@@ -41,6 +42,8 @@ From the folder of your app:
 ```bash
 brume deploy
 ```
+
+Brume builds the folder's current commit, from GitHub: commit and push first. `deploy` refuses uncommitted changes, a commit not pushed yet, or a repository the GitHub App does not cover, and tells you what to run next.
 
 The first deploy from a folder creates a project named after the folder, a `production` environment and the service. Later deploys from the same folder go to the same service.
 
@@ -71,7 +74,7 @@ brume deploy postgres                # a template
 
 | Argument | Source | Build |
 |---|---|---|
-| Nothing, or a path | The folder, uploaded by the CLI | Railpack, on the server |
+| Nothing, or a path | The folder's current commit, through the GitHub App | Railpack, on the server |
 | `github.com/<owner>/<repo>` | The repository, through the GitHub App | Railpack, then on every push to the configured branch |
 | `postgres`, `mongodb`, `redis` | The [template](/docs/use/templates) | None |
 | An image reference | The registry | None: the tag is resolved to a digest |
@@ -89,9 +92,9 @@ brume deploy postgres                # a template
 
 `brume deploy` applies only its own change. Changes you staged in the panel stay staged.
 
-## What the CLI never uploads
+## Secrets from a .env file
 
-When it uploads a folder, the CLI follows `.gitignore`. It never uploads `.git`, `.env` or `.env.*`, because a `COPY . .` in the build would put them in an image layer, readable by anyone who gets the image.
+Brume builds what is in your commit, so keep `.env` and `.env.*` out of it: a `COPY . .` in the build would put them in an image layer, readable by anyone who gets the image.
 
 To move the values of a `.env` file to Brume, import them as secrets:
 

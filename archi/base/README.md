@@ -68,3 +68,4 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 5. **Pas de Headscale en 0.1 :** proposition à confirmer, plus tard.
 6. **Un domaine dédié aux apps,** séparé du domaine qui porte les emails : un compte Cloudflare volé ne pourrait plus détourner les MX. Conseil à l'install, ou rien. Plus tard. Voir [03-reseau.md](03-reseau.md#domaines).
 7. **Frontend :** décodage des réponses de l'API, graphiques des métriques. Voir [front-architecture.md](front-architecture.md#décisions-ouvertes).
+8. **Après un `brume deploy` depuis un dossier :** le service suit sa branche, chaque push le redéployant, ou reste sur le commit déployé jusqu'au prochain `deploy`. Voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-dossier-courant).
