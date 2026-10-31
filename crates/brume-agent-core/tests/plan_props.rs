@@ -617,6 +617,27 @@ fn unmanaged_container_with_a_wanted_name_is_left_alone() {
 }
 
 #[test]
+fn container_without_networks_is_kept_in_mode_none() {
+    let mut spec = nginx(Healthcheck::Running { grace_secs: 0 });
+    spec.networks.clear();
+    let mut desired = one(&spec);
+    desired.networks.clear();
+    let mut snapshot = running(&spec, SnapState::Running, 0);
+    snapshot.containers[0].networks = vec![NetworkAttachment {
+        network: "none".to_owned(),
+        aliases: Vec::new(),
+    }];
+    let actions = plan(
+        &desired,
+        &snapshot,
+        &Restarts::default(),
+        &ProbeResults::default(),
+        0,
+    );
+    assert!(actions.is_empty(), "{actions:?}");
+}
+
+#[test]
 fn network_with_the_wrong_isolation_blocks_the_container() {
     let spec = nginx(Healthcheck::Running { grace_secs: 0 });
     let desired = one(&spec);

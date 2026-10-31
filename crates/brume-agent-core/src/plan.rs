@@ -1,5 +1,6 @@
 //! The Docker actions that bring a snapshot to the desired state. `plan` is idempotent: run on
-//! the snapshot that its actions produce, it returns nothing.
+//! the snapshot that its actions produce, it returns nothing, except the probes of containers
+//! still starting, every 2 s, until their health is decided.
 
 use std::collections::BTreeSet;
 
@@ -8,7 +9,7 @@ use brume_proto::agent::{
 };
 
 use crate::backoff::Restarts;
-use crate::config::{ContainerConfig, container_config};
+use crate::config::{ContainerConfig, NO_NETWORK, container_config};
 use crate::health::{ProbeResults, alias_set, container_health};
 use crate::observed::{DockerSnapshot, SnapContainer, SnapState};
 
@@ -216,10 +217,12 @@ fn needs_replacement(spec: &ContainerSpec, container: &SnapContainer) -> bool {
     container.config_hash != container_config(spec).config_hash()
         || container.state == SnapState::Other
         || container.networks.iter().any(|actual| {
-            !spec
-                .networks
-                .iter()
-                .any(|wanted| wanted.network == actual.network)
+            // Docker lists the `none` mode of a container without networks as an attachment.
+            actual.network != NO_NETWORK
+                && !spec
+                    .networks
+                    .iter()
+                    .any(|wanted| wanted.network == actual.network)
         })
 }
 
