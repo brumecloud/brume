@@ -65,6 +65,8 @@ pub struct SnapContainer {
     pub started_at_ms: Option<u64>,
     /// The networks it is attached to, with its aliases on each.
     pub networks: Vec<NetworkAttachment>,
+    /// The named volumes it mounts, whether it runs or not.
+    pub mounts: Vec<String>,
     /// Its `brume.config-hash` label, empty without one.
     pub config_hash: String,
     /// How long Docker waits after `SIGTERM` before it kills it.

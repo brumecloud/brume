@@ -1,7 +1,8 @@
 //! `plan` against an in-memory Docker: from any snapshot, applying its actions until it has none
-//! left reaches the desired state without touching an unmanaged container, network or volume.
-//! Then the backoff of restarts, the health of containers, and the names and labels that keep
-//! foreign networks and volumes away from containers.
+//! left reaches the desired state without touching an unmanaged container, network or volume,
+//! and without ever creating a container on a volume that another container mounts. Then the
+//! backoff of restarts, the health of containers, the names and labels that keep foreign
+//! networks and volumes away from containers, and the networks that change on a live container.
 
 use std::collections::BTreeSet;
 
@@ -23,7 +24,8 @@ use proptest::prelude::{Just, Strategy, any, prop_assert, prop_assert_eq, prop_o
 use proptest::sample::subsequence;
 
 const NETWORKS: [&str; 3] = ["brume-net-a", "brume-net-b", "brume-net-c"];
-const VOLUMES: [&str; 2] = ["brume-vol-a", "brume-vol-b"];
+/// The volume of the container at each index: the engine never gives two containers one volume.
+const VOLUMES: [&str; 4] = ["brume-vol-0", "brume-vol-1", "brume-vol-2", "brume-vol-3"];
 /// The one network of the desired state that has the internet.
 const EGRESS: &str = "brume-net-c";
 const IMAGES: [&str; 2] = ["nginx@sha256:aa", "redis@sha256:bb"];
@@ -67,13 +69,13 @@ fn spec_strategy(index: usize) -> impl Strategy<Value = ContainerSpec> {
     (
         proptest::sample::select(IMAGES.to_vec()),
         attachments_strategy(),
-        subsequence(VOLUMES.to_vec(), 0..=1),
+        any::<bool>(),
         healthcheck_strategy(),
         any::<bool>(),
         1..4u32,
     )
         .prop_map(
-            move |(image, networks, volumes, healthcheck, secret, deployment)| ContainerSpec {
+            move |(image, networks, volume, healthcheck, secret, deployment)| ContainerSpec {
                 name: format!("brume-c{index}"),
                 image: image.to_owned(),
                 environment_id: "env".to_owned(),
@@ -89,13 +91,14 @@ fn spec_strategy(index: usize) -> impl Strategy<Value = ContainerSpec> {
                 }],
                 command: None,
                 networks,
-                mounts: volumes
-                    .into_iter()
-                    .map(|volume| Mount {
-                        volume: volume.to_owned(),
-                        path: format!("/data/{volume}"),
-                    })
-                    .collect(),
+                mounts: if volume {
+                    vec![Mount {
+                        volume: VOLUMES[index].to_owned(),
+                        path: "/data".to_owned(),
+                    }]
+                } else {
+                    Vec::new()
+                },
                 cpu_millis: 500,
                 memory_mb: 128,
                 stop_timeout_secs: 10,
@@ -141,8 +144,9 @@ fn state_strategy() -> impl Strategy<Value = SnapState> {
     ]
 }
 
-/// A container in the snapshot. `matches` asks for the config hash of the desired container of
-/// the same name, so that it is kept rather than replaced.
+/// A container in the snapshot. `matches` asks for the config hash and the volumes of the
+/// desired container of the same name, so that it is kept rather than replaced. Otherwise a
+/// managed container may hold a volume that a desired container wants.
 #[derive(Clone, Debug)]
 struct SnapSeed {
     name: String,
@@ -150,6 +154,7 @@ struct SnapSeed {
     matches: bool,
     state: SnapState,
     networks: Vec<NetworkAttachment>,
+    mounts: Vec<&'static str>,
 }
 
 fn seed_strategy() -> impl Strategy<Value = SnapSeed> {
@@ -166,14 +171,19 @@ fn seed_strategy() -> impl Strategy<Value = SnapSeed> {
             attachments_strategy(),
             attachment_strategy("stray").prop_map(|attachment| vec![attachment]),
         ],
+        subsequence(VOLUMES.to_vec(), 0..=1),
     )
-        .prop_map(|((name, managed), matches, state, networks)| SnapSeed {
-            name,
-            managed,
-            matches,
-            state,
-            networks,
-        })
+        .prop_map(
+            |((name, managed), matches, state, networks, mounts)| SnapSeed {
+                name,
+                managed,
+                matches,
+                state,
+                networks,
+                // A foreign container on a Brume volume blocks it for good: not generated here.
+                mounts: if managed { mounts } else { Vec::new() },
+            },
+        )
 }
 
 fn snapshot_strategy() -> impl Strategy<
@@ -205,9 +215,12 @@ fn build_snapshot(
                 .containers
                 .iter()
                 .find(|spec| spec.name == seed.name);
-            let config_hash = match wanted {
-                Some(spec) if seed.matches => container_config(spec).config_hash().to_owned(),
-                _ => "stale".to_owned(),
+            let (config_hash, mounts) = match wanted {
+                Some(spec) if seed.matches => (
+                    container_config(spec).config_hash().to_owned(),
+                    volumes_of(spec),
+                ),
+                _ => ("stale".to_owned(), strings(&seed.mounts)),
             };
             SnapContainer {
                 name: seed.name,
@@ -217,6 +230,7 @@ fn build_snapshot(
                 state: seed.state,
                 started_at_ms: (seed.state == SnapState::Running).then_some(0),
                 networks: seed.networks,
+                mounts,
                 config_hash,
                 stop_timeout_secs: 10,
             }
@@ -235,6 +249,14 @@ fn build_snapshot(
         images: strings(&images),
         containers,
     }
+}
+
+/// The volumes that `spec`'s container mounts.
+fn volumes_of(spec: &ContainerSpec) -> Vec<String> {
+    spec.mounts
+        .iter()
+        .map(|mount| mount.volume.clone())
+        .collect()
 }
 
 fn managed_volume(name: &str) -> SnapVolume {
@@ -300,6 +322,16 @@ fn apply(
                     volume.is_some_and(|volume| volume.managed),
                     "foreign volume"
                 );
+                let holder = snapshot
+                    .containers
+                    .iter()
+                    .find(|container| container.mounts.contains(&mount.source));
+                assert!(
+                    holder.is_none(),
+                    "{} created on {}, which {holder:?} mounts",
+                    config.name,
+                    mount.source
+                );
             }
             snapshot.containers.push(SnapContainer {
                 name: config.name.clone(),
@@ -309,6 +341,12 @@ fn apply(
                 state: SnapState::Created,
                 started_at_ms: None,
                 networks: config.endpoints.clone(),
+                mounts: config
+                    .host_config
+                    .mounts
+                    .iter()
+                    .map(|mount| mount.source.clone())
+                    .collect(),
                 config_hash: config.labels[LABEL_CONFIG_HASH].clone(),
                 stop_timeout_secs: config.stop_timeout_secs,
             });
@@ -351,6 +389,17 @@ fn apply(
                 network: network.clone(),
                 aliases: aliases.clone(),
             });
+        }
+        Action::Disconnect { container, network } => {
+            let index = managed(&snapshot, container);
+            let networks = &mut snapshot.containers[index].networks;
+            assert!(
+                networks
+                    .iter()
+                    .any(|attachment| attachment.network == *network),
+                "{container} is not on {network}"
+            );
+            networks.retain(|attachment| attachment.network != *network);
         }
         Action::Probe { container, .. } => {
             let index = managed(&snapshot, container);
@@ -493,8 +542,9 @@ fn running(spec: &ContainerSpec, state: SnapState, started_at_ms: u64) -> Docker
             state,
             started_at_ms: Some(started_at_ms),
             networks: spec.networks.clone(),
+            mounts: volumes_of(spec),
             config_hash: container_config(spec).config_hash().to_owned(),
-            stop_timeout_secs: 10,
+            stop_timeout_secs: spec.stop_timeout_secs,
         }],
     }
 }
@@ -717,6 +767,11 @@ fn actions_follow_the_documented_order() {
     let mut snapshot = running(&crashed, SnapState::Exited { code: 2 }, 0);
     let mut moved_container = running(&moved, SnapState::Running, 0).containers.remove(0);
     moved_container.networks[0].aliases = strings(&["old"]);
+    // Still on the egress network that its spec dropped.
+    moved_container.networks.push(NetworkAttachment {
+        network: EGRESS.to_owned(),
+        aliases: Vec::new(),
+    });
     let mut old = running(&wanted, SnapState::Running, 0).containers.remove(0);
     old.name = "brume-old".to_owned();
     snapshot.containers.extend([moved_container, old]);
@@ -740,14 +795,31 @@ fn actions_follow_the_documented_order() {
             Action::StopContainer { .. } => "stop",
             Action::RemoveContainer(_) => "remove",
             Action::Reattach { .. } => "reattach",
+            Action::Disconnect { .. } => "disconnect",
             Action::Probe { .. } => "probe",
         })
         .collect();
     assert_eq!(
         kinds,
         [
-            "network", "volume", "pull", "create", "start", "start", "reattach", "stop", "remove"
+            "network",
+            "volume",
+            "pull",
+            "create",
+            "start",
+            "start",
+            "reattach",
+            "disconnect",
+            "stop",
+            "remove"
         ]
+    );
+    assert_eq!(
+        actions[7],
+        Action::Disconnect {
+            container: "brume-moved".to_owned(),
+            network: EGRESS.to_owned(),
+        }
     );
     assert_eq!(actions[4], Action::StartContainer("brume-web".to_owned()));
     assert_eq!(
@@ -755,7 +827,7 @@ fn actions_follow_the_documented_order() {
         Action::StartContainer("brume-crashed".to_owned())
     );
     assert_eq!(
-        actions[7],
+        actions[8],
         Action::StopContainer {
             name: "brume-old".to_owned(),
             timeout_secs: 10
@@ -1056,5 +1128,173 @@ fn refusals_name_what_blocks_containers() {
             refusal(Resource::Volume, "data", RefusalReason::BadName),
             refusal(Resource::Volume, "brume-vol-a", RefusalReason::Foreign),
         ]
+    );
+}
+
+/// A database container of deployment `deployment`, on the data volume `VOLUMES[0]`.
+fn postgres(name: &str, deployment: &str) -> ContainerSpec {
+    let mut spec = nginx(Healthcheck::Running { grace_secs: 0 });
+    spec.name = name.to_owned();
+    spec.deployment_id = deployment.to_owned();
+    spec.mounts = vec![Mount {
+        volume: VOLUMES[0].to_owned(),
+        path: "/var/lib/postgresql/data".to_owned(),
+    }];
+    spec.stop_timeout_secs = 60;
+    spec
+}
+
+/// The desired state with only `spec`, on `NETWORKS[0]` and `VOLUMES[0]`.
+fn on_volume(spec: &ContainerSpec) -> DesiredState {
+    let mut desired = one(spec);
+    desired.volumes = vec![VolumeSpec {
+        name: VOLUMES[0].to_owned(),
+        service_id: "svc".to_owned(),
+    }];
+    desired
+}
+
+/// Docker with `NETWORKS[0]`, `VOLUMES[0]`, the image, and `containers`.
+fn with_volume(containers: Vec<SnapContainer>) -> DockerSnapshot {
+    DockerSnapshot {
+        containers,
+        ..empty_docker(
+            vec![snap_network(NETWORKS[0], true, true)],
+            vec![managed_volume(VOLUMES[0])],
+        )
+    }
+}
+
+#[test]
+fn a_volume_changes_container_only_once_the_old_one_is_gone() {
+    let old = postgres("brume-db-old", "dep-old");
+    let new = postgres("brume-db-new", "dep-new");
+    let held_by = |spec: &ContainerSpec, state| with_volume(running(spec, state, 0).containers);
+
+    // A deployment: the engine swaps the containers in one desired state. The old one stops
+    // and goes in this round; the new one is not created next to it.
+    let swap = on_volume(&new);
+    let actions = plan_at(&swap, &held_by(&old, SnapState::Running), 1_000);
+    assert_eq!(
+        actions,
+        [
+            Action::StopContainer {
+                name: old.name.clone(),
+                timeout_secs: 60,
+            },
+            Action::RemoveContainer(old.name.clone()),
+        ]
+    );
+    // Once Docker no longer lists it, the new one comes.
+    assert_eq!(
+        plan_at(&swap, &with_volume(Vec::new()), 3_000),
+        [
+            Action::CreateContainer(Box::new(container_config(&new))),
+            Action::StartContainer(new.name.clone()),
+        ]
+    );
+
+    // The deployment failed: the old container comes back, once the new one is gone, whether
+    // it still runs or it exited.
+    let restore = on_volume(&old);
+    let actions = plan_at(&restore, &held_by(&new, SnapState::Running), 5_000);
+    assert_eq!(
+        actions,
+        [
+            Action::StopContainer {
+                name: new.name.clone(),
+                timeout_secs: 60,
+            },
+            Action::RemoveContainer(new.name.clone()),
+        ]
+    );
+    let actions = plan_at(
+        &restore,
+        &held_by(&new, SnapState::Exited { code: 1 }),
+        5_000,
+    );
+    assert_eq!(actions, [Action::RemoveContainer(new.name.clone())]);
+    assert_eq!(
+        plan_at(&restore, &with_volume(Vec::new()), 7_000),
+        [
+            Action::CreateContainer(Box::new(container_config(&old))),
+            Action::StartContainer(old.name.clone()),
+        ]
+    );
+}
+
+#[test]
+fn a_volume_held_by_a_kept_or_foreign_container_blocks_the_container() {
+    let old = postgres("brume-db-old", "dep-old");
+    let new = postgres("brume-db-new", "dep-new");
+
+    // Both wanted: the engine never asks for it, and the agent never runs it.
+    let mut both = on_volume(&old);
+    both.containers.push(new.clone());
+    let snapshot = with_volume(running(&old, SnapState::Running, 0).containers);
+    let actions = plan_at(&both, &snapshot, 1_000);
+    assert!(!creates_container(&actions), "{actions:?}");
+
+    // A container that Brume does not manage, on Brume's volume: never touched, never shared.
+    let mut foreign = running(&old, SnapState::Running, 0).containers.remove(0);
+    foreign.name = "someone-else".to_owned();
+    foreign.managed = false;
+    let actions = plan_at(&on_volume(&new), &with_volume(vec![foreign]), 1_000);
+    assert!(actions.is_empty(), "{actions:?}");
+}
+
+/// `nginx` with the egress network after its environment network.
+fn with_egress(spec: &ContainerSpec) -> ContainerSpec {
+    let mut spec = spec.clone();
+    spec.networks.push(NetworkAttachment {
+        network: EGRESS.to_owned(),
+        aliases: Vec::new(),
+    });
+    spec
+}
+
+#[test]
+fn egress_changes_on_the_running_container() {
+    let isolated = nginx(Healthcheck::Running { grace_secs: 0 });
+    let open = with_egress(&isolated);
+    assert_eq!(
+        container_config(&isolated).config_hash(),
+        container_config(&open).config_hash(),
+        "egress is not in the config hash"
+    );
+    let mut desired = one(&open);
+    desired.networks.push(network_spec(EGRESS, false));
+
+    // Egress on: the running container joins the egress network.
+    let mut snapshot = running(&isolated, SnapState::Running, 0);
+    snapshot.networks.push(snap_network(EGRESS, false, true));
+    assert_eq!(
+        plan_at(&desired, &snapshot, 60_000),
+        [Action::Reattach {
+            container: open.name.clone(),
+            network: EGRESS.to_owned(),
+            aliases: Vec::new(),
+        }]
+    );
+
+    // Egress off: it leaves it, even once no service has egress and the desired state drops
+    // the network.
+    let mut attached = running(&open, SnapState::Running, 0);
+    attached.networks.push(snap_network(EGRESS, false, true));
+    let disconnect = [Action::Disconnect {
+        container: isolated.name.clone(),
+        network: EGRESS.to_owned(),
+    }];
+    let mut cut = one(&isolated);
+    cut.networks.push(network_spec(EGRESS, false));
+    assert_eq!(plan_at(&cut, &attached, 60_000), disconnect);
+    assert_eq!(plan_at(&one(&isolated), &attached, 60_000), disconnect);
+
+    // A new environment network still replaces the container: it is its network mode.
+    let mut moved = isolated.clone();
+    moved.networks[0].network = NETWORKS[1].to_owned();
+    assert_ne!(
+        container_config(&moved).config_hash(),
+        container_config(&isolated).config_hash()
     );
 }

@@ -191,8 +191,10 @@ fn is_env_name(name: &str) -> bool {
         && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
 }
 
-/// What the config hash covers: the whole config except secret values and aliases. Aliases
-/// change on a live container (`Reattach`); everything else needs a new container.
+/// What the config hash covers: the whole config except secret values, aliases and the
+/// networks after the first. Those change on a live container (`Reattach`, `Disconnect`), so
+/// that egress comes and goes without a restart; the first network is the network mode, in
+/// `host_config`, and everything else needs a new container.
 #[derive(Serialize)]
 struct HashInput<'a> {
     name: &'a str,
@@ -202,7 +204,6 @@ struct HashInput<'a> {
     labels: &'a BTreeMap<String, String>,
     stop_timeout_secs: u32,
     host_config: &'a HostConfig,
-    networks: Vec<&'a str>,
 }
 
 /// A variable in the hash. A secret contributes its name only: its value must not leak through
@@ -234,11 +235,6 @@ fn config_hash(config: &ContainerConfig) -> String {
         labels: &config.labels,
         stop_timeout_secs: config.stop_timeout_secs,
         host_config: &config.host_config,
-        networks: config
-            .endpoints
-            .iter()
-            .map(|endpoint| endpoint.network.as_str())
-            .collect(),
     };
     let json = serde_json::to_vec(&input).expect("plain structs and strings always serialize");
     hex::encode(Sha256::digest(&json))

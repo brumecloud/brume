@@ -7,9 +7,9 @@ use std::path::PathBuf;
 use bollard::errors::Error;
 use bollard::models::{
     ContainerCreateBody, ContainerInspectResponse, ContainerStateStatusEnum,
-    ContainerSummaryStateEnum, EndpointSettings, HostConfig, HostConfigLogConfig, Mount, MountType,
-    NetworkConnectRequest, NetworkCreateRequest, NetworkDisconnectRequest, NetworkingConfig,
-    RestartPolicyNameEnum, VolumeCreateRequest,
+    ContainerSummaryStateEnum, EndpointSettings, HostConfig, HostConfigLogConfig, Mount,
+    MountPoint, MountType, NetworkConnectRequest, NetworkCreateRequest, NetworkDisconnectRequest,
+    NetworkingConfig, RestartPolicyNameEnum, VolumeCreateRequest,
 };
 use bollard::query_parameters::{
     CreateContainerOptionsBuilder, InspectContainerOptions, ListContainersOptionsBuilder,
@@ -130,8 +130,9 @@ impl DockerShell {
     }
 
     /// Lists networks, volumes, images and containers. A managed container is inspected for
-    /// its start, exit code, networks and labels; one that Docker fails to inspect is left out,
-    /// in `unreadable`, and the others go on.
+    /// its start, exit code, networks, volumes and labels; one that Docker fails to inspect is
+    /// left out, in `unreadable`, and the others go on. Any other container keeps its state and
+    /// volumes from the listing, so that a Brume container never shares a volume with it.
     pub async fn observe(&self) -> Result<Observation, Error> {
         let networks = self
             .docker
@@ -182,10 +183,11 @@ impl DockerShell {
                 continue;
             };
             if !is_managed(summary.labels.as_ref()) {
-                observation
-                    .snapshot
-                    .containers
-                    .push(unmanaged(name, summary.state));
+                observation.snapshot.containers.push(unmanaged(
+                    name,
+                    summary.state,
+                    summary.mounts,
+                ));
                 continue;
             }
             let inspected = self
@@ -291,6 +293,16 @@ impl DockerShell {
                 };
                 self.docker.connect_network(network, connect).await?;
             }
+            Action::Disconnect { container, network } => {
+                let disconnect = NetworkDisconnectRequest {
+                    container: container.clone(),
+                    force: Some(true),
+                };
+                ignore_status(
+                    self.docker.disconnect_network(network, disconnect).await,
+                    NOT_FOUND,
+                )?;
+            }
             Action::Probe {
                 container,
                 network,
@@ -388,8 +400,13 @@ fn ignore_status<T>(result: Result<T, Error>, status: u16) -> Result<(), Error> 
     }
 }
 
-/// A container without the `brume.managed` label: its name and state, nothing the agent uses.
-fn unmanaged(name: String, state: Option<ContainerSummaryStateEnum>) -> SnapContainer {
+/// A container without the `brume.managed` label: its name, its state and its volumes, nothing
+/// else the agent uses.
+fn unmanaged(
+    name: String,
+    state: Option<ContainerSummaryStateEnum>,
+    mounts: Option<Vec<MountPoint>>,
+) -> SnapContainer {
     let state = match state {
         Some(ContainerSummaryStateEnum::CREATED) => SnapState::Created,
         Some(ContainerSummaryStateEnum::RUNNING) => SnapState::Running,
@@ -404,9 +421,20 @@ fn unmanaged(name: String, state: Option<ContainerSummaryStateEnum>) -> SnapCont
         state,
         started_at_ms: None,
         networks: Vec::new(),
+        mounts: volume_names(mounts),
         config_hash: String::new(),
         stop_timeout_secs: 0,
     }
+}
+
+/// The named volumes among `mounts`: neither bind mounts nor tmpfs.
+fn volume_names(mounts: Option<Vec<MountPoint>>) -> Vec<String> {
+    mounts
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|mount| mount.typ.as_deref() == Some("volume"))
+        .filter_map(|mount| mount.name)
+        .collect()
 }
 
 /// A managed container from its inspection, and where its logs come from.
@@ -456,6 +484,7 @@ fn managed(name: String, inspect: ContainerInspectResponse) -> (SnapContainer, L
         state: snap_state,
         started_at_ms,
         networks,
+        mounts: volume_names(inspect.mounts),
         config_hash: label(LABEL_CONFIG_HASH),
         stop_timeout_secs: config
             .stop_timeout
@@ -561,8 +590,9 @@ mod tests {
     use bollard::errors::Error;
     use bollard::models::{
         ContainerConfig as DockerConfig, ContainerInspectResponse, ContainerState,
-        ContainerStateStatusEnum, EndpointSettings, HostConfig, HostConfigLogConfig, Mount,
-        MountType, NetworkSettings, RestartPolicy, RestartPolicyNameEnum,
+        ContainerStateStatusEnum, ContainerSummaryStateEnum, EndpointSettings, HostConfig,
+        HostConfigLogConfig, Mount, MountPoint, MountType, NetworkSettings, RestartPolicy,
+        RestartPolicyNameEnum,
     };
     use brume_agent_core::config::container_config;
     use brume_agent_core::observed::SnapState;
@@ -570,7 +600,34 @@ mod tests {
         ContainerSpec, EnvValue, EnvVar, Healthcheck, Mount as SpecMount, NetworkAttachment,
     };
 
-    use super::{Observation, create_body, epoch_ms, managed, readable};
+    use super::{Observation, create_body, epoch_ms, managed, readable, unmanaged};
+
+    /// A named volume, a bind mount of the host and a tmpfs, as Docker lists them.
+    fn mount_points() -> Vec<MountPoint> {
+        let point = |typ: &str, name: Option<&str>| MountPoint {
+            typ: Some(typ.to_owned()),
+            name: name.map(ToOwned::to_owned),
+            destination: Some("/data".to_owned()),
+            ..MountPoint::default()
+        };
+        vec![
+            point("volume", Some("brume-vol-a")),
+            point("bind", None),
+            point("tmpfs", None),
+        ]
+    }
+
+    #[test]
+    fn unmanaged_container_reports_its_volumes() {
+        let container = unmanaged(
+            "someone-else".to_owned(),
+            Some(ContainerSummaryStateEnum::RUNNING),
+            Some(mount_points()),
+        );
+        assert!(!container.managed);
+        assert_eq!(container.state, SnapState::Running);
+        assert_eq!(container.mounts, ["brume-vol-a"]);
+    }
 
     #[test]
     fn an_unreadable_container_is_left_out_not_fatal() {
@@ -643,10 +700,12 @@ mod tests {
                 ])),
                 ..NetworkSettings::default()
             }),
+            mounts: Some(mount_points()),
             ..ContainerInspectResponse::default()
         };
         let (container, source) = managed("brume-web".to_owned(), inspect);
         assert!(container.managed);
+        assert_eq!(container.mounts, ["brume-vol-a"]);
         assert_eq!(container.state, SnapState::Exited { code: 137 });
         assert_eq!(container.started_at_ms, Some(1_793_450_096_000));
         assert_eq!(container.config_hash, "abc");

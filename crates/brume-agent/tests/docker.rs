@@ -215,9 +215,21 @@ async fn scenario(docker: &Docker) {
     assert_eq!(labels.get(TEST_LABEL).map(String::as_str), Some("1"));
 
     reattaches_with_new_aliases(docker, &mut reconciler, &mut state).await;
+    egress_comes_and_goes_live(docker, &mut reconciler, &mut state, &suffix).await;
+
+    // Docker lists the volume as mounted by the container, which keeps others off it.
+    let observation = reconciler.shell().observe().await.expect("observes");
+    let container = observation
+        .snapshot
+        .container(&name)
+        .expect("the container");
+    assert_eq!(
+        container.mounts,
+        [state.containers[0].mounts[0].volume.clone()]
+    );
 
     // Out of the desired state, the container goes.
-    state.position = 3;
+    state.position += 1;
     state.containers.clear();
     let mut gone = false;
     for _ in 0..30 {
@@ -287,6 +299,84 @@ async fn reattaches_with_new_aliases(
     assert!(aliases.contains("www"), "{aliases:?}");
     assert!(aliases.contains("web-2"), "{aliases:?}");
     assert!(!aliases.contains("web"), "{aliases:?}");
+}
+
+/// The networks the container `name` is attached to.
+async fn networks_of(
+    docker: &Docker,
+    name: &str,
+) -> (Option<String>, Option<String>, BTreeSet<String>) {
+    let inspect = docker
+        .inspect_container(name, None::<InspectContainerOptions>)
+        .await
+        .expect("inspects");
+    let started_at = inspect.state.and_then(|state| state.started_at);
+    let networks = inspect
+        .network_settings
+        .and_then(|settings| settings.networks)
+        .unwrap_or_default()
+        .into_keys()
+        .collect();
+    (inspect.id, started_at, networks)
+}
+
+/// Egress turned on, then off: the same running container joins the egress network, then
+/// leaves it, never recreated nor restarted.
+async fn egress_comes_and_goes_live(
+    docker: &Docker,
+    reconciler: &mut Reconciler,
+    state: &mut DesiredState,
+    suffix: &str,
+) {
+    let name = state.containers[0].name.clone();
+    let egress = format!("brume-test-egress-{suffix}");
+    let (id, started_at, _) = networks_of(docker, &name).await;
+
+    state.position += 1;
+    state.networks.push(NetworkSpec {
+        name: egress.clone(),
+        internal: false,
+        environment_id: "env-test".to_owned(),
+    });
+    state.containers[0].networks.push(NetworkAttachment {
+        network: egress.clone(),
+        aliases: Vec::new(),
+    });
+    let mut joined = false;
+    for _ in 0..30 {
+        reconciler.reconcile(state).await.expect("reconciles");
+        if networks_of(docker, &name).await.2.contains(&egress) {
+            joined = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    assert!(joined, "{name} never joined {egress}");
+    let (id_after, started_after, _) = networks_of(docker, &name).await;
+    assert_eq!(id_after, id, "{name} was recreated");
+    assert_eq!(started_after, started_at, "{name} was restarted");
+
+    state.position += 1;
+    state.containers[0].networks.pop();
+    let mut left = false;
+    for _ in 0..30 {
+        let round = reconciler.reconcile(state).await.expect("reconciles");
+        let networks = networks_of(docker, &name).await.2;
+        if !networks.contains(&egress) {
+            assert!(networks.contains(&state.containers[0].networks[0].network));
+            assert_eq!(
+                round.observed.containers[0].health,
+                ContainerHealth::Healthy
+            );
+            left = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    assert!(left, "{name} never left {egress}");
+    let (id_after, started_after, _) = networks_of(docker, &name).await;
+    assert_eq!(id_after, id, "{name} was recreated");
+    assert_eq!(started_after, started_at, "{name} was restarted");
 }
 
 /// nginx's entrypoint writes to stdout and stderr at start: those lines reach a fake telemetry.

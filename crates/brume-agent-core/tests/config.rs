@@ -84,7 +84,7 @@ fn full_config_of_an_app_container() {
             // Pinned: a change of the hash input replaces every running container.
             (
                 "brume.config-hash".to_owned(),
-                "871a9acaad1054b545f999ce66b08dfe7643a946ec381cc1a30a1eb5de6141f0".to_owned(),
+                "77cc4a820ad6af2db53edc1831bd237235e7c8721d94ca74a3f2333d400e4692".to_owned(),
             ),
             ("brume.deployment".to_owned(), "dep-1".to_owned()),
             ("brume.environment".to_owned(), "env-1".to_owned()),
@@ -195,14 +195,19 @@ fn config_hash_ignores_secret_values_but_not_versions() {
     unveiled.env[2] = env("API_TOKEN", plain("s3cr3t-value"));
     assert_ne!(container_config(&unveiled).config_hash(), hash);
 
-    // Plain values, networks and limits are in it; aliases are not, the agent reattaches.
+    // Plain values, the first network and limits are in it. Aliases and the networks after the
+    // first (egress) are not: the agent changes them on the running container.
     let mut changed = nginx();
     changed.env[0] = env("GREETING", plain("bonjour"));
     assert_ne!(container_config(&changed).config_hash(), hash);
 
     let mut isolated = nginx();
     isolated.networks.pop();
-    assert_ne!(container_config(&isolated).config_hash(), hash);
+    assert_eq!(container_config(&isolated).config_hash(), hash);
+
+    let mut moved = nginx();
+    moved.networks[0].network = "brume-env-2".to_owned();
+    assert_ne!(container_config(&moved).config_hash(), hash);
 
     let mut bigger = nginx();
     bigger.memory_mb = 512;

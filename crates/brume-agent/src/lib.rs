@@ -488,6 +488,9 @@ fn describe(action: &Action) -> String {
         Action::Reattach {
             container, network, ..
         } => format!("reattach {container} to {network}"),
+        Action::Disconnect { container, network } => {
+            format!("disconnect {container} from {network}")
+        }
         Action::Probe { container, .. } => format!("probe {container}"),
     }
 }
@@ -597,6 +600,7 @@ mod tests {
                 state: SnapState::Running,
                 started_at_ms: Some(1_000),
                 networks: Vec::new(),
+                mounts: Vec::new(),
                 config_hash: String::new(),
                 stop_timeout_secs: 10,
             }],

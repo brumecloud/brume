@@ -6,6 +6,10 @@
 //! for a network, `brume-vol-[a-z0-9-]+` for a volume. And a container only joins a network, or
 //! mounts a volume, that Docker lists with the `brume.managed` label: never `host`, nor a
 //! volume that someone else created under a name that Brume would give.
+//!
+//! Two containers never mount one volume at once: two database servers on one data directory
+//! corrupt it. A container is created only once Docker lists no other container on its volumes,
+//! so when a deployment swaps the container of a volume, the old one goes first.
 
 use std::collections::BTreeSet;
 
@@ -43,6 +47,12 @@ pub enum Action {
         network: String,
         aliases: Vec<String>,
     },
+    /// Disconnect the running container from a network that its spec no longer lists, such as
+    /// the egress network: the change applies at once, without a new container.
+    Disconnect {
+        container: String,
+        network: String,
+    },
     /// `GET http://<container>:<port><path>` from a throwaway container on `network`.
     Probe {
         container: String,
@@ -61,12 +71,14 @@ const RESERVED_NETWORKS: [&str; 4] = ["host", "bridge", "none", "default"];
 
 /// The actions that bring `snapshot` to `desired`, in order: networks, then volumes, missing
 /// images, missing containers (create, then start), restarts of stopped containers when
-/// `restarts` allows, aliases, probes, and last the removal of managed containers that are not
-/// wanted or whose config changed. A container without the `brume.managed` label is never
-/// touched; unused networks and volumes stay.
+/// `restarts` allows, aliases and networks joined, networks left, probes, and last the removal
+/// of managed containers that are not wanted or whose config changed. A container without the
+/// `brume.managed` label is never touched; unused networks and volumes stay.
 ///
 /// A missing container is created once Docker lists its networks and volumes as Brume's, so
-/// one round after they are: a network or a volume of `refusals` blocks it for good.
+/// one round after they are: a network or a volume of `refusals` blocks it for good. It also
+/// waits until no other container mounts one of its volumes: the plan that removes the old
+/// holder does not create its successor, the next one does.
 pub fn plan(
     desired: &DesiredState,
     snapshot: &DockerSnapshot,
@@ -119,6 +131,7 @@ struct Steps {
     creates: Vec<Action>,
     starts: Vec<Action>,
     reattaches: Vec<Action>,
+    disconnects: Vec<Action>,
     probes: Vec<Action>,
     removals: Vec<Action>,
 }
@@ -144,6 +157,7 @@ impl Steps {
             self.creates,
             self.starts,
             self.reattaches,
+            self.disconnects,
             self.probes,
             self.removals,
         ]
@@ -162,7 +176,7 @@ fn plan_container(
     steps: &mut Steps,
 ) {
     let Some(container) = snapshot.container(&spec.name) else {
-        if can_create(spec, desired, snapshot) {
+        if can_create(spec, desired, snapshot) && volumes_free(spec, snapshot) {
             let pull = Action::PullImage(spec.image.clone());
             if !snapshot.images.contains(&spec.image) && !steps.pulls.contains(&pull) {
                 steps.pulls.push(pull);
@@ -209,6 +223,20 @@ fn plan_container(
             });
         }
     }
+    for actual in &container.networks {
+        // Docker lists the `none` mode of a container without networks as an attachment.
+        let wanted = actual.network == NO_NETWORK
+            || spec
+                .networks
+                .iter()
+                .any(|wanted| wanted.network == actual.network);
+        if !wanted {
+            steps.disconnects.push(Action::Disconnect {
+                container: spec.name.clone(),
+                network: actual.network.clone(),
+            });
+        }
+    }
 
     if let (Healthcheck::Http { port, path, .. }, Some(first), Some(started_at_ms)) = (
         &spec.healthcheck,
@@ -231,20 +259,22 @@ fn plan_container(
     }
 }
 
-/// Whether `container` cannot become `spec`'s container in place: its config changed, Docker
-/// reports it in a state the agent does not drive, or it is attached to a network that `spec`
-/// does not list.
+/// Whether `container` cannot become `spec`'s container in place: its config changed, or Docker
+/// reports it in a state the agent does not drive. Its aliases and the networks after the
+/// first change in place.
 fn needs_replacement(spec: &ContainerSpec, container: &SnapContainer) -> bool {
     container.config_hash != container_config(spec).config_hash()
         || container.state == SnapState::Other
-        || container.networks.iter().any(|actual| {
-            // Docker lists the `none` mode of a container without networks as an attachment.
-            actual.network != NO_NETWORK
-                && !spec
-                    .networks
-                    .iter()
-                    .any(|wanted| wanted.network == actual.network)
-        })
+}
+
+/// Whether no container, Brume's or not, running or stopped, mounts one of `spec`'s volumes.
+fn volumes_free(spec: &ContainerSpec, snapshot: &DockerSnapshot) -> bool {
+    !snapshot.containers.iter().any(|container| {
+        container
+            .mounts
+            .iter()
+            .any(|volume| spec.mounts.iter().any(|mount| mount.volume == *volume))
+    })
 }
 
 /// Whether Docker can create `spec`'s container safely now: each of its networks and volumes
