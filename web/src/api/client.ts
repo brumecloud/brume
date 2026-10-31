@@ -1,8 +1,9 @@
 import { apiErrorMessage } from "~/helpers/api-error";
+import { redirectsToLogin } from "~/helpers/session";
 
 // The only code that talks to the server. See archi/base/04-panel-admin.md (CSRF).
 
-class ApiError extends Error {
+export class ApiError extends Error {
   override name = "ApiError";
   readonly status: number;
 
@@ -22,8 +23,10 @@ export function apiPost<T>(path: ApiPath, body: unknown, decode: (raw: unknown) 
   return request("POST", path, body, decode);
 }
 
-export function apiDelete(path: ApiPath): Promise<void> {
-  return request("DELETE", path, undefined, () => undefined);
+export function apiDelete(path: ApiPath): Promise<void>;
+export function apiDelete<T>(path: ApiPath, decode: (raw: unknown) => T): Promise<T>;
+export function apiDelete(path: ApiPath, decode: (raw: unknown) => unknown = () => undefined) {
+  return request("DELETE", path, undefined, decode);
 }
 
 async function request<T>(
@@ -39,7 +42,21 @@ async function request<T>(
   });
   const payload: unknown = await response.json().catch(() => undefined);
   if (!response.ok) {
+    if (redirectsToLogin(response.status, path)) {
+      redirectToLogin();
+    }
     throw new ApiError(response.status, apiErrorMessage(response.status, payload));
   }
   return decode(payload);
+}
+
+// Every query fails at once when the session expires: the first one leaves for the login page,
+// which reloads the app and its caches.
+let leaving = false;
+
+function redirectToLogin(): void {
+  if (!leaving) {
+    leaving = true;
+    window.location.assign("/login");
+  }
 }

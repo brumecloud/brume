@@ -27,10 +27,11 @@ describe("project dashboard", () => {
 });
 
 describe("new project", () => {
-  it("creates a project from a database template and opens it", async () => {
-    const screen = await renderApp("/projects/new?step=database");
+  it("creates a project from a public image and opens it", async () => {
+    const screen = await renderApp("/projects/new?step=image");
 
-    await screen.getByRole("option", { name: /Redis/ }).click();
+    await screen.getByRole("textbox", { name: "Docker image" }).fill("redis:8");
+    await screen.getByRole("button", { name: "Deploy image" }).click();
 
     await expect
       .element(screen.getByRole("combobox", { name: "Project" }))
@@ -38,6 +39,33 @@ describe("new project", () => {
     await expect
       .element(screen.getByRole("combobox", { name: "Environment" }))
       .toHaveTextContent("production");
+  });
+
+  it.each(["GitHub repository", "Database", "Static site"])(
+    "shows %s as coming soon, not as a choice",
+    async (name) => {
+      const screen = await renderApp("/projects/new");
+
+      const option = screen.getByRole("option", { name: new RegExp(name) });
+      await expect.element(option).toHaveAttribute("aria-disabled", "true");
+      await expect.element(option.getByText("Coming soon")).toBeVisible();
+    },
+  );
+
+  it("offers a Docker image", async () => {
+    const screen = await renderApp("/projects/new");
+
+    await screen.getByRole("option", { name: /Docker image/ }).click();
+
+    await expect.element(screen.getByRole("textbox", { name: "Docker image" })).toBeVisible();
+  });
+
+  it("says when the server cannot build a source yet", async () => {
+    const screen = await renderApp("/projects/new?step=database");
+
+    await screen.getByRole("option", { name: /Redis/ }).click();
+
+    await expect.element(screen.getByText("redis sources are not available yet.")).toBeVisible();
   });
 
   it("refuses an invalid image reference", async () => {

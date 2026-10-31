@@ -1,6 +1,7 @@
 import { GlobeIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 
+import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { parseDomain } from "~/helpers/changes";
@@ -13,6 +14,7 @@ interface DomainsSettingProps {
   readonly onCommit: (domains: readonly string[]) => void;
 }
 
+// Shown, not editable: public domains need Cloudflare Tunnel, which comes after this milestone.
 export function DomainsSetting({ domains, staged, onCommit }: DomainsSettingProps) {
   const [draft, setDraft] = useState("");
   const [invalid, setInvalid] = useState(false);
@@ -21,6 +23,7 @@ export function DomainsSetting({ domains, staged, onCommit }: DomainsSettingProp
     <SettingField
       label="Public domains"
       description="Reachable from the internet over HTTPS, through Cloudflare Tunnel."
+      aside={<Badge variant="secondary">Coming soon</Badge>}
       staged={staged}
       error={invalid ? "A domain name, without https:// or a path." : undefined}
     >
@@ -33,6 +36,7 @@ export function DomainsSetting({ domains, staged, onCommit }: DomainsSettingProp
               variant="ghost"
               size="icon-sm"
               aria-label={`Remove ${domain}`}
+              disabled
               onClick={() => onCommit(domains.filter((other) => other !== domain))}
             >
               <Trash2Icon />
@@ -52,12 +56,13 @@ export function DomainsSetting({ domains, staged, onCommit }: DomainsSettingProp
           }}
         >
           <Input
+            disabled
             value={draft}
             aria-label="New domain"
             placeholder="app.example.com"
             onChange={(event) => setDraft(event.target.value)}
           />
-          <Button type="submit" variant="outline">
+          <Button type="submit" variant="outline" disabled>
             <PlusIcon />
             Add
           </Button>

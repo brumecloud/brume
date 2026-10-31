@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { msw } from "msw/vite";
-import { defineConfig } from "vite-plus";
+import { type Plugin, defineConfig } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
 
 import { noChunkCycles } from "./build/no-chunk-cycles.ts";
@@ -15,6 +15,27 @@ interface ImportPattern {
   readonly importNames?: string[];
   readonly allowTypeImports?: boolean;
   readonly message: string;
+}
+
+// `vp dev` talks to the API of `brume dev` on the same origin, through this proxy. `vp dev --mode
+// mock` keeps the mocked API instead, and the tests and the brume.dev demo never leave MSW. The
+// API's Host allowlist has port 5173 for the dev server, no other: when the port is taken, Vite
+// fails to start rather than move to one the API would refuse.
+function realApi(): Plugin {
+  return {
+    name: "brume:real-api",
+    apply: "serve",
+    config: (_config, { mode }) =>
+      mode === "development"
+        ? {
+            server: {
+              port: 5173,
+              strictPort: true,
+              proxy: { "/api": "http://127.0.0.1:7878" },
+            },
+          }
+        : {},
+  };
 }
 
 // Class recipes stay in components/ui: render the component instead.
@@ -38,6 +59,7 @@ export default defineConfig({
     tailwindcss(),
     msw(),
     noChunkCycles(),
+    realApi(),
   ],
   resolve: {
     alias: { "~": fileURLToPath(new URL("./src", import.meta.url)) },

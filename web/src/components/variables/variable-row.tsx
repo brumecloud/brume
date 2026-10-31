@@ -9,8 +9,15 @@ import { Button } from "~/components/ui/button";
 import type { VariableDraftRow } from "~/helpers/changes";
 
 import { VariableDialog } from "./variable-dialog";
+import {
+  VariableItem,
+  VariableItemActions,
+  VariableItemLabel,
+  VariableItemName,
+  VariableItemValue,
+  VariableKindBadge,
+} from "./variable-item";
 
-const KIND_LABELS = { build: "Build", secret: "Secret" } as const;
 const ORIGIN_LABELS = { project: "Project", environment: "Environment" } as const;
 const DRAFT_LABELS = { added: "New", modified: "Modified", removed: "Deleted" } as const;
 
@@ -27,25 +34,32 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
     gcTime: 0,
   });
   const removal = useMutation({ mutationFn: stageChange });
-  const revealable = row.kind === "secret" && variable && !draft;
+  // A reference has no value of its own: the shared secret resolves at deploy time.
+  const shared = Boolean(variable?.reference) && !draft;
+  const revealable = row.kind === "secret" && variable && !draft && !shared;
 
   return (
-    <div
+    <VariableItem
       data-draft={draft}
-      className="grid grid-cols-1 items-center gap-2 px-4 py-2.5 data-[draft=added]:outline-2 data-[draft=modified]:outline-2 data-[draft=added]:-outline-offset-2 data-[draft=modified]:-outline-offset-2 data-[draft=added]:outline-info data-[draft=modified]:outline-info data-[draft=removed]:opacity-60 sm:grid-cols-12 sm:gap-4"
+      className="data-[draft=added]:outline-2 data-[draft=modified]:outline-2 data-[draft=added]:-outline-offset-2 data-[draft=modified]:-outline-offset-2 data-[draft=added]:outline-info data-[draft=modified]:outline-info data-[draft=removed]:opacity-60"
     >
-      <span className="flex min-w-0 items-center gap-2 sm:col-span-5">
-        <span className="truncate font-mono text-sm in-data-[draft=removed]:line-through">
+      <VariableItemLabel>
+        <VariableItemName className="in-data-[draft=removed]:line-through">
           {row.name}
-        </span>
-        {row.kind !== "plain" && <Badge variant="outline">{KIND_LABELS[row.kind]}</Badge>}
+        </VariableItemName>
+        <VariableKindBadge kind={row.kind} />
         {row.origin !== "service" && <Badge variant="secondary">{ORIGIN_LABELS[row.origin]}</Badge>}
+        {shared && <Badge variant="secondary">Shared</Badge>}
         {draft && <Badge variant="info">{DRAFT_LABELS[draft]}</Badge>}
-      </span>
-      <span className="truncate font-mono text-muted-foreground text-sm sm:col-span-5">
-        {row.kind === "secret" ? (reveal.data ?? "••••••••") : row.value}
-      </span>
-      <span className="flex justify-end gap-1 sm:col-span-2">
+      </VariableItemLabel>
+      <VariableItemValue>
+        {shared
+          ? "Resolved at deploy time"
+          : row.kind === "secret"
+            ? (reveal.data ?? "••••••••")
+            : row.value}
+      </VariableItemValue>
+      <VariableItemActions>
         {revealable && (
           <Button
             variant="ghost"
@@ -69,19 +83,21 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
         ) : (
           row.origin === "service" && (
             <>
-              <VariableDialog
-                serviceId={serviceId}
-                initial={{
-                  name: row.name,
-                  kind: row.kind,
-                  value: row.kind === "secret" ? "" : (row.value ?? ""),
-                }}
-                trigger={
-                  <Button variant="ghost" size="icon-sm" aria-label={`Edit ${row.name}`}>
-                    <PencilIcon />
-                  </Button>
-                }
-              />
+              {!shared && (
+                <VariableDialog
+                  serviceId={serviceId}
+                  initial={{
+                    name: row.name,
+                    kind: row.kind,
+                    value: row.kind === "secret" ? "" : (row.value ?? ""),
+                  }}
+                  trigger={
+                    <Button variant="ghost" size="icon-sm" aria-label={`Edit ${row.name}`}>
+                      <PencilIcon />
+                    </Button>
+                  }
+                />
+              )}
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -96,7 +112,7 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
             </>
           )
         )}
-      </span>
-    </div>
+      </VariableItemActions>
+    </VariableItem>
   );
 }

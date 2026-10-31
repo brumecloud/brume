@@ -86,7 +86,7 @@ const deskmind = project(
   "AI support assistant: answers tickets from the product documentation.",
   minutesAgo(DAY + 3 * HOUR),
 );
-const tallybook = project(
+export const tallybook = project(
   "2d7e9b14-0c3a-4e61-8f5d-6b2a1c9e7f33",
   "tallybook",
   "Quotes and invoices for small businesses: PDFs, automatic reminders and accounting export.",

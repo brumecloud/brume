@@ -52,6 +52,14 @@ describe("parseChanges", () => {
     expect(parseChanges(raw)).toEqual(raw);
   });
 
+  it("never keeps the value of a staged secret", () => {
+    const leaked = { id: "c", ...target, type: "variable", name: "API_KEY", kind: "secret" };
+
+    expect(parseChanges([{ ...leaked, value: "sk_live_4f1c" }])).toEqual([
+      { ...leaked, value: null },
+    ]);
+  });
+
   it("rejects an unknown field or a malformed value", () => {
     expect(() =>
       parseChanges([{ id: "c", ...target, type: "setting", field: "x", value: 1 }]),
@@ -195,6 +203,7 @@ const variable = (name: string, kind: Variable["kind"] = "plain"): Variable => (
   name,
   kind,
   value: kind === "secret" ? null : `${name}-value`,
+  reference: false,
 });
 
 describe("stagedVariableRows", () => {

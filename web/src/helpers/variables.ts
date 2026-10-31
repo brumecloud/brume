@@ -7,7 +7,14 @@ import type {
   VariableLevel,
 } from "~/api/types";
 
-import { decodeArray, decodeRecord, readNullable, readOneOf, readString } from "./decode";
+import {
+  decodeArray,
+  decodeRecord,
+  readBoolean,
+  readNullable,
+  readOneOf,
+  readString,
+} from "./decode";
 import { isDatabase } from "./services";
 
 const LEVELS: readonly VariableLevel[] = ["project", "environment", "service"];
@@ -25,16 +32,28 @@ export function parseVariables(raw: unknown): Variable[] {
   return decodeArray(raw, parseVariable, "variables");
 }
 
-function parseVariable(raw: unknown): Variable {
+export function parseVariable(raw: unknown): Variable {
   const record = decodeRecord(raw, "variable");
+  const kind = readOneOf(record, "kind", KINDS, "variable");
   return {
     id: readString(record, "id", "variable") as VariableId,
     level: readOneOf(record, "level", LEVELS, "variable"),
     ownerId: readString(record, "ownerId", "variable"),
     name: readString(record, "name", "variable"),
-    kind: readOneOf(record, "kind", KINDS, "variable"),
-    value: readNullable(record, "value", "variable", readString),
+    kind,
+    value: readVariableValue(record, kind, "variable"),
+    reference: readBoolean(record, "reference", "variable"),
   };
+}
+
+// Only a reveal hands out the value of a secret. Should a response carry one anyway, it is dropped
+// here, before it reaches a cache.
+export function readVariableValue(
+  record: Record<string, unknown>,
+  kind: VariableKind,
+  what: string,
+): string | null {
+  return kind === "secret" ? null : readNullable(record, "value", what, readString);
 }
 
 // archi/base/13-modele-de-donnees.md: the most precise level wins (service, then environment,

@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
+    "dev:mock": "vp dev --mode mock",
     "build": "vp build",
     "build:demo": "vp build --mode demo --base /demo/ --outDir ../site/public/demo --emptyOutDir",
     "ci": "vp fmt --check && vp lint && tsc --noEmit && vp test && knip && vp build"
