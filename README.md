@@ -23,7 +23,7 @@
 - Public traffic through Cloudflare Tunnel by default: no inbound port open on the server. Direct ingress on ports 80 and 443 is opt-in.
 - All of Brume's state on S3, encrypted: a lost VPS is rebuilt from the bucket.
 
-**Planned stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, shadcn, Tailwind), SQLite, DuckDB, S3, OpenTelemetry, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
+**Planned stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, coss ui, Tailwind, React Flow), SQLite, DuckDB, S3, OpenTelemetry, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
 
 ## Design documents
 

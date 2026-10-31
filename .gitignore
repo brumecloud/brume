@@ -1,0 +1,21 @@
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
+
+# Local secrets
+.env
+.env.*
+
+# Rust
+/target/
+
+# Frontend
+node_modules/
+/web/dist/
+/web/.vite-plus/
+__screenshots__/
+*.log
+
+# Vitest failure screenshots
+/web/.vitest/
