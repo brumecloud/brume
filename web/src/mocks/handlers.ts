@@ -33,8 +33,8 @@ export const handlers = [
     return undefined;
   }),
 
-  // The mocked server has one admin, always signed in: a login link with a well-formed token opens
-  // a session.
+  // The mocked server has one admin, always signed in: any token opens a session. The panel only
+  // sends one that `parseLoginHash` accepted.
   http.post("/api/session", async ({ request }) => {
     await delay(LATENCY_MS);
     const body: unknown = await request.json().catch(() => undefined);
