@@ -1,0 +1,27 @@
+[package]
+name = "brume"
+description = "The brume binary: each service, and brume dev to run them all locally."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+brume-agent.workspace = true
+brume-api.workspace = true
+brume-engine.workspace = true
+brume-proto.workspace = true
+brume-runtime.workspace = true
+brume-telemetry.workspace = true
+clap.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
