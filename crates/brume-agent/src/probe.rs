@@ -16,8 +16,6 @@ use bollard::query_parameters::{
 use futures_util::StreamExt;
 use tokio::time::timeout;
 
-use crate::jobs::pull;
-
 /// busybox 1.37, pinned by the digest of its multi-arch index.
 pub const PROBE_IMAGE: &str =
     "busybox@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec";
@@ -36,7 +34,8 @@ const PROBE_NANO_CPUS: i64 = 100_000_000;
 const PROBE_PIDS: i64 = 32;
 
 /// Whether `GET http://<container>:<port><path>` succeeds from `network`. Every error is a
-/// failure. The probe container carries `extra_labels`, and is removed in every case.
+/// failure, a missing `PROBE_IMAGE` included: the reconciler pulls it beforehand. The probe
+/// container carries `extra_labels`, and is removed in every case.
 pub async fn probe(
     docker: &Docker,
     extra_labels: &BTreeMap<String, String>,
@@ -45,12 +44,6 @@ pub async fn probe(
     port: u16,
     path: &str,
 ) -> bool {
-    if docker.inspect_image(PROBE_IMAGE).await.is_err()
-        && let Err(error) = pull(docker, PROBE_IMAGE).await
-    {
-        tracing::warn!(%error, "cannot pull the probe image");
-        return false;
-    }
     let mut labels: HashMap<String, String> = extra_labels.clone().into_iter().collect();
     labels.insert(LABEL_PROBE.to_owned(), "1".to_owned());
     let body = ContainerCreateBody {

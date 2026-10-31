@@ -30,52 +30,55 @@ fn test_filter() -> HashMap<&'static str, Vec<&'static str>> {
     HashMap::from([("label", vec!["brume.test=1"])])
 }
 
-/// Removes every container, network and volume labelled `brume.test=1`.
+/// Removes every container, network and volume labelled `brume.test=1`. A failure is printed,
+/// not fatal: the test's own outcome matters more.
 async fn cleanup(docker: &Docker) {
-    let containers = docker
-        .list_containers(Some(
-            ListContainersOptionsBuilder::new()
-                .all(true)
-                .filters(&test_filter())
-                .build(),
-        ))
-        .await
-        .unwrap_or_default();
-    for container in containers {
-        if let Some(id) = container.id {
-            let options = RemoveContainerOptionsBuilder::new()
-                .force(true)
-                .v(true)
-                .build();
-            let _ = docker.remove_container(&id, Some(options)).await;
+    let options = ListContainersOptionsBuilder::new()
+        .all(true)
+        .filters(&test_filter())
+        .build();
+    match docker.list_containers(Some(options)).await {
+        Ok(containers) => {
+            for id in containers.into_iter().filter_map(|container| container.id) {
+                let options = RemoveContainerOptionsBuilder::new()
+                    .force(true)
+                    .v(true)
+                    .build();
+                if let Err(error) = docker.remove_container(&id, Some(options)).await {
+                    eprintln!("cleanup: cannot remove container {id}: {error}");
+                }
+            }
         }
+        Err(error) => eprintln!("cleanup: cannot list containers: {error}"),
     }
-    let networks = docker
-        .list_networks(Some(
-            ListNetworksOptionsBuilder::new()
-                .filters(&test_filter())
-                .build(),
-        ))
-        .await
-        .unwrap_or_default();
-    for network in networks {
-        if let Some(name) = network.name {
-            let _ = docker.remove_network(&name).await;
+    let options = ListNetworksOptionsBuilder::new()
+        .filters(&test_filter())
+        .build();
+    match docker.list_networks(Some(options)).await {
+        Ok(networks) => {
+            for name in networks.into_iter().filter_map(|network| network.name) {
+                if let Err(error) = docker.remove_network(&name).await {
+                    eprintln!("cleanup: cannot remove network {name}: {error}");
+                }
+            }
         }
+        Err(error) => eprintln!("cleanup: cannot list networks: {error}"),
     }
-    let volumes = docker
-        .list_volumes(Some(
-            ListVolumesOptionsBuilder::new()
-                .filters(&test_filter())
-                .build(),
-        ))
-        .await
-        .map(|list| list.volumes.unwrap_or_default())
-        .unwrap_or_default();
-    for volume in volumes {
-        let _ = docker
-            .remove_volume(&volume.name, None::<RemoveVolumeOptions>)
-            .await;
+    let options = ListVolumesOptionsBuilder::new()
+        .filters(&test_filter())
+        .build();
+    match docker.list_volumes(Some(options)).await {
+        Ok(list) => {
+            for volume in list.volumes.unwrap_or_default() {
+                let removed = docker
+                    .remove_volume(&volume.name, None::<RemoveVolumeOptions>)
+                    .await;
+                if let Err(error) = removed {
+                    eprintln!("cleanup: cannot remove volume {}: {error}", volume.name);
+                }
+            }
+        }
+        Err(error) => eprintln!("cleanup: cannot list volumes: {error}"),
     }
 }
 

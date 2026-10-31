@@ -1,11 +1,12 @@
 //! The jobs that the engine waits for. `ResolveImage` pulls an image and reports its digest, its
 //! volumes and its ports.
 
-use bollard::Docker;
-use bollard::query_parameters::CreateImageOptionsBuilder;
-use brume_proto::agent::{AgentToEngine, Job, JobOutcome, MAX_FAILURE_MESSAGE_BYTES};
 use std::time::Duration;
 
+use bollard::Docker;
+use bollard::errors::Error;
+use bollard::query_parameters::CreateImageOptionsBuilder;
+use brume_proto::agent::{AgentToEngine, Job, JobOutcome, MAX_FAILURE_MESSAGE_BYTES};
 use futures_util::StreamExt;
 use tokio::sync::{mpsc, watch};
 use tokio::time::timeout;
@@ -65,7 +66,7 @@ pub async fn resolve_image(docker: &Docker, image: &str) -> JobOutcome {
 pub(crate) async fn pull_and_inspect(
     docker: &Docker,
     reference: &str,
-) -> Result<JobOutcome, bollard::errors::Error> {
+) -> Result<JobOutcome, Error> {
     pull(docker, reference).await?;
     let inspect = docker.inspect_image(reference).await?;
     let repo_digests = inspect.repo_digests.unwrap_or_default();
@@ -93,16 +94,25 @@ pub(crate) async fn pull_and_inspect(
     })
 }
 
-/// Pulls `reference`, following Docker's progress stream to its end.
-pub(crate) async fn pull(docker: &Docker, reference: &str) -> Result<(), bollard::errors::Error> {
+/// The longest a pull may take. bollard's own timeout covers the response headers only.
+pub const PULL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+
+/// Pulls `reference`, following Docker's progress stream to its end, for at most
+/// `PULL_TIMEOUT`.
+pub(crate) async fn pull(docker: &Docker, reference: &str) -> Result<(), Error> {
     let options = CreateImageOptionsBuilder::new()
         .from_image(reference)
         .build();
-    let mut progress = docker.create_image(Some(options), None, None);
-    while let Some(item) = progress.next().await {
-        item?;
-    }
-    Ok(())
+    let progress = async {
+        let mut progress = docker.create_image(Some(options), None, None);
+        while let Some(item) = progress.next().await {
+            item?;
+        }
+        Ok(())
+    };
+    timeout(PULL_TIMEOUT, progress)
+        .await
+        .unwrap_or(Err(Error::RequestTimeoutError))
 }
 
 /// The reference to pull: `image` with `:latest` when it has neither a tag nor a digest, since

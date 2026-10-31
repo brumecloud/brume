@@ -29,7 +29,7 @@ use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
 use crate::jobs::pull;
-use crate::probe::probe;
+use crate::probe::{LABEL_PROBE, probe};
 
 /// How long bollard waits for the headers of a response. A stream (logs, pulls) is not cut.
 const REQUEST_TIMEOUT_SECS: u64 = 120;
@@ -300,6 +300,30 @@ impl DockerShell {
         Ok(Outcome::Done)
     }
 
+    /// Removes the probe containers that a crash of the agent left behind.
+    pub async fn sweep_probes(&self) -> Result<(), Error> {
+        let mut labels = vec![format!("{LABEL_PROBE}=1")];
+        if let Some((key, value)) = &self.scope {
+            labels.push(format!("{key}={value}"));
+        }
+        let filters = HashMap::from([("label", labels)]);
+        let list = ListContainersOptionsBuilder::new()
+            .all(true)
+            .filters(&filters)
+            .build();
+        for container in self.docker.list_containers(Some(list)).await? {
+            let Some(id) = container.id else {
+                continue;
+            };
+            let options = RemoveContainerOptionsBuilder::new().force(true).build();
+            ignore_status(
+                self.docker.remove_container(&id, Some(options)).await,
+                NOT_FOUND,
+            )?;
+        }
+        Ok(())
+    }
+
     /// `brume.managed=1` and the scope label, for a network or a volume.
     fn labels(&self) -> HashMap<String, String> {
         let mut labels: HashMap<String, String> = self.extra_labels().into_iter().collect();
@@ -501,7 +525,87 @@ mod tests {
         ContainerSpec, EnvValue, EnvVar, Healthcheck, Mount as SpecMount, NetworkAttachment,
     };
 
-    use super::create_body;
+    use bollard::models::{
+        ContainerConfig as DockerConfig, ContainerInspectResponse, ContainerState,
+        ContainerStateStatusEnum, NetworkSettings,
+    };
+    use brume_agent_core::observed::SnapState;
+
+    use super::{create_body, epoch_ms, managed};
+
+    #[test]
+    fn docker_zero_time_is_never_started() {
+        assert_eq!(epoch_ms("0001-01-01T00:00:00Z"), None);
+        assert_eq!(epoch_ms("garbage"), None);
+        assert_eq!(
+            epoch_ms("2026-10-31T12:34:56.123456789Z"),
+            Some(1_793_450_096_123)
+        );
+    }
+
+    #[test]
+    fn inspected_container_keeps_brume_aliases_only() {
+        let labels = HashMap::from([
+            ("brume.managed".to_owned(), "1".to_owned()),
+            ("brume.environment".to_owned(), "env".to_owned()),
+            ("brume.service".to_owned(), "svc".to_owned()),
+            ("brume.deployment".to_owned(), "dep".to_owned()),
+            ("brume.config-hash".to_owned(), "abc".to_owned()),
+        ]);
+        let endpoint = |aliases: &[&str]| EndpointSettings {
+            aliases: Some(strings(aliases)),
+            ..EndpointSettings::default()
+        };
+        let inspect = ContainerInspectResponse {
+            id: Some("0123456789abcdef0123".to_owned()),
+            state: Some(ContainerState {
+                status: Some(ContainerStateStatusEnum::EXITED),
+                exit_code: Some(137),
+                started_at: Some("2026-10-31T12:34:56Z".to_owned()),
+                ..ContainerState::default()
+            }),
+            config: Some(DockerConfig {
+                image: Some("nginx@sha256:aa".to_owned()),
+                labels: Some(labels),
+                stop_timeout: Some(30),
+                ..DockerConfig::default()
+            }),
+            network_settings: Some(NetworkSettings {
+                networks: Some(HashMap::from([
+                    ("net-b".to_owned(), endpoint(&[])),
+                    (
+                        "net-a".to_owned(),
+                        endpoint(&["web", "brume-web", "0123456789ab"]),
+                    ),
+                ])),
+                ..NetworkSettings::default()
+            }),
+            ..ContainerInspectResponse::default()
+        };
+        let (container, source) = managed("brume-web".to_owned(), inspect);
+        assert!(container.managed);
+        assert_eq!(container.state, SnapState::Exited { code: 137 });
+        assert_eq!(container.started_at_ms, Some(1_793_450_096_000));
+        assert_eq!(container.config_hash, "abc");
+        assert_eq!(container.deployment_id, "dep");
+        assert_eq!(container.stop_timeout_secs, 30);
+        assert_eq!(
+            container.networks,
+            [
+                NetworkAttachment {
+                    network: "net-a".to_owned(),
+                    aliases: strings(&["web"]),
+                },
+                NetworkAttachment {
+                    network: "net-b".to_owned(),
+                    aliases: Vec::new(),
+                },
+            ]
+        );
+        assert_eq!(source.environment_id, "env");
+        assert_eq!(source.service_id, "svc");
+        assert!(!source.running);
+    }
 
     fn strings(items: &[&str]) -> Vec<String> {
         items.iter().map(|item| (*item).to_owned()).collect()

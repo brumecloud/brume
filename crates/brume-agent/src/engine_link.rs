@@ -18,6 +18,9 @@ pub const RETRY: Duration = Duration::from_secs(5);
 
 /// Talks to the engine on `socket` until `outbox` closes, reconnecting `retry` after each
 /// failure or disconnection. Desired states go to `desired`, jobs to `jobs`.
+///
+/// A message taken from the outbox is lost if its write fails: the engine asks again for a job
+/// whose result never came, and the next round reports what runs.
 pub async fn run(
     socket: &Path,
     retry: Duration,
@@ -77,12 +80,22 @@ impl Session<'_> {
         let (read, write) = stream.into_split();
         let mut reader = FramedReader::new(read);
         let mut writer = FramedWriter::new(write);
+        // The reports queued while the engine was away are stale: the next round sends a
+        // fresh one. Job results still matter.
+        let mut queued = Vec::new();
+        while let Ok(message) = outbox.try_recv() {
+            if !matches!(message, AgentToEngine::Observed(_)) {
+                queued.push(message);
+            }
+        }
         let hello = AgentToEngine::Hello {
             version: env!("CARGO_PKG_VERSION").to_owned(),
             applied_position: *self.applied,
         };
-        if let Err(error) = writer.send(&hello).await {
-            return Ended::Disconnected(error);
+        for message in std::iter::once(hello).chain(queued) {
+            if let Err(error) = writer.send(&message).await {
+                return Ended::Disconnected(error);
+            }
         }
         loop {
             tokio::select! {
@@ -137,7 +150,9 @@ impl Session<'_> {
 mod tests {
     use std::time::Duration;
 
-    use brume_proto::agent::{AgentToEngine, DesiredState, EngineToAgent, Job, JobOutcome};
+    use brume_proto::agent::{
+        AgentToEngine, DesiredState, EngineToAgent, Job, JobOutcome, ObservedState,
+    };
     use tokio::net::UnixListener;
     use tokio::sync::{mpsc, watch};
     use tokio::time::timeout;
@@ -276,6 +291,74 @@ mod tests {
         // Closing the outbox stops the link.
         drop(outbox_tx);
         timeout(WAIT, link).await.expect("stops").expect("no panic");
+    }
+
+    #[tokio::test]
+    async fn stale_reports_are_dropped_on_reconnect() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let socket = dir.path().join("agent.sock");
+        let listener = UnixListener::bind(&socket).expect("binds");
+        let (desired_tx, _desired_rx) = watch::channel(None);
+        let (jobs_tx, _jobs_rx) = mpsc::channel(4);
+        let (outbox_tx, outbox_rx) = mpsc::channel(4);
+        let link = tokio::spawn({
+            let socket = socket.clone();
+            async move {
+                super::run(
+                    &socket,
+                    Duration::from_secs(1),
+                    desired_tx,
+                    jobs_tx,
+                    outbox_rx,
+                )
+                .await;
+            }
+        });
+        let (stream, _) = timeout(WAIT, listener.accept())
+            .await
+            .expect("connects")
+            .expect("accepts");
+        let mut engine_in = FramedReader::new(stream);
+        let hello = timeout(WAIT, engine_in.next::<AgentToEngine>())
+            .await
+            .expect("hello");
+        assert!(matches!(
+            hello.expect("reads"),
+            Some(AgentToEngine::Hello { .. })
+        ));
+        drop(engine_in);
+
+        // The link waits 1 s before it reconnects: meanwhile, a report and a job result queue.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let report = AgentToEngine::Observed(ObservedState {
+            containers: Vec::new(),
+        });
+        let result = AgentToEngine::JobResult {
+            job_id: "job-1".to_owned(),
+            outcome: JobOutcome::Failed {
+                message: "no".to_owned(),
+            },
+        };
+        outbox_tx.send(report).await.expect("queues");
+        outbox_tx.send(result.clone()).await.expect("queues");
+
+        let (stream, _) = timeout(WAIT, listener.accept())
+            .await
+            .expect("reconnects")
+            .expect("accepts");
+        let mut engine_in = FramedReader::new(stream);
+        let hello = timeout(WAIT, engine_in.next::<AgentToEngine>())
+            .await
+            .expect("hello");
+        assert!(matches!(
+            hello.expect("reads"),
+            Some(AgentToEngine::Hello { .. })
+        ));
+        let next = timeout(WAIT, engine_in.next::<AgentToEngine>())
+            .await
+            .expect("result");
+        assert_eq!(next.expect("reads"), Some(result));
+        link.abort();
     }
 
     #[tokio::test]
