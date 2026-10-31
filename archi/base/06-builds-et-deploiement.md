@@ -12,7 +12,7 @@
 ## Les trois sources
 
 - **Un push sur une branche configurée,** par la GitHub App : le flux ci-dessus.
-- **Un dossier envoyé par la CLI** (`brume deploy`) : ni clone ni token GitHub. Le builder vérifie l'empreinte de l'archive, l'extrait, puis construit avec Railpack, avec le même sandbox, le même cache et les mêmes secrets de build. Voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-dossier-envoyé-par-la-cli).
+- **Un `brume deploy` depuis un dossier :** son commit courant, déjà poussé sur GitHub, construit par le même flux, sans webhook. Voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-dossier-courant).
 - **Une image d'un registry :** aucun build. Le tag est résolu en digest au déploiement, voir [05-runtime.md](05-runtime.md#images).
 
 Les trois finissent de la même façon : une révision qui pointe vers un digest, que l'agent déploie.

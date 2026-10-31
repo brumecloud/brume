@@ -24,7 +24,7 @@ A push to a configured branch starts a build. Each step runs in its own componen
 ## Three sources
 
 - **A push to a configured branch,** through the GitHub App: the flow above.
-- **A folder uploaded by the CLI** with `brume deploy`: no clone and no GitHub token. The builder checks the archive's hash, extracts it, then builds with Railpack, with the same sandbox, the same cache and the same build secrets. See [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#deploying-a-folder).
+- **A `brume deploy` from a folder:** its current commit, already pushed to GitHub, built through the same flow, without a webhook. See [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#deploying-a-folder).
 - **An image from a registry:** no build. The tag is resolved to a digest at deployment, see [Runtime](/docs/how-it-works/runtime).
 
 All three end the same way: a revision that points to a digest, then a deployment.

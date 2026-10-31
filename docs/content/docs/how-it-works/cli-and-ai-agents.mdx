@@ -8,6 +8,7 @@ sources:
   - archi/base/04-panel-admin.md
   - archi/base/01-modele-de-menace.md
   - archi/base/15-etat-et-restauration.md
+  - archi/base/06-builds-et-deploiement.md
 ---
 
 Brume is agent first: everything the panel does, the CLI does too, and an AI agent can drive the CLI directly or through MCP. The CLI keeps the panel's security model. It reaches the server over your tailnet, the engine checks every request, and anything you cannot undo waits for your second factor in the panel.
@@ -77,16 +78,13 @@ Two words to keep apart: **the agent**, or `brume agent`, is the Brume service t
 
 ## Deploying a folder
 
-The CLI can deploy a folder from your laptop, without a repository or a push. The archive is the only new input, and Brume handles it like the builder's other inputs: only the builder opens it.
+`brume deploy` in a folder deploys its current commit, from GitHub. The CLI sends no file: it reads the folder's current commit and the GitHub remote of its branch, and the server clones that commit through the GitHub App, as for `github.com/<owner>/<repo>`.
 
-- **The CLI follows `.gitignore`.** It never uploads `.git`, `.env` or `.env.*`: a `COPY . .` would put them in an image layer.
-- **A size-limited archive,** with its SHA-256 hash.
-- **The API writes the archive as is to a drop folder.** The engine only receives its hash and size. The builder checks the hash, then extracts the archive. Neither the engine nor the API opens it.
-- **Extraction is bounded.** Paths with `../` and symlinks that leave the folder are rejected, and both the extracted size and the number of files are limited.
-- **The same builder as for GitHub,** with the same cache per environment and the same build secrets. See [Builds and deployments](/docs/how-it-works/builds-and-deployments).
-- **The archive is deleted after the build.** A rollback starts from the image, as with GitHub.
-- **Neither the archive nor the image goes to S3.** After a restore, a service deployed from a folder stays stopped until your next `deploy`: it has no commit to rebuild from. See [Secrets and backups](/docs/how-it-works/secrets-and-backups#accepted-risks).
-- **The revision records where it came from:** the archive hash and, if the folder is a git repository, the commit and whether it had uncommitted changes. The CLI declares those last two, so they are for display, not for security.
+- **Always a commit on a remote.** A restore rebuilds every service from its commit (see [What goes to the bucket](/docs/how-it-works/secrets-and-backups#what-goes-to-the-bucket)). Code that only exists on a laptop would be lost with the server.
+- **`deploy` refuses a folder that is not ready:** uncommitted changes, a commit not pushed yet, a remote outside GitHub, or a repository the GitHub App does not cover. The error gives the next command. The CLI never pushes by itself: an AI agent commits and pushes, then runs `deploy` again.
+- **Any pushed commit,** not only the one on the configured branch: the request comes from your session, not from a webhook.
+- **The same builder as for a push,** with the same cache per environment and the same build secrets. See [Builds and deployments](/docs/how-it-works/builds-and-deployments).
+- **What the service does after this `deploy` is still open:** follow its branch, with each push redeploying it, or stay on the deployed commit until the next `deploy`. See the [open decisions](/docs/how-it-works/roadmap#open-decisions).
 
 ## The MCP server
 

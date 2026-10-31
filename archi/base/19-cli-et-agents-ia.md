@@ -31,7 +31,7 @@ brume deploy postgres                # un template
 
 | Argument | Source | Build |
 |---|---|---|
-| aucun, ou un chemin | le dossier, envoyé par la CLI | Railpack, sur le serveur |
+| aucun, ou un chemin | le commit courant du dossier, par la GitHub App | Railpack, sur le serveur |
 | `github.com/<owner>/<repo>` | le repo, par la GitHub App | Railpack, puis à chaque push sur la branche configurée |
 | `postgres`, `mongodb`, `redis` | le template | aucun |
 | une référence d'image | le registry | aucun : le tag est résolu en digest, voir [05-runtime.md](05-runtime.md#images) |
@@ -46,21 +46,18 @@ brume deploy postgres                # un template
 - **Au premier `deploy` d'un dossier,** la CLI crée le projet (nommé d'après le dossier), l'environnement `production` et le service. Elle note ce lien dans sa config locale, sur le laptop : rien n'est écrit dans le repo.
 - **Les `deploy` suivants depuis ce dossier** visent le même service. `--project`, `--env` et `--service` choisissent une autre cible.
 - **`deploy` ne touche pas aux changements en attente du panel.** Il applique les siens, et ceux de l'admin restent en attente.
-- **Relancer `deploy` sans rien changer ne crée pas de révision :** même archive, ou même digest, et même spec.
+- **Relancer `deploy` sans rien changer ne crée pas de révision :** même commit, ou même digest, et même spec.
 
-### Le dossier envoyé par la CLI
+### Le dossier courant
 
-Une deuxième source à côté de GitHub, pour déployer sans repo ni push.
+`brume deploy` dans un dossier déploie son commit courant, depuis GitHub. Décidé le 31 octobre.
 
-- **La CLI respecte `.gitignore`.** Elle n'envoie jamais `.git`, ni `.env` et `.env.*` : un `COPY . .` les mettrait dans une couche de l'image. Les secrets passent par `brume secrets`.
-- **Une archive de taille limitée,** avec son empreinte SHA-256.
-- **Personne d'autre que le builder n'ouvre l'archive.** L'API l'écrit telle quelle dans un dossier de dépôt. L'engine n'en reçoit que l'empreinte et la taille. L'agent la monte en lecture seule dans le builder, qui vérifie l'empreinte puis l'extrait. Ni l'engine, ni l'agent, ni l'API ne l'ouvrent : voir [02-architecture.md](02-architecture.md#lengine).
-- **L'extraction est bornée :** les chemins en `../` et les symlinks qui sortent du dossier sont rejetés, et la taille décompressée comme le nombre de fichiers sont limités.
-- **Le même builder que pour GitHub,** avec le même cache par environnement et les mêmes secrets de build. Voir [06-builds-et-deploiement.md](06-builds-et-deploiement.md#le-builder).
-- **L'archive est supprimée après le build.** Un rollback repart de l'image, comme pour GitHub.
-- **Ni l'archive ni l'image ne vont sur S3.** Après une restauration, un service déployé depuis un dossier reste arrêté jusqu'au prochain `deploy` : il n'a pas de commit à reconstruire. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#risques-acceptés).
-- **La révision note son origine :** l'empreinte de l'archive et, si le dossier est un repo git, le commit et le fait qu'il ait ou non des modifications non commitées. La CLI déclare ces deux derniers champs : ils servent à l'affichage, pas à la sécurité.
-- **Sur un service relié à GitHub,** un `deploy` depuis un dossier est accepté. Le prochain push redéploie depuis la branche, comme après un rollback.
+- **La CLI n'envoie aucun fichier.** Elle lit le commit courant du dossier et le remote GitHub de sa branche. Le serveur clone ce commit par la GitHub App, comme pour `github.com/<owner>/<repo>`.
+- **Toujours un commit sur un remote.** Une restauration reconstruit chaque service depuis son commit ([15-etat-et-restauration.md](15-etat-et-restauration.md#ce-qui-va-sur-s3)) : un code qui n'existerait que sur un laptop serait perdu avec le serveur.
+- **`deploy` refuse un dossier qui n'est pas prêt :** des modifications non commitées, un commit pas encore poussé, un remote hors de GitHub, ou un repo que la GitHub App ne couvre pas. L'erreur donne la commande suivante. La CLI ne pousse jamais elle-même : un agent IA committe et pousse, puis relance `deploy`.
+- **N'importe quel commit poussé,** pas seulement celui de la branche configurée : la demande vient d'une session de l'admin, pas d'un webhook.
+- **Le même builder que pour un push,** avec le même cache par environnement et les mêmes secrets de build. Voir [06-builds-et-deploiement.md](06-builds-et-deploiement.md#le-builder).
+- **Ce que fait le service après ce `deploy` reste à décider :** suivre sa branche, chaque push le redéployant, ou rester sur le commit déployé jusqu'au prochain `deploy`. Voir [README.md](README.md#décisions-ouvertes).
 
 ## La connexion : `brume login`
 

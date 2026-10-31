@@ -44,7 +44,7 @@ The diagram shows the recommended modes: Cloudflare Tunnel for public traffic, T
 |---|---|---|---|
 | `brume engine` | The only owner of the state. Decides every command, checks sessions, decrypts secrets, ships the state to S3, checks for updates. | The master key, the state (SQLite), the GitHub App's private key, the S3 credentials (read and write, never delete), a read-only Cloudflare token. | The apps, their secrets and their data, within the limits of `policy.toml`. Not root on the host without a kernel or runc flaw. |
 | `brume agent` | Drives Docker on its machine: applies the desired state and the policy, runs the builds and the backups. | The Docker socket, the same S3 credentials as the engine. | Everything, on its machine. With the updater, it is the only Brume component in this position, hence its minimal code. |
-| `brume api` | Serves the panel and its API, to the browser and to the CLI. Receives the folders uploaded by the CLI without opening them. | A socket to the engine. | Nothing without a session opened by the admin: the engine checks every session. During a session, the panel's actions, without the dangerous options. It can neither forge nor change a request signed by the CLI, only hold it back or drop it. |
+| `brume api` | Serves the panel and its API, to the browser and to the CLI. | A socket to the engine. | Nothing without a session opened by the admin: the engine checks every session. During a session, the panel's actions, without the dangerous options. It can neither forge nor change a request signed by the CLI, only hold it back or drop it. |
 | `brume webhook` | Receives GitHub webhooks. | The HMAC secret, a socket to the engine. | Queuing a build of an already configured repository. |
 | `brume telemetry` | Receives the apps' logs and Brume's own telemetry, stores them and queries them with DuckDB. | The logs, the telemetry. | Reading the logs and the telemetry. No network, no secrets, no Docker. |
 | `brume updater` | Installs Brume updates. | The right to write the binaries. | Equivalent to root, but it runs only during an update and accepts only signed binaries. |
@@ -89,7 +89,6 @@ The agent is the only part of Brume that drives Docker. There is one per machine
 - **Log collection does not go through the engine.** dockerd sends each container's logs directly to `brume telemetry`, so a flood of logs cannot saturate the engine. See [Observability](/docs/how-it-works/observability).
 - **Log reading goes through the engine.** The API asks the engine for logs. The engine checks the session, then relays the answer from `brume telemetry` without interpreting it. The API streams the logs to the panel over SSE. `brume telemetry` never has access to Docker.
 - **The builder never touches the runtime.** It produces an image, and the agent loads it into dockerd and deploys it by digest.
-- **A folder uploaded by the CLI does not go through the engine.** The API writes it as is to a drop folder, the agent mounts it in the builder, and only the builder opens it. See [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#deploying-a-folder).
 
 ## Why the webhook is separate from the API
 
