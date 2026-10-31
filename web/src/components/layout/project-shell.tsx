@@ -21,7 +21,6 @@ export function ProjectShell({ projectId, environmentName, children }: ProjectSh
     <div className="flex h-dvh flex-col bg-sidebar">
       <header className="flex h-14 shrink-0 items-center gap-2 px-3.5">
         <BrumeLogo />
-        <span className="mx-2 h-5 w-px bg-border" />
         <ProjectSwitcher projectId={projectId} />
         <span className="text-muted-foreground">/</span>
         <EnvironmentSwitcher projectId={projectId} environmentName={environmentName} />
