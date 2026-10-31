@@ -17,6 +17,9 @@ use crate::storage::{Storage, Transaction};
 /// How long a deployment may take, from its request to its success: 5 minutes.
 pub const DEPLOYMENT_TIMEOUT_MILLIS: u64 = 5 * 60 * 1000;
 
+/// How long to wait before failing again an overdue deployment whose failure was not written.
+const OVERDUE_RETRY_MILLIS: u64 = 1000;
+
 /// Cuts a message to at most `max` bytes, on a character boundary.
 pub(crate) fn truncate(message: &str, max: usize) -> String {
     let mut end = message.len().min(max);
@@ -278,11 +281,21 @@ impl<S: Storage> Engine<S> {
             }
         }
 
+        // A deadline already past is one whose failure could not be written (read-only, or a
+        // storage error): it is retried later, never at once.
+        let now = ctx.now();
         let next = self
             .world
             .deployments_in_progress()
             .map(|deployment| deadline(deployment.created_at))
-            .min();
+            .min()
+            .map(|next| {
+                if next <= now {
+                    now.plus_millis(OVERDUE_RETRY_MILLIS)
+                } else {
+                    next
+                }
+            });
         if next != self.wake_at {
             if let Some(next) = next {
                 out.push(Output::WakeAt(next));

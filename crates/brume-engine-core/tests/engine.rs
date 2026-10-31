@@ -1039,3 +1039,25 @@ fn every_tick_rearms_the_next_deadline() {
     let out = harness.input(Input::AgentDisconnected);
     assert_eq!(wake_at(&out), None);
 }
+
+#[test]
+fn an_overdue_deadline_that_cannot_be_written_is_retried_later() {
+    let mut harness = Harness::new();
+    harness.create_project("nginx:1.29");
+    harness.engine.set_read_only();
+    harness.ctx.advance(DEPLOYMENT_TIMEOUT_MILLIS + 10);
+    // The timeout cannot be written: each tick asks to wake later, never in the past.
+    for _ in 0..3 {
+        let out = harness.input(Input::Tick);
+        let next = wake_at(&out).expect("a wake-up");
+        assert!(
+            next > harness.ctx.now,
+            "{next:?} is not after {:?}",
+            harness.ctx.now
+        );
+    }
+    assert_eq!(
+        harness.deployments()[0].status,
+        DeploymentStatusDto::Building
+    );
+}
