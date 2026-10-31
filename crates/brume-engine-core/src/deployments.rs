@@ -289,12 +289,11 @@ impl<S: Storage> Engine<S> {
             .deployments_in_progress()
             .map(|deployment| deadline(deployment.created_at))
             .min()
-            .map(|next| {
-                if next <= now {
-                    now.plus_millis(OVERDUE_RETRY_MILLIS)
-                } else {
-                    next
-                }
+            .map(|next| match self.wake_at {
+                _ if next > now => next,
+                // A retry already asked for stands: later inputs do not push it back.
+                Some(asked) if asked > now => asked,
+                _ => now.plus_millis(OVERDUE_RETRY_MILLIS),
             });
         if next != self.wake_at {
             if let Some(next) = next {

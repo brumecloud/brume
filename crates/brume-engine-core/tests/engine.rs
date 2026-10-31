@@ -1055,6 +1055,9 @@ fn an_overdue_deadline_that_cannot_be_written_is_retried_later() {
             "{next:?} is not after {:?}",
             harness.ctx.now
         );
+        // Other inputs leave the retry where it is.
+        let out = harness.input(Input::AgentDisconnected);
+        assert_eq!(wake_at(&out), None);
     }
     assert_eq!(
         harness.deployments()[0].status,
