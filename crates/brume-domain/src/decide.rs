@@ -10,8 +10,8 @@ use crate::ids::{
 };
 use crate::model::{
     DeployReason, Deployment, DeploymentPhase, FailureReason, Level, Project, ResolvedSecret,
-    Revision, RevisionSpec, RevisionValue, RevisionVariable, Service, ServiceSpec, ServiceVariable,
-    ServiceVariableValue, SharedValue, VariableOwner, World,
+    Revision, RevisionSpec, RevisionValue, RevisionVariable, SecretSource, Service, ServiceSpec,
+    ServiceVariable, ServiceVariableValue, SharedValue, VariableOwner, World,
 };
 use crate::names::{Slug, VarName};
 use crate::rejection::Rejection;
@@ -125,6 +125,7 @@ pub fn decide(world: &World, command: &Command) -> Result<Vec<Event>, Rejection>
                     target.slug
                 )));
             };
+            check_new_deployment(world, deployment)?;
             check_secrets_resolve(world, service, revision)?;
             decision.request_existing(
                 service,
@@ -233,8 +234,14 @@ pub fn decide(world: &World, command: &Command) -> Result<Vec<Event>, Rejection>
                 .max()
                 .unwrap_or(0)
                 + 1;
+            let image = match &target.plan {
+                RevisionPlan::Resolve { image } => image.clone(),
+                RevisionPlan::Existing { .. } | RevisionPlan::Reuse { .. } => {
+                    service.spec.image.clone()
+                }
+            };
             let spec = RevisionSpec {
-                image: service.spec.image.clone(),
+                image,
                 digest: digest.clone(),
                 volumes: volumes.clone(),
                 start_command: service.spec.start_command.clone(),
@@ -351,15 +358,17 @@ pub fn resolve_revision_variables(world: &World, service: &ServiceId) -> Vec<Rev
             ServiceVariableValue::OwnSecret { .. } => (
                 Level::Service,
                 RevisionValue::Secret {
-                    service_variable: Some(variable.id.clone()),
-                    reference: None,
+                    source: SecretSource::Own {
+                        variable: variable.id.clone(),
+                    },
                 },
             ),
             ServiceVariableValue::SharedSecret => (
                 shared_secret(world, service, name).map_or(Level::Service, |(level, _)| level),
                 RevisionValue::Secret {
-                    service_variable: None,
-                    reference: Some(variable.id.clone()),
+                    source: SecretSource::Reference {
+                        variable: variable.id.clone(),
+                    },
                 },
             ),
         };
@@ -388,20 +397,20 @@ pub fn resolve_secrets(
     let mut resolved = Vec::new();
     let mut missing = Vec::new();
     for name in names {
-        let found = match service
-            .spec
-            .variables
-            .get(name)
-            .map(|variable| &variable.value)
-        {
-            Some(ServiceVariableValue::OwnSecret { version }) => {
-                let id = &service.spec.variables[name].id;
-                Some((id.clone(), *version))
-            }
-            Some(ServiceVariableValue::Plain { .. }) => None,
-            Some(ServiceVariableValue::SharedSecret) | None => {
-                shared_secret(world, service, name).map(|(_, found)| found)
-            }
+        let found = match service.spec.variables.get(name) {
+            Some(ServiceVariable {
+                id,
+                value: ServiceVariableValue::OwnSecret { version },
+            }) => Some((id.clone(), *version)),
+            Some(ServiceVariable {
+                value: ServiceVariableValue::Plain { .. },
+                ..
+            }) => None,
+            Some(ServiceVariable {
+                value: ServiceVariableValue::SharedSecret,
+                ..
+            })
+            | None => shared_secret(world, service, name).map(|(_, found)| found),
         };
         match found {
             Some((variable, version)) => resolved.push(ResolvedSecret {
@@ -581,6 +590,7 @@ impl Decision {
                 )));
             }
             check_no_deployment_in_progress(&self.world, &service)?;
+            check_new_deployment(&self.world, &changes.deployment)?;
             let mut spec = service.spec.clone();
             let mut egress = service.egress;
             let mut versions = Vec::new();
@@ -664,6 +674,15 @@ impl Decision {
                 });
             }
             check_names(&self.world, &project)?;
+            for change in &changes.changes {
+                if let SpecChange::SharedSecretReference { name, .. } = change
+                    && shared_secret(&self.world, &service, name).is_none()
+                {
+                    return Err(Rejection::conflict(format!(
+                        "{name} is not a shared secret of this environment or its project."
+                    )));
+                }
+            }
             self.request(
                 &service.id,
                 &changes.deployment,
@@ -702,13 +721,22 @@ impl Decision {
             .project_of_environment(&service.environment)
             .cloned()
             .expect("a live service has a project");
-        let spec = restored_spec(&service, &revision)?;
+        check_new_deployment(&self.world, deployment)?;
+        let (spec, mut missing) = restored_spec(&service, &revision);
         self.push(Event::ServiceSpecChanged {
             service: service.id.clone(),
             spec,
         });
         check_names(&self.world, &project)?;
-        check_secrets_resolve(&self.world, &service.id, &revision)?;
+        if let Err(unresolved) = resolve_secrets(&self.world, &service.id, &secret_names(&revision))
+        {
+            missing.extend(unresolved);
+        }
+        if !missing.is_empty() {
+            missing.sort();
+            missing.dedup();
+            return Err(missing_secrets(&missing));
+        }
         self.request_existing(
             &service.id,
             deployment,
@@ -743,6 +771,7 @@ impl Decision {
         for (service, deployment) in deployments {
             let target = require_live_service(&self.world, service)?.clone();
             check_no_deployment_in_progress(&self.world, &target)?;
+            check_new_deployment(&self.world, deployment)?;
             self.request(
                 service,
                 deployment,
@@ -836,9 +865,10 @@ impl Decision {
     }
 }
 
-/// The service's spec put back to a revision: its settings and its service-level variables.
-/// The service's own secrets keep their current version; one that no longer exists is missing.
-fn restored_spec(service: &Service, revision: &Revision) -> Result<ServiceSpec, Rejection> {
+/// The service's spec put back to a revision: its settings and its service-level variables,
+/// with the names of the service's own secrets that no longer exist. Own secrets keep their
+/// current version, and references their current entry.
+fn restored_spec(service: &Service, revision: &Revision) -> (ServiceSpec, Vec<VarName>) {
     let mut variables = BTreeMap::new();
     let mut missing = Vec::new();
     for variable in &revision.spec.variables {
@@ -861,8 +891,7 @@ fn restored_spec(service: &Service, revision: &Revision) -> Result<ServiceSpec, 
             (RevisionValue::Plain { .. }, Level::Environment | Level::Project) => None,
             (
                 RevisionValue::Secret {
-                    service_variable: Some(_),
-                    ..
+                    source: SecretSource::Own { .. },
                 },
                 _,
             ) => match current {
@@ -879,42 +908,31 @@ fn restored_spec(service: &Service, revision: &Revision) -> Result<ServiceSpec, 
             },
             (
                 RevisionValue::Secret {
-                    service_variable: None,
-                    reference,
+                    source:
+                        SecretSource::Reference {
+                            variable: reference,
+                        },
                 },
                 _,
             ) => {
-                let id = match (current, reference) {
-                    (
-                        Some(ServiceVariable {
-                            id,
-                            value: ServiceVariableValue::SharedSecret,
-                        }),
-                        _,
-                    ) => Some(id.clone()),
-                    (_, Some(reference)) => Some(reference.clone()),
-                    (_, None) => None,
-                };
-                match id {
-                    Some(id) => Some(ServiceVariable {
+                let id = match current {
+                    Some(ServiceVariable {
                         id,
                         value: ServiceVariableValue::SharedSecret,
-                    }),
-                    None => {
-                        missing.push(variable.name.clone());
-                        None
-                    }
-                }
+                    }) => id.clone(),
+                    _ => reference.clone(),
+                };
+                Some(ServiceVariable {
+                    id,
+                    value: ServiceVariableValue::SharedSecret,
+                })
             }
         };
         if let Some(restored) = restored {
             variables.insert(variable.name.clone(), restored);
         }
     }
-    if !missing.is_empty() {
-        return Err(missing_secrets(&missing));
-    }
-    Ok(ServiceSpec {
+    let spec = ServiceSpec {
         image: revision.spec.image.clone(),
         start_command: revision.spec.start_command.clone(),
         port: revision.spec.port,
@@ -922,7 +940,8 @@ fn restored_spec(service: &Service, revision: &Revision) -> Result<ServiceSpec, 
         cpu: revision.spec.cpu,
         memory: revision.spec.memory,
         variables,
-    })
+    };
+    (spec, missing)
 }
 
 fn secret_names(revision: &Revision) -> Vec<VarName> {
@@ -1021,6 +1040,15 @@ fn check_no_deployment_in_progress(world: &World, service: &Service) -> Result<(
         ))),
         None => Ok(()),
     }
+}
+
+fn check_new_deployment(world: &World, deployment: &DeploymentId) -> Result<(), Rejection> {
+    if world.deployments.contains_key(deployment) {
+        return Err(Rejection::conflict(
+            "This deployment already exists.".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 /// The phases a fact about a deployment requires.

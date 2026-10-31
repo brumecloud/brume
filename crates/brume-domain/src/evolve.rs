@@ -96,6 +96,13 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
             name,
             value,
         } => {
+            let owner_exists = match owner {
+                VariableOwner::Project(project) => world.projects.contains_key(project),
+                VariableOwner::Environment(environment) => {
+                    world.environments.contains_key(environment)
+                }
+            };
+            assert!(owner_exists, "SharedVariableSet for an unknown owner");
             world.shared_variables.insert(
                 variable.clone(),
                 SharedVariable {
@@ -129,6 +136,10 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
                 world.services.contains_key(service),
                 "DeploymentRequested for an unknown service"
             );
+            assert!(
+                !world.deployments.contains_key(deployment),
+                "DeploymentRequested for an existing deployment"
+            );
             let known_revision = match revision {
                 RevisionPlan::Existing { revision } => Some(revision.clone()),
                 RevisionPlan::Resolve { .. } | RevisionPlan::Reuse { .. } => None,
@@ -156,6 +167,10 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
             number,
             spec,
         } => {
+            assert!(
+                !world.revisions.contains_key(revision),
+                "RevisionCreated for an existing revision"
+            );
             let target = service_mut(world, service);
             for path in &spec.volumes {
                 if !target.volumes.contains(path) {
@@ -183,15 +198,32 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
                 "DeploymentStarted with an unknown revision"
             );
             let target = deployment_mut(world, deployment);
+            assert_eq!(
+                target.phase,
+                DeploymentPhase::Resolving,
+                "DeploymentStarted for a deployment that is not resolving"
+            );
             target.revision = Some(revision.clone());
             target.secrets = secrets.clone();
             target.phase = DeploymentPhase::Starting;
         }
         Event::DeploymentHealthy { deployment } => {
-            deployment_mut(world, deployment).phase = DeploymentPhase::Promoting;
+            let target = deployment_mut(world, deployment);
+            assert_eq!(
+                target.phase,
+                DeploymentPhase::Starting,
+                "DeploymentHealthy for a deployment that is not starting"
+            );
+            target.phase = DeploymentPhase::Promoting;
         }
         Event::DeploymentSucceeded { deployment } => {
-            let service = deployment_mut(world, deployment).service.clone();
+            let target = deployment_mut(world, deployment);
+            assert_eq!(
+                target.phase,
+                DeploymentPhase::Promoting,
+                "DeploymentSucceeded for a deployment that is not promoting"
+            );
+            let service = target.service.clone();
             for other in world.deployments.values_mut() {
                 if other.service == service && other.phase == DeploymentPhase::Active {
                     other.phase = DeploymentPhase::Superseded;
@@ -203,6 +235,10 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
         }
         Event::DeploymentFailed { deployment, reason } => {
             let target = deployment_mut(world, deployment);
+            assert!(
+                target.phase.is_in_progress(),
+                "DeploymentFailed for a deployment that is not in progress"
+            );
             target.phase = DeploymentPhase::Failed(reason.clone());
             target.finished_at = Some(at);
         }

@@ -214,12 +214,18 @@ pub enum RevisionValue {
         blob: BlobId,
         variable: VariableId,
     },
-    /// `service_variable` is the service's own secret, or `None` for a reference to a shared
-    /// secret, whose service-level entry is `reference`.
-    Secret {
-        service_variable: Option<VariableId>,
-        reference: Option<VariableId>,
-    },
+    /// The service-level entry that brought the secret in.
+    Secret { source: SecretSource },
+}
+
+/// The service-level entry of a revision secret. Its value is resolved at each deployment.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum SecretSource {
+    /// The service's own secret.
+    Own { variable: VariableId },
+    /// The service's reference to a shared secret of the same name.
+    Reference { variable: VariableId },
 }
 
 /// A deployment of a service.

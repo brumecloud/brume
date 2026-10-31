@@ -84,8 +84,8 @@ pub use ids::{
 pub use model::{
     DEFAULT_CPU_MILLIS, DEFAULT_MEMORY_MB, DeployReason, Deployment, DeploymentPhase, Environment,
     FailureReason, Level, PlainKind, Project, ResolvedSecret, Revision, RevisionSpec,
-    RevisionValue, RevisionVariable, Service, ServiceSpec, ServiceVariable, ServiceVariableValue,
-    SharedValue, SharedVariable, VariableOwner, VariableRef, World,
+    RevisionValue, RevisionVariable, SecretSource, Service, ServiceSpec, ServiceVariable,
+    ServiceVariableValue, SharedValue, SharedVariable, VariableOwner, VariableRef, World,
 };
 pub use names::{
     ContainerPath, HttpPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug,

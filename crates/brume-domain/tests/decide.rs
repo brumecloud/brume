@@ -4,11 +4,12 @@ use std::collections::BTreeMap;
 
 use brume_domain::{
     AdminId, BlobId, Command, Ctx, DeployReason, DeploymentId, DeploymentPhase, EnvironmentId,
-    Event, EventEnvelope, ImageDigestRef, ImageRef, Level, MachineId, NewService, PlainKind, Port,
-    ProjectId, ProjectName, RejectionKind, ResolvedSecret, RevisionId, RevisionPlan, RevisionValue,
-    ServiceChanges, ServiceId, ServiceName, ServiceSpec, ServiceVariable, ServiceVariableValue,
-    SharedValue, Slug, SpecChange, Timestamp, VarName, VariableId, VariableOwner, World, decide,
-    evolve, resolve_revision_variables,
+    Event, EventEnvelope, FailureReason, ImageDigestRef, ImageRef, Level, MachineId, NewService,
+    PlainKind, Port, ProjectId, ProjectName, Rejection, RejectionKind, ResolvedSecret, RevisionId,
+    RevisionPlan, RevisionValue, SecretSource, ServiceChanges, ServiceId, ServiceName, ServiceSpec,
+    ServiceVariable, ServiceVariableValue, SharedValue, Slug, SpecChange, Timestamp, VarName,
+    VariableId, VariableOwner, World, decide, evolve, impacted_services,
+    resolve_revision_variables, resolve_secrets, secret_references,
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
@@ -134,15 +135,68 @@ impl Scenario {
         scenario
     }
 
-    fn try_run(&self, command: &Command) -> Result<Vec<Event>, brume_domain::Rejection> {
+    fn try_run(&self, command: &Command) -> Result<Vec<Event>, Rejection> {
         decide(&self.world, command)
     }
 
-    /// Decides and applies `command`, which must be accepted.
+    /// Decides and applies `command`, which must be accepted. Each event must survive the
+    /// log's JSON.
     fn run(&mut self, command: Command) -> Vec<Event> {
         let events = decide(&self.world, &command).expect("accepted");
+        for event in &events {
+            let stored = envelope(1, event.clone());
+            let bytes = serde_json::to_vec(&stored).expect("serializes");
+            assert_eq!(
+                serde_json::from_slice::<EventEnvelope>(&bytes).ok(),
+                Some(stored)
+            );
+        }
         apply(&mut self.world, events.clone());
         events
+    }
+
+    fn set_secret(&mut self, owner: VariableOwner, name: &str) -> VariableId {
+        let variable = VariableId::new(&mut self.ctx);
+        self.run(Command::SetSharedVariable {
+            variable: variable.clone(),
+            owner,
+            name: var(name),
+            value: SharedValue::Secret { version: 1 },
+            deployments: Vec::new(),
+            author: self.admin.clone(),
+        });
+        variable
+    }
+
+    /// Stages and activates changes to the scenario's service.
+    fn deploy(&mut self, changes: Vec<SpecChange>) -> DeploymentId {
+        let (deployment, command) = self.deploy_changes(changes);
+        self.run(command);
+        self.activate(&deployment);
+        deployment
+    }
+
+    /// Creates an environment of the project with one service, active.
+    fn add_environment(&mut self, name: &str) -> (EnvironmentId, ServiceId) {
+        let environment = EnvironmentId::new(&mut self.ctx);
+        let service = ServiceId::new(&mut self.ctx);
+        let deployment = DeploymentId::new(&mut self.ctx);
+        self.run(Command::CreateEnvironment {
+            environment: environment.clone(),
+            project: self.project.clone(),
+            name: slug(name),
+        });
+        self.run(Command::CreateService(NewService {
+            service: service.clone(),
+            environment: environment.clone(),
+            name: ServiceName::parse("nginx").expect("valid name"),
+            slug: slug("nginx"),
+            image: image("nginx:1.29"),
+            deployment: deployment.clone(),
+            author: self.admin.clone(),
+        }));
+        self.activate(&deployment);
+        (environment, service)
     }
 
     /// Takes a deployment from wherever it is to active.
@@ -200,16 +254,7 @@ impl Scenario {
     }
 
     fn set_project_secret(&mut self, name: &str) -> VariableId {
-        let variable = VariableId::new(&mut self.ctx);
-        self.run(Command::SetSharedVariable {
-            variable: variable.clone(),
-            owner: VariableOwner::Project(self.project.clone()),
-            name: var(name),
-            value: SharedValue::Secret { version: 1 },
-            deployments: Vec::new(),
-            author: self.admin.clone(),
-        });
-        variable
+        self.set_secret(VariableOwner::Project(self.project.clone()), name)
     }
 
     fn active_revision(&self) -> RevisionId {
@@ -623,7 +668,7 @@ fn resolve_revision_variables_precedence() {
     let set = |scenario: &mut Scenario, owner: VariableOwner, name: &str| {
         let variable = VariableId::new(&mut scenario.ctx);
         let blob = BlobId::new(&mut scenario.ctx);
-        let impacted = brume_domain::impacted_services(&scenario.world, &owner, &var(name));
+        let impacted = impacted_services(&scenario.world, &owner, &var(name));
         let deployments = impacted
             .into_iter()
             .map(|service| (service, DeploymentId::new(&mut scenario.ctx)))
@@ -701,8 +746,7 @@ fn resolve_revision_variables_precedence() {
     assert!(matches!(
         secret.value,
         RevisionValue::Secret {
-            service_variable: None,
-            ..
+            source: SecretSource::Reference { .. }
         }
     ));
 }
@@ -792,7 +836,7 @@ fn delete_service_fails_its_deployment_in_progress() {
         &events[..],
         [
             Event::DeploymentFailed {
-                reason: brume_domain::FailureReason::Replaced,
+                reason: FailureReason::Replaced,
                 ..
             },
             Event::ServiceDeleted { .. },
@@ -843,4 +887,361 @@ fn envelope_is_flat_json_and_round_trips() {
         serde_json::from_slice::<EventEnvelope>(&bytes).ok(),
         Some(deep)
     );
+}
+
+#[test]
+fn deployment_id_cannot_be_reused() {
+    let mut scenario = Scenario::active();
+    let rejection = scenario
+        .try_run(&Command::Redeploy {
+            service: scenario.service.clone(),
+            deployment: scenario.first.clone(),
+            author: scenario.admin.clone(),
+        })
+        .expect_err("rejected");
+    assert_eq!(rejection.kind, RejectionKind::Conflict);
+
+    let first = scenario.first.clone();
+    let (_, mut command) = scenario.deploy_changes(vec![SpecChange::Egress(true)]);
+    if let Command::DeployChanges { services, .. } = &mut command {
+        services[0].deployment = first;
+    }
+    assert_eq!(
+        scenario
+            .try_run(&command)
+            .map_err(|rejection| rejection.kind),
+        Err(RejectionKind::Conflict)
+    );
+}
+
+#[test]
+fn reference_to_unknown_shared_secret_is_refused() {
+    let mut scenario = Scenario::active();
+    let variable = VariableId::new(&mut scenario.ctx);
+    let (_, command) = scenario.deploy_changes(vec![SpecChange::SharedSecretReference {
+        name: var("NOPE"),
+        variable,
+    }]);
+    let rejection = scenario.try_run(&command).expect_err("rejected");
+    assert_eq!(rejection.kind, RejectionKind::Conflict);
+    assert_eq!(
+        rejection.message,
+        "NOPE is not a shared secret of this environment or its project."
+    );
+}
+
+#[test]
+fn resolve_secrets_prefers_service_then_environment_then_project() {
+    let mut scenario = Scenario::active();
+    let _project_x = scenario.set_project_secret("X");
+    let environment_x =
+        scenario.set_secret(VariableOwner::Environment(scenario.production.clone()), "X");
+    let project_y = scenario.set_project_secret("Y");
+    let (reference_x, reference_y) = (
+        VariableId::new(&mut scenario.ctx),
+        VariableId::new(&mut scenario.ctx),
+    );
+    scenario.deploy(vec![
+        SpecChange::SharedSecretReference {
+            name: var("X"),
+            variable: reference_x,
+        },
+        SpecChange::SharedSecretReference {
+            name: var("Y"),
+            variable: reference_y,
+        },
+    ]);
+    let names = [var("X"), var("Y")];
+    assert_eq!(
+        resolve_secrets(&scenario.world, &scenario.service, &names),
+        Ok(vec![
+            ResolvedSecret {
+                name: var("X"),
+                variable: environment_x,
+                version: 1,
+            },
+            ResolvedSecret {
+                name: var("Y"),
+                variable: project_y.clone(),
+                version: 1,
+            },
+        ])
+    );
+
+    let own_x = VariableId::new(&mut scenario.ctx);
+    scenario.deploy(vec![SpecChange::OwnSecret {
+        name: var("X"),
+        variable: own_x.clone(),
+        version: 4,
+    }]);
+    assert_eq!(
+        resolve_secrets(&scenario.world, &scenario.service, &names),
+        Ok(vec![
+            ResolvedSecret {
+                name: var("X"),
+                variable: own_x,
+                version: 4,
+            },
+            ResolvedSecret {
+                name: var("Y"),
+                variable: project_y,
+                version: 1,
+            },
+        ])
+    );
+    assert_eq!(
+        resolve_secrets(&scenario.world, &scenario.service, &[var("Z"), var("X")]),
+        Err(vec![var("Z")])
+    );
+}
+
+#[test]
+fn impacted_services_cross_environments_and_skip_overrides() {
+    let mut scenario = Scenario::active();
+    let (staging, staging_service) = scenario.add_environment("staging");
+    let project = VariableOwner::Project(scenario.project.clone());
+    let mut both = vec![scenario.service.clone(), staging_service.clone()];
+    both.sort();
+    assert_eq!(
+        impacted_services(&scenario.world, &project, &var("A")),
+        both
+    );
+
+    // Staging defines A itself: a project-level A no longer reaches it.
+    let variable = VariableId::new(&mut scenario.ctx);
+    let blob = BlobId::new(&mut scenario.ctx);
+    let deployment = DeploymentId::new(&mut scenario.ctx);
+    scenario.run(Command::SetSharedVariable {
+        variable,
+        owner: VariableOwner::Environment(staging.clone()),
+        name: var("A"),
+        value: SharedValue::Plain {
+            kind: PlainKind::Plain,
+            blob,
+        },
+        deployments: vec![(staging_service.clone(), deployment.clone())],
+        author: scenario.admin.clone(),
+    });
+    scenario.activate(&deployment);
+    assert_eq!(
+        impacted_services(&scenario.world, &project, &var("A")),
+        vec![scenario.service.clone()]
+    );
+
+    // The production service defines A at the service level.
+    let (variable, blob) = (
+        VariableId::new(&mut scenario.ctx),
+        BlobId::new(&mut scenario.ctx),
+    );
+    scenario.deploy(vec![SpecChange::PlainVariable {
+        name: var("A"),
+        variable,
+        kind: PlainKind::Build,
+        blob,
+    }]);
+    assert!(impacted_services(&scenario.world, &project, &var("A")).is_empty());
+    assert_eq!(
+        impacted_services(
+            &scenario.world,
+            &VariableOwner::Environment(staging),
+            &var("B")
+        ),
+        vec![staging_service]
+    );
+}
+
+#[test]
+fn shared_variable_redeploys_exactly_the_impacted_services() {
+    let mut scenario = Scenario::active();
+    let variable = VariableId::new(&mut scenario.ctx);
+    let blob = BlobId::new(&mut scenario.ctx);
+    let command = Command::SetSharedVariable {
+        variable,
+        owner: VariableOwner::Project(scenario.project.clone()),
+        name: var("A"),
+        value: SharedValue::Plain {
+            kind: PlainKind::Plain,
+            blob,
+        },
+        deployments: Vec::new(),
+        author: scenario.admin.clone(),
+    };
+    assert_eq!(
+        scenario
+            .try_run(&command)
+            .map_err(|rejection| rejection.kind),
+        Err(RejectionKind::Conflict)
+    );
+
+    let deployment = DeploymentId::new(&mut scenario.ctx);
+    let Command::SetSharedVariable {
+        variable,
+        owner,
+        name,
+        value,
+        author,
+        ..
+    } = command
+    else {
+        unreachable!()
+    };
+    let events = scenario.run(Command::SetSharedVariable {
+        variable: variable.clone(),
+        owner,
+        name,
+        value,
+        deployments: vec![(scenario.service.clone(), deployment.clone())],
+        author,
+    });
+    assert!(matches!(
+        &events[..],
+        [
+            Event::SharedVariableSet { .. },
+            Event::DeploymentRequested {
+                deployment: requested,
+                revision: RevisionPlan::Reuse { .. },
+                reason: DeployReason::SharedVariable { variable: reason },
+                ..
+            },
+        ] if requested == &deployment && reason == &variable
+    ));
+}
+
+#[test]
+fn missing_secret_when_starting_fails_the_deployment() {
+    let mut scenario = Scenario::active();
+    let secret = scenario.set_project_secret("S");
+    let reference = VariableId::new(&mut scenario.ctx);
+    let (deployment, command) = scenario.deploy_changes(vec![SpecChange::SharedSecretReference {
+        name: var("S"),
+        variable: reference,
+    }]);
+    scenario.run(command);
+    // No active deployment uses S yet, so it can go.
+    scenario.run(Command::RemoveSharedVariable {
+        variable: secret,
+        deployments: Vec::new(),
+        author: scenario.admin.clone(),
+    });
+    let revision = RevisionId::new(&mut scenario.ctx);
+    let events = scenario.run(Command::ImageResolved {
+        deployment: deployment.clone(),
+        revision,
+        digest: digest("nginx"),
+        volumes: Vec::new(),
+    });
+    assert!(matches!(
+        &events[..],
+        [
+            Event::RevisionCreated { .. },
+            Event::DeploymentFailed {
+                reason: FailureReason::MissingSecrets { names },
+                ..
+            },
+        ] if names == &vec![var("S")]
+    ));
+    assert!(
+        scenario
+            .world
+            .in_progress_deployment(&scenario.service)
+            .is_none()
+    );
+}
+
+#[test]
+fn redeploy_needs_an_active_deployment() {
+    let mut scenario = Scenario::new();
+    scenario.run(Command::ImageResolutionFailed {
+        deployment: scenario.first.clone(),
+        message: "manifest unknown".to_owned(),
+    });
+    let rejection = scenario
+        .try_run(&Command::Redeploy {
+            service: scenario.service.clone(),
+            deployment: DeploymentId::new(&mut ctx()),
+            author: scenario.admin.clone(),
+        })
+        .expect_err("rejected");
+    assert_eq!(rejection.kind, RejectionKind::Conflict);
+    assert_eq!(
+        rejection.message,
+        "nginx has no active deployment to redeploy."
+    );
+}
+
+#[test]
+fn service_slug_is_unique_in_environment() {
+    let mut scenario = Scenario::active();
+    let new_service = |scenario: &mut Scenario, environment: EnvironmentId| NewService {
+        service: ServiceId::new(&mut scenario.ctx),
+        environment,
+        name: ServiceName::parse("web").expect("valid name"),
+        slug: slug("nginx"),
+        image: image("nginx:1.30"),
+        deployment: DeploymentId::new(&mut scenario.ctx),
+        author: scenario.admin.clone(),
+    };
+    let production = scenario.production.clone();
+    let duplicate = new_service(&mut scenario, production.clone());
+    let rejection = scenario
+        .try_run(&Command::CreateService(duplicate))
+        .expect_err("rejected");
+    assert_eq!(rejection.kind, RejectionKind::Conflict);
+
+    // Once the service is deleted, its slug is free again.
+    scenario.run(Command::DeleteService {
+        service: scenario.service.clone(),
+    });
+    let reused = new_service(&mut scenario, production);
+    assert!(scenario.try_run(&Command::CreateService(reused)).is_ok());
+}
+
+#[test]
+fn delete_service_with_an_active_deployment_only_deletes_it() {
+    let mut scenario = Scenario::active();
+    let events = scenario.run(Command::DeleteService {
+        service: scenario.service.clone(),
+    });
+    assert_eq!(
+        events,
+        vec![Event::ServiceDeleted {
+            service: scenario.service.clone()
+        }]
+    );
+    assert!(scenario.world.live_service(&scenario.service).is_none());
+    assert_eq!(
+        scenario
+            .try_run(&Command::DeleteService {
+                service: scenario.service.clone(),
+            })
+            .map_err(|rejection| rejection.kind),
+        Err(RejectionKind::NotFound)
+    );
+}
+
+#[test]
+fn secret_references_lists_the_services_whose_active_deployment_uses_it() {
+    let mut scenario = Scenario::active();
+    let (_, staging_service) = scenario.add_environment("staging");
+    scenario.set_project_secret("S");
+    let owner = VariableOwner::Project(scenario.project.clone());
+    assert!(secret_references(&scenario.world, &owner, &var("S")).is_empty());
+
+    let reference = VariableId::new(&mut scenario.ctx);
+    scenario.deploy(vec![SpecChange::SharedSecretReference {
+        name: var("S"),
+        variable: reference,
+    }]);
+    let users = secret_references(&scenario.world, &owner, &var("S"));
+    assert_eq!(users, vec![scenario.service.clone()]);
+    assert!(!users.contains(&staging_service));
+}
+
+#[test]
+#[should_panic(expected = "an event about an unknown service")]
+fn evolve_panics_on_an_event_that_does_not_apply() {
+    let mut ctx = ctx();
+    given(vec![Event::ServiceDeleted {
+        service: ServiceId::new(&mut ctx),
+    }]);
 }
