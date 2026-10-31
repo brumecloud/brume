@@ -2,3 +2,9 @@
 //! the Brume home, the object store, sealing with the master key and peer credentials.
 
 #![forbid(unsafe_code)]
+
+pub mod crypto;
+pub mod framed;
+pub mod object_store;
+pub mod paths;
+pub mod peer;

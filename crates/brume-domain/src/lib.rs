@@ -1,6 +1,7 @@
-//! Brume's domain: the validated newtypes every other crate builds on. A value of one of these
-//! types has passed its allowlist, so code that holds a `Slug` or an `ImageRef` never checks it
-//! again. No I/O: the clock and randomness come in through `Ctx`.
+//! Brume's domain: the validated newtypes every other crate builds on, the `World`, and the pure
+//! `decide` and `evolve` of the event-sourced engine. A value of one of the newtypes has passed
+//! its allowlist, so code that holds a `Slug` or an `ImageRef` never checks it again. No I/O: the
+//! clock and randomness come in through `Ctx`.
 
 #![forbid(unsafe_code)]
 
@@ -56,20 +57,39 @@ macro_rules! string_newtype {
     };
 }
 
+mod command;
 mod ctx;
+mod decide;
+mod event;
+mod evolve;
 mod ids;
+mod model;
 mod names;
+mod rejection;
 mod time;
 mod values;
 
 pub use crate::time::Timestamp;
+pub use command::{AuditEvent, Command, NewService, ServiceChanges, SpecChange};
 pub use ctx::Ctx;
+pub use decide::{
+    decide, impacted_services, resolve_revision_variables, resolve_secrets, secret_references,
+};
+pub use event::{Event, EventEnvelope, GENESIS_PREV_HASH, RevisionPlan, SCHEMA_VERSION};
+pub use evolve::evolve;
 pub use ids::{
     AdminId, BlobId, ChangeId, DeploymentId, EnvironmentId, MachineId, ProjectId, RevisionId,
     ServiceId, VariableId,
+};
+pub use model::{
+    DEFAULT_CPU_MILLIS, DEFAULT_MEMORY_MB, DeployReason, Deployment, DeploymentPhase, Environment,
+    FailureReason, Level, PlainKind, Project, ResolvedSecret, Revision, RevisionSpec,
+    RevisionValue, RevisionVariable, SecretSource, Service, ServiceSpec, ServiceVariable,
+    ServiceVariableValue, SharedValue, SharedVariable, VariableOwner, VariableRef, World,
 };
 pub use names::{
     ContainerPath, HttpPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug,
     StartCommand, VarName,
 };
+pub use rejection::{Rejection, RejectionKind};
 pub use values::{CpuMillis, MAX_VALUE_BYTES, MemoryMb, PlainValue, Port, SecretValue};
