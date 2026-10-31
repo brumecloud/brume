@@ -55,5 +55,7 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 # Tests.
 proptest = "1.12.0"
 rand_chacha = "0.10.0"
+# Plain HTTP to 127.0.0.1 only: no TLS backend.
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "stream"] }
 tempfile = "3.27.0"
 tower = { version = "0.5.3", features = ["util"] }

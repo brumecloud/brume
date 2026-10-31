@@ -20,7 +20,11 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
+# For the end-to-end test. Only brume-agent depends on bollard outside tests.
 [dev-dependencies]
+bollard.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
 tempfile.workspace = true
 
 [lints]

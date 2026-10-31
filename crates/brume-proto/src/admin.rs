@@ -9,8 +9,8 @@ pub enum AdminRequest {
     CreateLoginLink,
 }
 
-/// The engine's answer to an `AdminRequest`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// The engine's answer to an `AdminRequest`. Its `Debug` masks the token.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AdminReply {
     /// The link's token, to put in the panel's `/login#token=` URL.
     LoginLink {

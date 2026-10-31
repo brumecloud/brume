@@ -16,6 +16,7 @@ brume-runtime.workspace = true
 futures-util.workspace = true
 secrecy.workspace = true
 serde_json.workspace = true
+time.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 

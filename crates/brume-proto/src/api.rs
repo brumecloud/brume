@@ -8,8 +8,8 @@
 use serde::{Deserialize, Serialize};
 
 /// A call from `brume api` to the engine. On a multiplexed connection, `id` pairs it with its
-/// `ApiReply`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// `ApiReply`. Its `Debug` masks the session token.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct ApiRequest {
     /// Increases with each request on the connection.
     pub id: u64,
@@ -53,8 +53,9 @@ pub enum FailureKind {
 }
 
 /// One call per route of the HTTP contract. Path and query parameters become fields, and a JSON
-/// body that has a DTO is embedded as is. Each variant names the `ApiValue` it gets.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// body that has a DTO is embedded as is. Each variant names the `ApiValue` it gets. Its `Debug`
+/// masks the login token and the values of variables.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum ApiCall {
     /// `POST /api/session`: consumes a login link and opens a session. Answer: `Session`.
     Login {
@@ -171,8 +172,10 @@ pub enum ApiCall {
         /// The environment.
         environment_id: String,
     },
-    /// `GET /api/environments/:id/logs`, the SSE stream. The engine checks the session, then
-    /// relays `telemetry::LogStreamFrame`s from telemetry on this connection.
+    /// `GET /api/environments/:id/logs`, the SSE stream, on a connection of its own. The engine
+    /// always answers first with one `ApiReply`. After `LogStreamOpened`, it relays
+    /// `telemetry::LogStreamFrame`s from telemetry on the connection until `End` or until either
+    /// side closes. After a failure, nothing follows.
     OpenLogStream {
         /// The environment.
         environment_id: String,
@@ -191,8 +194,9 @@ pub enum ApiCall {
     },
 }
 
-/// A successful answer: one variant per response shape of the HTTP contract.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// A successful answer: one variant per response shape of the HTTP contract. Its `Debug` masks
+/// the session token and revealed values.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum ApiValue {
     /// No body: `204 No Content`.
     NoContent,
@@ -245,6 +249,9 @@ pub enum ApiValue {
     ChangesDeployed(ChangesDeployedDto),
     /// `ListEvents`.
     Events(EventsPageDto),
+    /// `OpenLogStream`: the session is valid, and `telemetry::LogStreamFrame`s follow on this
+    /// connection.
+    LogStreamOpened,
 }
 
 /// `GET /api/session`.
@@ -616,8 +623,9 @@ pub enum StagedChangeDto {
     },
 }
 
-/// `NewChange`: what the panel stages. The engine finds the environment and assigns the id.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// `NewChange`: what the panel stages. The engine finds the environment and assigns the id. Its
+/// `Debug` masks the value of a variable.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "type",
     rename_all = "kebab-case",
@@ -647,8 +655,8 @@ pub enum NewChangeDto {
 }
 
 /// The body of `POST /api/variables`: a shared variable or secret, at the project or
-/// environment level.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// environment level. Its `Debug` masks the value.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "NewSharedVariable"))]
 pub struct NewSharedVariableDto {
@@ -704,7 +712,8 @@ pub struct VariableImpactDto {
 }
 
 /// The answer of `POST /api/variables/:id/reveal`, the only one that carries a secret value.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// Its `Debug` masks the value.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "RevealedValue"))]
 pub struct RevealedValueDto {
@@ -759,12 +768,14 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        ActivityEventDto, ApiFailure, ApiReply, ApiValue, CommitDto, DeploymentDto,
-        DeploymentStatusDto, EventsPageDto, FailureKind, ImpactedServiceDto, LogLevel, LogLineDto,
-        NewChangeDto, NewProjectSourceDto, NewSharedVariableDto, RevisionDto, RevisionVariableDto,
-        ServiceDto, ServiceKindDto, ServiceSettingsDto, ServiceSourceDto, ServiceStatusDto,
-        SettingField, SettingValueDto, SharedVariableSetDto, StagedChangeDto, VariableDto,
-        VariableImpactDto, VariableKindDto, VariableLevelDto, VolumeDto,
+        ActivityEventDto, ApiFailure, ApiReply, ApiValue, ChangesDeployedDto, CommitDto,
+        CreatedProjectDto, DatabaseKindDto, DeploymentDto, DeploymentStatusDto, EnvironmentDto,
+        EventsPageDto, FailureKind, ImpactedServiceDto, LogLevel, LogLineDto, NewChangeDto,
+        NewProjectSourceDto, NewSharedVariableDto, ProjectDto, RevealedValueDto, RevisionDto,
+        RevisionVariableDto, ServiceDto, ServiceKindDto, ServiceSettingsDto, ServiceSourceDto,
+        ServiceStatusDto, SessionDto, SettingField, SettingValueDto, SharedVariableSetDto,
+        StagedChangeDto, VariableDto, VariableImpactDto, VariableKindDto, VariableLevelDto,
+        VolumeDto,
     };
 
     fn to_json<T: serde::Serialize>(value: &T) -> serde_json::Value {
@@ -794,6 +805,60 @@ mod tests {
             image: Some("nginx:1.29".to_owned()),
             rollbackable: true,
         }
+    }
+
+    #[test]
+    fn project_and_environment_have_the_shape_of_types_ts() {
+        let project = ProjectDto {
+            id: "prj".to_owned(),
+            name: "Shop".to_owned(),
+            description: String::new(),
+            updated_at: "2026-10-31T12:34:56.789Z".to_owned(),
+        };
+        assert_eq!(
+            to_json(&project),
+            json!({
+                "id": "prj", "name": "Shop", "description": "",
+                "updatedAt": "2026-10-31T12:34:56.789Z",
+            })
+        );
+        let environment = EnvironmentDto {
+            id: "env".to_owned(),
+            project_id: "prj".to_owned(),
+            name: "production".to_owned(),
+        };
+        assert_eq!(
+            to_json(&environment),
+            json!({"id": "env", "projectId": "prj", "name": "production"})
+        );
+        let created = CreatedProjectDto {
+            project_id: "prj".to_owned(),
+            environment_name: "production".to_owned(),
+        };
+        assert_eq!(
+            to_json(&created),
+            json!({"projectId": "prj", "environmentName": "production"})
+        );
+    }
+
+    #[test]
+    fn small_answers_have_their_shapes() {
+        assert_eq!(
+            to_json(&SessionDto {
+                admin: "adm".to_owned()
+            }),
+            json!({"admin": "adm"})
+        );
+        assert_eq!(
+            to_json(&RevealedValueDto {
+                value: "s3cr3t".to_owned()
+            }),
+            json!({"value": "s3cr3t"})
+        );
+        assert_eq!(
+            to_json(&ChangesDeployedDto { deployed: 3 }),
+            json!({"deployed": 3})
+        );
     }
 
     #[test]
@@ -879,6 +944,14 @@ mod tests {
                 "port": 80, "healthcheckPath": "/", "cpuLimit": 0.25, "memoryLimitMb": 512,
                 "egress": false,
             })
+        );
+        let template = ServiceSourceDto::Template {
+            template: DatabaseKindDto::Postgres,
+            version: "18".to_owned(),
+        };
+        assert_eq!(
+            to_json(&template),
+            json!({"kind": "template", "template": "postgres", "version": "18"})
         );
         let github = ServiceSourceDto::Github {
             repository: "org/app".to_owned(),
@@ -1159,5 +1232,75 @@ mod tests {
             let json = serde_json::to_vec(&reply).expect("serializes");
             assert_eq!(serde_json::from_slice::<ApiReply>(&json).ok(), Some(reply));
         }
+    }
+}
+
+#[cfg(all(test, feature = "ts"))]
+mod ts_tests {
+    use ts_rs::{Config, TS};
+
+    use super::{
+        ActivityEventDto, CreatedProjectDto, DatabaseKindDto, DeploymentDto, DeploymentStatusDto,
+        EnvironmentDto, EventsPageDto, LogLevel, LogLineDto, LogStream, NewChangeDto,
+        NewProjectSourceDto, ProjectDto, RevisionDto, RevisionVariableDto, ServiceDto,
+        ServiceKindDto, ServiceSettingsDto, ServiceSourceDto, ServiceStatusDto, SettingField,
+        SettingValueDto, StagedChangeDto, VariableDto, VariableKindDto, VariableLevelDto,
+        VolumeDto,
+    };
+
+    #[test]
+    fn declarations_use_the_names_and_fields_of_types_ts() {
+        let cfg = Config::default();
+        for (decl, name) in [
+            (ProjectDto::decl(&cfg), "Project"),
+            (EnvironmentDto::decl(&cfg), "Environment"),
+            (ServiceKindDto::decl(&cfg), "ServiceKind"),
+            (DatabaseKindDto::decl(&cfg), "DatabaseKind"),
+            (ServiceStatusDto::decl(&cfg), "ServiceStatus"),
+            (VolumeDto::decl(&cfg), "Volume"),
+            (ServiceDto::decl(&cfg), "Service"),
+            (NewProjectSourceDto::decl(&cfg), "NewProjectSource"),
+            (CreatedProjectDto::decl(&cfg), "CreatedProject"),
+            (DeploymentStatusDto::decl(&cfg), "DeploymentStatus"),
+            (DeploymentDto::decl(&cfg), "Deployment"),
+            (VariableKindDto::decl(&cfg), "VariableKind"),
+            (VariableLevelDto::decl(&cfg), "VariableLevel"),
+            (VariableDto::decl(&cfg), "Variable"),
+            (ServiceSourceDto::decl(&cfg), "ServiceSource"),
+            (ServiceSettingsDto::decl(&cfg), "ServiceSettings"),
+            (LogLevel::decl(&cfg), "LogLevel"),
+            (LogLineDto::decl(&cfg), "LogLine"),
+            (LogStream::decl(&cfg), "DeploymentLogStream"),
+            (RevisionVariableDto::decl(&cfg), "RevisionVariable"),
+            (RevisionDto::decl(&cfg), "Revision"),
+            (SettingField::decl(&cfg), "SettingField"),
+            (SettingValueDto::decl(&cfg), "SettingValue"),
+            (StagedChangeDto::decl(&cfg), "StagedChange"),
+            (NewChangeDto::decl(&cfg), "NewChange"),
+        ] {
+            assert!(decl.starts_with(&format!("type {name} = ")), "{decl}");
+        }
+
+        let service = ServiceDto::decl(&cfg);
+        assert!(
+            service.contains("environmentId: EnvironmentId"),
+            "{service}"
+        );
+        assert!(
+            service.contains("dependencies: Array<ServiceId>"),
+            "{service}"
+        );
+        let change = StagedChangeDto::decl(&cfg);
+        assert!(
+            change.contains(r#"{ "type": "variable-removal", id: ChangeId"#),
+            "{change}"
+        );
+        let event = ActivityEventDto::decl(&cfg);
+        assert!(
+            event.contains("seq: number") && event.contains("type: string"),
+            "{event}"
+        );
+        let page = EventsPageDto::decl(&cfg);
+        assert!(page.contains("nextBefore: number | null"), "{page}");
     }
 }

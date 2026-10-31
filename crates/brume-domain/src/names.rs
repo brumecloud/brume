@@ -198,7 +198,7 @@ impl HttpPath {
 string_newtype!(HttpPath);
 
 /// An absolute path inside a container, where a volume mounts: at most 256 characters from
-/// `[A-Za-z0-9/_.-]`, without a `..` segment.
+/// `[A-Za-z0-9/_.-]`. Not `/` itself, and no segment is empty, `.` or `..`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ContainerPath(String);
 
@@ -206,15 +206,21 @@ impl ContainerPath {
     /// Checks the leading slash, the length, the characters and the segments.
     pub fn parse(raw: &str) -> Result<Self, ValidationError> {
         let is_allowed = |b: u8| b.is_ascii_alphanumeric() || b"/_.-".contains(&b);
-        if !raw.starts_with('/')
-            || raw.len() > 256
-            || !raw.bytes().all(is_allowed)
-            || raw.split('/').any(|segment| segment == "..")
-        {
+        let valid = match raw.strip_prefix('/') {
+            Some(relative) => {
+                raw.len() <= 256
+                    && raw.bytes().all(is_allowed)
+                    && relative
+                        .split('/')
+                        .all(|segment| !matches!(segment, "" | "." | ".."))
+            }
+            None => false,
+        };
+        if !valid {
             return Err(ValidationError::new(
                 "container path",
-                "must be an absolute path of at most 256 letters, digits, /, _, . or -, \
-                 without ..",
+                "must be an absolute path below / of at most 256 letters, digits, /, _, . or -, \
+                 without empty, . or .. segments",
             ));
         }
         Ok(Self(raw.to_owned()))
@@ -562,6 +568,26 @@ mod tests {
         ] {
             assert!(ContainerPath::parse(invalid).is_err(), "{invalid:?}");
         }
+    }
+
+    #[test]
+    fn container_path_is_never_the_root() {
+        assert!(ContainerPath::parse("/").is_err());
+    }
+
+    #[test]
+    fn container_path_has_no_empty_segment() {
+        for invalid in ["//", "//data", "/data//x", "/data/"] {
+            assert!(ContainerPath::parse(invalid).is_err(), "{invalid:?}");
+        }
+    }
+
+    #[test]
+    fn container_path_has_no_dot_segment() {
+        for invalid in ["/.", "/./data", "/data/.", "/data/./x"] {
+            assert!(ContainerPath::parse(invalid).is_err(), "{invalid:?}");
+        }
+        assert!(ContainerPath::parse("/.data/x.").is_ok());
     }
 
     #[test]

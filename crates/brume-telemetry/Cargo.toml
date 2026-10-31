@@ -9,9 +9,11 @@ publish.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+brume-domain.workspace = true
 brume-proto.workspace = true
 brume-runtime.workspace = true
 duckdb.workspace = true
+time.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 

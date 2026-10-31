@@ -20,6 +20,7 @@ tower-http.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+brume-proto = { workspace = true, features = ["ts"] }
 tempfile.workspace = true
 tower.workspace = true
 ts-rs.workspace = true
