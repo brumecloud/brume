@@ -90,5 +90,6 @@ describe("serviceNameError", () => {
 
   it("refuses control characters", () => {
     expect(serviceNameError("cache\n")).toBe("No control characters.");
+    expect(serviceNameError("cache\u0085")).toBe("No control characters.");
   });
 });

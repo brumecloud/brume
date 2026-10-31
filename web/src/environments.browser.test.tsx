@@ -44,8 +44,11 @@ describe("new service", () => {
     await screen.getByRole("button", { name: "Add service" }).click();
 
     await expect.element(screen.getByRole("heading", { name: "redis" })).toBeVisible();
-    await expect.element(screen.getByText("redis", { exact: true }).first()).toBeVisible();
     await expect.element(screen.getByText("Active")).toBeVisible();
+    await screen.getByLabelText("Close panel").click();
+
+    // Without the panel, only the card on the canvas carries the name.
+    await expect.element(screen.getByText("redis", { exact: true })).toBeVisible();
   });
 
   it("adds a service to an empty environment", async () => {

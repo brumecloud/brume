@@ -46,7 +46,7 @@ export function parseServiceId(raw: string): ServiceId | undefined {
 
 const MAX_SERVICE_NAME_LENGTH = 64;
 // oxlint-disable-next-line no-control-regex -- the server refuses control characters in a name
-const CONTROL = /[\u0000-\u001f\u007f]/;
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 
 // The server's `ServiceName` rules. An empty name is fine: the server takes the image's.
 export function serviceNameError(name: string): string | null {
