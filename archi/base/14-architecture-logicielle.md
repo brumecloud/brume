@@ -13,7 +13,7 @@ Comment le code de Brume est organisé : les processus et leurs responsabilités
 ## Vue d'ensemble
 
 ```
-Internet ─► Cloudflare ─► cloudflared ─► Traefik ─┬─► apps, nginx
+Internet ─► Cloudflare ─► cloudflared ─► Traefik ─┬─► apps, Caddy
                                                   └─► brume webhook ──┐
                                                                       │ webhook.sock
 Tailnet ──► tailscale serve ──► brume api ────────────────────────────┤ api.sock
@@ -35,10 +35,11 @@ Le schéma montre les modes recommandés, voir [L'entrée et l'administration](#
 - **Décide chaque commande, une à la fois.** Les invariants qui touchent plusieurs entités se vérifient donc sur l'état complet, sans course : slug unique dans un environnement, un nom est soit une variable soit un secret à tous les niveaux, refus de supprimer un secret encore référencé.
 - **Propriétaire des sessions et du second facteur,** comme avant : voir [04-panel-admin.md](04-panel-admin.md#session).
 - **Pilote les opérations longues** (builds, déploiements, backups, rollbacks) et leurs délais.
-- **Détient** la clé maître, la clé privée de la GitHub App et les credentials S3 de l'état.
+- **Détient** la clé maître, la clé privée de la GitHub App, les credentials S3 de l'état et le token Cloudflare en lecture seule.
 - **Envoie le log sur S3** en arrière-plan : voir [15-etat-et-restauration.md](15-etat-et-restauration.md#lenvoi).
 - **Alerte** à partir des faits que lui remontent les agents.
-- **Écoute** sur `api.sock`, `webhook.sock`, `agent.sock` et `admin.sock` (la CLI de secours, root seulement). En sortie : S3, GitHub et les canaux de notification.
+- **Cherche les mises à jour** dans `brume.dev/latest.json` et lance l'updater : voir [08-hote-et-installation.md](08-hote-et-installation.md#mises-à-jour).
+- **Écoute** sur `api.sock`, `webhook.sock`, `agent.sock` et `admin.sock` (la CLI de secours, root seulement). En sortie : S3, GitHub, l'API Cloudflare en lecture seule, brume.dev et les canaux de notification.
 - **N'a pas le socket Docker.** Compromis, il donne les apps, leurs secrets et leurs données, dans les limites que l'agent applique. Il ne donne pas root sur l'hôte sans une faille du noyau ou de runc.
 - **Risque accepté : le builder raccourcit ce chemin.** Un engine compromis peut faire construire n'importe quel repo, et le builder tourne avec un sandbox affaibli ([06-builds-et-deploiement.md](06-builds-et-deploiement.md#le-builder)). Avec une faille du noyau ou de runc, ça mène à root. C'est la même famille que le risque déjà accepté sur l'accès en écriture à une branche déployée ([01-modele-de-menace.md](01-modele-de-menace.md#risques-acceptés-en-01)). Le builder jetable sous gVisor le fermera ([12-plus-tard.md](12-plus-tard.md)).
 
@@ -71,7 +72,7 @@ Cloudflare Tunnel et Tailscale sont recommandés, mais plus obligatoires.
 - **L'admin choisit à l'install, sur l'hôte,** comme les autres options dangereuses (principe 6 du [README](README.md#principes)). Un changement de mode se fait aussi sur l'hôte, en root, et déclenche une alerte. Une restauration redemande les modes, comme l'install.
 - **Le panel signale en permanence qu'un mode non recommandé est actif.**
 - **Pour le code, ce sont des adaptateurs.** L'état voulu de l'agent dit quelle entrée faire tourner : cloudflared, ou Traefik avec ses ports publiés. Le mode d'administration ne change que l'adresse où écoute `brume api`. Le reste de Brume ne dépend pas des modes.
-- **Sans Cloudflare,** Traefik réserve le chemin du webhook aux plages d'IP de GitHub, à la place de la règle WAF. L'IP du serveur devient publique, et la protection contre le DDoS n'est plus déléguée.
+- **Sans Cloudflare,** l'IP du serveur devient publique, et la protection contre le DDoS n'est plus déléguée. Traefik réserve le chemin du webhook aux IP de GitHub dans les deux modes.
 - **Sans Tailscale :**
   - la connexion au panel passe par un mot de passe et une passkey, vérifiés par l'engine, sans identité Tailscale ;
   - SSH reste ouvert sur le port 22, par clé uniquement ;
@@ -222,7 +223,7 @@ Chaque événement porte :
 - **L'engine ne croit pas l'agent sur parole.** Il vérifie que l'agent ne parle que des ressources de sa propre machine. La machine est identifiée par la connexion, jamais par le message : `SO_PEERCRED` en 0.1, l'identité Tailscale plus tard.
 - **Les secrets voyagent dans les types de `secrecy`,** et ne sont jamais journalisés.
 - **Si l'engine tombe,** l'agent continue d'appliquer le dernier état voulu reçu, redémarrages compris, sans rien changer d'autre. **Si l'agent tombe,** l'engine accepte toujours les commandes, qui s'appliqueront à son retour.
-- **Au boot, en 0.1, l'agent attend l'engine** avant de démarrer les containers. Garder l'état voulu sur la machine, pour démarrer sans le master, viendra avec le multi-machines.
+- **Au boot, en 0.1, l'agent attend l'engine** avant de démarrer les containers. Garder l'état voulu sur la machine, pour démarrer sans l'engine, viendra plus tard : voir [12-plus-tard.md](12-plus-tard.md).
 - **Versions :** sur un seul VPS, l'engine et l'agent viennent du même binaire. Avec plusieurs machines, le protocole devra accepter la version N et la version N-1 pendant une mise à jour.
 
 ## Les crates

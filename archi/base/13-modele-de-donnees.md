@@ -17,7 +17,7 @@ Projet                              variables et secrets communs
 
 - **Projet :** les environnements d'une même app (prod, staging), et les variables et secrets communs à tous.
 - **Environnement :** un réseau interne et un réseau `egress` à lui, voir [03-reseau.md](03-reseau.md), et les valeurs propres à cet environnement. Deux environnements ne se joignent pas, même dans le même projet.
-- **Service :** un container ou un site statique. Le type est fixé à la création et décide de ce que le service peut faire : un site statique est servi par le nginx partagé, hors du réseau de l'environnement, et n'a aucun secret à l'exécution.
+- **Service :** un container ou un site statique. Le type est fixé à la création et décide de ce que le service peut faire : un site statique est servi par le Caddy partagé, hors du réseau de l'environnement, et n'a aucun secret à l'exécution.
 - **Le slug d'un service est immuable.** C'est son nom DNS sur le réseau de l'environnement : le renommer casserait les services qui l'appellent. Le nom affiché reste libre. L'engine valide le slug comme un label DNS (`[a-z0-9-]`, 63 caractères au plus).
 
 ## Révisions
@@ -64,7 +64,7 @@ Projet                              variables et secrets communs
 - **Variables et secrets se définissent sur le projet, l'environnement ou le service.** Le niveau le plus précis gagne : service, puis environnement, puis projet.
 - **L'environnement porte les valeurs qui diffèrent entre prod et staging** (URL publique de l'app, clés d'API de test). Le projet garde ce qui est vraiment identique partout.
 - **Un secret de projet atteint aussi le staging,** construit depuis des branches moins relues. Le panel le rappelle à la création d'un secret de projet, et propose de le définir par environnement.
-- **Les variables simples partagées sont héritées par tous les services, sauf les bases créées depuis un template.** Une base n'accepte que ses réglages typés, voir [templates.md](templates.md#principe). Un site statique reçoit les variables de build partagées : elles alimentent son build, pas le container nginx.
+- **Les variables simples partagées sont héritées par tous les services, sauf les bases créées depuis un template.** Une base n'accepte que ses réglages typés, voir [templates.md](templates.md#principe). Un site statique reçoit les variables de build partagées : elles alimentent son build, pas le container Caddy.
 - **Les secrets partagés ne vont qu'aux services qui les référencent.** Une image tierce (un Redis, un outil d'admin) ne reçoit pas la clé Stripe juste parce qu'elle est dans le projet. Le service déclare le nom du secret, et la valeur est cherchée sur le service, puis l'environnement, puis le projet.
 - **Un nom est soit une variable, soit un secret, à tous les niveaux.** Sinon une variable simple de service pourrait remplacer un secret partagé, et sa valeur partirait en clair dans l'historique des révisions.
 - **La révision note d'où vient chaque valeur** (projet, environnement ou service), pour l'affichage et l'audit. Elle garde la valeur résolue : un rollback restaure une variable partagée telle qu'elle était, même si elle a changé depuis.
@@ -86,8 +86,8 @@ Projet                              variables et secrets communs
 
 ## Rétention et purge
 
-- **Immuable ne veut pas dire éternel.** Les images construites n'existent que dans le dockerd local, et le disque du VPS est limité.
-- **dockerd garde les artefacts des 10 dernières révisions de chaque service.** Au-delà, l'artefact n'est plus que sur S3 : un rollback le télécharge d'abord. Si une règle d'expiration l'a supprimé de S3, la révision reste dans l'historique mais n'est plus rollbackable, et le panel l'affiche. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#les-credentials).
+- **Immuable ne veut pas dire éternel.** Les images construites vivent dans le dockerd local et, chiffrées, sur S3. Le disque du VPS, lui, est limité.
+- **dockerd garde les artefacts des 10 dernières révisions de chaque service.** Au-delà, l'artefact n'est plus que sur S3 : un rollback le télécharge d'abord. Une image tirée d'un registry est retéléchargée depuis ce registry, par son digest. Si le registry l'a supprimée ou s'il est injoignable, le rollback échoue, et la révision en service continue de tourner. Si une règle d'expiration l'a supprimé de S3, la révision reste dans l'historique mais n'est plus rollbackable, et le panel l'affiche. Voir [15-etat-et-restauration.md](15-etat-et-restauration.md#les-credentials).
 - **L'agent ne supprime de dockerd que les artefacts que l'engine ne retient plus,** jamais de `docker image prune` à l'aveugle. Si un artefact retenu disparaît quand même (un `docker image prune -a` lancé à la main), l'agent le recharge depuis S3. S'il manque aussi sur S3, l'engine marque la révision non rollbackable et alerte.
 - **Une révision peut être purgée définitivement :** son artefact et les valeurs de ses variables sont effacés, la ligne reste dans l'historique. Pour un secret fuité dans un bundle statique, ou une valeur sensible saisie par erreur en variable simple.
 - **Une purge n'atteint rien de ce qui est sur S3 :** ni les backups, ni les blobs, ni l'artefact. Brume ne peut rien supprimer sur S3, voir [07-secrets-et-backups.md](07-secrets-et-backups.md#le-stockage). Ce qui y reste est chiffré. Un secret fuité se révoque chez son émetteur, il ne s'efface pas.

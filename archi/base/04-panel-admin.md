@@ -29,7 +29,7 @@ Deux facteurs indépendants.
 
 ### 2. Un second facteur à la connexion
 
-À trancher : **mot de passe ou passkey.**
+**Une passkey** (WebAuthn, crate `webauthn-rs`), décidé le 31 octobre. La comparaison qui a tranché :
 
 | | Passkey (WebAuthn, crate `webauthn-rs`) | Mot de passe |
 |---|---|---|
@@ -37,8 +37,6 @@ Deux facteurs indépendants.
 | UX | Touch ID, Face ID | À taper |
 | Côté serveur | Clé publique, rien de secret | Hash argon2id, limite de tentatives |
 | Limite | Liée au nom `brume.xxx.ts.net` : à ré-enrôler si la machine ou le tailnet change de nom | Réutilisation de mots de passe |
-
-**Recommandation : passkey.**
 
 - **Vérifié par l'engine, pas par l'API.** L'engine stocke les identifiants, génère le challenge, vérifie la réponse et émet la session.
 - **Premier accès :** `brume install` affiche une URL d'enrôlement à usage unique, valable 15 minutes. Elle porte un jeton affiché seulement dans le terminal de l'install : en administration publique, cette URL est joignable depuis Internet.
@@ -77,6 +75,7 @@ Une faille XSS dans le panel donne ses actions pendant la session de l'admin : t
 
 - **L'API ne renvoie jamais la valeur d'un secret,** sauf sur une action « révéler » explicite.
 - **« Révéler » passe par la session vérifiée par l'engine,** comme toutes les actions, et est journalisé.
+- **Les actions sensibles redemandent la passkey,** même pendant une session ouverte : révéler un secret, supprimer un projet, un environnement, un service ou une base, rouvrir l'egress d'un service, ajouter une identité à l'allowlist. L'engine exige une vérification récente de la passkey, dont il fixe la durée. Une XSS ou une session volée ne peut donc pas tout révéler ni tout supprimer en une boucle.
 
 ## Journal d'audit
 
@@ -87,7 +86,7 @@ Chaque action est un événement du log, avec l'identifiant de l'admin. Son iden
 Deux modes, choisis à l'install sur l'hôte : le tunnel SSH et l'administration publique. Voir [03-reseau.md](03-reseau.md#administration-sans-tailscale) pour le réseau.
 
 - **Le premier facteur devient un mot de passe :** hash argon2id, limite de tentatives, vérifié par l'engine. Il n'y a plus d'identité Tailscale ni d'allowlist : le compte de l'admin est créé à l'install.
-- **Le second facteur est une passkey,** quelle que soit la décision ouverte sur le mode Tailscale. Un mot de passe plus un mot de passe ne font pas deux facteurs.
+- **Le second facteur est une passkey,** comme en mode Tailscale. Un mot de passe plus un mot de passe ne font pas deux facteurs.
 - **La session n'est liée qu'à son cookie.** Tout le reste s'applique : Fetch Metadata, `Origin`, header custom, CSP, Trusted Types.
 - **Tunnel SSH :** le panel est servi sur `http://localhost`. Les navigateurs récents y acceptent les cookies `Secure` et les passkeys, à vérifier sur chacun.
 - **Public :** le panel a son propre domaine, et `Host` est vérifié contre ce domaine. Traefik et l'engine limitent les tentatives de connexion. N'importe qui sur Internet peut atteindre la page de connexion et l'API : le second facteur et la vérification des sessions par l'engine sont la seule barrière.

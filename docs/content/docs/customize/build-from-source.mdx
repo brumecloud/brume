@@ -10,6 +10,9 @@ sources:
   - archi/base/08-hote-et-installation.md
   - archi/base/10-developpement.md
   - archi/base/front-architecture.md
+  - archi/base/14-architecture-logicielle.md
+  - archi/base/16-tests.md
+  - archi/base/README.md
 ---
 
 Brume ships as one signed binary, `brume`, with the React panel compiled and embedded in it. To build it yourself, you build the panel first, then compile the Rust code, which embeds the panel. If you want your servers to accept your builds as updates, you also sign them with your own minisign key.
@@ -22,7 +25,7 @@ Brume ships as one signed binary, `brume`, with the React panel compiled and emb
 
 - **Stable Rust.** Brume builds on the stable toolchain, and the code uses no unstable feature.
 - **Nightly Rust, for formatting only.** Three options in `rustfmt.toml` are unstable, so formatting runs with `cargo +nightly fmt`.
-- **pnpm,** at the version pinned by `packageManager` in `package.json`. pnpm's trust policy checks that version too.
+- **pnpm 12,** pinned by `packageManager` in `web/package.json`. pnpm's trust policy checks that version too. Corepack cannot run pnpm 12 yet: use `npx pnpm@<version>` until it can.
 - **`cargo deny` and `cargo audit`,** to run the dependency checks of CI.
 - **Chromium, through Playwright,** for the panel's browser tests.
 - **minisign,** to sign your builds.
@@ -35,11 +38,13 @@ Brume ships as one signed binary, `brume`, with the React panel compiled and emb
 
 ### Install the panel's dependencies
 
+The pnpm workspace lives in `web/`, not at the repository root, which stays for the Rust code. In `web/`, run:
+
 ```bash
 pnpm install --frozen-lockfile
 ```
 
-The panel's code runs with the admin's rights: a compromised npm package gets every action of the panel. So `pnpm-workspace.yaml` makes the install strict:
+The panel's code runs with the admin's rights: a compromised npm package gets every action of the panel. So `web/pnpm-workspace.yaml` makes the install strict:
 
 - **A 7-day delay before a new version installs** (`minimumReleaseAge: 10080`). pnpm's default is one day and not strict: without a version old enough, it installs a recent one.
 - **No drop in trust** (`trustPolicy: no-downgrade`). The install fails if a version has less evidence of trust, such as a trusted publisher or provenance, than the versions before it.
@@ -61,7 +66,7 @@ Vite+ writes the panel to `web/dist`. The build fails if two chunks import each 
 
 The server never runs npm. The panel reaches it only inside the signed binary.
 
-Two open decisions may change this step: which React Compiler implementation to use, and whether the API's TypeScript types are generated from the Rust types or from an OpenAPI schema. See [Frontend](/docs/customize/frontend).
+The API's TypeScript types, in `src/api/`, are generated from the Rust types, with `ts-rs` or `specta`, whichever the implementation picks. See [Panel frontend](/docs/customize/frontend#open-decisions).
 
 </Step>
 
@@ -69,9 +74,9 @@ Two open decisions may change this step: which React Compiler implementation to 
 
 ### Compile the binary
 
-Compile the Rust code with the stable toolchain. The binary embeds the panel from `web/dist`, and `brume api` serves it with the API, on the same origin.
+Compile the Rust code with the stable toolchain. The binary embeds the panel from `web/dist`, and `brume api` serves it with the API, on the same origin. Brume runs on amd64 and arm64, and each official release ships one binary per architecture.
 
-This one binary runs every part of Brume. `brume engine`, `brume api`, `brume webhook` and `brume logs` each run as their own systemd service, with their own system user, so a flaw in one does not give the rights of the others. `brume updater` runs only during an update. See [Architecture](/docs/how-it-works/architecture).
+This one binary runs every part of Brume, with one subcommand per service. `brume engine`, `brume agent`, `brume api`, `brume webhook` and `brume telemetry` each run as their own systemd service, with their own system user, so a flaw in one does not give the rights of the others. `brume updater` runs only during an update, started by the engine. See [Architecture](/docs/how-it-works/architecture).
 
 </Step>
 
@@ -79,13 +84,16 @@ This one binary runs every part of Brume. `brume engine`, `brume api`, `brume we
 
 ### Sign your build
 
-Brume signs its official releases with minisign. The private key stays offline, and the public key is embedded in the binary. Because the key is offline, a compromised GitHub account cannot sign an update. The binaries and `install.sh` are published on GitHub Releases, from an account protected by a physical 2FA key.
+Brume signs its official releases with minisign. The private keys stay offline, and two public keys are embedded in the binary: the signing key, and a backup key kept offline in another place. If the signing key is lost or stolen, a release signed with the backup key replaces it. Because the keys are offline, a compromised GitHub account cannot sign an update. The binaries and `install.sh` are published on GitHub Releases, from an account protected by a physical 2FA key.
+
+Each official release also has a signed manifest: the version of the manifest's format, the release's version, whether it compacts the event log, and the hash and GitHub Releases address of the binary. The manifest of the latest release is published as `latest.json` on brume.dev, with an expiry date, and is signed again regularly even without a release.
 
 To sign your own builds, follow the same scheme:
 
-- **Keep your private key offline,** for the same reason.
-- **Embed your public key in the binary.** The updater checks every update against the key embedded in the binary already installed.
+- **Keep your private keys offline,** for the same reason.
+- **Embed your public keys in the binary,** a signing key and a backup key, from your first build. The updater checks every update against the keys embedded in the binary already installed, so a key added later would not protect the servers still running earlier versions.
 - **Sign a release manifest that carries the version.** Put the version in the signed content, never in minisign's untrusted comment, which is not authenticated.
+- **Say in the manifest when a release compacts the log.** The updater installs such a release before any later one: an installation left on the old log generation could no longer read its log.
 
 </Step>
 
@@ -100,7 +108,9 @@ cargo +nightly fmt --check
 cargo clippy -- -D warnings
 ```
 
-CI also runs `cargo deny` and `cargo audit` on the dependencies. For the panel, after `pnpm install --frozen-lockfile`:
+CI also runs `cargo deny` and `cargo audit` on the dependencies, and `cargo deny` checks the crate graph too. On every PR, CI runs the deterministic simulation and the conformance tests. A failing simulation prints its seed, and `BRUME_SEED=0x… cargo test -p brume-sim` replays it exactly. See [Development rules](/docs/customize/development#tests).
+
+For the panel, in `web/`, after `pnpm install --frozen-lockfile`:
 
 ```bash
 vp fmt --check
@@ -120,11 +130,11 @@ If you run your own CI on GitHub Actions, pin each action by SHA: the tj-actions
 
 ## What your own key changes
 
-The updater accepts only binaries signed with the key embedded in the binary already installed. So the key your build carries decides which updates a server accepts:
+The updater accepts only binaries signed with one of the two keys embedded in the binary already installed. So the keys your build carries decide which updates a server accepts:
 
-- **A build with your key** accepts only binaries signed with your key. Brume's official releases fail the check, so you sign every update yourself.
-- **A build with Brume's key** accepts Brume's official releases as updates.
+- **A build with your keys** accepts only binaries signed with your keys. Brume's official releases fail the check, so you sign every update yourself.
+- **A build with Brume's keys** accepts Brume's official releases as updates.
 - **No going back.** The updater refuses any version lower than or equal to the installed one, so each of your releases needs a higher version in its signed manifest. An old vulnerable version stays signed forever: without this check, an attacker could reinstall it.
 - **The official `install.sh` installs Brume's releases.** It downloads Brume's binaries from GitHub Releases and checks their signature before running `brume install`.
 
-The design proposes that you can turn off update checks. This is still to be confirmed. See [Host and installation](/docs/how-it-works/host-and-installation).
+By default, Brume updates itself: the engine reads `https://brume.dev/latest.json`, checks its signature before parsing it, and starts the updater when a newer version exists. The updater does not trust the engine and runs every check again. You can turn the check off on the host, as root: Brume updates then become manual. Some details of automatic updates are still open, such as the time of day they install and a local return to the previous binary if the new one fails to start. See [Host and installation](/docs/how-it-works/host-and-installation) and the [open decisions](/docs/how-it-works/roadmap#open-decisions).

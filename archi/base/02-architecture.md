@@ -3,7 +3,7 @@
 ## Vue d'ensemble
 
 ```
-Internet ─► Cloudflare ─► cloudflared ─► Traefik ─┬─► apps, nginx
+Internet ─► Cloudflare ─► cloudflared ─► Traefik ─┬─► apps, Caddy
                                                   └─► brume webhook ──┐
                                                                       │ webhook.sock
 Tailnet ──► tailscale serve ──► brume api ────────────────────────────┤ api.sock
@@ -25,16 +25,16 @@ Le schéma montre les modes recommandés : Cloudflare Tunnel pour le trafic publ
 
 | Composant | Rôle | Ce qu'il détient | S'il est compromis |
 |---|---|---|---|
-| `brume engine` | Seul propriétaire de l'état. Décide chaque commande, vérifie les sessions, déchiffre les secrets, envoie l'état sur S3. | clé maître, état (SQLite), clé de la GitHub App, credentials S3 | Les apps, leurs secrets et leurs données, dans les limites de `policy.toml`. Pas root sur l'hôte sans une faille du noyau ou de runc. |
+| `brume engine` | Seul propriétaire de l'état. Décide chaque commande, vérifie les sessions, déchiffre les secrets, envoie l'état sur S3, cherche les mises à jour. | clé maître, état (SQLite), clé de la GitHub App, credentials S3, token Cloudflare en lecture seule | Les apps, leurs secrets et leurs données, dans les limites de `policy.toml`. Pas root sur l'hôte sans une faille du noyau ou de runc. |
 | `brume agent` | Pilote Docker sur sa machine : applique l'état voulu et la politique, lance les builds et les backups. | socket Docker, credentials S3 | Tout, sur sa machine. Avec l'updater, c'est le seul composant de Brume dans ce cas, d'où un code minimal. |
 | `brume api` | Sert le panel et son API. | un socket vers l'engine | Rien sans session ouverte par l'admin : l'engine vérifie chaque session. Pendant une session, les actions du panel, sans les options dangereuses. |
 | `brume webhook` | Reçoit les webhooks GitHub. | le secret HMAC, un socket vers l'engine | Mettre en file le build d'un repo déjà configuré. |
 | `brume telemetry` | Reçoit les logs des apps et la télémétrie de Brume, les stocke et les interroge (DuckDB). | les logs, la télémétrie | Lire les logs et la télémétrie. Ni réseau, ni secrets, ni Docker. |
 | `brume updater` | Installe les mises à jour de Brume. | le droit d'écrire les binaires | Équivaut à root, mais ne tourne que le temps d'une mise à jour et n'accepte que des binaires signés. |
 | BuildKit rootless | Construit les images. | un accès Internet sortant, le token GitHub et les secrets du build | Le build en cours, ses secrets, le token GitHub et le cache de son environnement. Son sandbox est affaibli, car il n'exécute que du code de confiance : voir [06-builds-et-deploiement.md](06-builds-et-deploiement.md#le-builder). |
-| cloudflared | Connecteur du tunnel. | le token du tunnel | Lire et modifier le trafic public. Ne joint que Traefik et le webhook. |
+| cloudflared | Connecteur du tunnel. | le secret du tunnel | Lire et modifier le trafic public. Ne joint que Traefik et le webhook. |
 | Traefik | Routage HTTP. | sa config, en lecture seule | Lire et modifier le trafic public, joindre les services exposés. Pas les bases. |
-| nginx | Sert les sites statiques. | les fichiers, en lecture seule | Servir du contenu modifié jusqu'au redémarrage. |
+| Caddy | Sert les sites statiques. | les fichiers, en lecture seule | Servir du contenu modifié jusqu'au redémarrage. |
 | une app | Le code de l'utilisateur. | son réseau d'environnement, ses secrets | Son environnement, rien d'autre. |
 
 ## L'engine
@@ -86,7 +86,7 @@ Tous les services ont un utilisateur dédié, `NoNewPrivileges=yes`, `ProtectSys
 
 | Service | Réseau autorisé |
 |---|---|
-| `brume engine` | sockets unix, sortant vers S3, GitHub et les canaux de notification |
+| `brume engine` | sockets unix, sortant vers S3, GitHub, l'API Cloudflare (lecture seule), brume.dev et les canaux de notification |
 | `brume agent` | sockets unix (engine, Docker, tailscaled), sortant vers S3 |
 | `brume api` | localhost uniquement (`IPAddressDeny=any`, `IPAddressAllow=localhost`), ou le réseau ingress en administration publique |
 | `brume webhook` | le réseau ingress uniquement |
@@ -101,5 +101,6 @@ Le durcissement de l'agent compte peu : avec le socket Docker, il peut tout fair
 ## Les binaires et les mises à jour
 
 - **Les binaires appartiennent à root,** et `ProtectSystem=strict` empêche les services de les modifier.
-- **Un updater dédié** vérifie la signature minisign, remplace le binaire et redémarre les services.
+- **L'engine cherche les mises à jour** dans `brume.dev/latest.json`, un manifeste signé qu'il vérifie avant de le lire, puis lance l'updater. Voir [08-hote-et-installation.md](08-hote-et-installation.md#mises-à-jour).
+- **Un updater dédié** refait toutes les vérifications sans croire l'engine (signature minisign, version, empreinte du binaire), remplace le binaire et redémarre les services.
 - **Conséquence :** un service compromis (hors agent) ne peut pas s'installer durablement en remplaçant son binaire.

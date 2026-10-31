@@ -181,7 +181,7 @@ Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
 - **`src/mocks/` :** un jeu de données (`seed.ts`) et des handlers qui répondent comme l'API, avec une latence. Ils rejettent une requête sans `X-Brume`, comme le vrai serveur. Une route `/api` sans mock répond 501.
 - **Hors du build :** le plugin `msw/vite` ne sert le service worker qu'en dev, et `main.tsx` ne charge les mocks que sous `import.meta.env.DEV`. Le build de production ne contient ni le worker ni les handlers.
 - **Les tests navigateur utilisent les mêmes handlers.**
-- **Les handlers sont le contrat de l'API** en attendant les types partagés avec Rust : voir les décisions ouvertes.
+- **Les handlers sont le contrat de l'API** en attendant les types générés depuis Rust : voir les [décisions](#décisions-ouvertes).
 
 ## Canvas
 
@@ -383,8 +383,7 @@ allowBuilds: {}
 
 ## Décisions ouvertes
 
-1. **Types partagés entre Rust et TypeScript :** générés depuis les types Rust (`ts-rs`, `specta`) ou depuis un schéma OpenAPI (`utoipa`). Sans génération, les types de `src/api/` s'écrivent à la main et finissent par diverger.
-2. **Décodage des réponses :** des décodeurs écrits à la main (`helpers/decode.ts`, aujourd'hui), ou une bibliothèque de schémas (zod, valibot) dont TanStack DB accepte les schémas. À trancher quand le modèle grossit, avec la décision 1.
-3. **Graphiques des métriques :** le Chart de shadcn (Recharts, qui tire Redux Toolkit, immer et d3), sans son `ChartStyle`. À confirmer au lot des métriques.
+1. **Décodage des réponses :** des décodeurs écrits à la main (`helpers/decode.ts`, aujourd'hui), ou une bibliothèque de schémas (zod, valibot) dont TanStack DB accepte les schémas. À trancher quand le modèle grossit.
+2. **Graphiques des métriques :** le Chart de shadcn (Recharts, qui tire Redux Toolkit, immer et d3), sans son `ChartStyle`. À confirmer au lot des métriques.
 
-Tranchées : le React Compiler passe par le plugin Babel officiel (Babel 7) ; TanStack DB est adoptée.
+Tranchées : le React Compiler passe par le plugin Babel officiel (Babel 7) ; TanStack DB est adoptée ; les types de `src/api/` sont générés depuis les types Rust (`ts-rs` ou `specta`, au choix de l'implémentation), car écrits à la main ils finiraient par diverger, et un schéma OpenAPI viendra quand l'API s'ouvrira à d'autres clients (tokens d'API, CLI distante).

@@ -24,7 +24,7 @@ export function SiteFooter() {
             ))}
           </ul>
         </nav>
-        <p className="text-ink-dim sm:ml-auto">Alpha 0.1 · Open source</p>
+        <p className="text-ink-dim sm:ml-auto">Alpha 0.1 · Source-available</p>
       </div>
     </footer>
   );

@@ -1,11 +1,17 @@
 ---
 title: Development rules
-description: The rules every change to Brume follows, for Rust style and security, generated config, the frontend, CI, releases and vulnerability reports.
+description: The rules every change to Brume follows, for Rust style and security, generated config, the frontend, CI, releases, the license and vulnerability reports.
 type: reference
 status: planned
 sources:
   - archi/base/10-developpement.md
   - rustfmt.toml
+  - archi/base/14-architecture-logicielle.md
+  - archi/base/16-tests.md
+  - archi/base/17-telemetrie.md
+  - archi/base/05-runtime.md
+  - archi/base/README.md
+  - LICENSE.md
 ---
 
 Every change to Brume follows these rules. When a style rule and a [security rule](#rust-security-rules) conflict, the security rule wins.
@@ -50,18 +56,66 @@ These are the rules that matter most day to day.
 - **Single ownership rather than `Rc` or `Arc`,** unless the alternative is unreasonably complex.
 - **Never read the inside of a poisoned mutex.**
 - **No code runs before `main()`:** the `ctor` crate is forbidden.
+- **Comments in English.**
 - **No comment that repeats the code.** Document public APIs with `///` and modules with `//!`.
 
 ## Rust security rules
 
 - **`#![forbid(unsafe_code)]`.**
 - **Secrets live in the types of the `secrecy` crate,** so a `Debug` or a `tracing::info!` cannot print them by accident.
-- **Docker is driven through its API** (the `bollard` crate), never through `sh -c` or the `docker` CLI.
+- **Docker is driven through its API** (the `bollard` crate), from the agent only, never through `sh -c` or the `docker` CLI.
 - **Container config is built from an allowlist,** with a test that checks the full config of each container type. See [Runtime](/docs/how-it-works/runtime).
-- **The engine parses no untrusted data.** See [Architecture](/docs/how-it-works/architecture).
-- **SQLite queries are parameterized** (sqlx). For DuckDB, see [Observability](/docs/how-it-works/observability).
+- **Neither the engine nor the agent parses untrusted data.** See [Architecture](/docs/how-it-works/architecture).
+- **SQLite queries are parameterized** (rusqlite, for the engine's log). For DuckDB, see [Observability](/docs/how-it-works/observability).
+- **No I/O in the core crates:** no clock, no randomness, no `HashMap`. Their `clippy.toml` forbids them. See [Code organization](#code-organization).
+- **Only safe types enter telemetry.** Traces tend to collect headers, URLs with passwords and payloads. The `Telemetry` trait, in `brume-domain`, is implemented only by identifiers, enums, durations, sizes and validated newtypes: never `String`, `&str` or the `secrecy` types. Brume's `event!` and `span!` macros require it, and clippy forbids the `tracing` macros elsewhere in Brume's crates (`disallowed-macros`), so a dangerous field does not compile.
 - **Size limits** on every HTTP body and every socket message.
 - **Requests to user-supplied URLs** (notifications, healthchecks) cannot reach the tailnet, private ranges or metadata endpoints.
+
+## Code organization
+
+Brume is one binary, built from these crates:
+
+```text
+crates/
+├── brume-domain        validated newtypes, commands, events, decide, evolve
+├── brume-proto         socket messages, versioned, with bounded sizes
+├── brume-engine-core   the engine's state machine
+├── brume-agent-core    the agent's state machine, plan, container config
+├── brume-engine        the engine's shell: sockets, log (rusqlite), S3, GitHub
+├── brume-agent         the agent's shell: bollard, nftables, S3
+├── brume-runtime       shared by the shells: socket framing, S3 client, encryption, OTEL
+├── brume-api           HTTP, SSE, serves the panel
+├── brume-webhook       HMAC, GitHub payload
+├── brume-telemetry     OTLP and app log intake, DuckDB
+├── brume-updater       minisign
+├── brume-sim           simulator and fakes, for tests only
+└── brume               the single binary: clap, one subcommand per service
+```
+
+- **The core crates do no I/O.** `brume-domain`, `brume-proto`, `brume-engine-core` and `brume-agent-core` depend on neither tokio, rusqlite nor bollard. Their `clippy.toml` forbids `Instant::now`, `SystemTime::now`, `thread_rng` and `HashMap` (`disallowed-methods`, `disallowed-types`). Use `BTreeMap`, whose iteration order is stable. This is what lets the whole of Brume run in a deterministic simulation.
+- **One crate per risky dependency.** Only `brume-agent` depends on `bollard`, only `brume-telemetry` on `duckdb`, and only `brume-engine` on `rusqlite`.
+- **Only the `brume` binary depends on `brume-webhook`.** The engine never sees the code that reads GitHub payloads, so "the engine parses no untrusted data" is a property of the dependency graph.
+- **`brume-sim` never goes into the binary.**
+- **`cargo deny` checks these rules in CI,** with `bans` and `wrappers`.
+- **Messages are validated on the way in.** `brume-proto` types become `brume-domain` types through `TryFrom`, so an unvalidated value never reaches `decide`.
+- **Traits only where there are two implementations:** the log, and the effects the simulation replaces.
+- **rusqlite rather than sqlx for the log.** The `EventLog` trait is synchronous, and sqlx only has an async API.
+
+## Tests
+
+| Level | What it tests | When |
+|---|---|---|
+| Pure functions | `decide`, `evolve`, `plan`, container config, upcasters | Every PR |
+| Deterministic simulation | All of Brume, with faults | Every PR, and for hours every night |
+| Conformance | Each fake behaves like the real thing | Every PR, plus a real S3 provider every night |
+| Real VM | Install, templates, network rules, update, restore | Every night, on fresh VMs of each supported system (Debian 12 and 13, Ubuntu 24.04 and 26.04), on amd64 and arm64 |
+
+- **One seed decides a whole simulation run:** event order, faults and load. A failure prints its seed and its trace, and `BRUME_SEED=0x… cargo test -p brume-sim` replays it exactly.
+- **Seeds that found a bug stay in the repository,** and run on every PR with a few minutes of random seeds.
+- **A determinism test runs the same seed twice** and compares the trace fingerprints. It fails as soon as a `HashMap` or a `now()` slips into the code.
+- **A reference log of each release since the last compaction** is replayed by the current code, so upcasters and `Genesis` stay correct.
+- **The panel has its own tests.** See [Panel frontend](/docs/customize/frontend).
 
 ## Injection in what Brume generates
 
@@ -73,10 +127,10 @@ domain entered:  x`) || PathPrefix(`/
 generated rule:  Host(`x`) || PathPrefix(`/`)
 ```
 
-The same risk exists for nginx config, environment variables (a `\n` in a value) and `git` commands (an argument that starts with `-`).
+The same risk exists for the Caddy config of static sites, environment variables (a `\n` in a value) and `git` commands (an argument that starts with `-`).
 
 - **Strict name validation** (domains, services, variables, branches), against an allowlist.
-- **All generated config is serialized** (serde), never built by string templating.
+- **All generated config is serialized** (serde), never built by string templating. Caddy's config, for example, is JSON generated by serialization, never a Caddyfile built by concatenation.
 - **`--` before any user argument** passed to `git`.
 
 ## Frontend
@@ -94,20 +148,35 @@ The panel code runs with the admin's rights: a compromised npm package gets ever
 |---|---|
 | `cargo +nightly fmt --check` | Formatting matches `rustfmt.toml`. |
 | `cargo clippy -- -D warnings` | A clippy warning fails CI. |
-| `cargo deny` and `cargo audit` | Check the Rust dependencies. |
+| `cargo deny` and `cargo audit` | Check the Rust dependencies. `cargo deny` also checks the crate graph: see [Code organization](#code-organization). |
+| Deterministic simulation and conformance tests | Every PR. A real VM runs every night. See [Tests](#tests). |
 | GitHub Actions pinned by SHA | The 2025 tj-actions attack went through a modified tag. |
 | `systemd-analyze security --offline=true` | Comes later. See [Roadmap](/docs/how-it-works/roadmap). |
 
 ## Releases
 
-- **Binaries and `install.sh` are published on GitHub Releases.** See [Host and installation](/docs/how-it-works/host-and-installation).
+- **Binaries and `install.sh` are published on GitHub Releases,** one binary per architecture: amd64 and arm64. See [Host and installation](/docs/how-it-works/host-and-installation).
 - **The GitHub account is protected by a hardware 2FA key.**
 
 ### Signing with minisign
 
-- **minisign, with the private key kept offline** and the public key embedded in the binary. It is simple to verify in the updater.
-- **Why the key stays offline:** a compromised GitHub account, one of the supply chain attacks in the [threat model](/docs/how-it-works/threat-model), cannot sign an update. The first install, however, trusts GitHub: see [Host and installation](/docs/how-it-works/host-and-installation).
+- **minisign, with the private keys kept offline** and the public keys embedded in the binary. It is simple to verify in the updater.
+- **Two keys from v0.1:** the signing key, and a backup key kept offline, in another place. If the signing key is lost or stolen, a release signed with the backup key replaces it. A key added later would not protect the servers still running earlier versions. The exact format of this rotation is set with the updater.
+- **Why the keys stay offline:** a compromised GitHub account, one of the supply chain attacks in the [threat model](/docs/how-it-works/threat-model), cannot sign an update. The first install, however, trusts GitHub: see [Host and installation](/docs/how-it-works/host-and-installation).
 - **A signed release manifest carries the version,** so the updater refuses downgrades. The version is in the signed content, never in minisign's unsigned comment, which is not authenticated. See [Host and installation](/docs/how-it-works/host-and-installation).
+- **`latest.json` on brume.dev** is the signed manifest of the latest release, with an expiry date. The maintainer signs it again regularly, even without a release, so the engine can tell updates being frozen from no release being out. See [Host and installation](/docs/how-it-works/host-and-installation).
+- **The manifest carries the version of its own format,** besides the version of the release. The parser of the first binary can then cleanly refuse a format it does not know.
+- **Still open: a verification channel outside GitHub.** brume.dev is deployed from the same repository, so a compromised GitHub account reaches both. See the [open decisions](/docs/how-it-works/roadmap#open-decisions).
+
+## License
+
+Brume is source-available under the Functional Source License 1.1, with Apache 2.0 as its future license (FSL-1.1-ALv2). The full text is in [`LICENSE.md`](https://github.com/brumecloud/brume/blob/main/LICENSE.md), at the repository root.
+
+- **Every use is allowed except a competing one.** You can host your own apps with Brume, in a company too, change it and redistribute it. Nobody can sell it, or offer it as a service, in competition with Brume.
+- **Each version becomes Apache 2.0 two years after its release.**
+- **Brume is not open source in the OSI sense,** but source-available. The README, these docs and brume.dev say it this way.
+- **A redistributed copy keeps the license.** If you redistribute Brume, changed or not, include the license terms or a link to them, and keep the copyright notices.
+- **Still open: a contributor license agreement (CLA),** which would keep the option of changing the license later. See the [open decisions](/docs/how-it-works/roadmap#open-decisions).
 
 ## Reporting vulnerabilities
 

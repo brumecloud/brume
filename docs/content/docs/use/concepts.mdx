@@ -30,7 +30,7 @@ One stage of a project, with its own internal network, its own `egress` network,
 
 ## Service
 
-A container or a static site. You pick the type at creation and cannot change it: it decides what the service can do. A static site is served by the shared nginx, outside the environment network, and has no secrets at runtime.
+A container or a static site. You pick the type at creation and cannot change it: it decides what the service can do. A static site is served by the shared Caddy, outside the environment network, and has no secrets at runtime.
 
 Each service has a **slug**, its DNS name on the environment network. The slug never changes, because renaming it would break the services that call it. It is a DNS label: `[a-z0-9-]`, 63 characters at most. The display name stays free.
 
@@ -62,7 +62,7 @@ Brume has three kinds of values:
 - **Build variables are part of the artifact:** they end up in the image layers or in the JS bundle. For a static site, they are public.
 - **Secrets are resolved at deploy time.** A rollback never brings back a secret you changed after a leak.
 - **You define variables and secrets on the project, the environment or the service.** The most specific level wins: service, then environment, then project.
-- **Shared plain variables reach every service,** except databases created from a template.
+- **Shared plain variables reach every service,** except databases created from a template. A static site gets the shared build variables: they feed its build, not the Caddy container.
 - **Shared secrets only reach the services that reference them.** A service declares the secret's name, and Brume looks up the value on the service, then the environment, then the project.
 - **A name is either a variable or a secret, at every level.** Otherwise a service variable could replace a shared secret, and its value would land in clear in the revision history.
 - **The connection URLs a template injects are secrets** (`DATABASE_URL`, `MONGODB_URI`, `REDIS_URL`): they contain the app's database password.
@@ -76,6 +76,6 @@ Brume has three kinds of values:
 - **A rollback applies to one service.** Rolling back a backend does not touch the frontend that calls its API.
 - **Data never goes back.** After a migration, the old code runs on the new schema. The panel warns you before rolling back a service that has a volume.
 - **Automatic deploys continue after a rollback:** the next push to the configured branch deploys again.
-- **The engine keeps the artifacts of the last 10 revisions of each service.** Older revisions stay in the history, but you can no longer roll back to them, and the panel shows it.
+- **Docker on your server keeps the artifacts of the last 10 revisions of each service.** Older artifacts are only in your S3 bucket: a rollback to an older revision downloads its artifact first. An image pulled from a registry is not copied to S3: Brume pulls it again from the registry, by its digest. If an expiration rule removed the artifact from S3 too, the revision stays in the history, but you can no longer roll back to it, and the panel shows it.
 
 The [data model](/docs/how-it-works/data-model) covers the details: shared values across environments, retention and purge, and the reasons behind each rule. The [templates](/docs/use/templates) page covers what a database service gets.

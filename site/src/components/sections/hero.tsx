@@ -27,9 +27,9 @@ export function Hero() {
           />
         </h1>
         <p className="mt-8 max-w-[38rem] text-lg leading-relaxed text-pretty text-ink-muted">
-          Brume deploys your containers, static sites and databases on your own server. Open source,
-          one command to install, and zero inbound ports: your apps are online, your server stays
-          invisible.
+          Brume deploys your containers, static sites and databases on your own server.
+          Source-available, one command to install, and zero inbound ports: your apps are online,
+          your server stays invisible.
         </p>
         <InstallCommand command={site.installCommand} className="mt-9 max-w-[52rem]" />
         <p className="mt-6 flex flex-wrap gap-7 text-sm text-ink-muted">

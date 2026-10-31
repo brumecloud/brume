@@ -5,6 +5,8 @@ type: concept
 status: planned
 sources:
   - archi/base/11-comparatif.md
+  - archi/base/02-architecture.md
+  - archi/base/14-architecture-logicielle.md
 ---
 
 Every self-hosted platform lets something drive Docker on your server. Where that access lives decides what an attacker gets when the web panel is compromised. In most tools, the panel and the Docker socket share one process, so a compromised panel means root on the host. Brume keeps them apart.
@@ -23,9 +25,9 @@ This comparison is based on each tool's installation docs.
 
 ## Lessons for Brume
 
-- **All of them except Kamal put the web UI and the Docker socket in the same process.** This is their core weakness. The split between the engine and the API is what sets Brume apart: see [Architecture](/docs/how-it-works/architecture).
+- **All of them except Kamal put the web UI and the Docker socket in the same process.** This is their core weakness. The split between the API, the engine and the agent is what sets Brume apart: the process that serves the panel never holds the Docker socket, only the agent does. See [Architecture](/docs/how-it-works/architecture).
 - **Mounting the socket `:ro` protects nothing.** Coolify does it for its Traefik, but a socket mounted read-only still accepts every call of the Docker API.
-- **The first start is always the weak point.** Portainer shuts the instance down if nobody creates the admin within 5 minutes. CapRover starts with a known password. In Brume, the allowlist of admin identities is set at install, and the panel is never public: see [Admin panel](/docs/how-it-works/admin-panel).
-- **A central root SSH key to every server,** as in Coolify, is a single point of compromise. If Brume becomes multi-server, it should copy Portainer's Edge Agent instead: each node connects outbound to the panel, and the panel holds no access to the nodes. See the [roadmap](/docs/how-it-works/roadmap).
-- **The usual way to limit the socket is a filtering proxy,** such as Tecnativa's `docker-socket-proxy`. The Brume engine is a much narrower version of the same idea: it exposes business operations, not the Docker API.
+- **The first start is always the weak point.** Portainer shuts the instance down if nobody creates the admin within 5 minutes. CapRover starts with a known password. In Brume, the admin's account is set at install, the enrollment URL carries a single-use token, and the panel is public only if the admin chooses it on the host. See [Admin panel](/docs/how-it-works/admin-panel).
+- **A central root SSH key to every server,** as in Coolify, is a single point of compromise. Brume copies Portainer's Edge Agent instead: each machine's agent connects outbound to the master, which holds no access to the machines. Alpha 0.1 has one machine, whose agent connects to the engine over a unix socket. Agents on other machines will connect over the tailnet: see the [roadmap](/docs/how-it-works/roadmap).
+- **The usual way to limit the socket is a filtering proxy,** such as Tecnativa's `docker-socket-proxy`. Brume has a much narrower version of the same idea: the agent receives only a typed desired state from the engine, never a Docker API call, and checks it against its own policy.
 - **Kamal shows the smallest surface:** no permanent control plane, and a proxy driven by commands, with no socket. Brume needs a panel and webhooks, but keeps the idea of a proxy configured through files, never through the socket. See [Networking](/docs/how-it-works/networking).

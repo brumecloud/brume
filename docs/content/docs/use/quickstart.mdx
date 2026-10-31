@@ -13,19 +13,26 @@ sources:
   - archi/base/07-secrets-et-backups.md
   - archi/base/08-hote-et-installation.md
   - archi/base/13-modele-de-donnees.md
+  - archi/base/14-architecture-logicielle.md
+  - archi/base/15-etat-et-restauration.md
+  - archi/base/17-telemetrie.md
+  - archi/base/templates.md
 ---
 
-This tutorial takes you from a fresh VPS to an app built from GitHub and served on your own domain. You install Brume with one command, open the panel over Tailscale, connect a repository, and push.
+This tutorial takes you from a fresh VPS to an app built from GitHub and served on your own domain. You prepare an S3 bucket and two tokens, install Brume with one command, open the panel over Tailscale, create a GitHub App, and push.
 
-At the end, no inbound port is open on your server. You administer it over Tailscale, and public traffic reaches your app through Cloudflare Tunnel.
+At the end, no inbound port is open on your server. You administer it over Tailscale, public traffic reaches your app through Cloudflare Tunnel, and Brume's state is on your bucket, encrypted.
+
+This tutorial uses the recommended modes: Cloudflare Tunnel for public traffic and Tailscale for administration. Brume also offers direct ingress on ports 80 and 443, and administration through an SSH tunnel or from the public internet. These modes are less safe, chosen on the host at install, and flagged in the panel at all times. See [Networking](/docs/how-it-works/networking#other-modes).
 
 ## Before you start
 
 - **A fresh VPS.** On a server already in use, the ports already published and the services already exposed would stay open.
-- **Debian 12 or Ubuntu 24.04.** Brume keeps its master key in systemd credentials, which need one of these versions.
+- **Debian 12 or 13, or Ubuntu 24.04 or 26.04, on amd64 or arm64.** Brume keeps its master key in systemd credentials, which need at least Debian 12 or Ubuntu 24.04. The Red Hat family comes later: see the [roadmap](/docs/how-it-works/roadmap#hosting).
 - **Access to your hosting provider's console.** It is your way back in if Tailscale or the panel is unreachable. Your account at the host is equivalent to root on the server, so protect it with 2FA.
+- **An S3-compatible bucket,** with versioning or Object Lock. The install does not finish without it. The second step says what it needs.
 - **A Tailscale account,** with the device you will use the panel from on your tailnet.
-- **A Cloudflare account, with your domain on Cloudflare DNS.** Cloudflare Tunnel requires it. Protect the account with 2FA: it controls your public traffic, and can add private routes to the tunnel from its dashboard without touching the server.
+- **A Cloudflare account, with your domain on Cloudflare DNS.** Cloudflare Tunnel requires it. Protect the account with 2FA: it controls your public traffic and all of your domain's DNS, email included. Whether Brume should advise a domain for your apps separate from the one that carries your email is an [open decision](/docs/how-it-works/roadmap#open-decisions).
 - **A GitHub repository** with the app to deploy. Brume builds it with [Railpack](https://railpack.com).
 
 You do not install Docker yourself: `brume install` installs it. Brume needs Docker 28.5.2 or later, which closes known container escapes and network leaks. See [Networking](/docs/how-it-works/networking).
@@ -52,11 +59,26 @@ Then set your tailnet policy so that `tag:brume` cannot open connections to your
 
 <Step>
 
-### Create a Cloudflare API token
+### Prepare an S3 bucket
 
-`brume install` uses a Cloudflare API token once, to create the tunnel and a wildcard CNAME record, `*.example.com`, that points to it. Then it forgets the token.
+Brume sends its whole state to this bucket as it changes, encrypted, along with your built images and your database backups. A lost server is rebuilt from it. The bucket is mandatory: `brume install` uploads your master key there before it finishes.
 
-The only Cloudflare credential left on the server is the tunnel token, held by `cloudflared`.
+- **S3-compatible, with versioning or Object Lock.** A write can overwrite an existing object whose name is known. Brume writes with `If-None-Match`, and versioning or Object Lock keeps the earlier copy. Not every provider supports `If-None-Match`: Brume tests it and warns you if it is missing, because it relies on it to detect a second server writing to the same bucket.
+- **A credential that can read and write, but not delete, change lifecycle rules or suspend versioning.** A credential that can set a lifecycle rule or suspend versioning can wipe everything within a day, without deleting a single object. `brume install` checks that all three operations fail, and refuses the credential otherwise. Read access reveals nothing: everything in the bucket is encrypted.
+- **At another provider than your VPS, ideally,** with an account protected by hardware 2FA. Whoever holds that account can delete the bucket, whatever the credential's rights.
+- **No lifecycle rule on `log/`, `blobs/` or `keys/`.** Brume cannot delete anything, so your bucket's lifecycle rules handle the retention of backups. The state lives under these three prefixes and never expires: a blob written two years ago and still in use looks like a purged one.
+
+After the install, the bucket can change only on the host, as root, never from the panel, and every change sends an alert. A stolen panel session cannot send your state and backups elsewhere.
+
+</Step>
+
+<Step>
+
+### Create two Cloudflare tokens
+
+`brume install` uses a Cloudflare API token once, to create the tunnel and a wildcard CNAME record, `*.example.com`, that points to it, and to turn on HSTS and the redirect to HTTPS. Then it forgets the token. The tunnel's config lives on the server, managed by Brume, never in the Cloudflare dashboard: all traffic goes to Traefik, which answers 404 for unknown domains. The aim is that a route added in the dashboard cannot divert your traffic. Whether a tunnel configured this way really refuses routes added from the dashboard still has to be checked in Cloudflare's documentation: see the [open decisions](/docs/how-it-works/roadmap#open-decisions).
+
+Create a second token, read-only on the tunnel and DNS. `brume install` asks for it, and the engine keeps it. It cannot change anything: the engine uses it to list your tunnel's connectors and your zone's DNS records, and alerts you on one it does not know. Whoever holds the tunnel secret, kept on the server by `cloudflared`, can run a second connector from their own machine and receive part of your public traffic. This token lets Brume see it.
 
 </Step>
 
@@ -82,26 +104,30 @@ curl -sSL https://github.com/brumecloud/brume/releases/latest/download/install.s
 
 ### Follow `brume install`
 
-Keep the Tailscale auth key, your Tailscale login and the Cloudflare API token at hand. All host configuration lives in the Rust binary, not in bash: it is testable, safe to run again, and reapplied at every update. `brume install` works in this order:
+Keep at hand the Tailscale auth key, your Tailscale login, both Cloudflare tokens, and the bucket with its credentials. All host configuration lives in the Rust binary, not in bash: it is testable, safe to run again, and reapplied at every update. `brume install` works in this order:
 
-1. Installs Brume's nftables table, with a systemd unit that loads it before Docker. The table stops containers from reaching your tailnet, private address ranges and your hosting provider's metadata endpoint.
-2. Installs Docker from Docker's official apt repository, signed with GPG, and writes its `daemon.json`. On Ubuntu 24.04, it also turns off `kernel.apparmor_restrict_unprivileged_userns` for the whole host, because the builder needs unprivileged user namespaces.
-3. Joins your tailnet with the auth key.
-4. Asks for your Tailscale login and puts it on the panel's allowlist. Nobody becomes admin by connecting first.
-5. Creates the Cloudflare tunnel and the wildcard record on your domain with the API token, then forgets the token.
-6. Generates an age key pair for your backups and shows the private key once. It can import your own age public key instead.
-7. Creates the system users, the systemd units and the master key, then starts the services.
-8. Turns on Tailscale SSH and checks that it works. Only then does it allow SSH by key only, close port 22 to the public, and close UFW to all inbound traffic except from Brume's `ingress` network to the webhook.
-9. Sets up `unattended-upgrades` for the distribution, Docker and Tailscale repositories, pins Docker's major version, and turns on automatic reboots.
-10. Prints the enrollment URL for your second factor, valid for 15 minutes.
+1. Asks which modes to use for public traffic and administration. Pick the recommended ones: Cloudflare Tunnel and Tailscale.
+2. Installs Brume's nftables table, with a systemd unit that loads it before Docker. The table stops containers from reaching your tailnet, private address ranges and your hosting provider's metadata endpoint.
+3. Installs Docker from Docker's official apt repository, signed with GPG, and writes its `daemon.json`. On Ubuntu, it also turns off `kernel.apparmor_restrict_unprivileged_userns` for the whole host, because the builder needs unprivileged user namespaces. Debian needs no change. This is still to be confirmed on Ubuntu 26.04 and Debian 13.
+4. Joins your tailnet with the auth key.
+5. Creates your admin account: it asks for your Tailscale login and puts it on the panel's allowlist. Nobody becomes admin by connecting first.
+6. Creates the Cloudflare tunnel, its local config and the wildcard record on your domain, and turns on HSTS and the redirect to HTTPS, all with the API token. Then it forgets that token and asks for the read-only one.
+7. Generates an age key pair and shows the private key once, or imports your own age public keys. Several recipients are advised, for example a paper key and a YubiKey. Brume then encrypts a code for each public key: you decrypt it on your own machine and type it back, to prove you kept your key.
+8. Configures the bucket and tests it: write, read and `If-None-Match`, then checks that a delete, a lifecycle rule and a versioning suspension all fail.
+9. Creates the system users, the systemd units and the master key. It uploads the master key to the bucket, encrypted for your age keys, then starts the services.
+10. Turns on Tailscale SSH and checks that it works. Only then does it allow SSH by key only, close port 22 to the public, and close UFW to all inbound traffic except from Brume's `ingress` network to the webhook.
+11. Sets up `unattended-upgrades` for the distribution, Docker and Tailscale repositories, pins Docker's major version, and turns on automatic reboots.
+12. Prints the enrollment URL for your second factor, valid once and for 15 minutes.
 
 <Callout type="warn" title="Save the age private key">
-  Brume shows it once. The server keeps only the public key: it can encrypt your backups but not decrypt them. Without the private key, you cannot restore a backup.
+  It is the only key that can restore your server: its state, its secrets and its backups. Brume shows it once. The server keeps only the public keys: it can encrypt, but not decrypt. If you lose the private key, nothing can be restored.
 </Callout>
 
 From now on, you reach the server over Tailscale SSH. Your Tailscale identity alone gives a root shell this way: the panel's second factor does not cover SSH. This is an accepted risk in alpha 0.1, see the [threat model](/docs/how-it-works/threat-model).
 
-When an update needs a reboot, a kernel patch for example, the server reboots at 4 AM server time. Your apps are down during the reboot. You can change the time on the host. See [Host and installation](/docs/how-it-works/host-and-installation).
+When an update needs a reboot, a kernel patch for example, the server reboots at 4 AM server time. Your apps are down during the reboot. You can change the time on the host.
+
+Brume also updates itself. The engine regularly reads `https://brume.dev/latest.json`, the signed manifest of the latest release, and an updater installs a newer version after checking it again. This check tells the Brume project your server's IP address and the installed version: it sends only the version, the OS and the architecture, and it is the only telemetry Brume sends to the project. `brume install` tells you about it. You can turn the check off on the host, as root: Brume updates then become manual. Some details, such as the time of day updates install, are still [open](/docs/how-it-works/roadmap#open-decisions). See [Host and installation](/docs/how-it-works/host-and-installation).
 
 </Step>
 
@@ -125,9 +151,9 @@ The panel's name appears in public Certificate Transparency logs, so your tailne
 
 Being on the tailnet is not enough to log in: a compromised device or a shared tailnet would then reach the panel. Each login needs your Tailscale identity and a second factor, checked by the engine.
 
-The kind of second factor is an open decision: password or passkey. The design recommends a passkey, which resists phishing because it is bound to the panel's origin. A passkey would also be bound to the name `brume.xxx.ts.net`: renaming the machine or the tailnet would mean enrolling it again. See [Admin panel](/docs/how-it-works/admin-panel).
+The second factor is a passkey (WebAuthn), unlocked with Touch ID or Face ID for example. It resists phishing because it is bound to the panel's origin. It is also bound to the name `brume.xxx.ts.net`: if you rename the machine or the tailnet, you enroll it again. Sensitive actions, such as revealing a secret or deleting a service, ask for your passkey again even during an open session, so a stolen session cannot reveal or delete everything in one go. See [Admin panel](/docs/how-it-works/admin-panel#second-factor-at-sign-in).
 
-Enroll your second factor from the enrollment URL. It works once. After that, each login opens a short session, issued by the engine and tied to your Tailscale identity.
+Enroll your passkey from the enrollment URL. It works once, and carries a token shown only in your install terminal. After that, each login opens a short session, issued by the engine and tied to your Tailscale identity.
 
 If you lose access, the local `brume` CLI on the server can reset your second factor and manage the allowlist. Reach it from your host's console.
 
@@ -135,9 +161,17 @@ If you lose access, the local `brume` CLI on the server can reset your second fa
 
 <Step>
 
-### Connect GitHub
+### Create your GitHub App
 
-Brume reaches your repositories through a GitHub App, not a personal access token. The engine keeps the App's private key and creates a token for each build that expires after one hour. The clone happens in the builder, never in the engine, and the token never ends up in the image.
+Brume reaches your repositories through a GitHub App, not a personal access token. Each Brume installation has its own App, which you create from the panel the first time you open it, with GitHub's manifest flow:
+
+1. The panel sends your browser to GitHub with a manifest: the App's name, the webhook URL of your installation, its permissions and the `push` event.
+2. You approve it on GitHub, which sends your browser back to the panel with a code.
+3. The engine exchanges that code for the App's ID, its private key and the webhook secret.
+
+The return trip goes through your browser, so the flow works even though the panel is reachable only from your tailnet. Install the App only on the repositories you want Brume to deploy. The Brume project shares no App between installations: it would need a single webhook URL, so a central relay, and one private key for every installation.
+
+The App is read-only, with `contents: read` and `metadata: read`. For each build, the engine creates a token limited to the repository being built, read-only, that expires after one hour. A malicious dependency that steals it can read only that repository, for one hour. The clone happens in the builder, never in the engine or the agent, and the token never ends up in the image.
 
 Protect the repository. Anyone who can push to a deployed branch runs code in production with the service's secrets. Turn on 2FA and branch protection, and do not let a bot merge on its own.
 
@@ -169,12 +203,15 @@ If your app needs secrets, add them as secrets, not plain variables: the value o
 
 Push a commit to the branch you configured. Brume builds and deploys it:
 
-1. GitHub sends a webhook. It reaches `brume webhook` through Cloudflare, the tunnel and Traefik.
-2. `brume webhook` checks the webhook's signature and queues a build. The engine checks that the ref matches the configured branch.
-3. The builder clones the repository and builds an image with Railpack.
-4. The engine loads the image into Docker and deploys it by digest.
+1. GitHub sends a webhook. It goes through Cloudflare, `cloudflared` and Traefik, to `brume webhook`. Traefik accepts the webhook path only from GitHub's IP ranges, which the engine keeps current. Every GitHub user shares these ranges, so they only narrow who can reach it.
+2. `brume webhook` checks the webhook's HMAC signature, the real barrier, and queues a build on the engine.
+3. The engine checks that the ref matches the configured branch, and asks the agent for the build.
+4. The agent starts the builder, which clones the repository and builds an image with Railpack.
+5. The agent loads the image into Docker and uploads it to your bucket. The engine creates a revision and deploys it by digest.
 
 Only pushes to configured branches deploy. Alpha 0.1 has no pull request previews. Builds run one at a time, with CPU and memory limits, so a heavy build cannot take the memory your apps need.
+
+A service without a volume deploys without downtime: the new container starts next to the old one, and traffic switches once its healthcheck passes. If the healthcheck fails, the old container keeps running.
 
 A successful build creates a revision: the immutable spec of the service, pointing to the image digest. A failed build creates none. To roll back, Brume redeploys an earlier revision by its digest, without rebuilding. See [Data model](/docs/how-it-works/data-model).
 
@@ -199,11 +236,12 @@ Domains belong to the service, not to a revision: a rollback neither removes nor
 ## What you built
 
 - **A server with no inbound port.** UFW refuses inbound traffic, and both Cloudflare Tunnel and Tailscale work through outbound connections.
-- **A panel reachable only from your tailnet,** behind your Tailscale identity and a second factor.
+- **A panel reachable only from your tailnet,** behind your Tailscale identity and a passkey.
 - **An app built on every push** and deployed by digest, with a revision you can roll back to.
 - **A public domain** served through Cloudflare Tunnel.
+- **A server you can rebuild.** Brume's state goes to your bucket as it changes, encrypted. With your age private key, `brume restore` rebuilds a lost server from the bucket.
 
-Before you put real data on it, set up backups. They go to S3-compatible storage that you configure in the panel, encrypted with your age public key.
+Databases you start from a template are backed up by default, as dumps sent to the same bucket and encrypted with your age public keys. From time to time, run `brume verify` from your own machine, with your age private key: it is the only way to know, before you need it, that your bucket can be restored. The panel reminds you. See [Secrets and backups](/docs/how-it-works/secrets-and-backups).
 
 ## Next steps
 

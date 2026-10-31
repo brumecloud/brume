@@ -1,17 +1,23 @@
 ---
 title: Networking
-description: How traffic reaches your apps with no inbound port, through Cloudflare Tunnel, Tailscale, Traefik, Docker networks and nftables rules.
+description: How traffic reaches your apps through Cloudflare Tunnel and Tailscale with no inbound port, the less safe modes you can pick instead, and how Traefik, Docker networks and nftables rules contain it.
 type: concept
 status: planned
 sources:
   - archi/base/03-reseau.md
+  - archi/base/14-architecture-logicielle.md
+  - archi/base/07-secrets-et-backups.md
+  - archi/base/08-hote-et-installation.md
+  - archi/base/README.md
 ---
 
-Brume opens no inbound port on your server. Public traffic arrives through Cloudflare Tunnel, and administration goes through Tailscale. Inside the server, every container sits on internal Docker networks with no published port, and a Brume nftables table stops containers from reaching your tailnet, private networks or your hosting provider's metadata endpoint.
+In the recommended modes, Brume opens no inbound port on your server. Public traffic arrives through Cloudflare Tunnel, and administration goes through Tailscale. Direct ingress and administration without Tailscale are possible too: they are less safe, chosen on the host, and flagged in the panel (see [Other modes](#other-modes)). In every mode, no container publishes a port except Traefik in direct ingress, and a Brume nftables table stops containers from reaching your tailnet, private networks or your hosting provider's metadata endpoint.
 
 ## No inbound port
 
-- **Public traffic goes through Cloudflare Tunnel, which is mandatory.** `cloudflared` opens an outbound connection to Cloudflare.
+In the recommended modes, no port on the server is open to the Internet. The sections up to [Other modes](#other-modes) describe these modes.
+
+- **Public traffic goes through Cloudflare Tunnel.** `cloudflared` opens an outbound connection to Cloudflare.
 - **Administration goes through Tailscale,** SSH included (Tailscale SSH).
 - **UFW denies all inbound traffic,** except from the `ingress` network to the webhook port. Tailscale still works, through its outbound connections and its relays.
 - **UFW is static.** `brume install` configures it once, and nothing changes it afterwards. Brume does not need `CAP_NET_ADMIN`: Traefik and the Docker networks direct the traffic.
@@ -25,7 +31,7 @@ A request to one of your apps crosses Cloudflare, `cloudflared` and Traefik befo
 Internet
    │
    ▼
-Cloudflare          public certificates, HSTS, WAF
+Cloudflare          public certificates, HSTS
    │                outbound connection opened by cloudflared
    ▼
 cloudflared         networks: tunnel, ingress
@@ -33,11 +39,11 @@ cloudflared         networks: tunnel, ingress
    ▼
 Traefik             listens only on its fixed IP in ingress
    ├──► exposed service     through its edge-<service> network
-   ├──► nginx               through static (static sites)
-   └──► brume webhook       on the host, rate limited
+   ├──► Caddy               through static (static sites)
+   └──► brume webhook       on the host, GitHub IPs only, rate limited
 ```
 
-Administration never takes this path. The panel is reached over Tailscale only: see [Admin panel](/docs/how-it-works/admin-panel).
+With Tailscale, administration never takes this path: the panel is reached over the tailnet, see [Admin panel](/docs/how-it-works/admin-panel). Only the public admin mode puts the panel behind Traefik: see [Administration without Tailscale](#administration-without-tailscale).
 
 ## Cloudflare Tunnel
 
@@ -59,20 +65,28 @@ With the tunnel, nothing listens, so there is nothing to bypass.
 Cloudflare decrypts all traffic to your apps. It sees the passwords and data of your apps' users. Cloudflare is a US company, which matters under the GDPR.
 </Callout>
 
-- **Your Cloudflare account controls the traffic.** It can add private routes to the tunnel from the Cloudflare dashboard, without touching the server. Your organization's WARP devices then reach, through `cloudflared`, everything the `cloudflared` container can reach. Brume's [nftables rules](#nftables-rules) limit that to Traefik and the webhook. Protect the account with 2FA.
+- **Your Cloudflare account controls the traffic and all of your domain's DNS,** email included. Brume keeps the tunnel config local so that the dashboard cannot change its rules: see [The tunnel config](#the-tunnel-config). If a private route were added to the tunnel anyway, your organization's WARP devices would reach, through `cloudflared`, everything the `cloudflared` container can reach. Brume's [nftables rules](#nftables-rules) limit that to Traefik and the webhook. Protect the account with 2FA.
 - **Your domain must use Cloudflare DNS.**
 - **Free plan limits:** 100 MB per request and a 100-second response timeout. Beyond that, the upload or the request fails.
 - **HTTP only.** Databases are reached through the tailnet instead: see [Tailscale](#tailscale).
 
 ### Tokens
 
-- **Cloudflare API token.** `brume install` uses it to create the tunnel and the wildcard CNAME, then forgets it. A domain outside the initial zone needs a new token, used for that one operation only.
-- **Tunnel token.** It is the only Cloudflare token stored on the server, and `cloudflared` holds it.
+Three Cloudflare credentials are involved. Only the last two stay on the server.
+
+- **Cloudflare API token.** `brume install` uses it to create the tunnel, its local config and the wildcard CNAME, and to turn on HSTS and the redirect to HTTPS, then forgets it. A domain outside the initial zone needs a new token, used for that one operation only.
+- **Tunnel secret.** `cloudflared` holds it. Anyone who has it can run a second connector for the same tunnel from their own machine, and Cloudflare then sends them a share of your public traffic. It is the most sensitive secret of the public path.
+- **Read-only token,** for the tunnel and DNS. `brume install` asks for it, and the engine holds it. It cannot change anything. The engine uses it to list the tunnel's connectors and the zone's DNS records, and alerts you on a connector or a record it does not know. This is how a stolen tunnel secret shows up.
+
+### The tunnel config
+
+- **Managed locally, never from the Cloudflare dashboard.** The agent writes `cloudflared`'s config: all traffic goes to Traefik, which answers 404 for unknown domains. A route added in the dashboard must not be able to divert your traffic.
+- **Whether a local config really blocks dashboard routes is still open.** It has to be checked in Cloudflare's documentation before the implementation. See the [open decisions](/docs/how-it-works/roadmap#open-decisions).
 
 ### Cloudflare settings
 
-- **HSTS and the redirect to HTTPS** are turned on.
-- **A WAF rule** restricts the webhook path to GitHub's IP ranges, on top of the HMAC signature check.
+- **HSTS and the redirect to HTTPS.** `brume install` turns them on with the API token, and they do not change afterwards.
+- **No WAF rule on the webhook.** It would list GitHub's IP ranges, which change, while the API token is forgotten after install: nobody would keep the rule current. Traefik does this filtering instead, with a list the engine keeps current: see [Traefik](#traefik).
 
 ## Domains
 
@@ -80,19 +94,20 @@ Cloudflare decrypts all traffic to your apps. It sees the passwords and data of 
 - **One subdomain level only,** for example `api-prod.example.com`. Cloudflare's free certificate covers `*.example.com` but not `*.apps.example.com`.
 - **Custom domains are checked first.** Before it creates the router for a custom domain, Brume checks that the domain is routed to the tunnel.
 - **The panel's name is public.** The panel's name (`brume.xxx.ts.net`) appears in the public Certificate Transparency logs, so the name of your tailnet becomes public. This is harmless, but you should know it.
+- **A domain dedicated to your apps is an open question.** Keeping your apps on a domain separate from the one that carries your email would stop a stolen Cloudflare account from redirecting your MX records. Whether `brume install` advises it, or says nothing, is not decided: see the [open decisions](/docs/how-it-works/roadmap#open-decisions).
 
 ## Traefik
 
 Traefik routes all public HTTP traffic to your apps, so it runs with as few rights as possible.
 
-- **Never the Docker socket.** The engine writes Traefik's configuration (file provider) to a folder that Traefik mounts read-only.
+- **Never the Docker socket.** The agent writes Traefik's configuration (file provider) to a folder that Traefik mounts read-only.
 - **No published port,** no root, read-only file system.
 - **Listens only on its fixed IP in the `ingress` network.** By default, Traefik listens on all its interfaces: an app could then call it with another app's `Host` header and bypass Cloudflare's protections (Access, WAF).
 - **One `edge-<service>` network per exposed service,** shared with Traefik only. Traefik is on no environment network, so it never reaches the databases.
 - **Dashboard and API turned off.** A default router returns a 404.
 - **Forwarded headers are trusted only from `cloudflared`.** For `X-Forwarded-For` and `CF-Connecting-IP`, Traefik trusts only the values set by `cloudflared`, never the values sent by the client. Otherwise your apps would see spoofed IPs. `CF-*` headers that do not come from `cloudflared` are removed.
-- **Rate limit** on the webhook route.
-- **Rules are generated by serialization,** from validated names. See the injection rules in [Development](/docs/customize/development).
+- **The webhook path accepts only GitHub's IP ranges,** in every mode, with a rate limit. The engine fetches these ranges from `api.github.com/meta` and keeps them current, and the agent writes them into Traefik's config. With Cloudflare, Traefik checks the IP that `cloudflared` sets in `CF-Connecting-IP`. Every GitHub user shares these ranges, so the real barrier remains the HMAC signature: see [Builds and deployments](/docs/how-it-works/builds-and-deployments#the-webhook).
+- **Rules are generated by serialization,** from validated names. See [Injection in what Brume generates](/docs/customize/development#injection-in-what-brume-generates).
 
 ## Docker networks
 
@@ -100,13 +115,13 @@ Traefik routes all public HTTP traffic to your apps, so it runs with as few righ
 |---|---|---|
 | `tunnel` | `cloudflared` | Yes, to Cloudflare |
 | `ingress` (internal) | `cloudflared`, Traefik | No |
-| `static` (internal) | Traefik, nginx | No |
+| `static` (internal) | Traefik, Caddy | No |
 | One per environment (internal) | The services of the environment | No |
 | `edge-<service>` (internal) | Traefik, one exposed service | No |
 | The environment's `egress` | The services with egress turned on | Yes |
 | `build` | BuildKit | Yes |
 
-- **No container publishes a port.** Docker bypasses UFW: a published port would be exposed despite the firewall.
+- **No container publishes a port.** Docker bypasses UFW: a published port would be exposed despite the firewall. The one exception is Traefik in [direct ingress](#direct-ingress-without-cloudflare).
 - **No outbound Internet access by default.** You turn egress on per service in the panel, which attaches the service to its environment's `egress` network. The panel asks when you create the service, with a clear message: most web apps call external APIs.
 - **Docker 28.5.2 minimum:**
   - Docker 26 closes the DNS leak from internal networks, which allowed data exfiltration ([CVE-2024-29018](https://nvd.nist.gov/vuln/detail/CVE-2024-29018)).
@@ -131,7 +146,7 @@ Brume loads its own nftables table, `inet brume`, through a systemd unit that ru
 
 - **Docker subnets are pinned** in `default-address-pools`, outside your hosting provider's private network, so the rules know them in advance.
 - **Every network is covered,** `tunnel` and `build` included.
-- **The engine refuses to start a container if the table is missing.** Containers have no Docker restart policy: the engine starts them at boot, after this check.
+- **The agent refuses to start a container if the table is missing.** Containers have no Docker restart policy: the agent starts them at boot, after this check.
 - **Test:** a `curl` from a container to a tailnet machine or to a private IP must fail.
 
 ## Tailscale
@@ -140,6 +155,35 @@ Brume loads its own nftables table, `inet brume`, through a systemd unit that ru
 - **Databases are reachable from your laptop** over TCP, on the tailnet only. Without this simple path, users would publish port 5432.
   - **Through `tailscale serve` in TCP mode.** `tailscaled` forwards a port of the node to the database container. Docker publishes no port.
   - **Turned on database by database** in the panel. Each exposed database has its own port on the node.
-  - **The engine keeps the `tailscale serve` configuration current** through the local API of `tailscaled`, at every reconciliation, because a container's IP can change when it restarts. It keeps the panel's HTTPS entry in place.
+  - **The agent keeps the `tailscale serve` configuration current** through the local API of `tailscaled`, at every reconciliation, because a container's IP can change when it restarts. It keeps the panel's HTTPS entry in place.
   - **Your tailnet policy opens these ports only to the admin's identities.**
 - **Identity, auth key and Tailnet Lock** are covered in [Admin panel](/docs/how-it-works/admin-panel).
+
+## Other modes
+
+Cloudflare Tunnel and Tailscale are recommended, not mandatory. The other modes are less safe.
+
+- **You choose them at install, on the host,** like every other dangerous option, never in the panel. Changing mode later is also done on the host, as root, and raises an alert. A restore asks for the modes again, like the install.
+- **The panel always shows that a non-recommended mode is active.**
+
+### Direct ingress, without Cloudflare
+
+- **Traefik publishes ports 80 and 443.** It is the only container that publishes ports, and UFW opens them inbound.
+- **No `cloudflared` and no `tunnel` network.** Everything else stays the same: Docker networks, nftables rules, no other published port.
+- **Let's Encrypt certificates, one per domain,** obtained by Traefik (HTTP-01 or TLS-ALPN-01). No DNS token is kept on the server. The certificates live in the only Traefik folder that is not read-only.
+- **DNS points to the server's IP,** with a wildcard. After a restore, you point the DNS to the new IP yourself.
+- **The webhook path still accepts only GitHub's IP ranges,** as with Cloudflare: see [Traefik](#traefik). Traefik then checks the IP of the connection itself.
+- **Traefik trusts no `X-Forwarded-*` header it receives.** It sets the client IP itself. It also sets HSTS, which Cloudflare set before.
+- **The server's IP is public,** and DDoS protection is no longer delegated to Cloudflare.
+
+### Administration without Tailscale
+
+- **SSH tunnel.** `brume api` stays on `127.0.0.1`, and you reach it with `ssh -L`. No admin port is open to the Internet.
+- **Public.** Traefik serves the panel on a dedicated domain, through the Cloudflare tunnel or through direct ingress. `brume api` then listens on the `ingress` network, like the webhook.
+- **SSH stays open on port 22,** with keys only, since Tailscale SSH is gone.
+- **Databases are reached from your laptop through an SSH tunnel,** database by database. The mechanism is left to the implementation, with one rule: no Docker port is ever published on a public interface.
+- **You sign in to the panel with a password and a passkey,** checked by the engine: see [Admin panel](/docs/how-it-works/admin-panel#without-tailscale).
+
+<Callout type="warn" title="Public administration is the most exposed mode">
+In public mode, anyone on the Internet can reach the panel's sign-in page and its API. The second factor and the engine's session checks become the only barrier.
+</Callout>

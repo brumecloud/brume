@@ -5,6 +5,7 @@ type: concept
 status: planned
 sources:
   - archi/base/13-modele-de-donnees.md
+  - archi/base/15-etat-et-restauration.md
 ---
 
 Brume organizes your apps in levels: project, environment, service and revision, with a history of deployments. This page explains what each level holds, what is immutable, and what a rollback restores.
@@ -24,7 +25,7 @@ Project                             shared variables and secrets
 
 - **Project:** the environments of one app (prod, staging), and the variables and secrets common to all of them.
 - **Environment:** its own internal network and its own `egress` network (see [Networking](/docs/how-it-works/networking)), and the values specific to this environment. Two environments cannot reach each other, even in the same project.
-- **Service:** a container or a static site. The type is set at creation and decides what the service can do. A static site is served by the shared nginx, outside the environment network, and has no secret at runtime.
+- **Service:** a container or a static site. The type is set at creation and decides what the service can do. A static site is served by the shared Caddy, outside the environment network, and has no secret at runtime.
 - **A service's slug is immutable.** It is the service's DNS name on the environment network: renaming it would break the services that call it. The display name can still change. The engine validates the slug as a DNS label (`[a-z0-9-]`, 63 characters at most).
 
 ## Revisions
@@ -71,7 +72,7 @@ Project                             shared variables and secrets
 - **Variables and secrets are defined on the project, the environment or the service.** The most specific level wins: service, then environment, then project.
 - **The environment holds the values that differ between prod and staging,** such as the app's public URL or test API keys. The project keeps what is truly identical everywhere.
 - **A project secret also reaches staging,** which is built from less-reviewed branches. The panel reminds you of this when you create a project secret, and offers to define it per environment instead.
-- **Shared simple variables are inherited by every service, except databases created from a template.** A database accepts only its typed settings, see [Templates](/docs/use/templates). A static site receives the shared build variables: they feed its build, not the nginx container.
+- **Shared simple variables are inherited by every service, except databases created from a template.** A database accepts only its typed settings, see [Templates](/docs/use/templates). A static site receives the shared build variables: they feed its build, not the Caddy container.
 - **Shared secrets go only to the services that reference them.** A third-party image, such as a Redis or an admin tool, does not receive the Stripe key just because it is in the project. The service declares the secret's name, and the value is looked up on the service, then the environment, then the project.
 - **A name is either a variable or a secret, at every level.** Otherwise a service's simple variable could override a shared secret, and its value would end up in clear text in the revision history.
 - **The revision records where each value comes from** (project, environment or service), for display and audit. It keeps the resolved value: a rollback restores a shared variable as it was, even if it has changed since.
@@ -93,11 +94,12 @@ Project                             shared variables and secrets
 
 ## Retention and purge
 
-- **Immutable does not mean forever.** Built images exist only in the local dockerd, and the disk of the VPS is limited.
-- **The engine keeps the artifacts of the last 10 revisions of each service.** Older revisions stay in the history but can no longer be rolled back to, and the panel shows it.
-- **The engine deletes only the artifacts it no longer keeps,** never with a blind `docker image prune`. If a kept artifact disappears anyway, for example after a `docker image prune -a` run by hand, the engine marks the revision as not rollbackable and raises an alert.
+- **Immutable does not mean forever.** Built images live in the local dockerd and, encrypted, on S3. The disk of the VPS is limited, so the local dockerd does not keep every artifact.
+- **dockerd keeps the artifacts of the last 10 revisions of each service.** Older artifacts are only on S3: a rollback to one of those revisions downloads its artifact first. Brume never deletes an artifact on S3, but you can add an expiration rule on `artifacts/` in your bucket. If that rule removed the artifact, the revision stays in the history but can no longer be rolled back to, and the panel shows it.
+- **An image pulled from a registry is not on S3.** A rollback past the last 10 revisions pulls it again from that registry, by its digest. See [What goes to the bucket](/docs/how-it-works/secrets-and-backups#what-goes-to-the-bucket).
+- **The agent deletes from dockerd only the artifacts the engine no longer keeps,** never with a blind `docker image prune`. If a kept artifact disappears anyway, for example after a `docker image prune -a` run by hand, the agent loads it again from S3. If it is missing from S3 too, the engine marks the revision as not rollbackable and raises an alert.
 - **A revision can be purged for good.** Its artifact and its variable values are erased, and its row stays in the history. Use it for a secret leaked into a static bundle, or a sensitive value entered by mistake as a simple variable.
-- **A purge does not reach backups already sent.** Brume cannot delete anything on S3, see [Secrets and backups](/docs/how-it-works/secrets-and-backups). A leaked secret must be revoked at its issuer: it cannot be erased.
+- **A purge reaches nothing on S3:** not the backups, not the blobs, not the artifact. Brume cannot delete anything on S3, see [Secrets and backups](/docs/how-it-works/secrets-and-backups). What stays there is encrypted. A leaked secret must be revoked at its issuer: it cannot be erased.
 
 ## Build cache
 

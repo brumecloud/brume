@@ -6,9 +6,14 @@ status: planned
 sources:
   - archi/base/12-plus-tard.md
   - archi/base/README.md
+  - archi/base/03-reseau.md
+  - archi/base/08-hote-et-installation.md
+  - archi/base/10-developpement.md
+  - archi/base/18-formats-s3.md
+  - archi/base/front-architecture.md
 ---
 
-Alpha 0.1 leaves some features and some hardening out on purpose. This page lists them, with what each one brings once it lands. For what 0.1 does include, see the [overview](/docs/how-it-works).
+Alpha 0.1 leaves some features and some hardening out on purpose. This page lists them, with what each one brings once it lands, and then the design decisions that are still open. For what 0.1 does include, see the [overview](/docs/how-it-works).
 
 ## Access and isolation
 
@@ -24,9 +29,18 @@ Alpha 0.1 leaves some features and some hardening out on purpose. This page list
 
 | Item | What it brings |
 |---|---|
-| Hardened backups | S3 credentials tested when you configure them: read, list and delete must fail. Object Lock retention headers on every upload, so that a bucket without Object Lock fails instead of accepting the upload. The master key included in the encrypted backup. An external alert when backups stop arriving. |
+| Hardened backups | Object Lock retention headers on every upload, so that a bucket without Object Lock fails instead of accepting the upload. The rights of the S3 credential are already checked in 0.1: see [Secrets and backups](/docs/how-it-works/secrets-and-backups#storage). |
+| Master key rotation | New objects on S3 use the new key. The key ID that each object carries keeps the old objects readable. |
+| Backups of volumes outside templates | In 0.1, only the databases created from templates are backed up. |
 | Major database upgrades | A backup, then a dump and a restore into the new version. For MongoDB, one version at a time, with Brume running the `setFeatureCompatibilityVersion` step. The engine then refuses a rollback that would run the old version on data written by the new one (PostgreSQL, MongoDB, Redis). |
-| Replicas and point-in-time recovery | Backups are dumps: you can lose the data written since the last one. Postgres WAL archiving brings that loss down to a few seconds. |
+| Database replicas and point-in-time recovery | Backups are dumps: you can lose the data written since the last one. Postgres WAL archiving brings that loss down to a few seconds. |
+
+## Detection and recovery
+
+| Item | What it brings |
+|---|---|
+| External heartbeat | An external service alerts you when Brume stops showing signs of life: the server is dead, an attacker with root cut it off, or uploads to S3 stopped. In 0.1, every alert leaves from the server itself. |
+| Restore to a point in time, and recovery after a compromise | `brume restore` up to a date or a position in the log, an audit view starting from a date, and a written procedure that says which secrets to revoke, and in which order. In 0.1, a restore replays the whole log, including anything an attacker wrote to it. |
 
 ## Features
 
@@ -41,5 +55,21 @@ Alpha 0.1 leaves some features and some hardening out on purpose. This page list
 
 | Item | What it brings |
 |---|---|
-| Multi-server | The Edge Agent model: each node connects outbound to the panel. Never a central root SSH key. See the [comparison](/docs/how-it-works/comparison) for why. |
-| Headscale | Full self-hosting of the admin layer. Leaving it out of 0.1 is a proposal, still open and to be confirmed. |
+| Multi-server | The agents of the other machines connect outbound to the master, over the tailnet, with the 0.1 protocol: the Edge Agent model. Never a central root SSH key: see the [comparison](/docs/how-it-works/comparison) for why. Services are placed one by one, with an environment network that spans machines (overlay or WireGuard). Public ingress is still to decide: relayed by the master, or one tunnel per machine. Each agent keeps the desired state on its machine, so it can start without the master. |
+| High availability of the engine | The log is replicated with Raft, so the control plane is no longer a single point of failure. The engine's state machine, the `World`, stays as it is, with no rewrite. |
+| Agent start without the engine | The agent keeps the last desired state, sealed with systemd credentials, and restarts the apps at boot even if the engine does not start. In 0.1, it waits for the engine. |
+| Red Hat family (Alma, Rocky, RHEL) | SELinux instead of AppArmor, dnf instead of apt. Alpha 0.1 supports Debian 12 and 13, and Ubuntu 24.04 and 26.04, on amd64 and arm64: see [Host and installation](/docs/how-it-works/host-and-installation#requirements). |
+| Headscale | Full self-hosting of the admin layer. Leaving it out of 0.1 is a proposal, still to be confirmed: see the [open decisions](/docs/how-it-works/roadmap#open-decisions). |
+
+## Open decisions
+
+These design decisions are not made yet. Until one is settled, the pages that depend on it describe the options, not an answer.
+
+- **Formats on S3.** A proposal sets the names, headers and encryption of the objects Brume writes to the bucket. It has to be validated before the engine is written, because an object written to S3 never changes. The proposal lives in the repository, in `archi/base/18-formats-s3.md`.
+- **A contributor license agreement (CLA),** which would keep the option of changing the license, or none. See [License](/docs/customize/development#license).
+- **Automatic updates, before the first release.** When to install them (the proposal is the 4 a.m. reboot window), a local fallback to the previous binary if the new one does not start, and a progressive rollout set by a percentage in `latest.json`. See [Host and installation](/docs/how-it-works/host-and-installation#updates).
+- **A way to verify the signing key outside GitHub,** since brume.dev is deployed from the same repository. See [Development rules](/docs/customize/development#signing-with-minisign).
+- **Local config of the Cloudflare tunnel, before the install is written.** Cloudflare's documentation has to confirm that a locally configured tunnel stops the dashboard from adding routes, so that a route added there cannot divert traffic, and that such a tunnel can be created through the API. See [Networking](/docs/how-it-works/networking#the-tunnel-config).
+- **No Headscale in 0.1.** This is a proposal, to be confirmed later. See [Hosting](/docs/how-it-works/roadmap#hosting).
+- **A domain dedicated to your apps,** separate from the domain that carries your email, so that a stolen Cloudflare account can no longer redirect your MX records. The options are advice at install, or nothing. This comes later. See [Networking](/docs/how-it-works/networking#domains).
+- **Frontend.** How the panel decodes API responses, and which library draws the metrics charts. See [Panel frontend](/docs/customize/frontend#open-decisions).

@@ -5,9 +5,13 @@ type: concept
 status: planned
 sources:
   - archi/base/front-architecture.md
+  - web/vite.config.ts
+  - web/tsconfig.json
+  - web/pnpm-workspace.yaml
+  - web/src/routes/projects/$projectId/$env/logs.tsx
 ---
 
-The admin panel is a React single-page app. CI compiles it and embeds it in the signed binary, so the server never runs npm (see [Development rules](/docs/customize/development)). `brume api` serves it with the API, on the same origin.
+The admin panel is a React single-page app. CI compiles it and embeds it in the signed binary, so the server never runs npm (see [Development rules](/docs/customize/development#frontend)). `brume api` serves it with the API, on the same origin.
 
 This page sets the stack, code layout, rules and tooling of the panel. The security rules of [Admin panel](/docs/how-it-works/admin-panel) and [Development rules](/docs/customize/development) take precedence over it.
 
@@ -19,35 +23,44 @@ This page sets the stack, code layout, rules and tooling of the panel. The secur
 | Toolchain | Vite+ (`vp`): build, tests (Vitest), lint (oxlint), formatting |
 | Types | Official TypeScript (`tsc`), in strict mode |
 | Routing | TanStack Router, file-based routes |
-| Server data | TanStack Query |
-| Components | shadcn on Base UI, Tailwind v4, `cva`, `tailwind-merge`, lucide icons |
-| Browser tests | Vitest in browser mode, headless Chromium through Playwright |
+| Server data | TanStack DB (collections synced by TanStack Query), TanStack Query alone for what is not an entity |
+| Components | [coss ui](https://coss.com/ui) on Base UI, Tailwind v4, `cva`, `tailwind-merge`, lucide icons |
+| Canvas | React Flow (`@xyflow/react`) |
+| Animations | `motion` |
+| Mock data | MSW, in development only, until the Rust API exists |
+| Browser tests | Vitest in browser mode, headless Chromium through Playwright, `vitest-browser-react` |
 
-**No global store** (zustand, Redux) in 0.1. Shared state comes from TanStack Query or from the URL; everything else is local state.
+**No global store** (zustand, Redux) in 0.1. Shared state comes from the TanStack DB collections, which are only a cache of the server state, or from the URL. Everything else is local state.
 
 ## Code layout
+
+The code has three layers, from top to bottom. A layer imports only the layers below it.
 
 ```text
 web/
 ├── src/
-│   ├── routes/            route files, kept thin
-│   ├── api/               the only code that talks to the server
-│   ├── components/ui/     shadcn primitives
-│   ├── components/<domain>/
-│   ├── hooks/
-│   └── lib/
-├── test/                  test helpers
-└── oxlint-plugin/         Brume's own lint rules
+│   ├── routes/                1. routing and pages: parameters, loader, component assembly
+│   ├── components/ui/         2. coss primitives
+│   ├── components/<domain>/   2. components: local state, data, rendering
+│   ├── hooks/                 2. shared hooks
+│   ├── helpers/               3. pure functions, tested in Node: all the logic
+│   ├── api/                   the only code that talks to the server: client, collections, queries
+│   ├── mocks/                 the mock API (development and tests only)
+│   └── lib/                   cn, used by components/ui
+├── build/                     build plugins and their tests
+└── oxlint-plugin/             Brume's own lint rules
 ```
 
-- **Pure logic goes in `*.logic.ts` files** (ANSI parsing, sorting, formatting), tested in Node. Components stay simple: they read, render and delegate.
+- **A route assembles the page:** `createFileRoute`, the parameter validation, the `loader`, and a page component that places components. No state and no logic: the lint forbids `useState`, `useEffect` and `useRef` there.
+- **A component owns its state and its data** (`useState`, `useLiveSuspenseQuery`, mutations), then reads, renders and delegates. It computes nothing: a sort, a filter or a format goes in `helpers/`.
+- **A helper is a pure function,** with no React, no TanStack, no `api/` (except its types) and no component. The lint enforces it.
 - **`*.test.ts` runs in Node, `*.browser.test.tsx` in Chromium.**
 - **The `~/` alias** points to `src/`.
-- **Same comment rule as for Rust:** no comment that repeats the code.
+- **Same comment rule as for Rust:** comments are in English, and none repeats the code. The UI text stays in French.
 
 ## TypeScript
 
-```jsonc title="tsconfig.json"
+```jsonc title="web/tsconfig.json"
 {
   "compilerOptions": {
     "target": "ES2023",
@@ -56,6 +69,7 @@ web/
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -65,11 +79,14 @@ web/
     "erasableSyntaxOnly": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "types": ["vite-plus/client", "msw/vite/client"],
     "paths": { "~/*": ["./src/*"] }
   },
-  "include": ["src", "test", "oxlint-plugin", "vite.config.ts"]
+  "include": ["src", "test", "build", "oxlint-plugin", "vite.config.ts"]
 }
 ```
+
+`allowImportingTsExtensions` is there for `build/` and `oxlint-plugin/`, which Node runs directly: their imports keep the `.ts` extension. Imports in `src/` have no extension.
 
 - **No `any`.** Unknown data is `unknown`, then validated.
 - **Branded IDs** (`ServiceId`, `ProjectId`), the equivalent of Rust newtypes: you cannot pass one for the other.
@@ -83,7 +100,9 @@ web/
 - **It is enabled on all of `src/`.**
 - **No `useMemo`, no `useCallback`, no `"use memo"` or `"use no memo"` directive** (`brume/no-manual-memo`).
 - **The compiler silently skips** any function it cannot prove correct, such as one that reads a ref during render or calls `setState` in an effect. The `react/*` lint rules turn these cases into errors.
-- **The lint does not catch everything** (`try` with `finally`, `throw` inside a `try`). So a test compiles every file of `src/` and fails on any skip. The build keeps `panicThreshold: "none"`, as the React docs recommend.
+- **The lint does not catch everything** (`try` with `finally`, `throw` inside a `try`). So a test, `build/react-compiler.test.ts`, compiles every file of `src/` and fails on any skip. The build keeps `panicThreshold: "none"`, as the React docs recommend.
+- **One explicit exception:** a component that calls a library the compiler cannot memoize without freezing the display. The compiler reports it (`IncompatibleLibrary`) and leaves it uncompiled, which is correct. Today only `components/logs/log-list.tsx` is in this case, with `useVirtualizer` from TanStack Virtual. It is listed in `build/react-compiler.test.ts`, which fails for any other skipped file. The component only holds the glue with the library: the rows are compiled components.
+- **The official Babel plugin,** wired through `@rolldown/plugin-babel` and `reactCompilerPreset()` from `@vitejs/plugin-react`. **Babel 7, not Babel 8:** `babel-plugin-react-compiler` 1.0 does not read the Babel 8 AST and skips every function that has a default value in its props. The test above caught it.
 
 ### Every effect says why it exists
 
@@ -112,40 +131,101 @@ useEffect(() => subscribeToLogs(serviceId, append), [serviceId]);
 - **When a look is missing:** if it is generic, it becomes a new variant of the component. If it is specific to one feature, it stays in that feature's component.
 - **No borrowed class recipes:** `buttonVariants` and the like are not imported outside `components/ui`. Render the component instead (`render={<Button />}`).
 - **No raw `<button>`, `<input>` or `<select>` styled** to look like a control that a primitive already provides.
-- **Composition through slots:** a component exports small subcomponents (`Banner.Root`, `Banner.Title`, `Banner.Actions`). Each one carries its own classes, accepts `className` and merges it with `cn`. Compose or extend them, do not copy the markup.
+- **Composition through slots:** a component exports small subcomponents, named the way coss names its own (`Banner`, `BannerTitle`, `BannerActions`). Each one carries its own classes, accepts `className` and merges it with `cn`. Compose or extend them, do not copy the markup.
 - **Tailwind goes in the component that renders the element.** Global CSS is only for what classes cannot express: theme variables, animations. No `style={{…}}` for a static value. The theme goes through `@variant dark`.
-- **Official shadcn registry only.** Its CLI copies the source code into the repository, so review that code as you would Brume's own. No third-party registry.
+- **Two registries only: coss ui (`@coss`) and the official shadcn registry.** coss is maintained by Cal.com, on Base UI and Tailwind v4 like the rest of the stack. The shadcn CLI copies the source code into the repository, so review that code as you would Brume's own. Add only the components you use (`pnpm dlx shadcn@<version> add @coss/<component>`), never all of `@coss/ui`.
+- **shadcn's Chart is not added as is:** its `ChartStyle` injects a `<style>` through `dangerouslySetInnerHTML`. It is removed, and the series colors go through the theme's `--chart-*` variables. The chart library itself is still an [open decision](/docs/customize/frontend#open-decisions).
 - **Mobile friendly:** touch targets are at least 44 px on coarse pointers (`pointer-coarse:`).
+- **A pending state shows as a blue outline** (`outline-info`), set by `data-staged` or `data-draft`: on a setting, a variable row, a canvas card.
+- **Logs have a terminal background** (`bg-terminal`), darker than the cards.
+- **A long list is searchable:** `SearchSelect` (the coss combobox, with a search field in the list) for projects, environments, repositories and branches. Its trigger has an `aria-label`, because a combobox does not take its name from its content.
+- **A `Select` opens below its trigger,** never over it (`alignItemWithTrigger` is `false` by default in `ui/select.tsx`).
 
 ## Routes
 
 - **File-based routes, with `autoCodeSplitting: true`.** `routeTree.gen.ts` is generated, and excluded from lint and formatting.
-- **A route file is thin:** `createFileRoute`, the parameter validation, the `loader`, and a component imported from `components/`.
-- **URL parameters are hostile input:** anyone can send a crafted link to the admin. `validateSearch` accepts only known values and caps the length of strings. Path parameters (`$serviceId`) go through `params.parse`.
+- **A route file is thin:** `createFileRoute`, the parameter validation, the `loader`, and a page component that assembles components from `components/`.
+- **URL parameters are hostile input:** anyone can send a crafted link to the admin. `validateSearch` accepts only known values and caps the length of strings. Path parameters (`$serviceId`) go through `params.parse`. The parsing is a tested helper, and an invalid parameter gives a `notFound()`.
 
-```tsx
-interface LogsSearch {
-  readonly level: "all" | "warn" | "error";
-  readonly q?: string;
-}
+```tsx title="web/src/routes/projects/$projectId/$env/logs.tsx"
+import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/services/$serviceId/logs")({
-  validateSearch: (raw: Record<string, unknown>): LogsSearch => ({
-    level: raw.level === "warn" || raw.level === "error" ? raw.level : "all",
-    ...(typeof raw.q === "string" && raw.q ? { q: raw.q.slice(0, 200) } : {}),
-  }),
-  component: ServiceLogsPage,
+import { LogExplorer } from "~/components/logs/log-explorer";
+import { parseLogsSearch } from "~/helpers/logs";
+
+const projectRoute = getRouteApi("/projects/$projectId/$env");
+
+export const Route = createFileRoute("/projects/$projectId/$env/logs")({
+  validateSearch: parseLogsSearch,
+  component: LogsPage,
 });
+
+function LogsPage() {
+  const { environment } = projectRoute.useLoaderData();
+  const search = Route.useSearch();
+  return <LogExplorer environmentId={environment.id} search={search} />;
+}
 ```
 
 ## Data
 
 - **One HTTP client, in `src/api/`.** It calls relative URLs (`/api/…`), adds `X-Brume: 1` and `Content-Type: application/json`, and turns errors into a known type. `fetch` and `EventSource` are forbidden everywhere else.
-- **One `queryOptions` per resource** (`api/services.ts`), shared by the route `loader` (`ensureQueryData`) and the component. A mutation invalidates the keys it touches.
-- **Revealing a secret is a mutation:** it is a `POST`, recorded in the audit log. It runs with `gcTime: 0`, and the value never enters the query cache.
-- **Live logs arrive over SSE,** as [Admin panel](/docs/how-it-works/admin-panel) specifies. The list is virtualized (TanStack Virtual), and only the last N lines stay in memory.
-- **ANSI colors:** a parser written for Brume (`ansi.logic.ts`) splits each line into `{ text, style }` segments, rendered as `<span>` elements with classes. It keeps only color codes and strips every other sequence. Never HTML, and never a library that produces HTML.
+- **Every response is decoded** by a helper (`helpers/decode.ts`) before it gets a type: its shape is checked, not assumed.
+- **One TanStack DB collection per entity of the model** (projects, environments, services, deployments, variables), built with `queryCollectionOptions`. The route `loader` calls `collection.preload()`. Components read with `useLiveSuspenseQuery({ query })`, through named queries in `api/` (`projectById(id)`, `projectEnvironments(id)`). Mutations are optimistic, except those that carry the value of a secret.
+- **TanStack Query alone** for what is not an entity: metric series, database statistics, build logs.
+- **TanStack DB is still at 0.x.** Version 1.0 will come through a normal update, once the [`minimumReleaseAge`](/docs/customize/frontend#dependencies) delay has passed.
+- **Revealing a secret is a mutation:** it is a `POST`, and it is logged. It runs with `gcTime: 0`, and the value never enters the query cache.
+- **Live logs arrive over SSE,** as [Admin panel](/docs/how-it-works/admin-panel) specifies. The tab keeps the last 50,000 lines. A reconnected stream sends its history again, and the lines already received are skipped.
+- **The log list is virtualized (TanStack Virtual):** only the visible lines are in the DOM, each one measured, since a line can wrap. See the [React Compiler exception](/docs/customize/frontend#the-react-compiler-memoizes-for-you).
+- **`EventSource` cannot send `X-Brume`.** The log stream is a `GET` without side effects: the server protects it with Fetch Metadata (`Sec-Fetch-Site: same-origin`), and no CORS makes it readable from another site. See [CSRF and cross-site requests](/docs/how-it-works/admin-panel#csrf-and-cross-site-requests).
+- **A log line opens on click** and shows the whole line as indented JSON (`logJson`). A message that is itself JSON appears there as `data`, not as an escaped string. Highlighting goes through `jsonTokens`, rendered as text `<span>` elements. Opening a line stops following the stream.
+- **The histogram stacks the levels** in each bar (info, warning, error), in the colors of the log lines.
+- **ANSI colors:** a parser written for Brume (`helpers/ansi.ts`) splits each line into `{ text, style }` segments, rendered as `<span>` elements with classes. It keeps only color codes, and strips every other sequence (cursor, window titles, OSC links) and control characters. Never HTML, and never a library that produces HTML: log lines can come from an attacker (see [XSS](/docs/how-it-works/admin-panel#xss)).
 - **URLs that come from the API** (an app's domain, a commit link) are shown as links only if their scheme is `https:`.
+
+### Pending changes
+
+A changed setting or variable does not apply right away: it waits for the next deployment of the environment, as on Railway.
+
+- **The draft lives on the server** (`/api/changes`), not in the browser. It survives a reload, and the value of a pending secret never comes back from it (`null`). So `changesCollection` holds no secret.
+- **One change per setting or variable:** staging a new one replaces the old one. Going back to the applied value removes the change (`settingChange`).
+- **Staging is not optimistic** (`stageChange` sends the change, then reloads the collection), for the same reason as creating a secret. Discarding a change is optimistic.
+- **A bar floats at the top of the canvas,** centered on the space the service panel leaves free (`--spacing-panel`), and counts the changes of the environment. "Détails" lists them by service. "Déployer" (or ⇧ Enter) applies them all, with one new revision per service touched. The ⋮ menu discards them all.
+- **The tabs show the state after the next deployment:** `withStagedSettings` and `stagedVariableRows` lay the changes over the applied values.
+
+### Mock API
+
+Until the Rust API exists, MSW mocks it in the browser.
+
+- **`src/mocks/`:** a dataset (`seed.ts`) and handlers that answer like the API, with latency. They reject a request without `X-Brume`, like the real server. An `/api` route with no mock answers 501.
+- **Out of the build:** the `msw/vite` plugin serves the service worker only in development, and `main.tsx` loads the mocks only under `import.meta.env.DEV`. The production build contains neither the worker nor the handlers.
+- **Browser tests use the same handlers.**
+- **The handlers are the API contract** until the types are generated from the Rust types: see [Open decisions](/docs/customize/frontend#open-decisions), where that choice is settled.
+
+## Canvas
+
+- **React Flow runs in uncontrolled mode:** it keeps the node state (positions, measurements, selection). The graph is rebuilt (`key`) only when its shape changes: a service or a dependency added or removed.
+- **Each node reads its service by id** from the TanStack DB collection. A status change redraws the card without rebuilding the graph.
+- **Automatic layout** (`helpers/canvas.ts`): a service sits one row above the services it depends on. Apps are at the top, their databases below.
+- **Positions moved by hand** stay in the browser, in a TanStack DB collection on localStorage. They are display preferences, not project data. "Réorganiser" (rearrange) clears them.
+- **Edges come from the dependencies,** which the API computes from the secrets each service references.
+- **The React Flow attribution stays visible:** its license requires a Pro subscription to hide it.
+- **A service's panel is a child route of the canvas** (`$env/_canvas/services/$serviceId/{deployments,variables,settings}`). The canvas stays mounted behind it, the Back button closes the panel, and each tab has its own URL. The canvas shifts to keep the selected service visible left of the panel (`panelFocusCenter`).
+- **A deployment takes the place of the service panel** (`deployments/$deploymentId`), and the service panel steps back to the bottom left: its edge stays visible underneath, like a card under another one. The deployment renders through a portal into the canvas layer (`PanelLayer`, `StackedPanel`), because inside the service panel it would be clipped by it and placed against it.
+- **The panel steps back with a CSS `transform` on a wrapper,** which motion ignores. For motion, the deployment is still a child of the panel, since motion follows the React tree, not the DOM. As a motion value, the step back would offset the deployment's layout animations: the underline of its tabs jumped.
+- **The deployment slides in without a fade:** a fade would show the panel header through its own. Its tabs (details, build logs, runtime logs) go through the `tab` URL parameter.
+- **The settings scroll on their own,** so their navigation follows the section being read (`currentSection`). A click in the navigation pins its section until the next manual scroll: otherwise, at the bottom of the page, the last section would take its place.
+- **A canvas card shows its pending changes** with a blue outline and their count.
+- **React Flow pulls in `zustand`** for its internal state. The "no global store" rule covers Brume's code, not the code of its dependencies.
+
+## Animations
+
+- **`motion`,** with the rules of the `improve-animations` skill (`.claude/skills/improve-animations/AUDIT.md`).
+- **One reason per animation.** Nothing on what you use a hundred times a day: the command palette, shortcuts.
+- **Under 300 ms,** with `ease-out` on entry. Curves and durations are theme variables, never typed in a component.
+- **`transform` and `opacity` only.** Popovers grow from their trigger (the `--transform-origin` of Base UI).
+- **`prefers-reduced-motion`:** opacity stays, movement goes. `MotionConfig reducedMotion="user"` at the root does it for moves (`x`, `y`) and layout animations.
+- **Vercel-style tabs** (`NavTabs`): a single pill per bar slides to the hovered tab (`x` and `width`, computed by `helpers/tabs.ts`). It fades only when the pointer enters or leaves the bar. One pill per tab linked by `layoutId` flickered, one fading out while the other faded in. The underline slides to the active tab (`layoutId`). Each tab bar has its own `LayoutGroup`, because two bars can be on screen at the same time.
 
 ## Security enforced by tooling
 
@@ -155,16 +235,16 @@ export const Route = createFileRoute("/services/$serviceId/logs")({
 | CSP without inline scripts | No inline `<script>` in `index.html`. The theme applied before the first render loads from a file, under `'self'`. |
 | Trusted Types | Brume's code never inserts raw HTML. A dependency that does is refused. |
 | No `eval` | `eslint/no-eval`, `eslint/no-new-func`, `eslint/no-script-url` |
-| `X-Brume` header on every request | `fetch` and `EventSource` forbidden outside `src/api/` |
+| `X-Brume` header on every request | `fetch` and `EventSource` forbidden outside `src/api/`. Only the log SSE stream goes without it, see [Data](/docs/customize/frontend#data). |
 | External links | `react/jsx-no-target-blank` |
 
 In development, Vite injects inline scripts (HMR, React Refresh). The strict CSP applies to the build that `brume api` serves.
 
 ## Lint
 
-The lint config lives in `vite.config.ts`, under the Vite+ `lint` key:
+The lint config lives in `vite.config.ts`, under the Vite+ `lint` key. An excerpt:
 
-```ts title="vite.config.ts"
+```ts title="web/vite.config.ts"
 lint: {
   plugins: ["eslint", "oxc", "react", "unicorn", "typescript"],
   jsPlugins: ["./oxlint-plugin/index.ts", "@shadcn/lint"],
@@ -198,12 +278,14 @@ lint: {
     "react/no-unstable-nested-components": "error",
     // The compiler memoizes context values.
     "react/jsx-no-constructed-context-values": "off",
+    // Automatic JSX runtime: React does not need to be in scope.
+    "react/react-in-jsx-scope": "off",
 
     // TypeScript
     "typescript/no-explicit-any": "error",
     "eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
 
-    // Brume's own rules
+    // Our rules
     "brume/no-manual-memo": "error",
     "brume/no-unreasoned-effect": "error",
     "brume/require-suppression-reason": "error",
@@ -227,7 +309,7 @@ lint: {
               {
                 group: ["~/components/ui/*"],
                 importNames: ["buttonVariants", "badgeVariants", "toggleVariants"],
-                message: "Render the components/ui component instead of borrowing its recipe.",
+                message: "Render the component from components/ui instead of borrowing its recipe.",
               },
             ],
           },
@@ -240,7 +322,22 @@ lint: {
 },
 ```
 
-**Only three custom rules:** `no-manual-memo`, `no-unreasoned-effect` and `require-suppression-reason`. They are short, written for Brume, and live in `web/oxlint-plugin/`.
+**The layers come from more `overrides` of `eslint/no-restricted-imports`,** one per folder:
+
+- `routes/` imports neither `useState`, `useEffect` nor `useRef`.
+- `components/`, `hooks/` and `api/` do not import `routes/`.
+- `helpers/` imports neither React, TanStack, `components/` nor `api/` (except its types).
+
+An override replaces the whole rule, so each one repeats the class recipe pattern. The full config is in `web/vite.config.ts`.
+
+**Only three custom rules:** `no-manual-memo`, `no-unreasoned-effect` and `require-suppression-reason`. They are short, written for Brume, live in `web/oxlint-plugin/`, and are tested with the oxlint `RuleTester`.
+
+### Review: two audit skills
+
+`.claude/skills/improve-react` and `.claude/skills/improve-animations` audit the code at the end of each batch of work and propose plans. They do not change anything themselves.
+
+- **This page takes precedence.** improve-react relies on the React Doctor rules. Those that push for manual memoization (`jsx-no-new-function-as-prop`, `jsx-no-new-object-as-prop`, `rerender-dependencies`, `no-inline-prop-on-memo-component`) do not apply: the React Compiler handles it.
+- **React Doctor is not installed.** It pulls in `@sentry/node`, a TypeScript older than 6 and its own oxlint. The audit uses the rule catalog of the skill (`AUDIT.md`), without the scanner.
 
 ## Tests
 
@@ -250,36 +347,53 @@ lint: {
 - **Never wait for real:** no `sleep`, no polling loop, no duration measurement. Use fake timers, and assert with `expect.element` or `vi.waitFor`.
 - **`retry: 0`:** a flaky test gets fixed, not rerun.
 - **`allowOnly: !process.env.CI`:** a forgotten `.only` fails CI.
-- **Disposable render** (`await using screen = await render(…)`): a failing test still unmounts its component.
+- **`vitest-browser-react` unmounts components** before each test, even after a failure. Its `render` is not disposable (`await using`) yet.
+- **Browser tests go through the MSW handlers,** like development does. A test mounts the whole app on a URL (`test/render-app.tsx`) and checks what the admin sees. Test files run one after the other: they share the MSW service worker, and iframes running in parallel would mix their requests.
+- **The mock API keeps its state between the tests of a file.** A test that stages a change deploys or discards it before it ends.
+- **Vite's pre-bundling crawls every file at startup** (`optimizeDeps.entries`). A dependency found mid-run reloads the tests and makes them fail.
+- **`build/react-compiler.test.ts`** compiles every file of `src/` and fails if the compiler skips a function in it.
 
 ## Build
 
-- **No cycle between chunks.** A Vite plugin of a few lines fails the build if two chunks import each other. A cycle can run a chunk before its dependencies and leave a blank page.
+- **No cycle between chunks.** A Vite plugin of a few lines (`build/no-chunk-cycles.ts`) fails the build if two chunks import each other. A cycle can run a chunk before its dependencies and leave a blank page.
 - **Reload after an update.** Every Brume update removes the old chunks from the binary. So a tab left open reloads the page once on `vite:preloadError`, with a `sessionStorage` flag to prevent reload loops.
 - **Output goes to `web/dist`,** which CI embeds in the binary.
 
 ## Dependencies
 
-```yaml title="pnpm-workspace.yaml"
+An excerpt of the pnpm workspace:
+
+```yaml title="web/pnpm-workspace.yaml"
 packages:
-  - web
+  - .
 
 catalog:
-  react: 19.3.0
-  react-dom: 19.3.0
-  "@tanstack/react-query": 5.105.0
+  react: 19.3.1
+  react-dom: 19.3.1
+  "@tanstack/react-query": 5.104.5
   "@tanstack/react-router": 1.170.46
+  # …
 
+# Vite+ ships its own Vite and Vitest: plugins must resolve the same copies.
+overrides:
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
+  vitest: 5.0.5
+
+savePrefix: ""
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude: []
 trustPolicy: no-downgrade
+trustPolicyExclude:
+  - semver@6.3.1
 allowBuilds: {}
 ```
 
+- **The pnpm workspace lives in `web/`,** not at the repository root: the root stays for the Rust code.
+- **pnpm 12,** pinned by `packageManager`. Corepack cannot run it yet, so use `npx pnpm@<version>` in the meantime.
 - **The catalog declares each version once, as an exact version.** `package.json` refers to it with `catalog:`.
 - **`minimumReleaseAge: 10080`,** that is 7 days. The pnpm default is one day and not strict: when no version is old enough, pnpm installs a recent one anyway. An explicit value makes the check strict.
 - **`minimumReleaseAgeExclude` stays empty.** An urgent security fix is added to it explicitly, then removed.
-- **`trustPolicy: no-downgrade`:** the install fails if a version has less evidence of trust (trusted publisher, provenance) than the earlier ones.
+- **`trustPolicy: no-downgrade`:** the install fails if a version has less evidence of trust (trusted publisher, provenance) than the earlier ones. `trustPolicyExclude` lists the reviewed exceptions: `semver@6.3.1` was published before npm provenance existed, which is not a change of publisher.
 - **Install scripts:** `strictDepBuilds` (true by default) fails the install if a package has a script nobody reviewed. `allowBuilds` lists the reviewed ones, set to `false` by default.
 - **`blockExoticSubdeps` keeps its default** (true): no transitive dependency from git or from a tarball URL.
 - **`overrides`** keep a single copy of each package.
@@ -291,12 +405,17 @@ allowBuilds: {}
 
 - **`pnpm install --frozen-lockfile`.**
 - **`vp fmt --check`, `vp lint`, `tsc --noEmit`, `vp test run`, `knip`, `vp build`.**
-- **GitHub Actions are pinned by SHA,** see [Development rules](/docs/customize/development).
+- **GitHub Actions are pinned by SHA,** see [Development rules](/docs/customize/development#ci).
 
 ## Open decisions
 
-These three questions are not settled yet.
+These two questions are not settled yet.
 
-1. **React Compiler implementation:** `babel-plugin-react-compiler`, the official one, at 1.0, or `oxc-transform-react`, its Rust port. The port is a single dependency, but `@vitejs/plugin-react` marks it experimental. The current recommendation is the official one, as long as the port stays experimental.
-2. **Types shared between Rust and TypeScript:** generated from the Rust types (`ts-rs`, `specta`) or from an OpenAPI schema (`utoipa`). Without generation, the types in `src/api/` are written by hand and end up drifting from the Rust ones.
-3. **TanStack DB:** it is planned in the stack, but TanStack Query may be enough for a panel with a single admin. The choice is made at the first real need.
+1. **Decoding API responses:** decoders written by hand (`helpers/decode.ts`, today), or a schema library (zod, valibot) whose schemas TanStack DB accepts. To be decided when the model grows.
+2. **Metrics charts:** shadcn's Chart (Recharts, which pulls in Redux Toolkit, immer and d3), without its `ChartStyle`. To be confirmed with the metrics batch.
+
+Settled:
+
+- **The React Compiler** goes through the official Babel plugin (Babel 7).
+- **TanStack DB** is adopted.
+- **The types in `src/api/` are generated from the Rust types,** with `ts-rs` or `specta`, whichever the implementation picks. Types written by hand would drift from the Rust ones. An OpenAPI schema comes later, when the API opens to other clients (API tokens, a remote CLI).

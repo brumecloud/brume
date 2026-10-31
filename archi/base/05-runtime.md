@@ -27,7 +27,7 @@
 ## Images
 
 - **Le tag est résolu en digest au déploiement,** et le digest est stocké. Un rollback redéploie exactement la même image, et un tag modifié sur le registry ne change pas la prod à l'insu de l'admin.
-- **Les composants de Brume** (Traefik, nginx, cloudflared, BuildKit) sont épinglés par digest et mis à jour à chaque release de Brume.
+- **Les composants de Brume** (Traefik, Caddy, cloudflared, BuildKit) sont épinglés par digest et mis à jour à chaque release de Brume.
 
 ## Secrets des apps
 
@@ -46,8 +46,12 @@
 
 ## Sites statiques
 
-- **Servis par un container nginx géré par Brume,** avec un volume en lecture seule et une image nginx sans root. Cache, headers et limites des artefacts : voir [templates.md](templates.md#site-statique).
+- **Servis par un container Caddy géré par Brume,** avec un volume en lecture seule, sans root, depuis l'image officielle épinglée par digest, sans module tiers. Cache, headers et limites des artefacts : voir [templates.md](templates.md#site-statique).
+- **HTTPS automatique de Caddy coupé.** Le TLS se termine chez Cloudflare, ou dans Traefik en entrée directe. Sinon Caddy tenterait d'obtenir ses propres certificats.
+- **L'API d'admin de Caddy reste sur `localhost`, dans son propre container.** Elle accepte n'importe quelle nouvelle config, mais aucun autre container ne partage le réseau de Caddy, puisque `policy.toml` l'interdit : seul un process de ce container peut la joindre. L'agent recharge la config en lançant `caddy reload` dans le container, sans coupure.
+- **Chaque domaine sert un lien `current`** vers le dossier de sa révision, créé par Brume hors de toute archive. Un déploiement ou un rollback bascule ce lien d'un coup, sans toucher à la config de Caddy, qui ne change qu'à l'ajout ou au retrait d'un domaine.
+- **Config en JSON, générée par sérialisation** et montée en lecture seule, jamais un Caddyfile construit par concaténation. Voir l'injection dans [10-developpement.md](10-developpement.md#injection-dans-ce-que-brume-génère).
 - **Fichiers cachés refusés** (`.env`, `.git`) : beaucoup de builds les laissent dans le dossier de sortie.
-- **Extraction des artefacts** dans un process sans privilège, jamais dans l'engine ni dans l'agent. Les chemins en `../` et les symlinks sont rejetés, sinon nginx pourrait servir des fichiers situés hors du site.
+- **Extraction des artefacts** dans un process sans privilège, jamais dans l'engine ni dans l'agent. Les chemins en `../` et les symlinks sont rejetés, sinon Caddy pourrait servir des fichiers situés hors du site.
 - **Rollback instantané :** les dernières versions restent sur le disque. Une version peut être purgée définitivement, par exemple si un secret y a fuité. Voir [13-modele-de-donnees.md](13-modele-de-donnees.md#rétention-et-purge).
 - **Les variables lues par le build sont publiques.** `VITE_*`, `NEXT_PUBLIC_*` et tout ce que lit le build finissent dans le bundle JS servi à tout le monde. Brume avertit quand un secret est injecté dans le build d'un site statique.

@@ -5,24 +5,27 @@ type: concept
 status: planned
 sources:
   - archi/base/06-builds-et-deploiement.md
+  - archi/base/14-architecture-logicielle.md
+  - archi/base/03-reseau.md
 ---
 
-A push to a configured branch starts a build. Each step runs in its own component, with only what it needs: the webhook checks the request and queues a build, the builder clones and builds the image without touching the runtime, and the engine deploys the result by digest.
+A push to a configured branch starts a build. Each step runs in its own component, with only what it needs: the webhook checks the request and queues a build, the engine decides, the agent starts the builder, and the builder clones and builds the image without touching the runtime. The agent then loads the image, and the engine deploys it by digest.
 
 ## The flow
 
 1. A push to a configured branch triggers a GitHub webhook.
-2. The request goes through Cloudflare (a WAF rule lets only GitHub IPs through), then cloudflared, then Traefik (rate limit), then `brume webhook`.
+2. The request goes through Cloudflare, then cloudflared, then Traefik (GitHub IPs only, rate limit), then `brume webhook`. In direct ingress, without Cloudflare, the request reaches Traefik directly: see [Networking](/docs/how-it-works/networking#traefik).
 3. `brume webhook` checks the signature and calls `enqueue_build(repo_id, ref)` on the engine.
-4. The engine checks that the ref matches the configured branch, then starts the build.
-5. The builder clones the repository and builds the image with [Railpack](https://railpack.com).
-6. The engine loads the image into dockerd and deploys it by digest.
+4. The engine checks that the ref matches the configured branch, then asks the agent for the build.
+5. The agent starts the builder, which clones the repository and builds the image with [Railpack](https://railpack.com).
+6. The agent loads the image into dockerd and uploads it to S3. The engine creates the revision, then deploys it by digest.
 
 ## The webhook
 
 The webhook receives requests from the internet, so it treats the payload as a trigger and nothing more.
 
 - **A separate process, with its own listener,** never a route of the admin API. [Architecture](/docs/how-it-works/architecture) explains why.
+- **Only GitHub's IP ranges reach it,** in every mode: Traefik filters them, with a rate limit. Every GitHub user shares these ranges, so the signature check below remains the real barrier. See [Networking](/docs/how-it-works/networking#traefik).
 - **HMAC signature `X-Hub-Signature-256`,** checked in constant time, before the JSON is parsed. See GitHub's guide to [validating webhook deliveries](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries).
 - **Limited body size.**
 - **Replay protection.** GitHub does not sign a timestamp, so the webhook ignores duplicate `X-GitHub-Delivery` IDs.
@@ -32,21 +35,28 @@ The webhook receives requests from the internet, so it treats the payload as a t
 
 ## Access to GitHub
 
-- **A GitHub App rather than a personal token.** The engine holds the App's private key and generates an installation token for each build. The token expires after one hour.
+Brume reads your code through a GitHub App that belongs to your installation alone, with read-only rights and short-lived tokens.
+
+- **One GitHub App per Brume installation, rather than a personal token.** You create it from the panel at first launch, with GitHub's [manifest flow](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest). The panel sends your browser to GitHub with a manifest: the App's name, the webhook URL of this installation, its permissions and the `push` event. You confirm, and GitHub sends your browser back to the panel with a code. The engine exchanges that code for the App's ID, its private key and the webhook secret.
+- **The flow works with a panel reachable only through the tailnet,** because the return trip goes through your browser, not from GitHub to the server.
+- **No App shared by the Brume project.** A shared App would force a single webhook URL, so a central relay, and one private key common to every installation.
+- **Read-only.** The App has the `contents: read` and `metadata: read` permissions, and is installed only on the repositories you pick.
+- **One token per build, limited to the repository being built.** The token has `contents: read` and expires after one hour. The engine generates it with the App's private key, and the agent passes it to the builder. A malicious dependency that steals it can read only that repository, for one hour.
 - **The token must never end up in the image.** A clone through `https://x-access-token:TOKEN@github.com/...` writes the token into `.git/config`, and a `COPY . .` then puts it in an image layer. So the token goes through a credential helper or a header, and `.git` is excluded from the build context.
-- **The clone happens in the builder, never in the engine.** Git has had code execution flaws triggered by cloning a crafted repository, such as [CVE-2024-32002](https://www.cve.org/CVERecord?id=CVE-2024-32002).
+- **The clone happens in the builder, never in the engine or the agent.** Git has had code execution flaws triggered by cloning a crafted repository, such as [CVE-2024-32002](https://www.cve.org/CVERecord?id=CVE-2024-32002).
 - **`GIT_ALLOW_PROTOCOL=https:ssh`,** and no arbitrary submodules.
 - **`--` before any user argument** passed to `git`, so that a ref starting with `-` cannot become an option.
 
 ## The builder
 
-The builder runs BuildKit rootless in its own container. Its sandbox is weaker than an app's. Brume accepts this because the code it builds is trusted, dependencies included: see the [threat model](/docs/how-it-works/threat-model).
+The builder runs BuildKit rootless in its own container, started by the agent. Its sandbox is weaker than an app's. Brume accepts this because the code it builds is trusted, dependencies included: see the [threat model](/docs/how-it-works/threat-model).
 
 ### Sandbox
 
-- **BuildKit rootless, in its own container,** with no Docker socket.
+- **BuildKit rootless, in its own container started by the agent,** with no Docker socket.
 - **A weakened sandbox, by necessity.** Inside a container, rootless BuildKit needs seccomp, AppArmor and `systempaths` set to `unconfined`. According to the [BuildKit documentation](https://github.com/moby/buildkit/blob/master/docs/rootless.md), `systempaths=unconfined` can allow reading and writing sensitive kernel files.
-- **Unprivileged user namespaces required.** On Ubuntu 24.04, `brume install` disables `kernel.apparmor_restrict_unprivileged_userns`, for the whole host. Debian 12 needs no change.
+- **Unprivileged user namespaces required.** On Ubuntu, `brume install` disables `kernel.apparmor_restrict_unprivileged_userns`, for the whole host. Debian needs no change. This is still to be confirmed on Ubuntu 26.04 and Debian 13.
+- **A compromised engine can make it build any repository.** The engine has no Docker socket, but this shortens its path to root: with a kernel or runc flaw, the build reaches root. It is an accepted risk, in the same family as write access to a deployed branch: see the [threat model](/docs/how-it-works/threat-model). A disposable builder under gVisor will close it: see the [roadmap](/docs/how-it-works/roadmap).
 - **BuildKit image v0.25.2 or later.** It ships its own runc, which must be patched separately from Docker's.
 - **Railpack and its BuildKit frontend are pinned by digest.**
 
@@ -73,5 +83,10 @@ The builder has to work with `userns-remap`, which Docker uses on the host, and 
 
 ## Deployment and rollback
 
-- **The builder never touches the runtime.** It produces an image. The engine loads it into dockerd and deploys it by digest.
+- **The builder never touches the runtime.** It produces an image. The agent loads it into dockerd and deploys it by digest.
+- **The engine drives each deployment through a series of desired states.** Each step is an event in the log, so a deployment survives a crash of the engine, and the agent does not have to remember a deployment in progress.
+- **No downtime for a service without a volume.** The new container starts next to the old one. Once its healthcheck passes, the Traefik route and the environment's DNS alias switch to it, then the old one stops. If the healthcheck fails, the new container stops and the old one keeps running.
+- **A service with a volume stops, then restarts.** Two containers never share a volume, so the downtime lasts as long as the startup, and the panel shows it.
+- **A static site switches instantly.** See [Runtime](/docs/how-it-works/runtime).
+- **A deployment is marked successful on what the agent observed:** the container started and its healthcheck passed.
 - **Rollback redeploys the digest of a previous revision,** without a rebuild. The [data model](/docs/how-it-works/data-model) lists what comes back with it and what does not.

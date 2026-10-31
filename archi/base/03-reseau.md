@@ -25,7 +25,7 @@ Avec le proxy classique, le DNS pointe sur l'IP du serveur et Cloudflare relaie 
 ### Ce que ça coûte, à dire aux utilisateurs
 
 - **Cloudflare déchiffre tout le trafic.** Il voit les mots de passe et les données des utilisateurs des apps. C'est une entreprise américaine, ce qui compte pour le RGPD.
-- **Le compte Cloudflare contrôle le trafic,** et peut ajouter des routes privées au tunnel depuis le dashboard, sans toucher au serveur. Les appareils WARP de l'organisation joignent alors, par `cloudflared`, tout ce que son container peut joindre. Les règles nftables limitent ça à Traefik et au webhook. À protéger par une 2FA.
+- **Le compte Cloudflare contrôle le trafic et tout le DNS du domaine,** emails compris. La config du tunnel est locale, pour que le dashboard ne puisse pas changer ses règles : voir [La config du tunnel](#la-config-du-tunnel). Si une route privée s'ajoutait quand même, les appareils WARP de l'organisation joindraient, par `cloudflared`, tout ce que son container peut joindre : les règles nftables limitent ça à Traefik et au webhook. À protéger par une 2FA.
 - **Le domaine doit être sur le DNS Cloudflare.**
 - **Limites du plan gratuit :** 100 Mo par requête et 100 secondes de délai de réponse. Au-delà, l'upload ou la requête échoue.
 - **Uniquement du HTTP.** Les bases passent par le tailnet.
@@ -33,12 +33,18 @@ Avec le proxy classique, le DNS pointe sur l'IP du serveur et Cloudflare relaie 
 ### Les tokens
 
 - **Token API Cloudflare :** utilisé par `brume install` pour créer le tunnel et le CNAME wildcard, puis oublié. Un domaine hors de la zone initiale demande un nouveau token, utilisé pour cette seule opération.
-- **Token du tunnel :** le seul stocké sur le serveur, détenu par cloudflared.
+- **Secret du tunnel :** détenu par cloudflared. Quiconque le détient peut lancer un second connecteur du même tunnel depuis sa propre machine, et Cloudflare lui envoie une part du trafic public. C'est le secret le plus sensible de l'entrée.
+- **Token en lecture seule** (tunnel et DNS) : détenu par l'engine, demandé à l'install. Il ne peut rien modifier. L'engine liste les connecteurs du tunnel et les enregistrements DNS de la zone, et alerte sur un connecteur ou un enregistrement inconnu.
+
+### La config du tunnel
+
+- **Gérée en local, jamais depuis le dashboard.** L'agent écrit la config de cloudflared : tout le trafic va à Traefik, qui répond 404 aux domaines inconnus. Une route ajoutée dans le dashboard ne doit pas pouvoir détourner le trafic.
+- **À vérifier avant l'implémentation** dans la documentation de Cloudflare : qu'un tunnel configuré en local refuse bien les routes ajoutées depuis le dashboard. Voir les [décisions ouvertes](README.md#décisions-ouvertes).
 
 ### Réglages côté Cloudflare
 
-- HSTS et redirection vers HTTPS activés.
-- Une règle WAF réserve le chemin du webhook aux plages d'IP de GitHub, en plus de la signature HMAC.
+- **HSTS et redirection vers HTTPS,** posés par `brume install` avec le token API : ces réglages ne changent plus ensuite.
+- **Aucune règle WAF sur le webhook.** Elle listerait les IP de GitHub, qui changent, alors que le token API est oublié après l'install : personne ne la tiendrait à jour. Traefik fait ce filtrage avec une liste à jour : voir [Traefik](#traefik).
 
 ## Domaines
 
@@ -55,7 +61,7 @@ Avec le proxy classique, le DNS pointe sur l'IP du serveur et Cloudflare relaie 
 - **Un réseau `edge-<service>` par service exposé,** partagé avec Traefik seul. Traefik n'est sur aucun réseau d'environnement et ne joint jamais les bases.
 - **Dashboard et API désactivés.** Un router par défaut renvoie une 404.
 - **Headers transférés** (`X-Forwarded-For`, `CF-Connecting-IP`) : Traefik ne fait confiance qu'à ceux posés par cloudflared, jamais aux valeurs envoyées par le client. Sinon les apps voient des IP falsifiées. Les headers `CF-*` qui ne viennent pas de cloudflared sont supprimés.
-- **Limite de débit** sur la route du webhook.
+- **Le chemin du webhook est réservé aux plages d'IP de GitHub,** dans tous les modes, avec une limite de débit. L'engine récupère ces plages (`api.github.com/meta`) et les tient à jour, et l'agent les écrit dans la config de Traefik. Avec Cloudflare, Traefik juge l'IP posée par cloudflared (`CF-Connecting-IP`). Ces plages sont partagées par tous les utilisateurs de GitHub : la vraie barrière reste la signature HMAC.
 - **Règles générées par sérialisation,** à partir de noms validés. Voir l'injection dans [10-developpement.md](10-developpement.md).
 
 ## Réseaux Docker
@@ -64,7 +70,7 @@ Avec le proxy classique, le DNS pointe sur l'IP du serveur et Cloudflare relaie 
 |---|---|---|
 | `tunnel` | cloudflared | oui, vers Cloudflare |
 | `ingress` (interne) | cloudflared, Traefik | non |
-| `static` (interne) | Traefik, nginx | non |
+| `static` (interne) | Traefik, Caddy | non |
 | un par environnement (interne) | les services de l'environnement | non |
 | `edge-<service>` (interne) | Traefik, un service exposé | non |
 | `egress` de l'environnement | les services dont l'egress est activé | oui |
@@ -114,7 +120,7 @@ Moins sûrs, choisis à l'install sur l'hôte, et signalés en permanence dans l
 - **Plus de cloudflared ni de réseau `tunnel`.** Le reste ne change pas : réseaux Docker, règles nftables, aucun autre port publié.
 - **Certificats Let's Encrypt, un par domaine,** obtenus par Traefik (HTTP-01 ou TLS-ALPN-01). Aucun token DNS à garder sur le serveur. Les certificats vivent dans le seul dossier de Traefik qui n'est pas en lecture seule.
 - **Le DNS pointe sur l'IP du serveur,** avec un wildcard. Après une restauration, l'admin repointe le DNS vers la nouvelle IP.
-- **Le chemin du webhook est réservé aux plages d'IP de GitHub,** par Traefik, à la place de la règle WAF de Cloudflare. L'engine récupère ces plages (`api.github.com/meta`), et l'agent les écrit dans la config de Traefik.
+- **Le chemin du webhook reste réservé aux plages d'IP de GitHub** par Traefik, comme avec Cloudflare. Traefik juge alors l'IP de la connexion.
 - **Traefik ne fait confiance à aucun header `X-Forwarded-*` reçu :** il pose lui-même l'IP du client. Il pose aussi HSTS, que Cloudflare posait.
 - **L'IP du serveur est publique,** et la protection contre le DDoS n'est plus déléguée.
 

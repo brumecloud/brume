@@ -13,8 +13,8 @@ Brume runs on a single server that you own, for a single owner. That server hold
 
 1. **As safe as possible.** When a safer option exists, Brume takes it, as long as it stays simple for the user.
 2. **A compromised part does not take down the rest.** Brume is single-tenant, but each component is isolated as if it were going to be compromised.
-3. **Only two components of Brume are equivalent to root: the engine and the updater.** The engine has minimal code, listens on no network and parses no untrusted data. The updater runs only during an update and accepts only signed binaries.
-4. **No inbound port.** Public traffic goes through Cloudflare Tunnel, administration through Tailscale.
+3. **Only two components of Brume are equivalent to root: the agent and the updater.** The agent has minimal code, listens on nothing and parses no untrusted data. The updater runs only during an update and accepts only signed binaries. The engine, which holds the state and the secrets, is not equivalent to root without a kernel or runc flaw: see [Architecture](/docs/how-it-works/architecture#the-engine).
+4. **No inbound port, by default.** Public traffic goes through Cloudflare Tunnel, administration through Tailscale. The other modes are less safe, and you choose them on the host: see [Networking](/docs/how-it-works/networking#other-modes).
 5. **The owner's code is trusted, the outside is not.** Everything that comes from outside is hostile: requests to your apps, webhook payloads, sites the admin opens. So is everything that keeps a trace of it, such as logs and headers. Every name typed in the panel is validated against an allowlist.
 6. **Dangerous options are decided on the host, never in the panel.**
 7. **Detect as much as prevent:** an audit log out of reach, alerts, drift detection.
@@ -22,15 +22,19 @@ Brume runs on a single server that you own, for a single owner. That server hold
 ## Alpha 0.1 scope
 
 - A single VPS, a single owner.
+- Debian 12 or 13, or Ubuntu 24.04 or 26.04, on amd64 or arm64.
 - One-command install.
 - Deploy any container, and static sites with instant rollback.
 - Templates with good practices built in: static site, PostgreSQL, MongoDB, Redis.
 - Automatic CI/CD from GitHub, built with Railpack.
 - Backups, logs and secrets managed from the panel.
-- Admin panel reachable only over Tailscale.
-- Public traffic only through Cloudflare Tunnel: no inbound port open on the server.
+- Admin panel reachable over Tailscale (recommended), through an SSH tunnel, or publicly.
+- Public traffic through Cloudflare Tunnel (recommended: no inbound port open on the server), or directly on ports 80 and 443.
+- All of Brume's state on S3, encrypted: a lost VPS is rebuilt from the bucket.
 
-**Stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, shadcn, Tailwind), SQLite, DuckDB, Docker Engine, Traefik, nginx, Cloudflare Tunnel, Tailscale.
+**Stack:** Rust (tokio, clap), React (TanStack Query, Router and DB, coss ui, Tailwind, React Flow, mobile-friendly), SQLite, DuckDB, S3, OpenTelemetry, Docker Engine, Traefik, Caddy, Cloudflare Tunnel, Tailscale.
+
+Some design decisions are still open. They are listed in the [roadmap](/docs/how-it-works/roadmap#open-decisions).
 
 ## Read next
 
