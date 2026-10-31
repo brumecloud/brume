@@ -629,6 +629,7 @@ dependencies = [
  "brume-proto",
  "brume-runtime",
  "duckdb",
+ "serde",
  "tempfile",
  "time",
  "tokio",
