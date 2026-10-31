@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, onTestFinished, vi } from "vite-plus/test";
+import { userEvent } from "vite-plus/test/browser";
 
+import { IN_FLIGHT_POLL_MS } from "~/api/services";
+import { startContainers } from "~/mocks/db";
 import { northbean, routelane, tallybook } from "~/mocks/seed";
 
 import { renderApp } from "../test/render-app";
@@ -32,11 +35,52 @@ describe("new environment", () => {
     await expect
       .element(screen.getByText("An environment named staging already exists."))
       .toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("environment switcher", () => {
+  it.each([
+    ["shared variables", "variables", "region", "Environment: staging"],
+    ["activity", "activity", "heading", "Activity"],
+    ["logs", "logs", "searchbox", "Search logs"],
+  ] as const)("stays on the %s page", async (_page, path, role, name) => {
+    const screen = await renderApp(`/projects/${northbean.id}/production/${path}`);
+    const switcher = screen.getByRole("combobox", { name: "Environment" });
+
+    await switcher.click();
+    await screen.getByRole("option", { name: "staging" }).click();
+
+    await expect.element(switcher).toHaveTextContent("staging");
+    await expect.element(screen.getByRole(role, { name })).toBeVisible();
+  });
+
+  it("opens the canvas of the other environment from a service panel", async () => {
+    const screen = await renderApp(
+      `/projects/${northbean.id}/production/services/${northbean.id}-production-order-worker`,
+    );
+    const switcher = screen.getByRole("combobox", { name: "Environment" });
+
+    await switcher.click();
+    await screen.getByRole("option", { name: "staging" }).click();
+
+    await expect.element(switcher).toHaveTextContent("staging");
+    await expect.element(screen.getByText("shop-api", { exact: true })).toBeVisible();
+    await expect
+      .element(screen.getByRole("heading", { name: "order-worker" }))
+      .not.toBeInTheDocument();
   });
 });
 
 describe("new service", () => {
-  it("adds redis:8 from the canvas and opens its panel", async () => {
+  it("adds redis:8 from the canvas, opens its panel and follows it until it runs", async () => {
+    // The panel polls while a service deploys: only that interval is simulated, the mocked API
+    // still answers in real time. Set before the render, so the poll starts on the fake clock.
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"], shouldClearNativeTimers: true });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const screen = await renderApp(`/projects/${tallybook.id}/staging`);
 
     await screen.getByRole("button", { name: "New service" }).click();
@@ -44,6 +88,9 @@ describe("new service", () => {
     await screen.getByRole("button", { name: "Add service" }).click();
 
     await expect.element(screen.getByRole("heading", { name: "redis" })).toBeVisible();
+    await expect.element(screen.getByText("Deploying", { exact: true })).toBeVisible();
+    startContainers();
+    await vi.advanceTimersByTimeAsync(IN_FLIGHT_POLL_MS);
     await expect.element(screen.getByText("Active")).toBeVisible();
     await screen.getByLabelText("Close panel").click();
 
@@ -71,5 +118,7 @@ describe("new service", () => {
     await screen.getByRole("button", { name: "Add service" }).click();
 
     await expect.element(screen.getByText(/Invalid image reference/)).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
   });
 });

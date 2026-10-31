@@ -81,6 +81,12 @@ describe("parseVariables", () => {
     expect(() => parseVariables([{ ...raw, reference: "yes" }])).toThrow(DecodeError);
   });
 
+  it("never keeps the value of a secret", () => {
+    const leaked = { ...raw, name: "API_KEY", kind: "secret", value: "sk_live_4f1c" };
+
+    expect(parseVariables([leaked])[0]?.value).toBeNull();
+  });
+
   it("rejects an unknown level or kind", () => {
     expect(() => parseVariables([{ ...raw, level: "global" }])).toThrow(DecodeError);
     expect(() => parseVariables([{ ...raw, kind: "env" }])).toThrow(DecodeError);

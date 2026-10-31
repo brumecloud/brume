@@ -91,6 +91,33 @@ describe("shared variables", () => {
     await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("refuses a new variable named like one the level already holds", async () => {
+    const screen = await renderApp(sharedPage(northbean.id));
+    const before = db.variables.find(
+      (variable) => variable.ownerId === northbean.id && variable.name === "LOG_LEVEL",
+    );
+
+    await screen
+      .getByRole("region", { name: "Project" })
+      .getByRole("button", { name: "New variable" })
+      .click();
+    await screen.getByRole("textbox", { name: "Name" }).fill("LOG_LEVEL");
+    await screen.getByRole("textbox", { name: "Value" }).fill("debug");
+    await screen.getByRole("button", { name: "Add" }).click();
+
+    await expect
+      .element(screen.getByText("A variable named LOG_LEVEL already exists. Edit it instead."))
+      .toBeVisible();
+    await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
+    expect(
+      db.variables.find(
+        (variable) => variable.ownerId === northbean.id && variable.name === "LOG_LEVEL",
+      ),
+    ).toEqual(before);
+    await userEvent.keyboard("{Escape}");
+    await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("lists the services a deleted variable redeploys, then deletes it", async () => {
     const screen = await renderApp(sharedPage(tallybook.id));
     const before = deploymentCount();

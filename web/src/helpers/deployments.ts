@@ -20,6 +20,7 @@ import {
   readString,
 } from "./decode";
 import { isId } from "./ids";
+import { readVariableValue } from "./variables";
 
 const STATUSES: readonly DeploymentStatus[] = [
   "building",
@@ -95,10 +96,11 @@ export function parseRevision(raw: unknown): Revision {
 
 function parseRevisionVariable(raw: unknown): RevisionVariable {
   const record = decodeRecord(raw, "revision variable");
+  const kind = readOneOf(record, "kind", VARIABLE_KINDS, "revision variable");
   return {
     name: readString(record, "name", "revision variable"),
-    kind: readOneOf(record, "kind", VARIABLE_KINDS, "revision variable"),
-    value: readNullable(record, "value", "revision variable", readString),
+    kind,
+    value: readVariableValue(record, kind, "revision variable"),
     origin: readOneOf(record, "origin", VARIABLE_LEVELS, "revision variable"),
   };
 }

@@ -11,17 +11,10 @@ import type {
   VariableLevel,
 } from "~/api/types";
 
-import {
-  DecodeError,
-  decodeArray,
-  decodeRecord,
-  readNullable,
-  readOneOf,
-  readString,
-} from "./decode";
+import { DecodeError, decodeArray, decodeRecord, readOneOf, readString } from "./decode";
 import { parseImageReference } from "./new-project";
 import { domainUrl, formatCpu, formatMemory } from "./services";
-import type { ResolvedVariable } from "./variables";
+import { type ResolvedVariable, readVariableValue } from "./variables";
 
 const FIELDS: readonly SettingField[] = [
   "repository",
@@ -85,14 +78,16 @@ function parseChange(raw: unknown): StagedChange {
         field: readOneOf(record, "field", FIELDS, "change"),
         value: parseSettingValue(record.value),
       };
-    case "variable":
+    case "variable": {
+      const kind = readOneOf(record, "kind", KINDS, "change");
       return {
         ...target,
         type: "variable",
         name: readString(record, "name", "change"),
-        kind: readOneOf(record, "kind", KINDS, "change"),
-        value: readNullable(record, "value", "change", readString),
+        kind,
+        value: readVariableValue(record, kind, "change"),
       };
+    }
     case "variable-removal":
       return { ...target, type: "variable-removal", name: readString(record, "name", "change") };
     default:

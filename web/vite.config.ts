@@ -18,13 +18,23 @@ interface ImportPattern {
 }
 
 // `vp dev` talks to the API of `brume dev` on the same origin, through this proxy. `vp dev --mode
-// mock` keeps the mocked API instead, and the tests and the brume.dev demo never leave MSW.
+// mock` keeps the mocked API instead, and the tests and the brume.dev demo never leave MSW. The
+// API's Host allowlist has port 5173 for the dev server, no other: when the port is taken, Vite
+// fails to start rather than move to one the API would refuse.
 function realApi(): Plugin {
   return {
     name: "brume:real-api",
     apply: "serve",
     config: (_config, { mode }) =>
-      mode === "development" ? { server: { proxy: { "/api": "http://127.0.0.1:7878" } } } : {},
+      mode === "development"
+        ? {
+            server: {
+              port: 5173,
+              strictPort: true,
+              proxy: { "/api": "http://127.0.0.1:7878" },
+            },
+          }
+        : {},
   };
 }
 

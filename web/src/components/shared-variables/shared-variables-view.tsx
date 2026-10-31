@@ -3,32 +3,62 @@ import { useMutation } from "@tanstack/react-query";
 import { EyeIcon, EyeOffIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useId, useState } from "react";
 
-import type { Environment, ProjectId, SharedVariableLevel, Variable } from "~/api/types";
+import type {
+  Environment,
+  ProjectId,
+  ServiceId,
+  SharedVariableLevel,
+  SharedVariableResult,
+  Variable,
+} from "~/api/types";
 import { allVariables, revealSecret } from "~/api/variables";
-import { Badge } from "~/components/ui/badge";
+import {
+  VariableItem,
+  VariableItemActions,
+  VariableItemLabel,
+  VariableItemName,
+  VariableItemValue,
+  VariableKindBadge,
+} from "~/components/variables/variable-item";
 import { Button } from "~/components/ui/button";
 import { sharedVariables } from "~/helpers/shared-variables";
 
 import { DeleteSharedVariableDialog } from "./delete-shared-variable-dialog";
+import { RedeployPrompt } from "./redeploy-prompt";
 import { SharedVariableDialog } from "./shared-variable-dialog";
-
-const KIND_LABELS = { build: "Build", secret: "Secret" } as const;
 
 interface SharedVariablesViewProps {
   readonly projectId: ProjectId;
   readonly environment: Environment;
 }
 
+interface RowActions {
+  readonly onSaved: (result: SharedVariableResult) => void;
+  readonly onDelete: (variable: Variable) => void;
+}
+
 // The variables services inherit: the project's, then the current environment's, which override
 // them.
 export function SharedVariablesView({ projectId, environment }: SharedVariablesViewProps) {
   const { data: variables } = useLiveSuspenseQuery({ query: allVariables });
-  // Here, not in the row: a deletion refetches the list, and the row goes away with it.
+  // The prompts live here, not in a row: saving or deleting refetches the list, and a row it
+  // remounts would take them along.
+  const [saved, setSaved] = useState<{
+    readonly name: string;
+    readonly referencedBy: readonly ServiceId[];
+  } | null>(null);
   const [removal, setRemoval] = useState<{
     readonly variable: Variable;
     readonly open: boolean;
   } | null>(null);
-  const onDelete = (variable: Variable) => setRemoval({ variable, open: true });
+  const actions: RowActions = {
+    onSaved: ({ variable, referencedBy }) => {
+      if (referencedBy.length > 0) {
+        setSaved({ name: variable.name, referencedBy });
+      }
+    },
+    onDelete: (variable) => setRemoval({ variable, open: true }),
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 p-6">
@@ -38,7 +68,7 @@ export function SharedVariablesView({ projectId, environment }: SharedVariablesV
         level="project"
         ownerId={projectId}
         variables={sharedVariables(variables, "project", projectId)}
-        onDelete={onDelete}
+        actions={actions}
       />
       <SharedSection
         title={`Environment: ${environment.name}`}
@@ -46,7 +76,12 @@ export function SharedVariablesView({ projectId, environment }: SharedVariablesV
         level="environment"
         ownerId={environment.id}
         variables={sharedVariables(variables, "environment", environment.id)}
-        onDelete={onDelete}
+        actions={actions}
+      />
+      <RedeployPrompt
+        name={saved?.name ?? ""}
+        serviceIds={saved?.referencedBy ?? null}
+        onClose={() => setSaved(null)}
       />
       <DeleteSharedVariableDialog
         variable={removal?.variable ?? null}
@@ -63,7 +98,7 @@ interface SharedSectionProps {
   readonly level: SharedVariableLevel;
   readonly ownerId: string;
   readonly variables: readonly Variable[];
-  readonly onDelete: (variable: Variable) => void;
+  readonly actions: RowActions;
 }
 
 function SharedSection({
@@ -72,7 +107,7 @@ function SharedSection({
   level,
   ownerId,
   variables,
-  onDelete,
+  actions,
 }: SharedSectionProps) {
   const titleId = useId();
 
@@ -88,6 +123,8 @@ function SharedSection({
         <SharedVariableDialog
           level={level}
           ownerId={ownerId}
+          taken={variables.map((variable) => variable.name)}
+          onSaved={actions.onSaved}
           trigger={
             <Button variant="outline" size="sm">
               <PlusIcon />
@@ -99,7 +136,12 @@ function SharedSection({
       {variables.length > 0 ? (
         <div className="flex flex-col divide-y overflow-hidden rounded-xl border bg-background">
           {variables.map((variable) => (
-            <SharedVariableRow key={variable.id} variable={variable} onDelete={onDelete} />
+            <SharedVariableRow
+              key={variable.id}
+              level={level}
+              variable={variable}
+              actions={actions}
+            />
           ))}
         </div>
       ) : (
@@ -110,25 +152,24 @@ function SharedSection({
 }
 
 interface SharedVariableRowProps {
+  readonly level: SharedVariableLevel;
   readonly variable: Variable;
-  readonly onDelete: (variable: Variable) => void;
+  readonly actions: RowActions;
 }
 
-function SharedVariableRow({ variable, onDelete }: SharedVariableRowProps) {
+function SharedVariableRow({ level, variable, actions }: SharedVariableRowProps) {
   // The revealed value stays in this row's state: `gcTime: 0` drops it once the row is gone.
   const reveal = useMutation({ mutationFn: () => revealSecret(variable.id), gcTime: 0 });
   const secret = variable.kind === "secret";
 
   return (
-    <div className="grid grid-cols-1 items-center gap-2 px-4 py-2.5 sm:grid-cols-12 sm:gap-4">
-      <span className="flex min-w-0 items-center gap-2 sm:col-span-5">
-        <span className="truncate font-mono text-sm">{variable.name}</span>
-        {variable.kind !== "plain" && <Badge variant="outline">{KIND_LABELS[variable.kind]}</Badge>}
-      </span>
-      <span className="truncate font-mono text-muted-foreground text-sm sm:col-span-5">
-        {secret ? (reveal.data ?? "••••••••") : variable.value}
-      </span>
-      <span className="flex justify-end gap-1 sm:col-span-2">
+    <VariableItem>
+      <VariableItemLabel>
+        <VariableItemName>{variable.name}</VariableItemName>
+        <VariableKindBadge kind={variable.kind} />
+      </VariableItemLabel>
+      <VariableItemValue>{secret ? (reveal.data ?? "••••••••") : variable.value}</VariableItemValue>
+      <VariableItemActions>
         {secret && (
           <Button
             variant="ghost"
@@ -141,9 +182,10 @@ function SharedVariableRow({ variable, onDelete }: SharedVariableRowProps) {
           </Button>
         )}
         <SharedVariableDialog
-          level={variable.level === "project" ? "project" : "environment"}
+          level={level}
           ownerId={variable.ownerId}
           initial={{ name: variable.name, kind: variable.kind, value: variable.value ?? "" }}
+          onSaved={actions.onSaved}
           trigger={
             <Button variant="ghost" size="icon-sm" aria-label={`Edit ${variable.name}`}>
               <PencilIcon />
@@ -154,11 +196,11 @@ function SharedVariableRow({ variable, onDelete }: SharedVariableRowProps) {
           variant="ghost"
           size="icon-sm"
           aria-label={`Delete ${variable.name}`}
-          onClick={() => onDelete(variable)}
+          onClick={() => actions.onDelete(variable)}
         >
           <Trash2Icon />
         </Button>
-      </span>
-    </div>
+      </VariableItemActions>
+    </VariableItem>
   );
 }

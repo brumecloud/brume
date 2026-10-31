@@ -22,6 +22,7 @@ import {
   parseSharedVariableResult,
   referenceableSecrets,
   referencesImpact,
+  sharedVariableNameError,
   sharedVariableWarnings,
   sharedVariables,
 } from "./shared-variables";
@@ -165,6 +166,31 @@ describe("sharedVariables", () => {
       "LOG_LEVEL",
       "TZ",
     ]);
+  });
+});
+
+describe("sharedVariableNameError", () => {
+  it("accepts a valid name the level does not hold yet", () => {
+    expect(sharedVariableNameError("LOG_LEVEL", ["TZ"])).toBeNull();
+  });
+
+  it("refuses a name the level already holds: saving would overwrite it", () => {
+    expect(sharedVariableNameError("TZ", ["LOG_LEVEL", "TZ"])).toBe(
+      "A variable named TZ already exists. Edit it instead.",
+    );
+  });
+
+  it("refuses an invalid name first", () => {
+    expect(sharedVariableNameError("1TZ", ["1TZ"])).toBe(
+      "Letters, digits and _ only, not starting with a digit.",
+    );
+    expect(sharedVariableNameError("", [])).toBe(
+      "Letters, digits and _ only, not starting with a digit.",
+    );
+  });
+
+  it("tells names apart by case, like the environment of a container", () => {
+    expect(sharedVariableNameError("tz", ["TZ"])).toBeNull();
   });
 });
 

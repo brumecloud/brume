@@ -261,6 +261,8 @@ export function createEnvironment(projectId: string, raw: unknown): Environment 
 
 // How long the mocked agent takes to start a container.
 const START_MS = 1_500;
+// The containers the mocked agent is starting, by deployment, with the timer that starts them.
+const starting = new Map<DeploymentId, ReturnType<typeof setTimeout>>();
 
 // The server resolves the image, then deploys it: `deploying` first, `active` once it runs.
 export function createService(environmentId: string, raw: unknown): Service | Refusal {
@@ -321,11 +323,23 @@ export function createService(environmentId: string, raw: unknown): Service | Re
   );
   recordDeployment(deployment);
   db.settings.set(service.id, { ...settingsFor(service), source: { kind: "image", image } });
-  setTimeout(() => settle(deployment.id), START_MS);
+  starting.set(
+    deployment.id,
+    setTimeout(() => settle(deployment.id), START_MS),
+  );
   return service;
 }
 
+// Starts at once the containers the mocked agent is starting: a test does not wait for START_MS.
+export function startContainers(): void {
+  for (const [deploymentId, timer] of starting) {
+    clearTimeout(timer);
+    settle(deploymentId);
+  }
+}
+
 function settle(deploymentId: DeploymentId): void {
+  starting.delete(deploymentId);
   const index = db.deployments.findIndex(({ id }) => id === deploymentId);
   const deployment = db.deployments[index];
   if (!deployment || deployment.status !== "deploying") {

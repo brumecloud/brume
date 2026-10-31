@@ -41,6 +41,13 @@ describe("activity", () => {
     await expect.element(screen.getByText("DeploymentSucceeded").first()).toBeVisible();
   });
 
+  it("opens on the newest event", async () => {
+    const screen = await renderApp(`/projects/${northbean.id}/production/activity`);
+
+    await expect.element(screen.getByRole("listitem").last()).toBeInViewport();
+    await expect.element(screen.getByRole("listitem").first()).not.toBeInViewport();
+  });
+
   it("records a reveal without the value", async () => {
     await page.viewport(1280, 800);
     const service = `${northbean.id}-production-order-worker`;

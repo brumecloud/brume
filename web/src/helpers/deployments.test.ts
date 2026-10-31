@@ -107,6 +107,17 @@ describe("parseRevision", () => {
     expect(parseRevision(raw)).toEqual(raw);
   });
 
+  it("never keeps the value of a secret", () => {
+    const leaked = {
+      name: "REDIS_URL",
+      kind: "secret",
+      value: "redis://:pw@redis",
+      origin: "service",
+    };
+
+    expect(parseRevision({ ...raw, variables: [leaked] }).variables[0]?.value).toBeNull();
+  });
+
   it("rejects a variable without origin", () => {
     expect(() =>
       parseRevision({ ...raw, variables: [{ name: "PORT", kind: "plain", value: "1" }] }),

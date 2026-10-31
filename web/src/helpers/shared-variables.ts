@@ -13,7 +13,7 @@ import type {
 
 import { decodeArray, decodeRecord, readString, readStringArray } from "./decode";
 import { parseDeployments } from "./deployments";
-import { parseVariable, variableWarnings } from "./variables";
+import { parseVariable, parseVariableName, variableWarnings } from "./variables";
 
 const PRODUCTION = "production";
 const PROJECT_SECRET_REMINDER =
@@ -84,6 +84,15 @@ export function sharedVariableWarnings(
     ...variableWarnings(name, value, kind),
     ...(level === "project" && kind === "secret" ? [PROJECT_SECRET_REMINDER] : []),
   ];
+}
+
+// A level holds one value per name. A new variable cannot take a name the level already holds:
+// the server would overwrite that value, with no confirmation for a secret.
+export function sharedVariableNameError(name: string, taken: readonly string[]): string | null {
+  if (!parseVariableName(name)) {
+    return "Letters, digits and _ only, not starting with a digit.";
+  }
+  return taken.includes(name) ? `A variable named ${name} already exists. Edit it instead.` : null;
 }
 
 // The variables one project or environment holds.

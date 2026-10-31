@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { rollback } from "~/api/deployments";
 import type { Deployment, Service } from "~/api/types";
+import { Callout } from "~/components/common/callout";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -39,10 +40,10 @@ export function RollbackDialog({ service, deployment, open, onOpenChange }: Roll
             and build variables come back with this revision; secrets keep their current value.
           </AlertDialogDescription>
           {service.volume && (
-            <p className="rounded-lg border border-warning/32 bg-warning/8 px-3 py-2 text-sm text-warning-foreground">
+            <Callout>
               The data in {service.volume.name} does not roll back. After a migration, the old code
               will run against the new schema.
-            </p>
+            </Callout>
           )}
           {mutation.error && (
             <p role="alert" className="text-destructive-foreground text-sm">

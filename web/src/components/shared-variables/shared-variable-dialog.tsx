@@ -1,14 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
-import { TriangleAlertIcon } from "lucide-react";
 import { type ReactElement, useState } from "react";
 
-import type {
-  ServiceId,
-  SharedVariableLevel,
-  SharedVariableResult,
-  VariableKind,
-} from "~/api/types";
+import type { SharedVariableLevel, SharedVariableResult, VariableKind } from "~/api/types";
 import { setSharedVariable } from "~/api/variables";
+import { Callout, CalloutIcon } from "~/components/common/callout";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -30,11 +25,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { sharedVariableWarnings } from "~/helpers/shared-variables";
-import { parseVariableKind, parseVariableName } from "~/helpers/variables";
+import { sharedVariableNameError, sharedVariableWarnings } from "~/helpers/shared-variables";
+import { parseVariableKind } from "~/helpers/variables";
 
 import { ImpactDialog } from "./impact-dialog";
-import { RedeployPrompt } from "./redeploy-prompt";
 
 const KINDS = [
   { value: "plain", label: "Plain variable" },
@@ -47,6 +41,9 @@ const KIND_DESCRIPTIONS: Record<VariableKind, string> = {
   build: "Every service that inherits it rebuilds, then redeploys.",
   secret: "Only reaches the services that reference it, at their next deployment.",
 };
+
+// An edit cannot rename the variable: no name to refuse.
+const NO_NAMES: readonly string[] = [];
 
 // What an edit starts from. A secret starts empty: its value never comes back to the browser.
 interface SharedVariableDraft {
@@ -61,6 +58,11 @@ interface SharedVariableDialogProps {
   readonly trigger: ReactElement;
   // Absent: a new variable.
   readonly initial?: SharedVariableDraft;
+  // The names the level already holds: a new variable cannot take one.
+  readonly taken?: readonly string[];
+  // The caller offers to redeploy what references a secret: a prompt kept here would go with the
+  // row that holds this dialog.
+  readonly onSaved: (result: SharedVariableResult) => void;
 }
 
 // Unlike a service variable, a shared one is applied at once: a plain or build value after the
@@ -70,36 +72,27 @@ export function SharedVariableDialog({
   ownerId,
   trigger,
   initial,
+  taken = NO_NAMES,
+  onSaved,
 }: SharedVariableDialogProps) {
   const [open, setOpen] = useState(false);
-  const [saved, setSaved] = useState<{ name: string; referencedBy: readonly ServiceId[] } | null>(
-    null,
-  );
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger render={trigger} />
-        <DialogPopup>
-          <SharedVariableForm
-            level={level}
-            ownerId={ownerId}
-            initial={initial}
-            onSaved={({ variable, referencedBy }) => {
-              setOpen(false);
-              if (referencedBy.length > 0) {
-                setSaved({ name: variable.name, referencedBy });
-              }
-            }}
-          />
-        </DialogPopup>
-      </Dialog>
-      <RedeployPrompt
-        name={saved?.name ?? ""}
-        serviceIds={saved?.referencedBy ?? null}
-        onClose={() => setSaved(null)}
-      />
-    </>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={trigger} />
+      <DialogPopup>
+        <SharedVariableForm
+          level={level}
+          ownerId={ownerId}
+          initial={initial}
+          taken={taken}
+          onSaved={(result) => {
+            setOpen(false);
+            onSaved(result);
+          }}
+        />
+      </DialogPopup>
+    </Dialog>
   );
 }
 
@@ -107,15 +100,16 @@ interface SharedVariableFormProps {
   readonly level: SharedVariableLevel;
   readonly ownerId: string;
   readonly initial: SharedVariableDraft | undefined;
+  readonly taken: readonly string[];
   readonly onSaved: (result: SharedVariableResult) => void;
 }
 
 // Mounted only while the dialog is open: closing it resets the form.
-function SharedVariableForm({ level, ownerId, initial, onSaved }: SharedVariableFormProps) {
+function SharedVariableForm({ level, ownerId, initial, taken, onSaved }: SharedVariableFormProps) {
   const [name, setName] = useState(initial?.name ?? "");
   const [value, setValue] = useState(initial?.value ?? "");
   const [kind, setKind] = useState<VariableKind>(initial?.kind ?? "plain");
-  const [nameInvalid, setNameInvalid] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
   // A secret's edit starts empty: saving it untouched would wipe the secret.
   const [valueMissing, setValueMissing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -129,11 +123,11 @@ function SharedVariableForm({ level, ownerId, initial, onSaved }: SharedVariable
         className="contents"
         onSubmit={(event) => {
           event.preventDefault();
-          const validName = parseVariableName(name);
+          const error = sharedVariableNameError(name, taken);
           const missing = kind === "secret" && value === "";
-          setNameInvalid(!validName);
+          setNameError(error);
           setValueMissing(missing);
-          if (!validName || missing) {
+          if (error || missing) {
             return;
           }
           if (kind === "secret") {
@@ -159,15 +153,11 @@ function SharedVariableForm({ level, ownerId, initial, onSaved }: SharedVariable
                 autoFocus={!initial}
                 disabled={Boolean(initial)}
                 value={name}
-                aria-invalid={nameInvalid || undefined}
+                aria-invalid={nameError !== null || undefined}
                 placeholder="LOG_LEVEL"
                 onChange={(event) => setName(event.target.value)}
               />
-              {nameInvalid && (
-                <p className="text-destructive-foreground text-sm">
-                  Letters, digits and _ only, not starting with a digit.
-                </p>
-              )}
+              {nameError && <p className="text-destructive-foreground text-sm">{nameError}</p>}
             </Field>
             <Field>
               <FieldLabel>Type</FieldLabel>
@@ -204,13 +194,10 @@ function SharedVariableForm({ level, ownerId, initial, onSaved }: SharedVariable
               )}
             </Field>
             {sharedVariableWarnings(level, name, value, kind).map((warning) => (
-              <p
-                key={warning}
-                className="flex gap-2 rounded-lg border border-warning/32 bg-warning/8 px-3 py-2 text-sm text-warning-foreground"
-              >
-                <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+              <Callout key={warning}>
+                <CalloutIcon />
                 {warning}
-              </p>
+              </Callout>
             ))}
             {mutation.error && !confirming && (
               <p role="alert" className="text-destructive-foreground text-sm">
