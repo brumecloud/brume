@@ -91,6 +91,24 @@ describe("shared variables", () => {
     await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("lists the services a deleted variable redeploys, then deletes it", async () => {
+    const screen = await renderApp(sharedPage(tallybook.id));
+    const before = deploymentCount();
+
+    await screen.getByRole("button", { name: "Delete TZ" }).click();
+
+    const dialog = screen.getByRole("alertdialog");
+    await expect.element(dialog.getByText("This change redeploys 3 services.")).toBeVisible();
+    await expect.element(dialog.getByText("production")).toBeVisible();
+    await expect.element(dialog.getByText("billing-api, pdf-renderer")).toBeVisible();
+    await expect.element(dialog.getByText("staging")).toBeVisible();
+    await dialog.getByRole("button", { name: "Delete" }).click();
+
+    await expect.element(dialog).not.toBeInTheDocument();
+    await expect.element(screen.getByText("TZ", { exact: true })).not.toBeInTheDocument();
+    expect(deploymentCount()).toBe(before + 3);
+  });
+
   it("shows why a secret still in use cannot be deleted", async () => {
     const screen = await renderApp(sharedPage(northbean.id));
 

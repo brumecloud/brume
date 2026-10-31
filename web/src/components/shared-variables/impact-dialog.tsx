@@ -1,10 +1,4 @@
-import { useLiveSuspenseQuery } from "@tanstack/react-db";
-import { useQuery } from "@tanstack/react-query";
-
-import { allEnvironments } from "~/api/projects";
-import { allServices } from "~/api/services";
 import type { SharedVariableLevel } from "~/api/types";
-import { variableImpactQuery } from "~/api/variables";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -16,12 +10,8 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Spinner } from "~/components/ui/spinner";
-import {
-  type ImpactGroup,
-  groupImpact,
-  impactConfirmLabel,
-  impactSummary,
-} from "~/helpers/shared-variables";
+import { type ImpactGroup, impactConfirmLabel, impactSummary } from "~/helpers/shared-variables";
+import { useVariableImpact } from "~/hooks/use-variable-impact";
 
 interface ImpactDialogProps {
   readonly open: boolean;
@@ -55,11 +45,7 @@ function ImpactConfirmation({
   error,
   onConfirm,
 }: Omit<ImpactDialogProps, "open" | "onOpenChange">) {
-  const impact = useQuery(variableImpactQuery(level, ownerId, name));
-  const { data: environments } = useLiveSuspenseQuery({ query: allEnvironments });
-  const { data: services } = useLiveSuspenseQuery({ query: allServices });
-  const groups = impact.data ? groupImpact(impact.data.services, environments, services) : [];
-  const count = impact.data?.services.length ?? 0;
+  const { impact, groups, count } = useVariableImpact(level, ownerId, name, true);
   const failure = impact.error ?? error;
 
   return (

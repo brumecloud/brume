@@ -4,20 +4,12 @@ import { EyeIcon, EyeOffIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-re
 import { useId, useState } from "react";
 
 import type { Environment, ProjectId, SharedVariableLevel, Variable } from "~/api/types";
-import { allVariables, removeSharedVariable, revealSecret } from "~/api/variables";
-import {
-  AlertDialog,
-  AlertDialogClose,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogPopup,
-  AlertDialogTitle,
-} from "~/components/ui/alert-dialog";
+import { allVariables, revealSecret } from "~/api/variables";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { sharedVariables } from "~/helpers/shared-variables";
 
+import { DeleteSharedVariableDialog } from "./delete-shared-variable-dialog";
 import { SharedVariableDialog } from "./shared-variable-dialog";
 
 const KIND_LABELS = { build: "Build", secret: "Secret" } as const;
@@ -31,6 +23,12 @@ interface SharedVariablesViewProps {
 // them.
 export function SharedVariablesView({ projectId, environment }: SharedVariablesViewProps) {
   const { data: variables } = useLiveSuspenseQuery({ query: allVariables });
+  // Here, not in the row: a deletion refetches the list, and the row goes away with it.
+  const [removal, setRemoval] = useState<{
+    readonly variable: Variable;
+    readonly open: boolean;
+  } | null>(null);
+  const onDelete = (variable: Variable) => setRemoval({ variable, open: true });
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 p-6">
@@ -40,6 +38,7 @@ export function SharedVariablesView({ projectId, environment }: SharedVariablesV
         level="project"
         ownerId={projectId}
         variables={sharedVariables(variables, "project", projectId)}
+        onDelete={onDelete}
       />
       <SharedSection
         title={`Environment: ${environment.name}`}
@@ -47,6 +46,12 @@ export function SharedVariablesView({ projectId, environment }: SharedVariablesV
         level="environment"
         ownerId={environment.id}
         variables={sharedVariables(variables, "environment", environment.id)}
+        onDelete={onDelete}
+      />
+      <DeleteSharedVariableDialog
+        variable={removal?.variable ?? null}
+        open={removal?.open ?? false}
+        onOpenChange={(open) => setRemoval((current) => current && { ...current, open })}
       />
     </div>
   );
@@ -58,9 +63,17 @@ interface SharedSectionProps {
   readonly level: SharedVariableLevel;
   readonly ownerId: string;
   readonly variables: readonly Variable[];
+  readonly onDelete: (variable: Variable) => void;
 }
 
-function SharedSection({ title, description, level, ownerId, variables }: SharedSectionProps) {
+function SharedSection({
+  title,
+  description,
+  level,
+  ownerId,
+  variables,
+  onDelete,
+}: SharedSectionProps) {
   const titleId = useId();
 
   return (
@@ -86,7 +99,7 @@ function SharedSection({ title, description, level, ownerId, variables }: Shared
       {variables.length > 0 ? (
         <div className="flex flex-col divide-y overflow-hidden rounded-xl border bg-background">
           {variables.map((variable) => (
-            <SharedVariableRow key={variable.id} variable={variable} />
+            <SharedVariableRow key={variable.id} variable={variable} onDelete={onDelete} />
           ))}
         </div>
       ) : (
@@ -96,8 +109,12 @@ function SharedSection({ title, description, level, ownerId, variables }: Shared
   );
 }
 
-function SharedVariableRow({ variable }: { readonly variable: Variable }) {
-  const [deleting, setDeleting] = useState(false);
+interface SharedVariableRowProps {
+  readonly variable: Variable;
+  readonly onDelete: (variable: Variable) => void;
+}
+
+function SharedVariableRow({ variable, onDelete }: SharedVariableRowProps) {
   // The revealed value stays in this row's state: `gcTime: 0` drops it once the row is gone.
   const reveal = useMutation({ mutationFn: () => revealSecret(variable.id), gcTime: 0 });
   const secret = variable.kind === "secret";
@@ -137,60 +154,11 @@ function SharedVariableRow({ variable }: { readonly variable: Variable }) {
           variant="ghost"
           size="icon-sm"
           aria-label={`Delete ${variable.name}`}
-          onClick={() => setDeleting(true)}
+          onClick={() => onDelete(variable)}
         >
           <Trash2Icon />
         </Button>
       </span>
-      <DeleteSharedVariableDialog variable={variable} open={deleting} onOpenChange={setDeleting} />
     </div>
-  );
-}
-
-interface DeleteSharedVariableDialogProps {
-  readonly variable: Variable;
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-}
-
-// The server refuses (409) to delete a secret an active deployment still references.
-function DeleteSharedVariableDialog({
-  variable,
-  open,
-  onOpenChange,
-}: DeleteSharedVariableDialogProps) {
-  const mutation = useMutation({
-    mutationFn: () => removeSharedVariable(variable.id),
-    onSuccess: () => onOpenChange(false),
-  });
-
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogPopup>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete {variable.name}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {variable.kind === "secret"
-              ? "Services that still reference it must stop doing so first."
-              : "The services that inherit it redeploy without it."}
-          </AlertDialogDescription>
-          {mutation.error && (
-            <p role="alert" className="text-destructive-foreground text-sm">
-              {mutation.error.message}
-            </p>
-          )}
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogClose render={<Button variant="ghost" />}>Cancel</AlertDialogClose>
-          <Button
-            variant="destructive"
-            loading={mutation.isPending}
-            onClick={() => mutation.mutate()}
-          >
-            Delete
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogPopup>
-    </AlertDialog>
   );
 }
