@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>brume demo</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --fg: #1c2229;
+    --muted: #697280;
+    --card: #ffffff;
+    --line: #e1e4e8;
+    --accent: #3b5bdb;
+    --error: #c92a5a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101317;
+      --fg: #e6e9ed;
+      --muted: #8a929d;
+      --card: #191d23;
+      --line: #2a3038;
+      --accent: #7b96ff;
+      --error: #ff7a9c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  main { max-width: 36rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+  header { margin-bottom: 2rem; }
+  .logo { margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+  .logo span { color: var(--muted); font-weight: 400; }
+  .tagline { margin: 0.25rem 0 0; color: var(--muted); }
+  form {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  label { display: grid; gap: 0.3rem; font-size: 0.875rem; color: var(--muted); }
+  input, textarea {
+    font: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.55rem 0.7rem;
+  }
+  textarea { min-height: 5.5rem; resize: vertical; }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .count { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  button {
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: 0;
+    border-radius: 8px;
+    padding: 0.55rem 1.1rem;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .status { min-height: 1.5em; margin: 0.75rem 0 0; font-size: 0.875rem; color: var(--muted); }
+  .status.error { color: var(--error); }
+  h2 {
+    margin: 2.25rem 0 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  ol { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+  li { padding: 0.9rem 1.1rem; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  li.empty { color: var(--muted); text-align: center; background: none; border-style: dashed; }
+  .meta { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.875rem; }
+  .meta strong { overflow-wrap: anywhere; }
+  .meta time { color: var(--muted); white-space: nowrap; }
+  .text { margin: 0.35rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  footer { margin-top: 3rem; font-size: 0.8rem; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="logo">brume <span>demo</span></p>
+    <p class="tagline">A guestbook: nginx serves this page, an API keeps the messages in Postgres.</p>
+  </header>
+
+  <form id="form">
+    <label for="name">Name
+      <input id="name" maxlength="64" required autocomplete="name">
+    </label>
+    <label for="text">Message
+      <textarea id="text" maxlength="500" required></textarea>
+    </label>
+    <div class="actions">
+      <span class="count" id="count">0 / 500</span>
+      <button type="submit">Sign the guestbook</button>
+    </div>
+  </form>
+  <p class="status" id="status" role="status"></p>
+
+  <h2>Latest messages</h2>
+  <ol id="messages"></ol>
+
+  <footer>Deployed with Brume.</footer>
+</main>
+
+<script>
+  "use strict";
+
+  const form = document.getElementById("form");
+  const nameInput = document.getElementById("name");
+  const textInput = document.getElementById("text");
+  const button = form.querySelector("button");
+  const count = document.getElementById("count");
+  const status = document.getElementById("status");
+  const list = document.getElementById("messages");
+  const dates = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+  let loadFailed = false;
+
+  function setStatus(text, isError) {
+    status.textContent = text;
+    status.classList.toggle("error", Boolean(isError));
+  }
+
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  async function callApi(method, body) {
+    const response = await fetch("/api/messages", {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error((data && data.error) || `the API answered ${response.status}`);
+    }
+    return data;
+  }
+
+  // Messages are only ever set as text, never as HTML.
+  function render(messages) {
+    if (messages.length === 0) {
+      list.replaceChildren(element("li", "empty", "No messages yet. Be the first."));
+      return;
+    }
+    list.replaceChildren(...messages.map((message) => {
+      const time = element("time", null, dates.format(new Date(message.created_at)));
+      time.dateTime = message.created_at;
+      const meta = element("div", "meta");
+      meta.append(element("strong", null, message.name), time);
+      const item = element("li");
+      item.append(meta, element("p", "text", message.text));
+      return item;
+    }));
+  }
+
+  async function refresh() {
+    try {
+      render(await callApi("GET"));
+      if (loadFailed) setStatus("");
+      loadFailed = false;
+    } catch (error) {
+      loadFailed = true;
+      setStatus(`Could not load the messages: ${error.message}.`, true);
+    }
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    button.disabled = true;
+    setStatus("Sending…");
+    try {
+      await callApi("POST", { name: nameInput.value, text: textInput.value });
+      textInput.value = "";
+      count.textContent = "0 / 500";
+      setStatus("Thanks for signing.");
+      await refresh();
+    } catch (error) {
+      setStatus(`Could not send the message: ${error.message}.`, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  textInput.addEventListener("input", () => {
+    count.textContent = `${textInput.value.length} / 500`;
+  });
+  textInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) form.requestSubmit();
+  });
+
+  refresh();
+  setInterval(() => { if (!document.hidden) refresh(); }, 10000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>

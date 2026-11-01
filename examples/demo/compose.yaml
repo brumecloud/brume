@@ -1,0 +1,43 @@
+# Local test only: Brume does not read this file. It runs the three services as Brume does:
+# one network, no capability for the API and the frontend, read-only root filesystems, and no
+# start order (the API waits for Postgres itself).
+name: brume-demo
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: local-only-password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks: [demo]
+    security_opt: [no-new-privileges:true]
+    # The capabilities Brume gives every container.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL, SETGID, SETUID, SETPCAP, NET_BIND_SERVICE]
+
+  api:
+    build: ./api
+    image: brume-demo-api:dev
+    environment:
+      DATABASE_URL: postgres://postgres:local-only-password@db:5432/postgres?sslmode=disable
+    networks: [demo]
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+  web:
+    build: ./web
+    image: brume-demo-web:dev
+    # The only published port, for the local test. Brume publishes none.
+    ports: ["127.0.0.1:8080:8080"]
+    networks: [demo]
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+networks:
+  demo: {}
+
+volumes:
+  db-data: {}
