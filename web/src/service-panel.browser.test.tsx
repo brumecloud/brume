@@ -60,7 +60,10 @@ describe("service panel", () => {
   it("deletes a service once its name is typed", async () => {
     const screen = await renderApp(`${service("Redis")}/settings`);
 
+    // Deleting a service keeps its volumes, and their data.
+    await expect.element(screen.getByText(/Its volume and its data stay/)).toBeVisible();
     await screen.getByRole("button", { name: "Delete service" }).click();
+    await expect.element(screen.getByText(/The redis-data volume keeps its data/)).toBeVisible();
     const confirm = screen.getByRole("button", { name: "Delete", exact: true });
     await expect.element(confirm).toBeDisabled();
     await screen.getByRole("textbox", { name: "Service name" }).fill("Redis");
