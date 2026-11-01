@@ -4,10 +4,10 @@
   "routes": [
     {
       "src": "/install\\.sh",
-      "status": 307,
       "headers": {
-        "Location": "https://github.com/brumecloud/brume/releases/latest/download/install.sh"
-      }
+        "Content-Type": "text/plain; charset=utf-8"
+      },
+      "continue": true
     },
     {
       "src": "/(?!demo/).*",

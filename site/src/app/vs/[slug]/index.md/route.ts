@@ -1,7 +1,6 @@
-import { findCompetitor } from "~/components/vs/shared";
 import { markdownResponse } from "~/lib/markdown";
 import { vsMarkdown } from "~/lib/vs-markdown";
-import { competitors } from "~/vs";
+import { competitors, findCompetitor } from "~/vs";
 
 // Written to out/vs/<slug>/index.md by the static export, one per comparison and no other.
 export const dynamic = "force-static";

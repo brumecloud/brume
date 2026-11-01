@@ -3,6 +3,7 @@ import { architectureCopy } from "~/architecture/copy";
 import { Section } from "~/components/section";
 
 import { ComponentIcon } from "./component-icon";
+import { OpenOnHash } from "./open-on-hash";
 import { ComponentDetails } from "./component-panel";
 
 /**
@@ -12,6 +13,7 @@ import { ComponentDetails } from "./component-panel";
 export function ComponentList() {
   return (
     <Section id="components" title={architectureCopy.componentsTitle}>
+      <OpenOnHash />
       <ul className="mt-10 border-t-2 border-edge">
         {archComponents.map((component) => (
           <li key={component.id} className="border-b-2 border-edge">

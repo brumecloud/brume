@@ -5,12 +5,9 @@ import { pages, site } from "~/content";
 import { competitors } from "~/vs";
 
 import { architectureMarkdown } from "./architecture-markdown";
-import { landingMarkdown } from "./markdown";
+import { landingMarkdown, twinUrl } from "./markdown";
 import { roadmapMarkdown } from "./roadmap-markdown";
 import { vsIndexMarkdown, vsMarkdown } from "./vs-markdown";
-
-/** A page's Markdown twin, at `<path>/index.md`. */
-const twin = (path: string) => `${site.url}${path}/index.md`;
 
 export function llmsTxt(): string {
   return [
@@ -19,14 +16,14 @@ export function llmsTxt(): string {
     `Every page of ${site.url} also exists in Markdown, at its path followed by \`/index.md\`. A request that asks for \`text/markdown\` gets it at the page's own URL. The whole site in one file: ${site.url}/llms-full.txt`,
     "## Pages",
     [
-      `- [${site.name}: just push it](${twin("")}): ${site.description}`,
-      ...pages.map((page) => `- [${page.title}](${twin(page.path)}): ${page.description}`),
+      `- [${site.name}: just push it](${twinUrl("")}): ${site.description}`,
+      ...pages.map((page) => `- [${page.title}](${twinUrl(page.path)}): ${page.description}`),
     ].join("\n"),
     "## Comparisons",
     competitors
       .map(
         (competitor) =>
-          `- [Brume vs ${competitor.name}](${twin(`/vs/${competitor.slug}`)}): ${competitor.description}`,
+          `- [Brume vs ${competitor.name}](${twinUrl(`/vs/${competitor.slug}`)}): ${competitor.description}`,
       )
       .join("\n"),
     "## Optional",

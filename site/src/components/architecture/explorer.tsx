@@ -46,7 +46,10 @@ export function Explorer() {
   const [playing, setPlaying] = useState(false);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const wide = useMediaQuery("(min-width: 80rem)");
+  const root = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  // What opened the panel: a box of the diagram or a button of the phone row. Closing returns there.
+  const opener = useRef<HTMLElement | null>(null);
   // Set when "Talks to" picks the next component, so the focus follows into the new panel.
   const fromPanel = useRef(false);
 
@@ -61,6 +64,9 @@ export function Explorer() {
   );
 
   function select(id: ComponentId) {
+    if (!fromPanel.current && document.activeElement instanceof HTMLElement) {
+      opener.current = document.activeElement;
+    }
     setTour(null);
     setPlaying(false);
     setPicked(picked === id && !tour ? null : id);
@@ -71,7 +77,10 @@ export function Explorer() {
     setTour(null);
     setPlaying(false);
     setPicked(null);
-    if (focusBack) document.getElementById(nodeButtonId(focusBack))?.focus();
+    const back = opener.current?.isConnected ? opener.current : null;
+    opener.current = null;
+    if (back) back.focus();
+    else if (focusBack) document.getElementById(nodeButtonId(focusBack))?.focus();
   }
 
   function startTour(id: Tour["id"]) {
@@ -103,9 +112,11 @@ export function Explorer() {
     return () => window.clearTimeout(timer);
   }, [autoplaying, tour]);
 
-  // Escape closes the panel, or stops the tour, and gives the focus back to the component.
+  // Escape closes the panel, or stops the tour, and gives the focus back. Only while the focus is
+  // in the explorer: elsewhere on the page, Escape is not ours.
   const onEscape = useEffectEvent((event: KeyboardEvent) => {
-    if (event.key === "Escape") close();
+    if (event.key !== "Escape") return;
+    if (root.current?.contains(document.activeElement)) close();
   });
   const open = selected !== null;
   useEffect(() => {
@@ -133,7 +144,7 @@ export function Explorer() {
   }, [picked, wide, reducedMotion]);
 
   return (
-    <div className="mx-auto w-full max-w-[90rem] px-6">
+    <div ref={root} className="mx-auto w-full max-w-[90rem] px-6">
       <TourBar
         tour={tour}
         playing={autoplaying}

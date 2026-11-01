@@ -329,7 +329,7 @@ const componentData = [
       },
     ],
     ifCompromised:
-      "Whoever has the S3 credential reads the event log, which shows how you are set up. Secrets and backups stay encrypted. They could also write fake events that a restore would replay, an accepted risk in 0.1.",
+      "Whoever has the S3 credential reads the event log, which shows how you are set up. Secrets and backups stay encrypted. They could also write fake events that a restore would replay, an accepted risk in 0.1. Whoever holds the storage provider's account can delete the bucket itself.",
     risk: "The shape of your setup. Secrets and backups stay encrypted.",
     docs: "how-it-works/secrets-and-backups",
   },

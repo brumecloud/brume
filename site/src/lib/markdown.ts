@@ -11,12 +11,14 @@ import {
   docsPage,
   heroPoints,
   milestones,
+  pages,
   requirements,
   securityClaims,
   setupFeatures,
   site,
   steps,
 } from "~/content";
+import { competitors } from "~/vs";
 
 interface Item {
   readonly label: string;
@@ -24,9 +26,31 @@ interface Item {
   readonly text: string;
 }
 
-/** A Markdown twin, as the static export writes it: the HTML pages link to these. */
+/** A page's Markdown twin, at `<path>/index.md`. */
+export const twinUrl = (path: string) => `${site.url}${path}/index.md`;
+
+/** Ends every twin, so an agent that reads one page finds all the others. */
+export function twinFooter(): string {
+  const comparisons = competitors
+    .map((competitor) => `[${competitor.name}](${twinUrl(`/vs/${competitor.slug}`)})`)
+    .join(", ");
+  return [
+    "---",
+    `## More from ${site.url.replace("https://", "")}`,
+    `Every page in Markdown. The whole site in one file: ${site.url}/llms-full.txt. The index: ${site.url}/llms.txt`,
+    list([
+      `[Home](${twinUrl("")})`,
+      ...pages.map((page) => `[${page.title}](${twinUrl(page.path)})`),
+      `Brume vs ${comparisons}`,
+    ]),
+  ].join("\n\n");
+}
+
+/** A Markdown twin, as the static export writes it, with links to the rest of the site. */
 export function markdownResponse(body: string): Response {
-  return new Response(body, { headers: { "Content-Type": "text/markdown; charset=utf-8" } });
+  return new Response(`${body.trimEnd()}\n\n${twinFooter()}\n`, {
+    headers: { "Content-Type": "text/markdown; charset=utf-8" },
+  });
 }
 
 export const heading = (level: 2 | 3, title: string) => `${"#".repeat(level)} ${title}`;

@@ -10,7 +10,7 @@ import { heading, list } from "./markdown";
 
 export function architectureMarkdown(): string {
   return [
-    `# ${site.name}: ${architectureCopy.title}`,
+    `# ${architectureCopy.title.replace(/\.$/, "")}`,
     `> ${architectureCopy.lede}`,
     `${architectureCopy.badge}. ${architectureCopy.modes} This is ${site.url}/architecture in Markdown, for agents and terminals. The page itself has an interactive diagram.`,
 
