@@ -384,8 +384,10 @@ async fn serve(
                 }
                 Output::AdminRefused { client, reason } => {
                     tracing::warn!(%reason, "refused a local command");
-                    // Its sender gone, the connection ends without a reply.
-                    clients.remove(&client);
+                    // The reply goes out first; its sender gone, the connection then ends.
+                    if let Some(sender) = clients.remove(&client) {
+                        let _ = sender.send(ClientMessage::Admin(AdminReply::Refused { reason }));
+                    }
                 }
                 Output::DesiredStateUnavailable { position, reason } => {
                     tracing::error!(

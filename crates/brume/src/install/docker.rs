@@ -111,7 +111,7 @@ pub fn package_query(package: &str) -> Cmd {
 }
 
 /// The Debian version of `package`, if it is installed.
-fn installed_version(host: &Host, package: &str) -> anyhow::Result<Option<String>> {
+pub fn installed_version(host: &Host, package: &str) -> anyhow::Result<Option<String>> {
     let Some(status) = host.query_stdout(&package_query(package))? else {
         return Ok(None);
     };

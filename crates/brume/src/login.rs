@@ -28,12 +28,8 @@ pub fn run() -> anyhow::Result<()> {
 
 /// Asks the engine on `paths`' `admin.sock` for a login link.
 pub fn request_link(paths: &Paths) -> anyhow::Result<LoginLink> {
-    match admin_request(paths, AdminRequest::CreateLoginLink)? {
+    match admin_request(paths, &AdminRequest::CreateLoginLink)? {
         AdminReply::LoginLink { token, expires_at } => Ok(LoginLink { token, expires_at }),
-        #[allow(
-            unreachable_patterns,
-            reason = "other requests of admin.sock get other replies"
-        )]
         _ => bail!("The engine answered with something other than a login link."),
     }
 }
@@ -52,8 +48,15 @@ pub fn print_link(file: &ApiFileConfig, link: &LoginLink, ssh_destination: &str)
             port = file.port
         );
         println!("  2. Open {url}");
-    } else {
+    } else if file.tailscale_logins.is_empty() {
         println!("Open {url}");
+    } else {
+        println!(
+            "The panel is on your tailnet, for {}: {}",
+            file.tailscale_logins.join(", "),
+            file.panel_url()
+        );
+        println!("Log in: {url}");
     }
     println!(
         "The link works once, until {}. `sudo brume admin login` prints a new one.",

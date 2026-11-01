@@ -11,6 +11,8 @@ use crate::agent::serialize_exposed;
 pub enum AdminRequest {
     /// A one-time login link for the admin.
     CreateLoginLink,
+    /// The public entry, if it is set up: `brume install` checks it before setting it up again.
+    GetIngress,
     /// Sets up the public entry: the zone whose subdomains the services get, and the Cloudflare
     /// tunnel that serves them. Sent again, it replaces the tunnel and its token.
     ConfigureIngress {
@@ -28,7 +30,8 @@ pub enum AdminRequest {
 impl PartialEq for AdminRequest {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::CreateLoginLink, Self::CreateLoginLink) => true,
+            (Self::CreateLoginLink, Self::CreateLoginLink)
+            | (Self::GetIngress, Self::GetIngress) => true,
             (
                 Self::ConfigureIngress {
                     zone,
@@ -64,13 +67,27 @@ pub enum AdminReply {
     },
     /// The public entry is set up.
     IngressConfigured,
+    /// The public entry, or `None` before `brume install --domain`.
+    Ingress(Option<AdminIngress>),
+    /// The engine refused the request. `reason` says why, and never holds a secret of the
+    /// request.
+    Refused { reason: String },
+}
+
+/// The public entry, as the engine records it: no token.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AdminIngress {
+    /// A domain name such as `example.com`.
+    pub zone: String,
+    /// The Cloudflare tunnel's id.
+    pub tunnel_id: String,
 }
 
 #[cfg(test)]
 mod tests {
     use secrecy::{ExposeSecret, SecretString};
 
-    use super::AdminRequest;
+    use super::{AdminIngress, AdminReply, AdminRequest};
 
     const TOKEN: &str = "eyJhIjoiMSJ9-s3cr3t";
 
@@ -106,5 +123,29 @@ mod tests {
         let debug = format!("{:?}", configure(TOKEN));
         assert!(!debug.contains(TOKEN), "{debug}");
         assert!(debug.contains("example.com"), "{debug}");
+    }
+
+    #[test]
+    fn replies_round_trip() {
+        for reply in [
+            AdminReply::Ingress(None),
+            AdminReply::Ingress(Some(AdminIngress {
+                zone: "example.com".to_owned(),
+                tunnel_id: "c1744f8b-faa1-48a4-9e5c-02ac921467fa".to_owned(),
+            })),
+            AdminReply::Refused {
+                reason: "Another server writes to this bucket.".to_owned(),
+            },
+        ] {
+            let json = serde_json::to_string(&reply).expect("serializes");
+            assert_eq!(
+                serde_json::from_str::<AdminReply>(&json).expect("parses"),
+                reply
+            );
+        }
+        assert_eq!(
+            serde_json::to_string(&AdminRequest::GetIngress).expect("serializes"),
+            "\"GetIngress\""
+        );
     }
 }
