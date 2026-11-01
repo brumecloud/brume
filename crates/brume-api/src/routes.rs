@@ -272,17 +272,13 @@ async fn list_projects(State(state): State<Arc<AppState>>, headers: HeaderMap) -
     forward(&state, &headers, ApiCall::ListProjects, StatusCode::OK).await
 }
 
-#[derive(Deserialize)]
-struct NewProjectBody {
-    source: NewProjectSourceDto,
-}
-
+/// The body is the `NewProjectSource` itself, as the panel sends it.
 async fn create_project(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    JsonBody(body): JsonBody<NewProjectBody>,
+    JsonBody(source): JsonBody<NewProjectSourceDto>,
 ) -> Response {
-    let unavailable = match &body.source {
+    let unavailable = match &source {
         NewProjectSourceDto::Empty | NewProjectSourceDto::Image { .. } => None,
         NewProjectSourceDto::Github { .. } => Some("github"),
         NewProjectSourceDto::Static { .. } => Some("static"),
@@ -296,9 +292,7 @@ async fn create_project(
             &format!("{kind} sources are not available yet."),
         );
     }
-    let call = ApiCall::CreateProject {
-        source: body.source,
-    };
+    let call = ApiCall::CreateProject { source };
     forward(&state, &headers, call, StatusCode::CREATED).await
 }
 
