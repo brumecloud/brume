@@ -712,6 +712,22 @@ fn stage_domain(
     }))
 }
 
+/// Stages the port `value` on `service`, or its removal.
+fn stage_port(
+    harness: &mut Harness,
+    service: &str,
+    value: Option<u16>,
+) -> Result<ApiValue, brume_proto::api::ApiFailure> {
+    harness.call(ApiCall::StageChange(NewChangeDto::Setting {
+        service_id: service.to_owned(),
+        field: SettingField::Port,
+        value: value.map_or_else(
+            || SettingValueDto::Text(String::new()),
+            |port| SettingValueDto::Number(f64::from(port)),
+        ),
+    }))
+}
+
 fn staged_count(harness: &mut Harness) -> usize {
     match harness.ok(ApiCall::ListChanges) {
         ApiValue::Changes(changes) => changes.len(),
@@ -774,7 +790,8 @@ fn invalid_subdomains_rejected() {
         assert!(failure.message.contains("subdomain"), "{}", failure.message);
     }
     assert_eq!(staged_count(&mut world.harness), 0);
-    // The longest label passes.
+    // The longest label passes, on a service with a port.
+    stage_port(&mut world.harness, &service, Some(80)).expect("staged");
     assert!(stage_domain(&mut world.harness, &service, &"a".repeat(63)).is_ok());
 }
 
@@ -811,8 +828,79 @@ fn duplicate_subdomain_rejected() {
     assert_eq!(failure.kind, FailureKind::Conflict);
     assert_eq!(staged_count(&mut world.harness), 1);
 
-    // and a free one passes.
+    // and a free one passes, once the service has a port.
+    stage_port(&mut world.harness, &other.id, Some(80)).expect("staged");
     assert!(stage_domain(&mut world.harness, &other.id, "blog").is_ok());
+}
+
+#[test]
+fn staging_a_domain_requires_a_port() {
+    // Given a service without a port, on a server with a public entry,
+    let mut world = world();
+    world.harness.configure_ingress("example.com", TUNNEL_TOKEN);
+    let service = world.service.clone();
+
+    // when a domain is staged, the route would have no port: it is refused, before it can
+    // block the environment's deploy, and nothing is staged;
+    let failure = stage_domain(&mut world.harness, &service, "demo").expect_err("refused");
+    assert_eq!(failure.kind, FailureKind::Invalid);
+    assert!(failure.message.contains("port"), "{}", failure.message);
+    assert_eq!(staged_count(&mut world.harness), 0);
+
+    // a staged port counts;
+    stage_port(&mut world.harness, &service, Some(8080)).expect("staged");
+    stage_domain(&mut world.harness, &service, "demo").expect("staged");
+
+    // and the deploy goes through.
+    world.deploy();
+    let settings = body(&world.harness.ok(ApiCall::GetServiceSettings {
+        service_id: service.clone(),
+    }));
+    assert_eq!(settings["domain"], "demo");
+    assert_eq!(settings["port"], 8080);
+    let ApiValue::Events(page) = world.harness.ok(ApiCall::ListEvents {
+        project_id: world.project.clone(),
+        before: None,
+        limit: 200,
+    }) else {
+        panic!("events");
+    };
+    assert!(
+        page.events
+            .iter()
+            .any(|event| event.kind == "ServiceDomainChanged"
+                && event.summary == "Set the public subdomain of nginx to demo."),
+        "{:?}",
+        page.events
+    );
+}
+
+#[test]
+fn staging_a_port_removal_is_refused_while_the_service_has_a_domain() {
+    // Given a service with a staged port and a staged domain, on a server with a public
+    // entry,
+    let mut world = world();
+    world.harness.configure_ingress("example.com", TUNNEL_TOKEN);
+    let service = world.service.clone();
+    stage_port(&mut world.harness, &service, Some(8080)).expect("staged");
+    stage_domain(&mut world.harness, &service, "demo").expect("staged");
+
+    // when the staged port is taken back, the staged domain would lose it: refused;
+    let failure = stage_port(&mut world.harness, &service, None).expect_err("refused");
+    assert_eq!(failure.kind, FailureKind::Invalid);
+    assert!(failure.message.contains("port"), "{}", failure.message);
+    assert_eq!(staged_count(&mut world.harness), 2);
+
+    // once deployed, removing the port is refused while the domain is set;
+    world.deploy();
+    let failure = stage_port(&mut world.harness, &service, None).expect_err("refused");
+    assert_eq!(failure.kind, FailureKind::Invalid);
+    assert_eq!(staged_count(&mut world.harness), 0);
+
+    // with the domain's removal staged, it passes.
+    stage_domain(&mut world.harness, &service, "").expect("staged");
+    stage_port(&mut world.harness, &service, None).expect("staged");
+    assert_eq!(staged_count(&mut world.harness), 2);
 }
 
 #[test]

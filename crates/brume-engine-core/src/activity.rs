@@ -295,6 +295,16 @@ impl<S: Storage> Engine<S> {
                     self.slug(service)
                 ),
             ),
+            Event::ServiceDomainChanged { service, domain } => (
+                self.service_subject(service),
+                match domain {
+                    Some(domain) => format!(
+                        "Set the public subdomain of {} to {domain}.",
+                        self.slug(service)
+                    ),
+                    None => format!("Removed the public subdomain of {}.", self.slug(service)),
+                },
+            ),
             Event::SharedVariableSet {
                 owner, name, value, ..
             } => {

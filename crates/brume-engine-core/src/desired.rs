@@ -137,12 +137,12 @@ pub fn desired_state(
         for &(deployment, alias) in &running {
             containers.push(container(world, storage, service, deployment, alias)?);
         }
-        // The route follows the alias: the active deployment's domain, else the promoting
-        // one's.
+        // The route follows the alias: the service's domain, to the port of the active
+        // deployment's revision, else of the promoting one's.
         let route = running
             .iter()
             .filter(|(_, alias)| *alias)
-            .find_map(|(deployment, _)| public_host(world, deployment));
+            .find_map(|(deployment, _)| public_host(world, service, deployment));
         if let Some((host, port)) = route {
             let network = edge_network(service.id.as_str());
             networks.push(NetworkSpec {
@@ -182,12 +182,18 @@ pub fn desired_state(
     })
 }
 
-/// The public host and the port of a deployment's revision, when it has a domain and the
-/// public entry is set up.
-pub(crate) fn public_host(world: &World, deployment: &Deployment) -> Option<(String, u16)> {
+/// The public host of a service, and the port of the deployment's revision it routes to, when
+/// the service has a domain, the revision a port, and the public entry is set up. The domain is
+/// the service's, so a rollback keeps it.
+pub(crate) fn public_host(
+    world: &World,
+    service: &Service,
+    deployment: &Deployment,
+) -> Option<(String, u16)> {
     let ingress = world.ingress()?;
-    let spec = &world.revision(deployment.revision.as_ref()?)?.spec;
-    Some((ingress.host(spec.domain.as_ref()?), spec.port?.get()))
+    let domain = service.domain.as_ref()?;
+    let port = world.revision(deployment.revision.as_ref()?)?.spec.port?;
+    Some((ingress.host(domain), port.get()))
 }
 
 /// The volume paths that a deployment's revision mounts; none before it has a revision.
@@ -277,7 +283,7 @@ fn container(
     }
     // Traefik reaches the container that holds the alias on the service's edge network, by
     // the network's own name, unique on the machine.
-    if alias && public_host(world, deployment).is_some() {
+    if alias && public_host(world, service, deployment).is_some() {
         let edge = edge_network(service.id.as_str());
         networks.push(NetworkAttachment {
             aliases: vec![edge.clone()],
