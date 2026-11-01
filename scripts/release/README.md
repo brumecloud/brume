@@ -11,8 +11,8 @@
 ## Build
 
 ```sh
-scripts/release/build.sh 0.1.0 all     # or arm64, or amd64
-scripts/release/test.sh 0.1.0 all
+scripts/release/build.sh 0.1.0-alpha.1 all     # or arm64, or amd64
+scripts/release/test.sh 0.1.0-alpha.1 all
 ```
 
 - The version must be the workspace version of `Cargo.toml`: `brume --version` prints it.
@@ -23,6 +23,7 @@ scripts/release/test.sh 0.1.0 all
 - `install.sh` pins every archive of this version present in `dist/`, so arm64 and amd64 can be built one after the other. For a release, build `all`.
 - A build refuses uncommitted changes in `crates/`, `web/` or the manifests, so an archive matches the commit it is dated from. `BRUME_ALLOW_DIRTY=1` lifts that for a test build, never for a release.
 - The base image is pinned by digest in `Dockerfile.build`.
+- The archive also holds `LICENSE.md` (Brume) and `LICENSE-duckdb.txt` (DuckDB's MIT license, for `libduckdb.so`).
 
 ## Test `install.sh` locally
 

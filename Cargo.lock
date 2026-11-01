@@ -471,7 +471,7 @@ dependencies = [
 
 [[package]]
 name = "brume"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "bollard",
@@ -500,7 +500,7 @@ dependencies = [
 
 [[package]]
 name = "brume-agent"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "bollard",
@@ -519,7 +519,7 @@ dependencies = [
 
 [[package]]
 name = "brume-agent-core"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "brume-proto",
  "hex",
@@ -532,7 +532,7 @@ dependencies = [
 
 [[package]]
 name = "brume-api"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -551,7 +551,7 @@ dependencies = [
 
 [[package]]
 name = "brume-domain"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "hex",
  "rand",
@@ -567,7 +567,7 @@ dependencies = [
 
 [[package]]
 name = "brume-engine"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "brume-domain",
@@ -588,7 +588,7 @@ dependencies = [
 
 [[package]]
 name = "brume-engine-core"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "base64 0.23.1",
  "brume-domain",
@@ -605,7 +605,7 @@ dependencies = [
 
 [[package]]
 name = "brume-proto"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "secrecy",
  "serde",
@@ -616,7 +616,7 @@ dependencies = [
 
 [[package]]
 name = "brume-runtime"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "brume-proto",
  "chacha20poly1305",
@@ -631,7 +631,7 @@ dependencies = [
 
 [[package]]
 name = "brume-telemetry"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "brume-proto",

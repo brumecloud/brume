@@ -112,6 +112,9 @@ for arch in "${archs[@]}"; do
       mkdir "$stage/brume"
       install -m 0755 "/target/$TRIPLE/release/brume" "$stage/brume/brume"
       install -m 0644 "/opt/duckdb/$ARCH/libduckdb.so" "$stage/brume/libduckdb.so"
+      # The licenses: Brume'"'"'s, and DuckDB'"'"'s, which ships in libduckdb.so.
+      install -m 0644 /src/LICENSE.md "$stage/brume/LICENSE.md"
+      install -m 0644 /src/scripts/release/LICENSE-duckdb.txt "$stage/brume/LICENSE-duckdb.txt"
       tar --create --sort=name --owner=0 --group=0 --numeric-owner \
         --mtime="@$SOURCE_DATE_EPOCH" --directory "$stage" brume |
         gzip -9 --no-name >"/dist/$ARCHIVE"
