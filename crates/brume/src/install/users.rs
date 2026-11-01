@@ -7,7 +7,8 @@ use super::Step;
 use super::host::{Cmd, Host};
 use super::systemd::Service;
 
-/// The group of the four services, the group of `/run/brume` and of every socket in it.
+/// The group of the four services: the group of the socket directories in `/run/brume` and of
+/// every socket in them.
 pub const SHARED_GROUP: &str = "brume";
 
 /// The group of Docker's socket, created by Docker's package.

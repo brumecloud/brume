@@ -277,8 +277,10 @@ mod tests {
     }
 
     /// The directories that `systemd-tmpfiles` creates: path, owner, group, mode.
-    const DIRS: [(&str, &str, &str, u32); 7] = [
-        ("/run/brume", "root", "brume", 0o3770),
+    const DIRS: [(&str, &str, &str, u32); 9] = [
+        ("/run/brume", "root", "root", 0o755),
+        ("/run/brume/engine", "brume-engine", "brume", 0o2750),
+        ("/run/brume/telemetry", "brume-telemetry", "brume", 0o2750),
         ("/var/lib/brume", "root", "root", 0o755),
         (
             "/var/lib/brume/engine",

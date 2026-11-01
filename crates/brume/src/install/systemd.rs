@@ -30,15 +30,28 @@ struct Dir {
 
 /// The directories, parents first.
 ///
-/// `/run/brume` holds the sockets. It is setgid, so that each socket gets the group that the
-/// four users share and the `0660` sockets open to the other services; it is sticky, so that
-/// a service cannot remove another's socket.
-const DIRS: [Dir; 7] = [
+/// `/run/brume` holds one socket directory per listening service, owned by it and not
+/// writable by the others: no service can remove another's socket or listen in its place. Each
+/// is setgid, so that each socket gets the group that the four users share and the `0660`
+/// sockets open to the other services.
+const DIRS: [Dir; 9] = [
     Dir {
         path: "/run/brume",
         user: "root",
+        group: "root",
+        mode: 0o755,
+    },
+    Dir {
+        path: "/run/brume/engine",
+        user: ENGINE_USER,
         group: SHARED_GROUP,
-        mode: 0o3770,
+        mode: 0o2750,
+    },
+    Dir {
+        path: "/run/brume/telemetry",
+        user: TELEMETRY_USER,
+        group: SHARED_GROUP,
+        mode: 0o2750,
     },
     Dir {
         path: "/var/lib/brume",
@@ -186,8 +199,8 @@ impl Service {
     /// What the service may write, besides creating its sockets.
     fn read_write_paths(self) -> &'static str {
         match self {
-            Self::Telemetry => "/var/lib/brume/telemetry /run/brume",
-            Self::Engine => "/var/lib/brume/engine /var/lib/brume/bucket /run/brume",
+            Self::Telemetry => "/var/lib/brume/telemetry /run/brume/telemetry",
+            Self::Engine => "/var/lib/brume/engine /var/lib/brume/bucket /run/brume/engine",
             Self::Agent => "/var/lib/brume/agent",
             Self::Api => "",
         }
@@ -413,7 +426,7 @@ mod tests {
                 .flat_map(|paths| paths.split(' '))
             {
                 assert!(
-                    path == "/run/brume" || path.starts_with("/var/lib/brume/"),
+                    path.starts_with("/run/brume/") || path.starts_with("/var/lib/brume/"),
                     "{service:?}: {path}"
                 );
             }
@@ -437,10 +450,15 @@ mod tests {
     }
 
     #[test]
-    fn the_sockets_directory_is_shared_setgid_and_sticky() {
+    fn each_listener_owns_its_sockets_directory() {
         let conf = tmpfiles();
+        assert!(conf.contains("\nd /run/brume 0755 root root -\n"), "{conf}");
         assert!(
-            conf.contains("\nd /run/brume 3770 root brume -\n"),
+            conf.contains("\nd /run/brume/engine 2750 brume-engine brume -\n"),
+            "{conf}"
+        );
+        assert!(
+            conf.contains("\nd /run/brume/telemetry 2750 brume-telemetry brume -\n"),
             "{conf}"
         );
         assert!(conf.contains("\nd /var/lib/brume/engine 0700 brume-engine brume-engine -\n"));
