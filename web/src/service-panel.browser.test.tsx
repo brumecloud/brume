@@ -103,4 +103,25 @@ describe("service panel", () => {
     await expect.element(screen.getByText("No active deployment.")).not.toBeInTheDocument();
     await expect.element(screen.getByRole("article").first().getByText("Active")).toBeVisible();
   });
+
+  it("shows the variables of the revision a rollback puts back", async () => {
+    const serviceId = `${northbean.id}-production-shop-api`;
+    const screen = await renderApp(`${service("shop-api")}/variables`);
+    await expect.element(screen.getByText("CURRENCY")).toBeVisible();
+    await screen.getByRole("link", { name: "Deployments", exact: true }).click();
+
+    // The server puts back the variables of the old revision: here, one without CURRENCY.
+    db.variables = db.variables.filter(
+      (variable) => !(variable.ownerId === serviceId && variable.name === "CURRENCY"),
+    );
+    await screen.getByRole("button", { name: "Deployment actions" }).first().click();
+    await screen.getByRole("menuitem", { name: "Roll back to this deployment" }).click();
+    await screen.getByRole("button", { name: "Roll back" }).click();
+    await expect.element(screen.getByRole("button", { name: "Roll back" })).not.toBeInTheDocument();
+    await screen.getByRole("link", { name: "Variables", exact: true }).click();
+
+    await expect.element(screen.getByText("PORT", { exact: true })).toBeVisible();
+    await expect.element(screen.getByText("CURRENCY")).not.toBeInTheDocument();
+  });
 });
+
