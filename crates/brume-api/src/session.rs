@@ -24,23 +24,51 @@ pub(crate) fn token(headers: &HeaderMap) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// Whether the browser may send the session cookie over plain HTTP.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CookieSecurity {
+    /// `brume dev`, or a host reached by an SSH tunnel: plain HTTP on localhost.
+    AnyScheme,
+    /// A host behind `tailscale serve`: `Secure`, HTTPS only.
+    HttpsOnly,
+}
+
+impl CookieSecurity {
+    fn attribute(self) -> &'static str {
+        match self {
+            Self::AnyScheme => "",
+            Self::HttpsOnly => "; Secure",
+        }
+    }
+}
+
 /// The `Set-Cookie` that stores `token`. `None` if the token holds a character that would
-/// break out of the cookie value. No `Secure`: the API speaks plain HTTP on localhost.
-pub(crate) fn set_cookie(token: &str) -> Option<(axum::http::HeaderName, HeaderValue)> {
+/// break out of the cookie value.
+pub(crate) fn set_cookie(
+    token: &str,
+    security: CookieSecurity,
+) -> Option<(axum::http::HeaderName, HeaderValue)> {
     if !is_cookie_safe(token) {
         return None;
     }
-    let value = format!("{COOKIE_NAME}={token}; HttpOnly; SameSite=Strict; Path=/");
+    let value = format!(
+        "{COOKIE_NAME}={token}; HttpOnly; SameSite=Strict; Path=/{}",
+        security.attribute()
+    );
     HeaderValue::from_str(&value)
         .ok()
         .map(|value| (SET_COOKIE, value))
 }
 
 /// The `Set-Cookie` that deletes the session cookie.
-pub(crate) fn clear_cookie() -> (axum::http::HeaderName, HeaderValue) {
+pub(crate) fn clear_cookie(security: CookieSecurity) -> (axum::http::HeaderName, HeaderValue) {
+    let value = format!(
+        "{COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0{}",
+        security.attribute()
+    );
     (
         SET_COOKIE,
-        HeaderValue::from_static("brume_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0"),
+        HeaderValue::from_str(&value).expect("the cookie is ASCII"),
     )
 }
 
@@ -58,7 +86,7 @@ mod tests {
     use axum::http::header::COOKIE;
     use axum::http::{HeaderMap, HeaderValue};
 
-    use super::{set_cookie, token};
+    use super::{CookieSecurity, set_cookie, token};
 
     #[test]
     fn reads_the_session_among_other_cookies() {
@@ -73,8 +101,10 @@ mod tests {
 
     #[test]
     fn refuses_tokens_that_break_the_cookie() {
-        assert!(set_cookie("abc; Domain=evil.example").is_none());
-        assert!(set_cookie("").is_none());
+        for security in [CookieSecurity::AnyScheme, CookieSecurity::HttpsOnly] {
+            assert!(set_cookie("abc; Domain=evil.example", security).is_none());
+            assert!(set_cookie("", security).is_none());
+        }
         let mut headers = HeaderMap::new();
         headers.insert(COOKIE, HeaderValue::from_static("brume_session=a\"b"));
         assert_eq!(token(&headers), None);

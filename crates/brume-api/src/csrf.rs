@@ -1,7 +1,8 @@
 //! The checks run before every request, and the security headers set on every response. See
-//! `archi/base/04-panel-admin.md` (CSRF, XSS): the API listens on 127.0.0.1 only, accepts
-//! known hosts only, refuses cross-site requests, requires `X-Brume` on the API, checks
-//! `Origin` on writes, and sends no CORS header.
+//! `archi/base/04-panel-admin.md` (Tailscale identity, CSRF, XSS): the API listens on 127.0.0.1
+//! only, accepts known hosts only, then the allowed Tailscale logins only when a host sets
+//! them, refuses cross-site requests, requires `X-Brume` on the API, checks `Origin` on
+//! writes, and sends no CORS header.
 
 use std::sync::Arc;
 
@@ -14,11 +15,15 @@ use axum::http::{HeaderMap, HeaderValue, Method, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
 
-use crate::AppState;
 use crate::routes::json_error;
+use crate::{ApiConfig, AppState};
 
 /// The largest request body, in bytes.
 pub(crate) const MAX_BODY_BYTES: usize = 64 * 1024;
+
+/// The header that `tailscale serve` sets to the login of the device's user, after removing
+/// the one the client sent.
+const TAILSCALE_USER_LOGIN: &str = "tailscale-user-login";
 
 /// The panel's Content Security Policy: no inline script, no framing, Trusted Types.
 const CSP: &str = "default-src 'self'; base-uri 'none'; form-action 'self'; \
@@ -31,7 +36,7 @@ pub(crate) async fn guard(
     next: Next,
 ) -> Response {
     let api = is_api(request.uri().path());
-    let mut response = match check(&state.allowed_hosts, &request, api) {
+    let mut response = match check(&state.config, &request, api) {
         Ok(()) => next.run(request).await,
         Err(Refusal(status, message)) => json_error(status, message),
     };
@@ -49,19 +54,37 @@ pub(crate) async fn guard(
 struct Refusal(StatusCode, &'static str);
 
 /// The refusal for a request that fails a check.
-fn check(allowed_hosts: &[String], request: &Request, api: bool) -> Result<(), Refusal> {
+fn check(config: &ApiConfig, request: &Request, api: bool) -> Result<(), Refusal> {
     let headers = request.headers();
     // Exactly one `Host`, and a known one.
-    let mut hosts = headers.get_all(HOST).iter();
-    let host = match (hosts.next(), hosts.next()) {
-        (Some(host), None) => host.to_str().ok(),
-        _ => None,
-    };
-    if !host.is_some_and(|host| allowed_hosts.iter().any(|a| a.eq_ignore_ascii_case(host))) {
+    let host = single(headers, HOST).and_then(|host| host.to_str().ok());
+    let known_host = host.is_some_and(|host| {
+        config
+            .allowed_hosts
+            .iter()
+            .any(|allowed| allowed.eq_ignore_ascii_case(host))
+    });
+    if !known_host {
         return Err(Refusal(
             StatusCode::MISDIRECTED_REQUEST,
             "This host is not served here.",
         ));
+    }
+    // On a host behind `tailscale serve`, exactly one login, and an allowed one: the panel
+    // itself, not only the API, answers the admin's devices only.
+    if !config.tailscale_logins.is_empty() {
+        let allowed = single(headers, TAILSCALE_USER_LOGIN).is_some_and(|login| {
+            config
+                .tailscale_logins
+                .iter()
+                .any(|allowed| allowed.as_bytes() == login.as_bytes())
+        });
+        if !allowed {
+            return Err(Refusal(
+                StatusCode::FORBIDDEN,
+                "This Tailscale identity may not open the panel.",
+            ));
+        }
     }
     // `none` is a typed address, a bookmark, or the login link opened from the terminal: it
     // may open the panel, but never call the API.
@@ -97,9 +120,10 @@ fn check(allowed_hosts: &[String], request: &Request, api: bool) -> Result<(), R
         // Accepted deviation, as for `Sec-Fetch-Site`: a write with no `Origin` passes. A
         // browser sends `Origin` on every write, a client that is not a browser does not.
         let known_origin = |origin: &HeaderValue| {
-            allowed_hosts
+            config
+                .allowed_origins
                 .iter()
-                .any(|host| origin.as_bytes() == format!("http://{host}").as_bytes())
+                .any(|allowed| origin.as_bytes() == allowed.as_bytes())
         };
         if !headers.get_all(ORIGIN).iter().all(known_origin) {
             return Err(Refusal(
@@ -127,6 +151,18 @@ fn check(allowed_hosts: &[String], request: &Request, api: bool) -> Result<(), R
 
 /// The message for a body over `MAX_BODY_BYTES`.
 pub(crate) const BODY_TOO_LARGE: &str = "The request body is larger than 64 KiB.";
+
+/// The value of `name` if the request carries it exactly once.
+fn single<K: axum::http::header::AsHeaderName>(
+    headers: &HeaderMap,
+    name: K,
+) -> Option<&HeaderValue> {
+    let mut values = headers.get_all(name).iter();
+    match (values.next(), values.next()) {
+        (Some(value), None) => Some(value),
+        _ => None,
+    }
+}
 
 fn is_api(path: &str) -> bool {
     path == "/api" || path.starts_with("/api/")

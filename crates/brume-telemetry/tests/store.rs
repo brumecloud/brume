@@ -7,6 +7,7 @@ use brume_proto::api::{LogLevel, LogLineDto};
 use brume_proto::telemetry::{LogBatch, LogQuery, LogStreamFrame, RawLogLine, StdStream};
 use brume_runtime::framed::{FramedReader, FramedWriter};
 use brume_runtime::paths::Paths;
+use brume_runtime::peer::Peers;
 use brume_telemetry::level::classify;
 use brume_telemetry::store::{HistoryQuery, Store};
 use tokio::net::UnixStream;
@@ -176,10 +177,16 @@ fn a_long_line_is_cut_on_a_char_boundary() {
     assert!(stored[0].message.chars().all(|c| c == 'é'));
 }
 
-/// Starts the service on a temporary home and waits for its sockets.
+/// Starts the service on a temporary home, as `brume dev` does, and waits for its sockets.
 async fn start(home: &Path) -> Paths {
     let paths = Paths::new(home.to_path_buf());
-    let service = tokio::spawn(brume_telemetry::run(paths.clone()));
+    let peers = Peers::same_user(&paths.run_dir()).expect("creates the run directory");
+    start_for(paths, peers).await
+}
+
+/// Starts the service for `peers` and waits for its sockets.
+async fn start_for(paths: Paths, peers: Peers) -> Paths {
+    let service = tokio::spawn(brume_telemetry::run(paths.clone(), peers));
     for _ in 0..200 {
         if paths.telemetry_ingest_socket().exists() && paths.telemetry_query_socket().exists() {
             return paths;
@@ -305,5 +312,51 @@ async fn follow_receives_a_line_inserted_after_it_opened() {
             assert_eq!(lines[0].id, "3");
         }
         other => panic!("expected the live line, got {other:?}"),
+    }
+}
+
+/// On a host, the ingest socket serves the agent and the query socket the engine, no one else.
+#[tokio::test]
+async fn on_a_host_each_socket_refuses_the_other_users() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let home = home();
+    let paths = Paths::new(home.path().to_path_buf());
+    let Peers::SameUser { uid } = Peers::same_user(&paths.run_dir()).expect("creates it") else {
+        panic!("the peers of a single user");
+    };
+    // This process is the agent's user: it may send logs, not read them.
+    let peers = Peers::System {
+        engine: uid + 1,
+        agent: uid,
+        api: uid + 2,
+        telemetry: uid + 3,
+    };
+    let paths = start_for(paths, peers).await;
+    let (_, mut ingest) = connect(paths.telemetry_ingest_socket()).await;
+    ingest
+        .write(&LogBatch {
+            lines: vec![raw("env", now_ms(), "one")],
+        })
+        .await
+        .expect("sends");
+
+    let (mut reader, mut writer) = connect(paths.telemetry_query_socket()).await;
+    // Telemetry may close before the write: the write's result does not matter.
+    let _ = writer.write(&query("env", false)).await;
+    let read = tokio::time::timeout(Duration::from_secs(5), reader.read::<LogStreamFrame>())
+        .await
+        .expect("closed within 5 s");
+    assert!(matches!(read, Ok(None) | Err(_)), "{read:?}");
+
+    for socket in [
+        paths.telemetry_ingest_socket(),
+        paths.telemetry_query_socket(),
+    ] {
+        let mode = std::fs::metadata(&socket)
+            .expect("exists")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o660, "{}", socket.display());
     }
 }

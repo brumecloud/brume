@@ -9,13 +9,14 @@ use anyhow::Context as _;
 use brume_proto::telemetry::{
     LogQuery, LogStreamFrame, MAX_LOG_CHUNK_BYTES, chunk_by_encoded_size,
 };
+use brume_runtime::framed::{FramedReader, FramedWriter};
+use brume_runtime::peer::{Peers, SocketRole};
 use tokio::net::unix::OwnedWriteHalf;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
 
-use crate::Shared;
 use crate::store::{HistoryQuery, StoredLine};
-use brume_runtime::framed::{FramedReader, FramedWriter};
+use crate::{Shared, admit};
 
 /// The most lines of history that one query gets.
 const MAX_HISTORY_LINES: u32 = 5_000;
@@ -23,13 +24,20 @@ const MAX_HISTORY_LINES: u32 = 5_000;
 /// A DuckDB query that runs longer is interrupted.
 const QUERY_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// Accepts engine connections until the listener fails.
-pub(crate) async fn serve(listener: UnixListener, shared: Arc<Shared>) -> anyhow::Result<()> {
+/// Accepts the engine's connections until the listener fails.
+pub(crate) async fn serve(
+    listener: UnixListener,
+    peers: Peers,
+    shared: Arc<Shared>,
+) -> anyhow::Result<()> {
     loop {
         let (stream, _) = listener
             .accept()
             .await
             .context("cannot accept on the query socket")?;
+        if !admit(&peers, SocketRole::TelemetryQuery, &stream) {
+            continue;
+        }
         let shared = Arc::clone(&shared);
         tokio::spawn(async move {
             if let Err(error) = answer(stream, shared).await {

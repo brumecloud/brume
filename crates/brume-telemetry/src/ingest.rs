@@ -4,18 +4,26 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use brume_proto::telemetry::LogBatch;
+use brume_runtime::framed::FramedReader;
+use brume_runtime::peer::{Peers, SocketRole};
 use tokio::net::{UnixListener, UnixStream};
 
-use crate::Shared;
-use brume_runtime::framed::FramedReader;
+use crate::{Shared, admit};
 
-/// Accepts agent connections until the listener fails.
-pub(crate) async fn serve(listener: UnixListener, shared: Arc<Shared>) -> anyhow::Result<()> {
+/// Accepts the agent's connections until the listener fails.
+pub(crate) async fn serve(
+    listener: UnixListener,
+    peers: Peers,
+    shared: Arc<Shared>,
+) -> anyhow::Result<()> {
     loop {
         let (stream, _) = listener
             .accept()
             .await
             .context("cannot accept on the ingest socket")?;
+        if !admit(&peers, SocketRole::TelemetryIngest, &stream) {
+            continue;
+        }
         let shared = Arc::clone(&shared);
         tokio::spawn(async move {
             if let Err(error) = receive(stream, shared).await {

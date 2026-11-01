@@ -233,10 +233,12 @@ async fn login(
 ) -> Response {
     let call = ApiCall::Login { token: body.token };
     match state.engine.call(None, call).await {
-        Ok(Ok(ApiValue::Session { token, .. })) => match session::set_cookie(&token) {
-            Some(cookie) => (StatusCode::NO_CONTENT, [cookie]).into_response(),
-            None => engine_error_response(EngineError::Protocol),
-        },
+        Ok(Ok(ApiValue::Session { token, .. })) => {
+            match session::set_cookie(&token, state.cookie) {
+                Some(cookie) => (StatusCode::NO_CONTENT, [cookie]).into_response(),
+                None => engine_error_response(EngineError::Protocol),
+            }
+        }
         Ok(Ok(_)) => engine_error_response(EngineError::Protocol),
         Ok(Err(failure)) => failure_response(failure),
         Err(error) => engine_error_response(error),
@@ -263,7 +265,7 @@ async fn logout(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Respo
         Ok(Err(failure)) => failure_response(failure),
         Err(error) => engine_error_response(error),
     };
-    let (name, value) = session::clear_cookie();
+    let (name, value) = session::clear_cookie(state.cookie);
     response.headers_mut().insert(name, value);
     response
 }
