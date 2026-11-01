@@ -12,7 +12,7 @@ const PLACEHOLDER: &str = "<!doctype html>
     <title>Brume</title>
   </head>
   <body>
-    <p>Build the panel: cd web &amp;&amp; pnpm build</p>
+    <p>Build the panel: cd web &amp;&amp; ./node_modules/.bin/vp build</p>
   </body>
 </html>
 ";
@@ -22,7 +22,7 @@ fn main() -> io::Result<()> {
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("set by cargo"));
     let dist = manifest_dir.join("../../web/dist");
     // While `web/dist` is missing, cargo reruns this script on every build, so a later
-    // `pnpm build` is picked up.
+    // `vp build` is picked up.
     println!("cargo::rerun-if-changed={}", dist.display());
 
     let mut files = Vec::new();
