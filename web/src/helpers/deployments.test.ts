@@ -7,6 +7,7 @@ import {
   deploymentShortId,
   deploymentTitle,
   formatDateTime,
+  isInFlight,
   parseDeploymentId,
   parseDeploymentSearch,
   parseDeployments,
@@ -106,6 +107,17 @@ describe("parseRevision", () => {
     expect(parseRevision(raw)).toEqual(raw);
   });
 
+  it("never keeps the value of a secret", () => {
+    const leaked = {
+      name: "REDIS_URL",
+      kind: "secret",
+      value: "redis://:pw@redis",
+      origin: "service",
+    };
+
+    expect(parseRevision({ ...raw, variables: [leaked] }).variables[0]?.value).toBeNull();
+  });
+
   it("rejects a variable without origin", () => {
     expect(() =>
       parseRevision({ ...raw, variables: [{ name: "PORT", kind: "plain", value: "1" }] }),
@@ -134,5 +146,19 @@ describe("deploymentShortId", () => {
 
     expect(deploymentShortId(deployment("d-1", "active", "", { commit }))).toBe("d63eac96");
     expect(deploymentShortId(deployment("7b2ae12a-59db", "active", ""))).toBe("7b2ae12a");
+  });
+});
+
+describe("isInFlight", () => {
+  it("is true while an image resolves or a container starts", () => {
+    expect(["building", "deploying"].map((status) => isInFlight(status))).toEqual([true, true]);
+  });
+
+  it("is false once the outcome is known", () => {
+    expect(
+      ["active", "failed", "superseded", "online", "crashed", "stopped"].map((status) =>
+        isInFlight(status),
+      ),
+    ).toEqual([false, false, false, false, false, false]);
   });
 });

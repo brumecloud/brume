@@ -1,9 +1,10 @@
-import { createLink, useMatchRoute } from "@tanstack/react-router";
-import { ScrollTextIcon, WorkflowIcon } from "lucide-react";
+import { createLink } from "@tanstack/react-router";
+import { HistoryIcon, ScrollTextIcon, VariableIcon, WorkflowIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import type { ProjectId } from "~/api/types";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
+import { useProjectPage } from "~/hooks/use-project-page";
 
 function RailAnchor(props: ComponentProps<"a">) {
   return (
@@ -23,10 +24,8 @@ interface ProjectRailProps {
 
 // The column of icons on the left.
 export function ProjectRail({ projectId, environmentName }: ProjectRailProps) {
-  const matchRoute = useMatchRoute();
+  const page = useProjectPage(projectId, environmentName);
   const params = { projectId, env: environmentName };
-  // The canvas owns every other page of the environment, service panels included.
-  const onLogs = Boolean(matchRoute({ to: "/projects/$projectId/$env/logs", params }));
 
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-2 pt-2 max-md:hidden">
@@ -37,7 +36,7 @@ export function ProjectRail({ projectId, environmentName }: ProjectRailProps) {
               to="/projects/$projectId/$env"
               params={params}
               aria-label="Architecture"
-              data-active={!onLogs}
+              data-active={page === "canvas"}
             />
           }
         >
@@ -52,13 +51,43 @@ export function ProjectRail({ projectId, environmentName }: ProjectRailProps) {
               to="/projects/$projectId/$env/logs"
               params={params}
               aria-label="Logs"
-              data-active={onLogs}
+              data-active={page === "logs"}
             />
           }
         >
           <ScrollTextIcon />
         </TooltipTrigger>
         <TooltipPopup side="right">Logs</TooltipPopup>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <RailLink
+              to="/projects/$projectId/$env/variables"
+              params={params}
+              aria-label="Shared variables"
+              data-active={page === "variables"}
+            />
+          }
+        >
+          <VariableIcon />
+        </TooltipTrigger>
+        <TooltipPopup side="right">Shared variables</TooltipPopup>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <RailLink
+              to="/projects/$projectId/$env/activity"
+              params={params}
+              aria-label="Activity"
+              data-active={page === "activity"}
+            />
+          }
+        >
+          <HistoryIcon />
+        </TooltipTrigger>
+        <TooltipPopup side="right">Activity</TooltipPopup>
       </Tooltip>
     </nav>
   );

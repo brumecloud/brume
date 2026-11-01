@@ -3,11 +3,15 @@ import { queryOptions } from "@tanstack/react-query";
 import { type InitialQueryBuilder, createCollection, eq } from "@tanstack/react-db";
 
 import { parseServiceSettings } from "~/helpers/service-settings";
-import { parseServices } from "~/helpers/services";
+import { isInFlight } from "~/helpers/deployments";
+import { parseService, parseServices } from "~/helpers/services";
 
-import { apiDelete, apiGet } from "./client";
+import { apiDelete, apiGet, apiPost } from "./client";
 import { queryClient } from "./query-client";
-import type { EnvironmentId, ServiceId } from "./types";
+import type { EnvironmentId, Service, ServiceId } from "./types";
+
+// Nothing pushes a status change to the panel: poll while a service is deploying.
+export const IN_FLIGHT_POLL_MS = 2_000;
 
 export const servicesCollection = createCollection(
   queryCollectionOptions({
@@ -15,6 +19,8 @@ export const servicesCollection = createCollection(
     queryFn: () => apiGet("/api/services", parseServices),
     queryClient,
     getKey: (service) => service.id,
+    refetchInterval: (query) =>
+      query.state.data?.some((service) => isInFlight(service.status)) ? IN_FLIGHT_POLL_MS : false,
   }),
 );
 
@@ -40,4 +46,17 @@ export const serviceSettingsQuery = (serviceId: ServiceId) =>
 export async function deleteService(serviceId: ServiceId): Promise<void> {
   await apiDelete(`/api/services/${serviceId}`);
   await servicesCollection.utils.refetch();
+}
+
+// The server resolves the image, then deploys it: the service comes back `deploying`.
+export async function createService(
+  environmentId: EnvironmentId,
+  input: { readonly image: string; readonly name?: string },
+): Promise<Service> {
+  const service = await apiPost(`/api/environments/${environmentId}/services`, input, parseService);
+  await Promise.all([
+    servicesCollection.utils.refetch(),
+    queryClient.invalidateQueries({ queryKey: ["deployments"] }),
+  ]);
+  return service;
 }

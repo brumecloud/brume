@@ -45,11 +45,34 @@ describe("parseChanges", () => {
     const raw = [
       { id: "c-1", ...target, type: "setting", field: "port", value: 8080 },
       { id: "c-2", ...target, type: "setting", field: "domains", value: ["a.dev"] },
-      { id: "c-3", ...target, type: "variable", name: "API_KEY", kind: "secret", value: null },
+      {
+        id: "c-3",
+        ...target,
+        type: "variable",
+        name: "API_KEY",
+        kind: "secret",
+        value: null,
+        reference: true,
+      },
       { id: "c-4", ...target, type: "variable-removal", name: "PORT" },
     ];
 
     expect(parseChanges(raw)).toEqual(raw);
+  });
+
+  it("never keeps the value of a staged secret", () => {
+    const leaked = {
+      id: "c",
+      ...target,
+      type: "variable",
+      name: "API_KEY",
+      kind: "secret",
+      reference: false,
+    };
+
+    expect(parseChanges([{ ...leaked, value: "sk_live_4f1c" }])).toEqual([
+      { ...leaked, value: null },
+    ]);
   });
 
   it("rejects an unknown field or a malformed value", () => {
@@ -176,8 +199,21 @@ describe("describeChange", () => {
         name: "TOKEN",
         kind: "secret",
         value: null,
+        reference: false,
       } as const,
       "TOKEN = ••••••••",
+    ],
+    [
+      {
+        id: "v" as ChangeId,
+        ...target,
+        type: "variable",
+        name: "SENTRY_DSN",
+        kind: "secret",
+        value: null,
+        reference: true,
+      } as const,
+      "SENTRY_DSN → shared secret",
     ],
     [
       { id: "v" as ChangeId, ...target, type: "variable-removal", name: "PORT" } as const,
@@ -195,6 +231,7 @@ const variable = (name: string, kind: Variable["kind"] = "plain"): Variable => (
   name,
   kind,
   value: kind === "secret" ? null : `${name}-value`,
+  reference: false,
 });
 
 describe("stagedVariableRows", () => {
@@ -213,6 +250,7 @@ describe("stagedVariableRows", () => {
         name: "PORT",
         kind: "plain",
         value: "8080",
+        reference: false,
       },
       { id: "c-2" as ChangeId, ...target, type: "variable-removal", name: "TOKEN" },
       {
@@ -222,6 +260,7 @@ describe("stagedVariableRows", () => {
         name: "API_URL",
         kind: "build",
         value: "https://x",
+        reference: false,
       },
     ]);
 
@@ -230,6 +269,36 @@ describe("stagedVariableRows", () => {
       ["LOG_LEVEL", undefined, "LOG_LEVEL-value", "project"],
       ["PORT", "modified", "8080", "service"],
       ["TOKEN", "removed", null, "service"],
+    ]);
+  });
+
+  it("marks a staged reference to a shared secret, and only that", () => {
+    const rows = stagedVariableRows(resolved, [
+      {
+        id: "c-1" as ChangeId,
+        ...target,
+        type: "variable",
+        name: "SENTRY_DSN",
+        kind: "secret",
+        value: null,
+        reference: true,
+      },
+      {
+        id: "c-2" as ChangeId,
+        ...target,
+        type: "variable",
+        name: "TOKEN",
+        kind: "secret",
+        value: null,
+        reference: false,
+      },
+    ]);
+
+    expect(rows.map(({ name, draft, reference }) => [name, draft, reference])).toEqual([
+      ["LOG_LEVEL", undefined, false],
+      ["PORT", undefined, false],
+      ["SENTRY_DSN", "added", true],
+      ["TOKEN", "modified", false],
     ]);
   });
 

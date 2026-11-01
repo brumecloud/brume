@@ -24,7 +24,7 @@ export function parseEnvironments(raw: unknown): Environment[] {
   return decodeArray(raw, parseEnvironment, "environments");
 }
 
-function parseEnvironment(raw: unknown): Environment {
+export function parseEnvironment(raw: unknown): Environment {
   const record = decodeRecord(raw, "environment");
   return {
     id: readString(record, "id", "environment") as EnvironmentId,

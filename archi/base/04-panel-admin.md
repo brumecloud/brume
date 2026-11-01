@@ -63,6 +63,7 @@ L'identité Tailscale est une auth implicite, ajoutée par le réseau, comme un 
 - **Aucun effet de bord sur un `GET`.**
 - **Aucun CORS.**
 - **WebSockets :** vérifier `Origin` au handshake, car les WebSockets ne sont pas soumises à CORS. Pour les logs en direct, préférer SSE, plus sûr par défaut.
+- **Écart accepté :** une requête sans `Sec-Fetch-Site`, ou une écriture sans `Origin`, passe (`crates/brume-api/src/csrf.rs`). Un navigateur envoie ces en-têtes ; un client qui n'en est pas un (les tests e2e, `curl`) non, et le CSRF est une attaque de navigateur. `X-Brume` et le `Content-Type` JSON restent exigés, ce qui couvre un navigateur qui n'enverrait pas Fetch Metadata.
 
 ## XSS
 

@@ -158,6 +158,16 @@
   stroke-dasharray: 4 4;
 }
 
+/* Base UI hides the native scrollbar of its scroll areas with an inline <style>, which the CSP
+   of `brume api` refuses: the routes' CSPProvider turns it off, and the rule lives here. */
+.base-ui-disable-scrollbar {
+  scrollbar-width: none;
+}
+
+.base-ui-disable-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

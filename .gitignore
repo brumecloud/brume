@@ -19,3 +19,6 @@ __screenshots__/
 
 # Vitest failure screenshots
 /web/.vitest/
+
+# State of `brume dev`
+/.brume-dev/

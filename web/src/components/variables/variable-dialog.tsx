@@ -1,9 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
-import { TriangleAlertIcon } from "lucide-react";
 import { type ReactElement, useState } from "react";
 
 import { stageChange } from "~/api/changes";
 import type { ServiceId, VariableKind } from "~/api/types";
+import { Callout, CalloutIcon } from "~/components/common/callout";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -79,7 +79,8 @@ function VariableForm({ serviceId, initial, onStaged }: VariableFormProps) {
   const [value, setValue] = useState(initial?.value ?? "");
   const [kind, setKind] = useState<VariableKind>(initial?.kind ?? "plain");
   const [nameInvalid, setNameInvalid] = useState(false);
-  const mutation = useMutation({ mutationFn: stageChange, onSuccess: onStaged });
+  // `gcTime: 0`: the mutation holds the value of a secret, it must not linger in the cache.
+  const mutation = useMutation({ mutationFn: stageChange, onSuccess: onStaged, gcTime: 0 });
 
   return (
     <form
@@ -147,13 +148,10 @@ function VariableForm({ serviceId, initial, onStaged }: VariableFormProps) {
             />
           </Field>
           {variableWarnings(name, value, kind).map((warning) => (
-            <p
-              key={warning}
-              className="flex gap-2 rounded-lg border border-warning/32 bg-warning/8 px-3 py-2 text-sm text-warning-foreground"
-            >
-              <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+            <Callout key={warning}>
+              <CalloutIcon />
               {warning}
-            </p>
+            </Callout>
           ))}
           {mutation.error && (
             <p role="alert" className="text-destructive-foreground text-sm">

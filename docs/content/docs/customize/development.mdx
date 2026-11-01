@@ -6,6 +6,7 @@ status: planned
 sources:
   - archi/base/10-developpement.md
   - rustfmt.toml
+  - .cargo/config.toml
   - archi/base/14-architecture-logicielle.md
   - archi/base/16-tests.md
   - archi/base/17-telemetrie.md
@@ -95,6 +96,7 @@ crates/
 
 - **The core crates do no I/O.** `brume-domain`, `brume-proto`, `brume-engine-core` and `brume-agent-core` depend on neither tokio, rusqlite nor bollard. Their `clippy.toml` forbids `Instant::now`, `SystemTime::now`, `thread_rng` and `HashMap` (`disallowed-methods`, `disallowed-types`). Use `BTreeMap`, whose iteration order is stable. This is what lets the whole of Brume run in a deterministic simulation.
 - **One crate per risky dependency.** Only `brume-agent` depends on `bollard`, only `brume-telemetry` on `duckdb`, and only `brume-engine` on `rusqlite`.
+- **DuckDB is never compiled into Brume.** The `duckdb` crate, without its default features, only brings the bindings: the binary links to the `libduckdb` shared library shipped next to it. In development, Homebrew's (`brew install duckdb`), which `.cargo/config.toml` points to with `DUCKDB_LIB_DIR`. Building DuckDB from source cost minutes of C++ on every build.
 - **Only the `brume` binary depends on `brume-webhook`.** The engine never sees the code that reads GitHub payloads, so "the engine parses no untrusted data" is a property of the dependency graph.
 - **`brume-sim` never goes into the binary.**
 - **`cargo deny` checks these rules in CI,** with `bans` and `wrappers`.

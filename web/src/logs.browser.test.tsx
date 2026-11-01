@@ -55,7 +55,7 @@ describe("deployment details", () => {
   it("shows the revision of a deployment", async () => {
     const screen = await renderApp(`${api}/deployments/${northbean.id}-production-shop-api-d0`);
 
-    await expect.element(screen.getByText("Revision variables (8)")).toBeVisible();
+    await expect.element(screen.getByText("Revision variables (9)")).toBeVisible();
     await expect.element(screen.getByText("Railpack 0.40.1")).toBeVisible();
   });
 

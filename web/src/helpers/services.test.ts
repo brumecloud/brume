@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { DecodeError } from "./decode";
-import { domainUrl, formatLimits, parseServices, serviceNames } from "./services";
+import { domainUrl, formatLimits, parseServices, serviceNameError, serviceNames } from "./services";
 
 describe("parseServices", () => {
   const raw = {
@@ -72,5 +72,24 @@ describe("serviceNames", () => {
     ]);
 
     expect(serviceNames(api ? [api] : [])).toEqual(new Map([["s-1", "api"]]));
+  });
+});
+
+describe("serviceNameError", () => {
+  it("accepts a name as the admin types it", () => {
+    expect(serviceNameError("Cache (EU)")).toBeNull();
+  });
+
+  it("accepts no name: the server names the service after its image", () => {
+    expect(serviceNameError("")).toBeNull();
+  });
+
+  it("refuses more than 64 characters", () => {
+    expect(serviceNameError("a".repeat(65))).toBe("64 characters at most.");
+  });
+
+  it("refuses control characters", () => {
+    expect(serviceNameError("cache\n")).toBe("No control characters.");
+    expect(serviceNameError("cache\u0085")).toBe("No control characters.");
   });
 });

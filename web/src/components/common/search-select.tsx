@@ -1,6 +1,7 @@
 import { SearchIcon } from "lucide-react";
-import type { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
+import { Button } from "~/components/ui/button";
 import {
   Combobox,
   ComboboxEmpty,
@@ -24,6 +25,14 @@ interface SearchSelectProps<Item> {
   readonly emptyText: string;
   readonly itemLabel?: (item: Item) => string;
   readonly isSameItem?: (item: Item, value: Item) => boolean;
+  // A button under the list, such as "New environment": it closes the list, then runs.
+  readonly action?: SearchSelectAction;
+}
+
+interface SearchSelectAction {
+  readonly label: string;
+  readonly icon: ReactNode;
+  readonly onSelect: () => void;
 }
 
 // A select whose list can be searched: the search field opens with the list.
@@ -38,9 +47,14 @@ export function SearchSelect<Item>({
   emptyText,
   itemLabel = String,
   isSameItem,
+  action,
 }: SearchSelectProps<Item>) {
+  const [open, setOpen] = useState(false);
+
   return (
     <Combobox
+      open={open}
+      onOpenChange={setOpen}
       items={items}
       value={value}
       itemToStringLabel={itemLabel}
@@ -73,6 +87,22 @@ export function SearchSelect<Item>({
             </ComboboxItem>
           )}
         </ComboboxList>
+        {action && (
+          <div className="border-t p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                setOpen(false);
+                action.onSelect();
+              }}
+            >
+              {action.icon}
+              {action.label}
+            </Button>
+          </div>
+        )}
       </ComboboxPopup>
     </Combobox>
   );

@@ -1,0 +1,6 @@
+# DuckDB is not compiled into Brume: brume-telemetry links the libduckdb shared library, shipped
+# beside the binary. In development it comes from Homebrew (`brew install duckdb`); set
+# DUCKDB_LIB_DIR and DUCKDB_INCLUDE_DIR in your environment to use another copy.
+[env]
+DUCKDB_LIB_DIR = { value = "/opt/homebrew/opt/duckdb/lib", force = false }
+DUCKDB_INCLUDE_DIR = { value = "/opt/homebrew/opt/duckdb/include", force = false }

@@ -99,7 +99,15 @@ const variable = (
   if (kind === "secret") {
     secretValues.set(id, value);
   }
-  return { id, level, ownerId, name, kind, value: kind === "secret" ? null : value };
+  return {
+    id,
+    level,
+    ownerId,
+    name,
+    kind,
+    value: kind === "secret" ? null : value,
+    reference: false,
+  };
 };
 
 const projectId = (name: string) => projects.find((project) => project.name === name)?.id ?? "";
@@ -146,7 +154,28 @@ const ROUTELANE_REDIS = "redis://default:Kd9fW3mz@redis:6379";
 const CLINICSLOT_DATABASE = "postgres://booking:Tz5hN8ca@postgresql:5432/booking";
 const CLINICSLOT_REDIS = "redis://default:Pj2wY7ub@redis:6379";
 
+// A service secret that points to a shared one by its name.
+const reference = (
+  projectName: string,
+  environmentName: string,
+  serviceName: string,
+  name: string,
+): Variable => {
+  const ownerId = serviceId(projectName, environmentName, serviceName);
+  return {
+    id: `${ownerId}-${name}` as VariableId,
+    level: "service",
+    ownerId,
+    name,
+    kind: "secret",
+    value: null,
+    reference: true,
+  };
+};
+
 export const variables: readonly Variable[] = [
+  reference("northbean", "production", "shop-api", "SENTRY_DSN"),
+  reference("northbean", "staging", "shop-api", "SENTRY_DSN"),
   ...ofProject("northbean", [
     ["LOG_LEVEL", "plain", "info"],
     ["SENTRY_DSN", "secret", "https://3f9c@o4512.ingest.sentry.io/1042"],

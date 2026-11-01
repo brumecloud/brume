@@ -16,7 +16,7 @@ Ce document fixe la stack, l'organisation du code, les règles et l'outillage du
 | Composants | [coss ui](https://coss.com/ui) sur Base UI, Tailwind v4, `cva`, `tailwind-merge`, icônes lucide |
 | Canvas | React Flow (`@xyflow/react`) |
 | Animations | `motion` |
-| Données simulées | MSW, en dev uniquement, tant que l'API Rust n'existe pas |
+| Données simulées | MSW, en mode `mock`, dans les tests et dans la démo de brume.dev. Le dev normal parle à la vraie API. |
 | Tests navigateur | Vitest en mode navigateur, Chromium headless via Playwright, `vitest-browser-react` |
 
 **Pas de store global** (zustand, Redux) en 0.1 : l'état partagé vient des collections TanStack DB, qui ne sont que le cache de l'état serveur, ou de l'URL. Le reste est de l'état local.
@@ -33,8 +33,8 @@ web/
 │   ├── components/<domaine>/  2. composants : état local, données, rendu
 │   ├── hooks/             2. hooks partagés
 │   ├── helpers/           3. fonctions pures, testées dans Node : toute la logique
-│   ├── api/               le seul code qui parle au serveur : client, collections, requêtes
-│   ├── mocks/             l'API simulée (dev et tests uniquement)
+│   ├── api/               le seul code qui parle au serveur : client, collections, requêtes, types générés
+│   ├── mocks/             l'API simulée (mode mock, tests et démo uniquement)
 │   └── lib/               `cn`, utilisé par components/ui
 ├── build/                 plugins de build et leurs tests
 └── oxlint-plugin/         nos règles de lint
@@ -78,7 +78,8 @@ web/
 `allowImportingTsExtensions` sert à `build/` et `oxlint-plugin/`, que Node exécute directement : leurs imports gardent l'extension `.ts`. Dans `src/`, les imports n'en ont pas.
 
 - **`any` interdit.** Une donnée inconnue est `unknown`, puis validée.
-- **Identifiants marqués** (`ServiceId`, `ProjectId`), l'équivalent des newtypes Rust : on ne peut pas passer l'un pour l'autre.
+- **Identifiants marqués** (`ServiceId`, `ProjectId`), l'équivalent des newtypes Rust : on ne peut pas passer l'un pour l'autre. Ils vivent dans `src/api/ids.ts`.
+- **Les types de l'API sont générés depuis Rust** (`ts-rs`) dans `src/api/generated.ts`, qui importe les identifiants de `./ids`. `cargo test -p brume-api export_typescript_bindings` réécrit le fichier ; avec `BRUME_CHECK_BINDINGS=1`, le test échoue si le fichier diffère. Le fichier ne se modifie jamais à la main. `src/api/types.ts` le réexporte et ne garde à la main que les types sans équivalent Rust. Un écart de forme se corrige côté Rust, dans les DTO de `brume-proto`.
 - **Pas d'`enum` ni de `namespace`** (`erasableSyntaxOnly`) : des unions de chaînes.
 - **Types inférés** plutôt qu'annotés, sauf aux frontières (props, client d'API).
 
@@ -118,7 +119,7 @@ useEffect(() => subscribeToLogs(serviceId, append), [serviceId]);
 - **Une apparence qui manque :** si elle est générique, c'est une nouvelle variante du composant. Si elle est propre à une fonctionnalité, elle reste dans le composant de cette fonctionnalité.
 - **Pas de recette de classes empruntée :** `buttonVariants` et consorts ne s'importent pas hors de `components/ui`. On rend le composant (`render={<Button />}`).
 - **Pas de `<button>`, `<input>` ou `<select>` brut stylé** comme un contrôle qu'une primitive fournit déjà.
-- **Composition par slots :** un composant exporte de petits sous-composants, nommés comme ceux de coss (`Banner`, `BannerTitle`, `BannerActions`). Chacun porte ses classes, accepte `className` et fusionne avec `cn`. On compose ou on étend, on ne copie pas le markup.
+- **Composition par slots :** un composant exporte de petits sous-composants, nommés comme ceux de coss (`Banner`, `BannerTitle`, `BannerActions`). Chacun porte ses classes, accepte `className` et fusionne avec `cn`. On compose ou on étend, on ne copie pas le markup. Exemples : `components/common/callout.tsx` (`Callout`, `CalloutIcon`), l'encadré des dialogues de variables et de rollback, et `components/variables/variable-item.tsx` (`VariableItem`, `VariableItemName`, `VariableItemValue`, `VariableKindBadge`…), la ligne de variable commune à l'onglet d'un service et aux variables partagées.
 - **Tailwind dans le composant qui rend l'élément.** Le CSS global ne sert qu'à ce que les classes ne savent pas exprimer : variables de thème, animations. Pas de `style={{…}}` pour une valeur statique. Le thème passe par `@variant dark`.
 - **Deux registres seulement : coss ui (`@coss`) et le registre shadcn officiel.** coss est maintenu par Cal.com, sur Base UI et Tailwind v4 comme notre stack. Le CLI shadcn copie le code source dans le repo : on le relit comme le nôtre. On n'ajoute que les composants utilisés (`pnpm dlx shadcn@<version> add @coss/<composant>`), jamais `@coss/ui` en entier.
 - **Le Chart de shadcn ne s'ajoute pas tel quel :** son `ChartStyle` injecte un `<style>` par `dangerouslySetInnerHTML`. On le retire, et les couleurs des séries passent par les variables `--chart-*` du thème.
@@ -132,6 +133,8 @@ useEffect(() => subscribeToLogs(serviceId, append), [serviceId]);
 
 - **Routes en fichiers, avec `autoCodeSplitting: true`.** `routeTree.gen.ts` est généré, et exclu du lint et du formatage.
 - **Un fichier de route est mince :** `createFileRoute`, la validation des paramètres, le `loader`, et un composant de page qui assemble des composants de `components/`.
+- **Le rail d'un projet** mène au canvas, aux logs, aux variables partagées (`$env/variables`) et à l'activité (`$env/activity`). `hooks/use-project-page.ts` (`PROJECT_PAGES`, `useProjectPage`) dit sur quelle page on est : le rail s'en sert pour son état actif, et le sélecteur d'environnement pour rester sur la même page en changeant d'environnement. Depuis le panneau d'un service, il ouvre le canvas de l'autre environnement : un service n'appartient qu'à un environnement.
+- **`/login` lit le jeton du lien de connexion** (`#token=…`, `helpers/session.ts::parseLoginHash`) dans le `loader` de la route, pas dans un effet : un jeton à usage unique ne doit pas partir deux fois sous les doubles effets de StrictMode. Une session ouverte va sur `/projects` ; sinon la page dit de lancer `brume dev` et d'ouvrir le lien qu'il affiche, ou que le lien a expiré.
 - **Les paramètres d'URL sont des entrées hostiles :** un lien piégé peut être envoyé à l'admin. `validateSearch` n'accepte que des valeurs connues et borne les chaînes. Les paramètres de chemin (`$serviceId`) passent par `params.parse`. Le parsing est un helper testé ; un paramètre invalide donne un `notFound()`.
 
 ```tsx
@@ -151,11 +154,13 @@ function LogsPage() {
 ## Données
 
 - **Un seul client HTTP, dans `src/api/`.** Il appelle des URL relatives (`/api/…`), ajoute `X-Brume: 1` et `Content-Type: application/json`, et transforme les erreurs en un type connu. `fetch` et `EventSource` sont interdits ailleurs.
+- **Une session expirée renvoie sur `/login`.** Un 401 hors des routes `/api/session` envoie l'onglet sur `/login` par `window.location.assign`, une seule fois (drapeau du module) : toutes les requêtes échouent ensemble, et le rechargement vide aussi les caches.
 - **Chaque réponse est décodée** par un helper (`helpers/decode.ts`) avant d'être typée : la forme est vérifiée, pas supposée.
 - **Une collection TanStack DB par entité du modèle** (projets, environnements, services, déploiements, variables), avec `queryCollectionOptions`. Le `loader` de la route appelle `collection.preload()`. Les composants lisent par `useLiveSuspenseQuery({ query })`, avec des requêtes nommées dans `api/` (`projectById(id)`, `projectEnvironments(id)`). Les mutations sont optimistes, sauf celles qui portent la valeur d'un secret.
-- **TanStack Query seul** pour ce qui n'est pas une entité : séries de métriques, statistiques d'une base, logs de build.
+- **Rien ne pousse les statuts vers le panel :** les collections des services et des déploiements se rechargent toutes les 2 s (`refetchInterval`, `IN_FLIGHT_POLL_MS`) tant que l'une de leurs lignes est `building` ou `deploying`, et s'arrêtent dès qu'aucune ne l'est.
+- **TanStack Query seul** pour ce qui n'est pas une entité : séries de métriques, statistiques d'une base, logs de build, page d'activité (`infiniteQueryOptions`, pages de 100 événements, de la plus récente vers la plus ancienne, affichées dans l'ordre du log).
 - **TanStack DB est encore en 0.x.** La 1.0 arrivera par une mise à jour normale, une fois passé le délai de `minimumReleaseAge`.
-- **Révéler un secret est une mutation :** c'est un `POST`, journalisé. Elle tourne avec `gcTime: 0`, et la valeur n'entre jamais dans le cache des queries.
+- **Révéler un secret est une mutation :** c'est un `POST`, journalisé. Elle tourne avec `gcTime: 0`, et la valeur n'entre jamais dans le cache des queries. Il en va de même de toute mutation dont les variables portent la valeur d'un secret (en attente, ou variable partagée) : sans `gcTime: 0`, la valeur resterait cinq minutes dans le cache des mutations.
 - **Logs en direct par SSE,** comme le prévoit [04-panel-admin.md](04-panel-admin.md). L'onglet garde les 50 000 dernières lignes. Un flux reconnecté renvoie son historique : les lignes déjà reçues sont ignorées.
 - **Liste virtualisée (TanStack Virtual)** : seules les lignes visibles sont dans le DOM, chacune mesurée puisqu'une ligne peut passer à la ligne. Voir l'exception au React Compiler ci-dessous.
 - **`EventSource` ne peut pas envoyer `X-Brume`.** Le flux de logs est un `GET` sans effet de bord : le serveur le protège par Fetch Metadata (`Sec-Fetch-Site: same-origin`), et aucun CORS ne le rend lisible depuis un autre site.
@@ -173,17 +178,27 @@ Un réglage ou une variable modifiés ne s'appliquent pas tout de suite : ils at
 - **Mettre en attente n'est pas optimiste** (`stageChange` envoie puis recharge la collection), pour la même raison que la création d'un secret. Annuler un changement l'est.
 - **Une barre flotte en haut du canvas,** centrée sur ce que le panneau du service laisse libre (`--spacing-panel`), et compte les changements de l'environnement : « Détails » les liste par service, « Déployer » (ou ⇧ Entrée) les applique tous, une nouvelle révision par service touché. Le menu ⋮ les annule tous.
 - **Ce qu'affichent les onglets est l'état après le prochain déploiement :** `withStagedSettings` et `stagedVariableRows` superposent les changements aux valeurs appliquées.
+- **Référencer un secret partagé** depuis l'onglet Variables d'un service (« Shared secret ») met en attente une variable secrète sans valeur (`value: null`), résolue au déploiement sur le service, puis l'environnement, puis le projet. Le changement en attente porte `reference: true` : la ligne montre déjà le badge « Shared » et « Resolved at deploy time ». Une fois déployée, elle garde le badge et ne se révèle ni ne se modifie.
 
-### Données simulées
+### Variables partagées et activité
 
-Tant que l'API Rust n'existe pas, MSW la simule dans le navigateur.
+- **La page Variables** (`$env/variables`) liste les variables du projet et celles de l'environnement. Modifier ou supprimer une variable simple ou de build ouvre d'abord la liste des services touchés, environnement par environnement, production en tête (`GET /api/variables/impact`, `hooks/use-variable-impact.ts`) ; la confirmation les redéploie. Un secret partagé s'enregistre tout de suite, puis le panel propose de redéployer les services qui le référencent. Supprimer un secret encore référencé affiche le refus du serveur.
+- **La page Activité** (`$env/activity`) liste les événements du projet dans l'ordre du log, s'ouvre sur le plus récent, et charge les plus anciens au-dessus. Le résumé de chaque événement est rendu en texte.
+
+### Vraie API et données simulées
+
+- **`vp dev` (le script `dev`) parle à la vraie API.** En mode `development`, un plugin de `vite.config.ts` (`brume:real-api`) envoie `/api` à `http://127.0.0.1:7878`, l'API de `brume dev`, sur la même origine. Le serveur de dev écoute sur le port 5173, `strictPort` : l'allowlist `Host` de l'API connaît 5173 et aucun autre port de dev, donc Vite refuse de démarrer plutôt que de prendre un port refusé. Le proxy garde le `Host` du navigateur.
+- **`vp dev --mode mock`** (le script `dev:mock`) garde l'API simulée, sans proxy. Les tests (mode `test`) et la démo ne quittent jamais MSW.
+
+MSW simule l'API dans le navigateur :
 
 - **`src/mocks/` :** un jeu de données (`seed.ts`) et des handlers qui répondent comme l'API, avec une latence. Ils rejettent une requête sans `X-Brume`, comme le vrai serveur. Une route `/api` sans mock répond 501.
 - **Un seul jeu de données :** cinq entreprises fictives, avec leurs services, déploiements, logs et secrets. Il sert au dev, aux tests et à la démo de brume.dev, donc il ne contient rien de réel. La console fait des liens de leurs domaines : ils n'étaient pas enregistrés quand on les a choisis.
-- **Hors du build :** le plugin `msw/vite` ne sert le service worker qu'en dev, et `main.tsx` ne charge les mocks qu'en dev ou en mode démo. Le build de production ne contient ni le worker ni les handlers.
+- **Un admin toujours connecté :** le mock et la démo s'ouvrent sans lien de connexion.
+- **Hors du build :** `main.tsx` ne démarre MSW qu'en mode `mock` ou dans la démo. Le build de production ne contient ni le worker ni les handlers.
 - **La démo de brume.dev :** `pnpm build:demo` (`vp build --mode demo --base /demo/`) garde le worker et les handlers, et met les routes dans le hash (`createHashHistory`) : n'importe quel hébergeur statique la sert, sans réécriture. Le build l'écrit dans `site/public/demo/`, et la landing l'affiche dans une iframe du même domaine.
 - **Les tests navigateur utilisent les mêmes handlers.**
-- **Les handlers sont le contrat de l'API** en attendant les types générés depuis Rust : voir les [décisions](#décisions-ouvertes).
+- **Le contrat de l'API, ce sont les types générés** (`src/api/generated.ts`). Les handlers et les décodeurs les suivent : un écart de forme se corrige côté Rust, de sorte que les mocks et les tests du panel restent valides.
 
 ## Canvas
 
@@ -323,8 +338,9 @@ Les couches s'ajoutent par des `overrides` de `eslint/no-restricted-imports`, un
 - **`retry: 0` :** un test instable se corrige, il ne se relance pas.
 - **`allowOnly: !process.env.CI` :** un `.only` oublié fait échouer la CI.
 - **`vitest-browser-react` démonte les composants** avant chaque test, même après un échec. Son `render` n'est pas encore disposable (`await using`).
-- **Les tests navigateur passent par les handlers MSW,** comme le dev : un test monte l'app entière sur une URL (`test/render-app.tsx`) et vérifie ce que voit l'admin. Les fichiers de test tournent l'un après l'autre : ils partagent le service worker de MSW, et des iframes en parallèle mélangeraient leurs requêtes.
+- **Les tests navigateur passent par les handlers MSW,** comme le mode `mock` : un test monte l'app entière sur une URL (`test/render-app.tsx`) et vérifie ce que voit l'admin. Les fichiers de test tournent l'un après l'autre : ils partagent le service worker de MSW, et des iframes en parallèle mélangeraient leurs requêtes.
 - **L'API simulée garde son état entre les tests d'un fichier :** un test qui met un changement en attente le déploie ou l'annule avant de finir.
+- **Un test ferme les dialogues qu'il a ouverts** (Échap) avant de finir. Un modal rend le reste de la page inerte, et le démontage entre deux tests est trop brutal pour l'annuler : le test suivant s'affiche dessous, sur une page vide, sans rien à cliquer (voir `test/render-app.tsx`). Même piège avec un `screen.unmount()` suivi d'un second rendu dans le même test.
 - **Le pré-bundling de Vite parcourt tous les fichiers au démarrage** (`optimizeDeps.entries`). Une dépendance découverte en cours de route recharge les tests et les fait échouer.
 - **`build/react-compiler.test.ts`** compile chaque fichier de `src/` et échoue si le compilateur en saute une fonction.
 
@@ -388,4 +404,4 @@ allowBuilds: {}
 1. **Décodage des réponses :** des décodeurs écrits à la main (`helpers/decode.ts`, aujourd'hui), ou une bibliothèque de schémas (zod, valibot) dont TanStack DB accepte les schémas. À trancher quand le modèle grossit.
 2. **Graphiques des métriques :** le Chart de shadcn (Recharts, qui tire Redux Toolkit, immer et d3), sans son `ChartStyle`. À confirmer au lot des métriques.
 
-Tranchées : le React Compiler passe par le plugin Babel officiel (Babel 7) ; TanStack DB est adoptée ; les types de `src/api/` sont générés depuis les types Rust (`ts-rs` ou `specta`, au choix de l'implémentation), car écrits à la main ils finiraient par diverger, et un schéma OpenAPI viendra quand l'API s'ouvrira à d'autres clients (tokens d'API, CLI distante).
+Tranchées : le React Compiler passe par le plugin Babel officiel (Babel 7) ; TanStack DB est adoptée ; les types de `src/api/` sont générés depuis les types Rust par `ts-rs` (voir [TypeScript](#typescript)), car écrits à la main ils finiraient par diverger, et un schéma OpenAPI viendra quand l'API s'ouvrira à d'autres clients (tokens d'API, CLI distante).

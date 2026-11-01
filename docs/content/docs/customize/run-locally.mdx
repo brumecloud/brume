@@ -1,0 +1,176 @@
+---
+title: Run Brume locally
+description: Start the whole of Brume on your own machine with brume dev, deploy public Docker images from the panel, and find the event log in the local bucket.
+type: guide
+status: available
+sources:
+  - README.md
+  - Cargo.toml
+  - .cargo/config.toml
+  - .gitignore
+  - archi/jalons/2026-10-31-jalon-1-deploiement-local.md
+  - archi/base/front-architecture.md
+  - crates/brume/src/main.rs
+  - crates/brume/src/dev.rs
+  - crates/brume/src/logging.rs
+  - crates/brume/tests/e2e.rs
+  - crates/brume-agent/src/docker.rs
+  - crates/brume-agent/src/logs.rs
+  - crates/brume-agent-core/src/plan.rs
+  - crates/brume-runtime/src/paths.rs
+  - crates/brume-engine/src/shipper.rs
+  - crates/brume-engine-core/src/sessions.rs
+  - crates/brume-api/build.rs
+  - crates/brume-api/src/lib.rs
+  - web/package.json
+  - web/vite.config.ts
+  - web/src/main.tsx
+  - web/src/mocks/handlers.ts
+---
+
+`brume dev` runs every Brume service on your machine, against your local Docker, and prints a login link to the panel. This is the first milestone of alpha 0.1: from the panel, you create projects and environments, deploy public images with variables and secrets, watch their logs, and read the event log that produced it all. Nothing is exposed to the Internet.
+
+## Prerequisites
+
+- **Docker Desktop or OrbStack,** running. The agent connects to the Docker of `DOCKER_HOST` or the default socket, and falls back to `~/.docker/run/docker.sock`.
+- **Stable Rust,** 1.92 or later (`rust-version` in `Cargo.toml`).
+- **The DuckDB library,** version 2.0.0: `brew install duckdb`. Brume links to it instead of compiling DuckDB. `.cargo/config.toml` expects it under `/opt/homebrew/opt/duckdb`; to use another copy, set `DUCKDB_LIB_DIR` and `DUCKDB_INCLUDE_DIR`.
+- **Node 22.18 or later, with pnpm 12,** for the panel. pnpm is pinned by `packageManager` in `web/package.json` (12.15.0). Corepack cannot run pnpm 12 yet, and an older pnpm can fail when it tries to switch to it: install with `npx pnpm@12.15.0` until Corepack can. See [Build from source](/docs/customize/build-from-source#prerequisites).
+
+<Callout type="warn" title="One Brume per Docker">
+  The agent removes every container labeled `brume.managed` that its own engine does not know. Two `brume dev` with different homes on the same Docker remove each other's containers. Run one at a time.
+</Callout>
+
+## Start Brume
+
+<Steps>
+
+<Step>
+
+### Build the panel
+
+The `brume` binary embeds the panel from `web/dist` when it compiles, so build the panel first. In `web/`:
+
+```bash
+npx pnpm@12.15.0 install --frozen-lockfile
+./node_modules/.bin/vp build
+```
+
+The install puts the panel's tools in `web/node_modules/.bin`, and `vp build` needs no pnpm. Without `web/dist`, the binary still compiles, but its panel is a page that says to build it.
+
+</Step>
+
+<Step>
+
+### Build the binary
+
+From the repository root:
+
+```bash
+cargo build -p brume
+```
+
+Rebuild after each `vp build`: the panel is part of the binary.
+
+</Step>
+
+<Step>
+
+### Run brume dev
+
+```bash
+./target/debug/brume dev
+```
+
+`brume dev` checks that port 7878 is free on 127.0.0.1, creates its home, then starts telemetry, the engine, the agent and the API as child processes, and waits for each one to be ready. It then prints the home it runs from, a login link, and the pid of each service:
+
+```text
+Open http://127.0.0.1:7878/login#token=<token>
+```
+
+Open the link in your browser. It works once, for 15 minutes, and gives a session of 12 hours. For a new link, stop `brume dev` and start it again: each start prints one.
+
+Every service logs to your terminal, each line prefixed with the service's name. `RUST_LOG` sets the level (`info` by default). Docker client and HTTP library logs stay at `info` whatever `RUST_LOG` says.
+
+</Step>
+
+<Step>
+
+### Stop it
+
+Press Ctrl-C: `brume dev` stops every service and prints `Stopped.` If one service stops by itself, `brume dev` stops the others and exits with an error that names it. Your containers keep running in Docker. After the next `brume dev`, the log explorer shows each container's earlier lines a second time: the agent re-reads the container logs from the start, and a later milestone will fix it.
+
+</Step>
+
+</Steps>
+
+## Options
+
+| Option | Default | What it does |
+|---|---|---|
+| `--home <dir>` | `./.brume-dev` | The Brume home: sockets, databases, the master key and the bucket. Relative to the directory you run from. Git ignores `.brume-dev/` at the repository root. |
+| `--port <port>` | `7878` | The port of the API and the panel, on 127.0.0.1 only. `vp dev` proxies to 7878, so keep the default if you use it. |
+| `--reset` | off | Deletes the home first: the event log, the databases, the bucket and the master key. It asks for confirmation, and starts nothing if you answer anything but `y`, `Y` or `yes`. |
+
+A reset does not touch Docker: the containers, networks and volumes of the old home stay, and the agent of the new home removes the containers it does not know.
+
+## What is in the home
+
+| Path | Contents |
+|---|---|
+| `run/` | The unix sockets between the services. |
+| `engine/state.sqlite` | The engine's database: the event log, the sealed secrets, the sessions and the staged changes. |
+| `engine/master.key` | The key that seals the secrets, readable by its owner only. |
+| `telemetry/logs.duckdb` | Your containers' logs. |
+| `bucket/` | The local bucket, a folder that stands in for S3. |
+
+The engine ships its event log to the bucket, at most one segment per second and up to 1,000 events per segment:
+
+```text
+.brume-dev/bucket/log/<generation, 10 digits>/<first event number, 20 digits>.seg
+```
+
+A segment is plain text: a header line, then one JSON event per line. Each event carries the hash of the one before it, so the segments chain together. No secret value is ever written to an event, so none reaches the bucket. The panel's Activity page shows the same events.
+
+## Work on the panel
+
+With `brume dev` running, start the Vite dev server in `web/`:
+
+```bash
+./node_modules/.bin/vp dev
+```
+
+It listens on port 5173 and proxies `/api` to the API of `brume dev` on 127.0.0.1:7878, on the same origin. The API accepts only the hosts `127.0.0.1` and `localhost` on its own port and on 5173, so Vite refuses to start if 5173 is taken. To sign in, open the login link with port 5173 instead of 7878. See [Panel frontend](/docs/customize/frontend#real-api-and-mock-api).
+
+To work on the panel without Brume running, use the mock API instead:
+
+```bash
+./node_modules/.bin/vp dev --mode mock
+```
+
+The mocked admin is always signed in, and the data is the same fictional dataset as the tests and the brume.dev demo.
+
+## Run the end-to-end tests
+
+The end-to-end tests run `brume dev` against your real Docker, then speak only HTTP to the API, as the panel does: log in, deploy `nginx:1.29-alpine`, set variables and secrets, roll back, delete the service, and check the bucket. They need Docker and the network, so they are ignored by default:
+
+```bash
+cargo test -p brume --test e2e -- --ignored --test-threads=1
+```
+
+Stop your own `brume dev` first. The tests refuse to run while any `brume.managed` container exists, because their agent would remove it. They clean up their containers, networks and volumes when they finish.
+
+## What this milestone does not do yet
+
+These are postponed, not dropped. Each one keeps its place in the [architecture](/docs/how-it-works/architecture).
+
+- **Builds from GitHub, static sites and database templates.** Only public images deploy. The other sources show in the panel as "Coming soon".
+- **Domains, Traefik, Caddy, Cloudflare Tunnel and Tailscale.** Your apps are reachable neither from the Internet nor from your machine: their logs show they run. The domains setting shows, disabled.
+- **Passkeys and the allowlist.** Sign-in is the one-time link of `brume dev`.
+- **The installer:** `brume install`, systemd, dedicated users, nftables, `userns-remap`, `policy.toml`.
+- **Real S3,** segment encryption, blob shipping, backups, `brume restore` and `brume verify`.
+- **The updater,** `latest.json` and minisign signatures.
+- **Deterministic simulation,** conformance tests, and tests on a real VM.
+- **Drift detection,** alerts, notifications, container metrics, and OTLP telemetry of Brume itself.
+- **Revision purge,** retention of artifacts and volumes, and volumes chosen by the admin. Only the volumes an image declares exist.
+- **Copying an environment.** A new environment starts empty.

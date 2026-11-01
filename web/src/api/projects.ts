@@ -2,12 +2,12 @@ import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { type InitialQueryBuilder, createCollection, eq } from "@tanstack/react-db";
 
 import { parseCreatedProject } from "~/helpers/new-project";
-import { parseEnvironments, parseProjects } from "~/helpers/projects";
+import { parseEnvironment, parseEnvironments, parseProjects } from "~/helpers/projects";
 
 import { apiGet, apiPost } from "./client";
 import { queryClient } from "./query-client";
 import { servicesCollection } from "./services";
-import type { CreatedProject, NewProjectSource, ProjectId } from "./types";
+import type { CreatedProject, Environment, NewProjectSource, ProjectId } from "./types";
 
 export const projectsCollection = createCollection(
   queryCollectionOptions({
@@ -55,4 +55,15 @@ export async function createProject(source: NewProjectSource): Promise<CreatedPr
     servicesCollection.utils.refetch(),
   ]);
   return created;
+}
+
+// A new environment starts empty: services are added to it one by one.
+export async function createEnvironment(projectId: ProjectId, name: string): Promise<Environment> {
+  const environment = await apiPost(
+    `/api/projects/${projectId}/environments`,
+    { name },
+    parseEnvironment,
+  );
+  await environmentsCollection.utils.refetch();
+  return environment;
 }

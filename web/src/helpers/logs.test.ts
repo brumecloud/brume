@@ -13,6 +13,7 @@ import {
   logJson,
   logsAsText,
   mergeLogLines,
+  nextLogRetryDelay,
   parseLogLines,
   parseLogsSearch,
 } from "./logs";
@@ -231,5 +232,21 @@ describe("jsonTokens", () => {
     expect(jsonTokens('"<script>\\"1\\"</script>"')).toEqual([
       { text: '"<script>\\"1\\"</script>"', kind: "string" },
     ]);
+  });
+});
+
+describe("nextLogRetryDelay", () => {
+  it("waits a second after the first failure", () => {
+    expect(nextLogRetryDelay(undefined)).toBe(1000);
+  });
+
+  it("doubles the delay after each failure, up to 30 seconds", () => {
+    const delays: number[] = [];
+    let delay: number | undefined;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      delay = nextLogRetryDelay(delay);
+      delays.push(delay);
+    }
+    expect(delays).toEqual([1000, 2000, 4000, 8000, 16_000, 30_000, 30_000, 30_000]);
   });
 });

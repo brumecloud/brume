@@ -15,13 +15,13 @@ import {
   DecodeError,
   decodeArray,
   decodeRecord,
-  readNullable,
+  readBoolean,
   readOneOf,
   readString,
 } from "./decode";
 import { parseImageReference } from "./new-project";
 import { domainUrl, formatCpu, formatMemory } from "./services";
-import type { ResolvedVariable } from "./variables";
+import { type ResolvedVariable, readVariableValue } from "./variables";
 
 const FIELDS: readonly SettingField[] = [
   "repository",
@@ -85,14 +85,17 @@ function parseChange(raw: unknown): StagedChange {
         field: readOneOf(record, "field", FIELDS, "change"),
         value: parseSettingValue(record.value),
       };
-    case "variable":
+    case "variable": {
+      const kind = readOneOf(record, "kind", KINDS, "change");
       return {
         ...target,
         type: "variable",
         name: readString(record, "name", "change"),
-        kind: readOneOf(record, "kind", KINDS, "change"),
-        value: readNullable(record, "value", "change", readString),
+        kind,
+        value: readVariableValue(record, kind, "change"),
+        reference: readBoolean(record, "reference", "change"),
       };
+    }
     case "variable-removal":
       return { ...target, type: "variable-removal", name: readString(record, "name", "change") };
     default:
@@ -282,7 +285,9 @@ export function describeChange(change: StagedChange): string {
     case "setting":
       return `${FIELD_LABELS[change.field]} → ${formatSetting(change.field, change.value)}`;
     case "variable":
-      return `${change.name} = ${change.value ?? "••••••••"}`;
+      return change.reference
+        ? `${change.name} → shared secret`
+        : `${change.name} = ${change.value ?? "••••••••"}`;
     case "variable-removal":
       return `${change.name} deleted`;
   }
@@ -294,6 +299,8 @@ export interface VariableDraftRow {
   // Null for a secret.
   readonly value: string | null;
   readonly origin: VariableLevel;
+  // A secret that points to a shared one by name, applied or staged.
+  readonly reference: boolean;
   // The applied variable, absent for one the draft adds.
   readonly variable: Variable | undefined;
   readonly draft: "added" | "modified" | "removed" | undefined;
@@ -321,6 +328,7 @@ export function stagedVariableRows(
         kind: change.kind,
         value: change.value,
         origin: "service",
+        reference: change.reference,
         variable,
         draft: "modified",
         changeId: change.id,
@@ -331,6 +339,7 @@ export function stagedVariableRows(
       kind: variable.kind,
       value: variable.value,
       origin,
+      reference: variable.reference,
       variable,
       draft: change ? "removed" : undefined,
       changeId: change?.id,
@@ -344,6 +353,7 @@ export function stagedVariableRows(
         kind: change.kind,
         value: change.value,
         origin: "service",
+        reference: change.reference,
         variable: undefined,
         draft: "added",
         changeId: change.id,

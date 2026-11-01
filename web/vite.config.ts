@@ -9,6 +9,7 @@ import { defineConfig } from "vite-plus";
 import { playwright } from "vite-plus/test/browser-playwright";
 
 import { noChunkCycles } from "./build/no-chunk-cycles.ts";
+import { realApi } from "./build/real-api.ts";
 
 interface ImportPattern {
   readonly group: string[];
@@ -38,15 +39,16 @@ export default defineConfig({
     tailwindcss(),
     msw(),
     noChunkCycles(),
+    realApi(),
   ],
   resolve: {
     alias: { "~": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   fmt: {
-    ignorePatterns: ["dist/**", "src/routeTree.gen.ts", "pnpm-lock.yaml"],
+    ignorePatterns: ["dist/**", "src/routeTree.gen.ts", "src/api/generated.ts", "pnpm-lock.yaml"],
   },
   lint: {
-    ignorePatterns: ["dist/**", "src/routeTree.gen.ts"],
+    ignorePatterns: ["dist/**", "src/routeTree.gen.ts", "src/api/generated.ts"],
     plugins: ["eslint", "oxc", "react", "unicorn", "typescript"],
     jsPlugins: ["./oxlint-plugin/index.ts", "@shadcn/lint"],
     settings: { shadcn: { ui: "~/components/ui" } },

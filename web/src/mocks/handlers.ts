@@ -3,7 +3,15 @@ import { HttpResponse, delay, http } from "msw";
 import type { LogLine } from "~/api/types";
 
 import {
+  type Refusal,
+  createEnvironment,
   createProject,
+  createService,
+  listEvents,
+  removeSharedVariable,
+  revealSecret,
+  setSharedVariable,
+  variableImpact,
   currentSettings,
   db,
   deleteService,
@@ -22,6 +30,11 @@ import { branchesOf, repositories } from "./seed";
 // fast: there, a loading state is something to wait for, not something to check.
 const LATENCY_MS = import.meta.env.MODE === "demo" ? 40 : 150;
 
+const created = <T extends object>(result: T | Refusal) =>
+  "message" in result
+    ? HttpResponse.json({ message: result.message }, { status: result.status })
+    : HttpResponse.json(result, { status: 201 });
+
 export const handlers = [
   // The real server rejects any request without this header: so does the mock. EventSource
   // cannot send it: the log stream is guarded by Fetch Metadata instead.
@@ -31,6 +44,30 @@ export const handlers = [
       return HttpResponse.json({ message: "Missing X-Brume header." }, { status: 403 });
     }
     return undefined;
+  }),
+
+  // The mocked server has one admin, always signed in: any token opens a session. The panel only
+  // sends one that `parseLoginHash` accepted.
+  http.post("/api/session", async ({ request }) => {
+    await delay(LATENCY_MS);
+    const body: unknown = await request.json().catch(() => undefined);
+    const token = typeof body === "object" && body !== null && "token" in body ? body.token : null;
+    return typeof token === "string" && token !== ""
+      ? new HttpResponse(null, { status: 204 })
+      : HttpResponse.json(
+          { message: "This login link has expired or was already used." },
+          { status: 401 },
+        );
+  }),
+
+  http.get("/api/session", async () => {
+    await delay(LATENCY_MS);
+    return HttpResponse.json({ admin: "admin" });
+  }),
+
+  http.delete("/api/session", async () => {
+    await delay(LATENCY_MS);
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get("/api/projects", async () => {
@@ -44,12 +81,29 @@ export const handlers = [
     if (!source) {
       return HttpResponse.json({ message: "Invalid project source." }, { status: 400 });
     }
+    // This milestone deploys public images only.
+    if (source.kind !== "empty" && source.kind !== "image") {
+      return HttpResponse.json(
+        { message: `${source.kind} sources are not available yet.` },
+        { status: 400 },
+      );
+    }
     return HttpResponse.json(createProject(source), { status: 201 });
   }),
 
   http.get("/api/environments", async () => {
     await delay(LATENCY_MS);
     return HttpResponse.json(db.environments);
+  }),
+
+  http.post("/api/projects/:projectId/environments", async ({ params, request }) => {
+    await delay(LATENCY_MS * 2);
+    return created(createEnvironment(String(params.projectId), await request.json()));
+  }),
+
+  http.post("/api/environments/:environmentId/services", async ({ params, request }) => {
+    await delay(LATENCY_MS * 4);
+    return created(createService(String(params.environmentId), await request.json()));
   }),
 
   http.get("/api/services", async () => {
@@ -90,16 +144,16 @@ export const handlers = [
     return HttpResponse.json(db.deployments);
   }),
 
-  // Redeploys the revision in service, with the current value of its secrets.
+  // Redeploys the revision in service, with the current value of its secrets; without one, the
+  // latest deployment, as the service is now.
   http.post("/api/services/:serviceId/redeploy", async ({ params }) => {
     await delay(LATENCY_MS * 4);
-    const active = db.deployments.find(
-      (deployment) => deployment.serviceId === params.serviceId && deployment.status === "active",
-    );
-    if (!active) {
+    const own = db.deployments.filter((deployment) => deployment.serviceId === params.serviceId);
+    const from = own.find((deployment) => deployment.status === "active") ?? own.at(-1);
+    if (!from) {
       return HttpResponse.json({ message: "No deployment to redeploy." }, { status: 409 });
     }
-    return HttpResponse.json(deploy(active, "admin"), { status: 201 });
+    return HttpResponse.json(deploy(from, "admin"), { status: 201 });
   }),
 
   http.post("/api/deployments/:deploymentId/rollback", async ({ params }) => {
@@ -117,6 +171,27 @@ export const handlers = [
   http.get("/api/variables", async () => {
     await delay(LATENCY_MS);
     return HttpResponse.json(db.variables);
+  }),
+
+  http.get("/api/variables/impact", async ({ request }) => {
+    await delay(LATENCY_MS);
+    const impact = variableImpact(new URL(request.url).searchParams);
+    return "message" in impact
+      ? HttpResponse.json({ message: impact.message }, { status: impact.status })
+      : HttpResponse.json(impact);
+  }),
+
+  http.post("/api/variables", async ({ request }) => {
+    await delay(LATENCY_MS * 2);
+    return created(setSharedVariable(await request.json()));
+  }),
+
+  http.delete("/api/variables/:variableId", async ({ params }) => {
+    await delay(LATENCY_MS * 2);
+    const removal = removeSharedVariable(String(params.variableId));
+    return "message" in removal
+      ? HttpResponse.json({ message: removal.message }, { status: removal.status })
+      : HttpResponse.json(removal);
   }),
 
   http.get("/api/changes", async () => {
@@ -152,7 +227,7 @@ export const handlers = [
   // A reveal is audited by the real server.
   http.post("/api/variables/:variableId/reveal", async ({ params }) => {
     await delay(LATENCY_MS);
-    const value = db.secretValues.get(String(params.variableId));
+    const value = revealSecret(String(params.variableId));
     return value === undefined
       ? HttpResponse.json({ message: "Secret not found." }, { status: 404 })
       : HttpResponse.json({ value });
@@ -207,6 +282,14 @@ export const handlers = [
     return deployment && service
       ? HttpResponse.json(deploymentLogs(deployment, service, stream))
       : HttpResponse.json({ message: "Deployment not found." }, { status: 404 });
+  }),
+
+  http.get("/api/events", async ({ request }) => {
+    await delay(LATENCY_MS);
+    const page = listEvents(new URL(request.url).searchParams);
+    return "message" in page
+      ? HttpResponse.json({ message: page.message }, { status: page.status })
+      : HttpResponse.json(page);
   }),
 
   // An API route without a mock fails clearly instead of returning index.html.

@@ -262,7 +262,8 @@ function SettingsForm({
           <SettingsSection id="settings-danger" {...SECTIONS.danger}>
             <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/32 bg-background px-4 py-3">
               <span className="text-muted-foreground text-sm">
-                Delete the service, its deployments and its volume.
+                Delete the service and its deployments.
+                {service.volume && " Its volume and its data stay."}
               </span>
               <DeleteServiceDialog
                 projectId={projectId}

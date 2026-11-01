@@ -1,0 +1,67 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+license = "FSL-1.1-ALv2"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.dependencies]
+# Workspace crates.
+brume-agent = { path = "crates/brume-agent" }
+brume-agent-core = { path = "crates/brume-agent-core" }
+brume-api = { path = "crates/brume-api" }
+brume-domain = { path = "crates/brume-domain" }
+brume-engine = { path = "crates/brume-engine" }
+brume-engine-core = { path = "crates/brume-engine-core" }
+brume-proto = { path = "crates/brume-proto" }
+brume-runtime = { path = "crates/brume-runtime" }
+brume-telemetry = { path = "crates/brume-telemetry" }
+
+# Pure crates, allowed in the cores.
+base64 = "0.23.1"
+hex = "0.4.3"
+secrecy = { version = "0.10.3", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+shell-words = "1.1.1"
+thiserror = "2.0.21"
+time = { version = "0.3.55", features = ["formatting", "parsing", "macros"] }
+ts-rs = "12.0.1"
+uuid = "1.29.0"
+
+# I/O crates, for the shells only.
+anyhow = "1.0.104"
+axum = "0.8.9"
+bollard = "0.21.1"
+chacha20poly1305 = "0.11.0"
+clap = { version = "4.6.7", features = ["derive"] }
+# Bindings only: DuckDB is never compiled into Brume. brume-telemetry links the libduckdb shared
+# library shipped beside the binary (in development, Homebrew's: see .cargo/config.toml).
+duckdb = { version = "1.20000.1", default-features = false }
+futures-util = "0.3.34"
+rand = "0.10.3"
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+tokio = { version = "1.54.1", features = ["full"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+
+# Tests.
+proptest = "1.12.0"
+rand_chacha = "0.10.0"
+# Plain HTTP to 127.0.0.1 only: no TLS backend.
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "stream"] }
+tempfile = "3.27.0"
+tower = { version = "0.5.3", features = ["util"] }
+
+# Dependencies build without debug info: smaller target directories and faster links. Our own
+# crates keep full debug info.
+[profile.dev.package."*"]
+debug = false

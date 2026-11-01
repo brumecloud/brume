@@ -37,9 +37,9 @@ window.addEventListener("vite:preloadError", (event) => {
   }
 });
 
-// Data is mocked until the Rust API exists. Outside dev and the demo, this block is dropped from
-// the build.
-if (import.meta.env.DEV || DEMO) {
+// The mocked API: `vp dev --mode mock` and the demo. `vp dev` talks to the real one through the
+// Vite proxy. Outside these two modes, this block is dropped from the build.
+if (import.meta.env.MODE === "mock" || DEMO) {
   const [{ network }, { handlers }] = await Promise.all([
     import("virtual:msw"),
     import("./mocks/handlers"),

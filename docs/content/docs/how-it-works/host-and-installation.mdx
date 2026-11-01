@@ -34,6 +34,7 @@ curl -sSL https://github.com/brumecloud/brume/releases/latest/download/install.s
 - **Wrapped in a function called on the last line,** so nothing runs partially if the connection drops.
 - **Served by GitHub Releases, like the binaries.** The script decides what to download and whether to verify it, so it comes from the same place as the binaries.
 - **Verifies the [minisign](https://jedisct1.github.io/minisign/) signature of the binary.** Versions are pinned.
+- **Also downloads `libduckdb`,** the DuckDB shared library, from DuckDB's official releases, at the version the Brume release pins. Its SHA-256 is in the signed manifest. Brume never compiles DuckDB: the `brume` binary links to this library, installed next to it, and the updater replaces both together. Without it, no Brume service starts, though only `brume telemetry` uses it.
 - **Manual verification is documented.** The minisign public key is published in the README and on brume.dev, so you can check `install.sh` and the binary before running them. To fool this check, an attacker has to compromise both.
 - **Still open: a verification channel outside GitHub.** brume.dev is deployed from the same GitHub repository, so a compromised GitHub account reaches both. See the [open decisions](/docs/how-it-works/roadmap#open-decisions).
 

@@ -1,0 +1,22 @@
+[package]
+name = "brume-proto"
+description = "Messages between Brume's services, the frame codec and the HTTP API DTOs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# Derives `ts_rs::TS` on the API DTOs, to generate the panel's types.
+ts = ["dep:ts-rs"]
+
+[dependencies]
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[lints]
+workspace = true

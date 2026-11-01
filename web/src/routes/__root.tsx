@@ -1,3 +1,4 @@
+import { CSPProvider } from "@base-ui/react/csp-provider";
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 import { MotionConfig } from "motion/react";
 
@@ -10,13 +11,16 @@ export const Route = createRootRoute({
   errorComponent: ErrorPage,
 });
 
-// With reduced motion, motion keeps the fades and drops movement and layout animations.
+// With reduced motion, motion keeps the fades and drops movement and layout animations. The CSP
+// of `brume api` refuses inline <style> elements: Base UI's rule lives in styles.css instead.
 function RootPage() {
   return (
-    <MotionConfig reducedMotion="user">
-      <TooltipProvider>
-        <Outlet />
-      </TooltipProvider>
-    </MotionConfig>
+    <CSPProvider disableStyleElements>
+      <MotionConfig reducedMotion="user">
+        <TooltipProvider>
+          <Outlet />
+        </TooltipProvider>
+      </MotionConfig>
+    </CSPProvider>
   );
 }

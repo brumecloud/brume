@@ -35,6 +35,7 @@ Le code Rust suit le [guide de style Rust de Google](https://google.github.io/st
 - **Config des containers construite par liste blanche,** avec un test qui vérifie la config complète de chaque type de container. Voir [05-runtime.md](05-runtime.md#isolation-des-containers).
 - **Ni l'engine ni l'agent n'analysent de données non fiables.** Voir [02-architecture.md](02-architecture.md).
 - **Requêtes SQLite paramétrées** (rusqlite, pour le log de l'engine). Pour DuckDB, voir [09-observabilite.md](09-observabilite.md).
+- **DuckDB n'est jamais compilé dans Brume.** La crate `duckdb`, sans ses features par défaut, ne fournit que les bindings. Le binaire se lie dynamiquement à `libduckdb`, livrée à côté de lui : voir [08-hote-et-installation.md](08-hote-et-installation.md#installsh). En développement, celle de Homebrew (`brew install duckdb`), que `.cargo/config.toml` désigne par `DUCKDB_LIB_DIR`. Compiler DuckDB depuis ses sources coûtait plusieurs minutes de C++ à chaque build.
 - **Aucune I/O dans les crates du cœur :** ni horloge, ni hasard, ni `HashMap`. Leur `clippy.toml` l'interdit. Voir [14-architecture-logicielle.md](14-architecture-logicielle.md#les-crates).
 - **Seuls les types sûrs entrent dans la télémétrie** (trait `Telemetry`). Voir [17-telemetrie.md](17-telemetrie.md#aucun-secret-dans-la-télémétrie).
 - **Taille limitée** pour tous les bodies HTTP et tous les messages des sockets.

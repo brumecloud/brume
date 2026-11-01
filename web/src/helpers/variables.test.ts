@@ -56,6 +56,7 @@ const makeVariable = (
   name,
   kind,
   value: kind === "secret" ? null : value,
+  reference: false,
 });
 
 describe("parseVariables", () => {
@@ -66,10 +67,24 @@ describe("parseVariables", () => {
     name: "PORT",
     kind: "plain",
     value: "3000",
+    reference: false,
   };
 
   it("decodes the API response", () => {
     expect(parseVariables([raw])).toEqual([raw]);
+  });
+
+  it("reads whether a service secret references a shared one", () => {
+    const reference = { ...raw, name: "SENTRY_DSN", kind: "secret", value: null, reference: true };
+
+    expect(parseVariables([reference])[0]?.reference).toBe(true);
+    expect(() => parseVariables([{ ...raw, reference: "yes" }])).toThrow(DecodeError);
+  });
+
+  it("never keeps the value of a secret", () => {
+    const leaked = { ...raw, name: "API_KEY", kind: "secret", value: "sk_live_4f1c" };
+
+    expect(parseVariables([leaked])[0]?.value).toBeNull();
   });
 
   it("rejects an unknown level or kind", () => {

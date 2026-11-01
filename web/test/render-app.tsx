@@ -17,6 +17,10 @@ beforeAll(async () => {
 });
 
 // Mounts the whole app, router included, at the given URL.
+//
+// A test closes the dialogs it opened (Escape) before it ends. A modal makes the rest of the page
+// inert, and the cleanup between tests unmounts it too abruptly to undo that: the next test would
+// render under it and find nothing to click.
 export function renderApp(path: string) {
   const router = createRouter({
     routeTree,

@@ -9,7 +9,7 @@
 </p>
 
 > [!WARNING]
-> **Brume is a work in progress.** There is no code yet: this repository only holds the architecture and security design for the first alpha (0.1). Nothing here is usable, and everything is subject to change.
+> **Brume is a work in progress.** The first milestone of alpha 0.1 runs locally: from the panel, on your own machine, you deploy public Docker images with variables and secrets, and watch their logs. Nothing is exposed to the Internet, there is no installer yet, and everything is subject to change.
 
 ## Goals for alpha 0.1
 
@@ -41,7 +41,9 @@ Rust code follows the [Google Rust style guide](https://google.github.io/stylegu
 
 ## Status
 
-Brume is in the design phase. Open questions are tracked in [`archi/base/README.md`](archi/base/README.md#décisions-ouvertes).
+**Milestone 1 of alpha 0.1: run it locally.** `brume dev` starts the engine, the agent, telemetry and the API on your machine, against your local Docker, and prints a login link to the panel on http://127.0.0.1:7878. See [Run Brume locally](docs/content/docs/customize/run-locally.mdx) for the steps, and [`archi/jalons/2026-10-31-jalon-1-deploiement-local.md`](archi/jalons/2026-10-31-jalon-1-deploiement-local.md) (in French) for the scope of the milestone and what it leaves out.
+
+The rest of alpha 0.1 (installer, Tailscale, Cloudflare Tunnel, GitHub builds, templates, backups, S3) is still design. Open questions are tracked in [`archi/base/README.md`](archi/base/README.md#décisions-ouvertes).
 
 ## License
 

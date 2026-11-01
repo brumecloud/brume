@@ -1,0 +1,14 @@
+# A core crate has no I/O: time and randomness come from the shell through `Ctx`, and iteration
+# order is deterministic. See archi/base/10-developpement.md. `allow-invalid` keeps the entries
+# of crates that this one does not depend on, or that rand 0.10 renamed (`thread_rng`).
+disallowed-methods = [
+    { path = "std::time::Instant::now", reason = "read the time from Ctx::now" },
+    { path = "std::time::SystemTime::now", reason = "read the time from Ctx::now" },
+    { path = "time::OffsetDateTime::now_utc", reason = "read the time from Ctx::now", allow-invalid = true },
+    { path = "rand::thread_rng", reason = "draw randomness from Ctx::fill_random", allow-invalid = true },
+    { path = "rand::rng", reason = "draw randomness from Ctx::fill_random", allow-invalid = true },
+]
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "use BTreeMap: its order is deterministic" },
+    { path = "std::collections::HashSet", reason = "use BTreeSet: its order is deterministic" },
+]
