@@ -95,19 +95,15 @@ pub(crate) fn setting_change(
         (SettingField::Domain, SettingValueDto::Text(domain)) => Ok(SpecChange::Domain(Some(
             Subdomain::parse(domain).map_err(invalid)?,
         ))),
-        (
-            SettingField::Repository
-            | SettingField::Branch
-            | SettingField::AutoDeploy
-            | SettingField::Domains,
-            _,
-        ) => Err(failure(
-            FailureKind::Invalid,
-            format!(
-                "The {} setting is not available for an image service yet.",
-                field_name(field)
-            ),
-        )),
+        (SettingField::Repository | SettingField::Branch | SettingField::AutoDeploy, _) => {
+            Err(failure(
+                FailureKind::Invalid,
+                format!(
+                    "The {} setting is not available for an image service yet.",
+                    field_name(field)
+                ),
+            ))
+        }
         _ => Err(wrong_type()),
     }
 }
