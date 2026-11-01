@@ -45,7 +45,8 @@ pub enum Command {
         services: Vec<ServiceChanges>,
         author: AdminId,
     },
-    /// Deploys the active revision again.
+    /// Deploys the active revision again, or, when no deployment ever succeeded, the service as
+    /// it is now.
     Redeploy {
         service: ServiceId,
         deployment: DeploymentId,

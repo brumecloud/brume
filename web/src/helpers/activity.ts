@@ -63,7 +63,8 @@ export function activityRows(pages: readonly ActivityPage[]): ActivityEvent[] {
   return [...bySeq.values()].toSorted((a, b) => a.seq - b.seq);
 }
 
-// What the event is about, by the names the panel still knows: `api · production`.
+// What the event is about, by the names the panel still knows: `api · production`, or only the
+// environment once the service is deleted.
 export function activityEntity(
   event: ActivityEvent,
   environments: readonly Environment[],
@@ -73,8 +74,8 @@ export function activityEntity(
   const environment = environments.find(
     ({ id }) => id === (service?.environmentId ?? event.environmentId),
   );
-  if (event.serviceId) {
-    return service && environment ? `${service.name} · ${environment.name}` : null;
+  if (service && environment) {
+    return `${service.name} · ${environment.name}`;
   }
   return environment?.name ?? null;
 }

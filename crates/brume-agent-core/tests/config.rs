@@ -84,7 +84,7 @@ fn full_config_of_an_app_container() {
             // Pinned: a change of the hash input replaces every running container.
             (
                 "brume.config-hash".to_owned(),
-                "77cc4a820ad6af2db53edc1831bd237235e7c8721d94ca74a3f2333d400e4692".to_owned(),
+                "6c6818b23b8087d2e768eaf88501ed42d5dd060c8b995e79ef58da0af01bcfc8".to_owned(),
             ),
             ("brume.deployment".to_owned(), "dep-1".to_owned()),
             ("brume.environment".to_owned(), "env-1".to_owned()),
@@ -103,6 +103,7 @@ fn full_config_of_an_app_container() {
                 "KILL",
                 "SETGID",
                 "SETUID",
+                "SETPCAP",
                 "NET_BIND_SERVICE",
             ]),
             security_opt: strings(&["no-new-privileges:true"]),

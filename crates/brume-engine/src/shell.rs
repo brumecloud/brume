@@ -142,9 +142,24 @@ fn bind(path: &Path) -> anyhow::Result<UnixListener> {
     Ok(listener)
 }
 
-/// Whether a peer may talk to the engine: only the user that owns the run directory.
-fn peer_allowed(peer: std::io::Result<u32>, owner: u32) -> bool {
-    matches!(peer, Ok(uid) if uid == owner)
+/// Who is on the other end of a connection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Peer {
+    /// The user that owns the run directory: the only one that may talk to the engine.
+    Owner,
+    /// Another user.
+    Stranger,
+    /// A peer gone before its credentials could be read, such as the readiness probe of
+    /// `brume dev`, which connects and leaves at once.
+    Gone,
+}
+
+fn peer(uid: std::io::Result<u32>, owner: u32) -> Peer {
+    match uid {
+        Ok(uid) if uid == owner => Peer::Owner,
+        Ok(_) => Peer::Stranger,
+        Err(_) => Peer::Gone,
+    }
 }
 
 async fn accept(
@@ -164,9 +179,16 @@ async fn accept(
                 continue;
             }
         };
-        if !peer_allowed(peer_uid(&stream), owner) {
-            tracing::warn!(?socket, "refused a connection from another user");
-            continue;
+        match peer(peer_uid(&stream), owner) {
+            Peer::Owner => {}
+            Peer::Stranger => {
+                tracing::warn!(?socket, "refused a connection from another user");
+                continue;
+            }
+            Peer::Gone => {
+                tracing::debug!(?socket, "dropped a connection whose peer left at once");
+                continue;
+            }
         }
         next_connection += 1;
         // Clients of all sockets share one id space: the socket is in the top bits.
@@ -444,13 +466,18 @@ async fn sleep_until(deadline: Option<Instant>) {
 
 #[cfg(test)]
 mod tests {
-    use super::peer_allowed;
+    use super::{Peer, peer};
 
     #[test]
     fn only_the_owner_of_the_run_directory_is_a_peer() {
-        assert!(peer_allowed(Ok(501), 501));
-        assert!(!peer_allowed(Ok(502), 501));
-        assert!(!peer_allowed(Ok(0), 501));
-        assert!(!peer_allowed(Err(std::io::ErrorKind::Other.into()), 501));
+        assert_eq!(peer(Ok(501), 501), Peer::Owner);
+        assert_eq!(peer(Ok(502), 501), Peer::Stranger);
+        assert_eq!(peer(Ok(0), 501), Peer::Stranger);
+    }
+
+    #[test]
+    fn a_peer_gone_before_its_credentials_is_not_another_user() {
+        let gone = std::io::Error::from(std::io::ErrorKind::NotConnected);
+        assert_eq!(peer(Err(gone), 501), Peer::Gone);
     }
 }

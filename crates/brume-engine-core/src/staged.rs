@@ -144,6 +144,7 @@ fn change_dto(change: &StoredChange) -> StagedChangeDto {
                 Some(StagedValue::Plain(value)) => Some(value.clone()),
                 Some(StagedValue::Secret(_)) | None => None,
             },
+            reference: *kind == VariableKindDto::Secret && value.is_none(),
         },
         StagedBody::VariableRemoval { name } => StagedChangeDto::VariableRemoval {
             id,

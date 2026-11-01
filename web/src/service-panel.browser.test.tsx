@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { db } from "~/mocks/db";
 import { northbean } from "~/mocks/seed";
 
 import { renderApp } from "../test/render-app";
@@ -59,7 +60,10 @@ describe("service panel", () => {
   it("deletes a service once its name is typed", async () => {
     const screen = await renderApp(`${service("Redis")}/settings`);
 
+    // Deleting a service keeps its volumes, and their data.
+    await expect.element(screen.getByText(/Its volume and its data stay/)).toBeVisible();
     await screen.getByRole("button", { name: "Delete service" }).click();
+    await expect.element(screen.getByText(/The redis-data volume keeps its data/)).toBeVisible();
     const confirm = screen.getByRole("button", { name: "Delete", exact: true });
     await expect.element(confirm).toBeDisabled();
     await screen.getByRole("textbox", { name: "Service name" }).fill("Redis");
@@ -85,5 +89,41 @@ describe("service panel", () => {
     );
 
     await expect.element(screen.getByText("Page not found")).toBeVisible();
+  });
+
+  it("redeploys a service whose deployments all failed", async () => {
+    const serviceId = `${northbean.id}-production-order-worker`;
+    for (const [index, deployment] of db.deployments.entries()) {
+      if (deployment.serviceId === serviceId) {
+        db.deployments[index] = { ...deployment, status: "failed" };
+      }
+    }
+    const screen = await renderApp(`${service("order-worker")}/deployments`);
+
+    await expect.element(screen.getByText("No active deployment.")).toBeVisible();
+    await screen.getByRole("button", { name: "Redeploy" }).click();
+
+    await expect.element(screen.getByText("No active deployment.")).not.toBeInTheDocument();
+    await expect.element(screen.getByRole("article").first().getByText("Active")).toBeVisible();
+  });
+
+  it("shows the variables of the revision a rollback puts back", async () => {
+    const serviceId = `${northbean.id}-production-shop-api`;
+    const screen = await renderApp(`${service("shop-api")}/variables`);
+    await expect.element(screen.getByText("CURRENCY")).toBeVisible();
+    await screen.getByRole("link", { name: "Deployments", exact: true }).click();
+
+    // The server puts back the variables of the old revision: here, one without CURRENCY.
+    db.variables = db.variables.filter(
+      (variable) => !(variable.ownerId === serviceId && variable.name === "CURRENCY"),
+    );
+    await screen.getByRole("button", { name: "Deployment actions" }).first().click();
+    await screen.getByRole("menuitem", { name: "Roll back to this deployment" }).click();
+    await screen.getByRole("button", { name: "Roll back" }).click();
+    await expect.element(screen.getByRole("button", { name: "Roll back" })).not.toBeInTheDocument();
+    await screen.getByRole("link", { name: "Variables", exact: true }).click();
+
+    await expect.element(screen.getByText("PORT", { exact: true })).toBeVisible();
+    await expect.element(screen.getByText("CURRENCY")).not.toBeInTheDocument();
   });
 });

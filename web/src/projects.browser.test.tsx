@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, onTestFinished } from "vite-plus/test";
+
+import { projectsCollection } from "~/api/projects";
+import { db } from "~/mocks/db";
 
 import { renderApp } from "../test/render-app";
 
@@ -17,6 +20,24 @@ describe("project dashboard", () => {
 
     await expect.element(screen.getByText("1 project")).toBeVisible();
     await expect.element(screen.getByRole("link", { name: /^tallybook/ })).toBeVisible();
+  });
+
+  it("invites to create a first project when there is none", async () => {
+    const projects = db.projects;
+    db.projects = [];
+    onTestFinished(async () => {
+      db.projects = projects;
+      await projectsCollection.utils.refetch();
+    });
+    await projectsCollection.utils.refetch();
+    const screen = await renderApp("/projects");
+
+    await expect
+      .element(screen.getByText("Create a project to deploy your first service."))
+      .toBeVisible();
+    await expect
+      .element(screen.getByText("No projects match this search."))
+      .not.toBeInTheDocument();
   });
 
   it("explains an empty search", async () => {

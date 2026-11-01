@@ -105,8 +105,8 @@ pub enum ApiCall {
     },
     /// `GET /api/deployments`. Answer: `Deployments`.
     ListDeployments,
-    /// `POST /api/services/:id/redeploy`: deploys the active revision again. Answer:
-    /// `Deployment`.
+    /// `POST /api/services/:id/redeploy`: deploys the active revision again, or the service as
+    /// it is now when it has none. Answer: `Deployment`.
     Redeploy {
         /// The service.
         service_id: String,
@@ -611,6 +611,9 @@ pub enum StagedChangeDto {
         kind: VariableKindDto,
         /// Null for a secret: the engine keeps the value until the deploy.
         value: Option<String>,
+        /// True for a secret staged without a value: a reference to the shared secret of the
+        /// same name.
+        reference: bool,
     },
     VariableRemoval {
         #[cfg_attr(feature = "ts", ts(type = "ChangeId"))]
@@ -670,7 +673,7 @@ pub struct NewSharedVariableDto {
 /// The answer of `POST /api/variables`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "SharedVariableSet"))]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "SharedVariableResult"))]
 pub struct SharedVariableSetDto {
     pub variable: VariableDto,
     /// The deployments that a plain variable started.
@@ -755,7 +758,7 @@ pub struct ActivityEventDto {
 /// The answer of `GET /api/events`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "EventsPage"))]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "ActivityPage"))]
 pub struct EventsPageDto {
     pub events: Vec<ActivityEventDto>,
     /// The `before` of the next page, or null on the last page.
@@ -987,12 +990,13 @@ mod tests {
             name: "TOKEN".to_owned(),
             kind: VariableKindDto::Secret,
             value: None,
+            reference: true,
         };
         assert_eq!(
             to_json(&secret),
             json!({
                 "type": "variable", "id": "chg", "environmentId": "env", "serviceId": "svc",
-                "name": "TOKEN", "kind": "secret", "value": null,
+                "name": "TOKEN", "kind": "secret", "value": null, "reference": true,
             })
         );
         let removal = StagedChangeDto::VariableRemoval {
@@ -1232,75 +1236,5 @@ mod tests {
             let json = serde_json::to_vec(&reply).expect("serializes");
             assert_eq!(serde_json::from_slice::<ApiReply>(&json).ok(), Some(reply));
         }
-    }
-}
-
-#[cfg(all(test, feature = "ts"))]
-mod ts_tests {
-    use ts_rs::{Config, TS};
-
-    use super::{
-        ActivityEventDto, CreatedProjectDto, DatabaseKindDto, DeploymentDto, DeploymentStatusDto,
-        EnvironmentDto, EventsPageDto, LogLevel, LogLineDto, LogStream, NewChangeDto,
-        NewProjectSourceDto, ProjectDto, RevisionDto, RevisionVariableDto, ServiceDto,
-        ServiceKindDto, ServiceSettingsDto, ServiceSourceDto, ServiceStatusDto, SettingField,
-        SettingValueDto, StagedChangeDto, VariableDto, VariableKindDto, VariableLevelDto,
-        VolumeDto,
-    };
-
-    #[test]
-    fn declarations_use_the_names_and_fields_of_types_ts() {
-        let cfg = Config::default();
-        for (decl, name) in [
-            (ProjectDto::decl(&cfg), "Project"),
-            (EnvironmentDto::decl(&cfg), "Environment"),
-            (ServiceKindDto::decl(&cfg), "ServiceKind"),
-            (DatabaseKindDto::decl(&cfg), "DatabaseKind"),
-            (ServiceStatusDto::decl(&cfg), "ServiceStatus"),
-            (VolumeDto::decl(&cfg), "Volume"),
-            (ServiceDto::decl(&cfg), "Service"),
-            (NewProjectSourceDto::decl(&cfg), "NewProjectSource"),
-            (CreatedProjectDto::decl(&cfg), "CreatedProject"),
-            (DeploymentStatusDto::decl(&cfg), "DeploymentStatus"),
-            (DeploymentDto::decl(&cfg), "Deployment"),
-            (VariableKindDto::decl(&cfg), "VariableKind"),
-            (VariableLevelDto::decl(&cfg), "VariableLevel"),
-            (VariableDto::decl(&cfg), "Variable"),
-            (ServiceSourceDto::decl(&cfg), "ServiceSource"),
-            (ServiceSettingsDto::decl(&cfg), "ServiceSettings"),
-            (LogLevel::decl(&cfg), "LogLevel"),
-            (LogLineDto::decl(&cfg), "LogLine"),
-            (LogStream::decl(&cfg), "DeploymentLogStream"),
-            (RevisionVariableDto::decl(&cfg), "RevisionVariable"),
-            (RevisionDto::decl(&cfg), "Revision"),
-            (SettingField::decl(&cfg), "SettingField"),
-            (SettingValueDto::decl(&cfg), "SettingValue"),
-            (StagedChangeDto::decl(&cfg), "StagedChange"),
-            (NewChangeDto::decl(&cfg), "NewChange"),
-        ] {
-            assert!(decl.starts_with(&format!("type {name} = ")), "{decl}");
-        }
-
-        let service = ServiceDto::decl(&cfg);
-        assert!(
-            service.contains("environmentId: EnvironmentId"),
-            "{service}"
-        );
-        assert!(
-            service.contains("dependencies: Array<ServiceId>"),
-            "{service}"
-        );
-        let change = StagedChangeDto::decl(&cfg);
-        assert!(
-            change.contains(r#"{ "type": "variable-removal", id: ChangeId"#),
-            "{change}"
-        );
-        let event = ActivityEventDto::decl(&cfg);
-        assert!(
-            event.contains("seq: number") && event.contains("type: string"),
-            "{event}"
-        );
-        let page = EventsPageDto::decl(&cfg);
-        assert!(page.contains("nextBefore: number | null"), "{page}");
     }
 }

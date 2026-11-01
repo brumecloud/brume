@@ -622,7 +622,7 @@ async fn scenario(api: Api, home: PathBuf, created: std::sync::Arc<std::sync::Mu
         .call(
             Method::POST,
             "/api/projects",
-            Some(json!({ "source": { "kind": "image", "image": IMAGE } })),
+            Some(json!({ "kind": "image", "image": IMAGE })),
             StatusCode::CREATED,
         )
         .await;
@@ -846,7 +846,7 @@ async fn dev_survives_docker_unreachable() {
         .call(
             Method::POST,
             "/api/projects",
-            Some(json!({ "source": { "kind": "image", "image": IMAGE } })),
+            Some(json!({ "kind": "image", "image": IMAGE })),
             StatusCode::CREATED,
         )
         .await;

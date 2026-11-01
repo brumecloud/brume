@@ -53,10 +53,15 @@ export async function redeployServices(serviceIds: readonly ServiceId[]): Promis
   }
 }
 
-// Puts an old revision back in service, by its digest, without a rebuild.
+// Puts an old revision back in service, by its digest, without a rebuild. The service's settings
+// and variables come back with it: refetch them too.
 export async function rollback(deploymentId: DeploymentId): Promise<void> {
   await apiPost(`/api/deployments/${deploymentId}/rollback`, {}, () => undefined);
-  await refresh();
+  await Promise.all([
+    refresh(),
+    queryClient.invalidateQueries({ queryKey: ["variables"] }),
+    queryClient.invalidateQueries({ queryKey: ["services"] }),
+  ]);
 }
 
 export const revisionQuery = (deploymentId: DeploymentId) =>

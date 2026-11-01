@@ -248,7 +248,7 @@ async fn rejects_foreign_origin_on_post() {
     let home = home();
     let engine = FakeEngine::start(home.path(), default_answer(), vec![]);
     let router = router(home.path());
-    let body = json!({"source": {"kind": "empty"}});
+    let body = json!({"kind": "empty"});
     for origin in ["http://evil.example", "null", "https://127.0.0.1:4000"] {
         let request = panel("POST", "/api/projects")
             .header(header::ORIGIN, origin)
@@ -285,13 +285,13 @@ async fn rejects_a_body_that_is_not_json() {
     let engine = FakeEngine::start(home.path(), default_answer(), vec![]);
     let request = panel("POST", "/api/projects")
         .header(header::CONTENT_TYPE, "text/plain")
-        .body(Body::from(r#"{"source": {"kind": "empty"}}"#))
+        .body(Body::from(r#"{"kind": "empty"}"#))
         .expect("request");
     let response = send(&router(home.path()), request).await;
     assert_eq!(response.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
     let request = panel("POST", "/api/projects")
         .header(header::CONTENT_TYPE, "application/json")
-        .body(Body::from(r#"{"source": "s3cr3t"}"#))
+        .body(Body::from(r#"{"kind": "s3cr3t"}"#))
         .expect("request");
     let response = send(&router(home.path()), request).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -333,7 +333,7 @@ async fn rejects_oversized_body() {
     let engine = FakeEngine::start(home.path(), default_answer(), vec![]);
     let router = router(home.path());
     let image = "x".repeat(64 * 1024);
-    let body = json!({"source": {"kind": "image", "image": image}});
+    let body = json!({"kind": "image", "image": image});
     let request = panel("POST", "/api/projects")
         .header(header::CONTENT_TYPE, "application/json")
         .body(json_body(&body))
@@ -469,7 +469,7 @@ async fn answers_unavailable_sources_and_routes() {
     let request = panel("POST", "/api/projects")
         .header(header::CONTENT_TYPE, "application/json")
         .body(json_body(
-            &json!({"source": {"kind": "github", "repository": "org/app"}}),
+            &json!({"kind": "github", "repository": "org/app"}),
         ))
         .expect("request");
     let response = send(&router, request).await;

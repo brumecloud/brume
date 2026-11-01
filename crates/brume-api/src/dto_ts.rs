@@ -77,7 +77,8 @@ fn declarations() -> Vec<(String, String)> {
 }
 
 /// The contents of `generated.ts`: the header, the import of the identifiers the declarations
-/// use, then each declaration, exported, in alphabetical order of names.
+/// use, then each declaration, exported, in alphabetical order of names. Arrays are read-only,
+/// like everything the panel holds: it never mutates an answer.
 pub(crate) fn bindings() -> String {
     let mut declarations = declarations();
     declarations.sort();
@@ -95,9 +96,30 @@ pub(crate) fn bindings() -> String {
     }
     for (_, decl) in &declarations {
         out.push_str("export ");
-        out.push_str(decl.trim_end());
+        out.push_str(&readonly_arrays(decl.trim_end()));
         out.push('\n');
     }
+    out
+}
+
+/// `decl` with each `Array<…>` turned into a `ReadonlyArray<…>`.
+fn readonly_arrays(decl: &str) -> String {
+    let mut out = String::with_capacity(decl.len());
+    let mut rest = decl;
+    while let Some(at) = rest.find("Array<") {
+        let (before, after) = rest.split_at(at);
+        out.push_str(before);
+        let whole_word = !before
+            .chars()
+            .next_back()
+            .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
+        if whole_word {
+            out.push_str("Readonly");
+        }
+        out.push_str("Array<");
+        rest = &after["Array<".len()..];
+    }
+    out.push_str(rest);
     out
 }
 
@@ -158,12 +180,28 @@ fn bindings_declare_each_dto_once_in_order() {
         "Project",
         "LogLine",
         "StagedChange",
-        "EventsPage",
+        "ActivityPage",
         "DeploymentLogStream",
     ] {
         assert!(names.contains(&name), "{name}");
     }
     assert!(bindings.contains("environmentId: EnvironmentId"));
+}
+
+#[test]
+fn arrays_are_read_only() {
+    assert_eq!(
+        readonly_arrays("{ a: Array<Array<string>>, b: ReadonlyArray<X>, c: MyArray<Y> }"),
+        "{ a: ReadonlyArray<ReadonlyArray<string>>, b: ReadonlyArray<X>, c: MyArray<Y> }"
+    );
+    let bindings = bindings();
+    assert!(bindings.contains("dependencies: ReadonlyArray<ServiceId>"));
+    assert!(
+        bindings
+            .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .all(|token| token != "Array"),
+        "{bindings}"
+    );
 }
 
 #[test]

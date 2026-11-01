@@ -620,7 +620,8 @@ fn staging_same_target_replaces_and_reverting_removes() {
     );
     assert!(matches!(
         changes(&mut harness).as_slice(),
-        [StagedChangeDto::Variable { value: Some(value), .. }] if value == "hello"
+        [StagedChangeDto::Variable { value: Some(value), reference: false, .. }]
+            if value == "hello"
     ));
     deploy_changes(&mut harness, &environment);
     assert!(changes(&mut harness).is_empty());
@@ -1222,7 +1223,30 @@ fn staging_a_secret_never_compares_it_with_the_applied_one() {
     );
     assert!(matches!(
         changes(&mut harness).as_slice(),
-        [StagedChangeDto::Variable { name, value: None, .. }] if name == "API_KEY"
+        [StagedChangeDto::Variable { name, value: None, reference: false, .. }]
+            if name == "API_KEY"
+    ));
+}
+
+#[test]
+fn a_staged_secret_without_a_value_is_a_reference() {
+    let mut harness = Harness::new();
+    let (service, environment, _) = active_project(&mut harness, &[]);
+    harness.ok(ApiCall::SetSharedVariable(NewSharedVariableDto {
+        level: VariableLevelDto::Environment,
+        owner_id: environment,
+        name: "SHARED_KEY".to_owned(),
+        kind: VariableKindDto::Secret,
+        value: SECRET.to_owned(),
+    }));
+    stage(
+        &mut harness,
+        variable(&service, "SHARED_KEY", VariableKindDto::Secret, None),
+    );
+    assert!(matches!(
+        changes(&mut harness).as_slice(),
+        [StagedChangeDto::Variable { name, value: None, reference: true, .. }]
+            if name == "SHARED_KEY"
     ));
 }
 

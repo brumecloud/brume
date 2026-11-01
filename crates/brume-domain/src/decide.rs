@@ -119,21 +119,22 @@ pub fn decide(world: &World, command: &Command) -> Result<Vec<Event>, Rejection>
         } => {
             let target = require_live_service(world, service)?;
             check_no_deployment_in_progress(world, target)?;
-            let Some(revision) = world.active_revision(service) else {
-                return Err(Rejection::conflict(format!(
-                    "{} has no active deployment to redeploy.",
-                    target.slug
-                )));
-            };
             check_new_deployment(world, deployment)?;
-            check_secrets_resolve(world, service, revision)?;
-            decision.request_existing(
-                service,
-                deployment,
-                &revision.id,
-                DeployReason::Redeploy,
-                author,
-            );
+            match world.active_revision(service) {
+                Some(revision) => {
+                    check_secrets_resolve(world, service, revision)?;
+                    decision.request_existing(
+                        service,
+                        deployment,
+                        &revision.id,
+                        DeployReason::Redeploy,
+                        author,
+                    );
+                }
+                // Every deployment failed so far: deploy the service as it is now, from a
+                // fresh resolution of its image.
+                None => decision.request(service, deployment, DeployReason::Redeploy, author),
+            }
         }
         Command::Rollback {
             target,

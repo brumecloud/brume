@@ -163,6 +163,8 @@ describe("secret references", () => {
     );
     expect(staged).toMatchObject({ kind: "secret", value: null });
     expect(staged && db.stagedSecrets.has(staged.id)).toBe(false);
+    // Staged, it already reads as a reference, not as a secret of the service's own.
+    await expect.element(screen.getByText("Resolved at deploy time")).toBeVisible();
 
     await screen.getByRole("button", { name: /^Deploy/ }).click();
     await expect.element(screen.getByText(/^Apply/)).not.toBeInTheDocument();

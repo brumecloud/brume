@@ -144,16 +144,16 @@ export const handlers = [
     return HttpResponse.json(db.deployments);
   }),
 
-  // Redeploys the revision in service, with the current value of its secrets.
+  // Redeploys the revision in service, with the current value of its secrets; without one, the
+  // latest deployment, as the service is now.
   http.post("/api/services/:serviceId/redeploy", async ({ params }) => {
     await delay(LATENCY_MS * 4);
-    const active = db.deployments.find(
-      (deployment) => deployment.serviceId === params.serviceId && deployment.status === "active",
-    );
-    if (!active) {
+    const own = db.deployments.filter((deployment) => deployment.serviceId === params.serviceId);
+    const from = own.find((deployment) => deployment.status === "active") ?? own.at(-1);
+    if (!from) {
       return HttpResponse.json({ message: "No deployment to redeploy." }, { status: 409 });
     }
-    return HttpResponse.json(deploy(active, "admin"), { status: 201 });
+    return HttpResponse.json(deploy(from, "admin"), { status: 201 });
   }),
 
   http.post("/api/deployments/:deploymentId/rollback", async ({ params }) => {

@@ -47,8 +47,7 @@ export function DeleteServiceDialog({
           <AlertDialogTitle>Delete {service.name}?</AlertDialogTitle>
           <AlertDialogDescription>
             The container stops and its deployments are deleted.
-            {service.volume &&
-              ` The ${service.volume.name} volume is deleted with its data.`} Type{" "}
+            {service.volume && ` The ${service.volume.name} volume keeps its data.`} Type{" "}
             {service.name} to confirm.
           </AlertDialogDescription>
           <Input

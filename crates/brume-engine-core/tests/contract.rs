@@ -1,5 +1,5 @@
-//! One test per call of the HTTP contract: the JSON keys of each answer are those of
-//! `web/src/api/types.ts`, plus the contract's additions. Then the edge cases.
+//! One test per call of the HTTP contract: the JSON keys of each answer are those of the panel's
+//! types, `web/src/api/generated.ts`, plus the contract's additions. Then the edge cases.
 
 mod fake_storage;
 mod harness;
@@ -17,38 +17,81 @@ use serde_json::Value;
 
 use crate::harness::{Harness, last_desired};
 
-/// The fields of each `export interface` of the panel's types.
+/// The fields of each object type of the panel's generated types, `web/src/api/generated.ts`
+/// (one `export type Name = { field: type, … };` per line, doc comments aside). Unions and
+/// aliases are left out.
 fn panel_interfaces() -> BTreeMap<String, BTreeSet<String>> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../web/src/api/types.ts");
-    let source = std::fs::read_to_string(path).expect("web/src/api/types.ts");
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../web/src/api/generated.ts"
+    );
+    let source = std::fs::read_to_string(path).expect("web/src/api/generated.ts");
     let mut interfaces = BTreeMap::new();
-    let mut rest = source.as_str();
-    while let Some(start) = rest.find("export interface ") {
-        rest = &rest[start + "export interface ".len()..];
-        let name = rest
-            .split(|c: char| !c.is_alphanumeric())
-            .next()
-            .expect("a name")
-            .to_owned();
-        let body_start = rest.find('{').expect("a body");
-        let body_end = rest.find("\n}").expect("an end");
-        let fields = rest[body_start + 1..body_end]
-            .lines()
-            .filter_map(|line| line.trim().strip_prefix("readonly "))
-            .filter_map(|field| field.split(['?', ':']).next())
-            .map(ToOwned::to_owned)
+    for declaration in without_comments(&source).split("export type ").skip(1) {
+        let Some((name, body)) = declaration.split_once(" = ") else {
+            continue;
+        };
+        let body = body.trim().trim_end_matches(';').trim();
+        let Some(inner) = body
+            .strip_prefix('{')
+            .and_then(|rest| rest.strip_suffix('}'))
+        else {
+            continue;
+        };
+        if inner.contains('}') {
+            // A union of objects.
+            continue;
+        }
+        let fields = top_level_fields(inner)
+            .into_iter()
+            .filter_map(|field| field.split_once(':').map(|(key, _)| key.trim().to_owned()))
             .collect();
-        interfaces.insert(name, fields);
-        rest = &rest[body_end..];
+        interfaces.insert(name.trim().to_owned(), fields);
     }
     interfaces
+}
+
+/// `source` without its `/** … */` comments.
+fn without_comments(source: &str) -> String {
+    let mut out = String::with_capacity(source.len());
+    let mut rest = source;
+    while let Some(start) = rest.find("/**") {
+        out.push_str(&rest[..start]);
+        let end = rest[start..].find("*/").expect("a closed comment");
+        rest = &rest[start + end + 2..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// The `field: type` entries of an object type's body, split on its top-level commas.
+fn top_level_fields(inner: &str) -> Vec<&str> {
+    let mut fields = Vec::new();
+    let mut depth = 0_i32;
+    let mut start = 0;
+    for (index, c) in inner.char_indices() {
+        match c {
+            '<' | '(' | '[' => depth += 1,
+            '>' | ')' | ']' => depth -= 1,
+            ',' if depth == 0 => {
+                fields.push(inner[start..index].trim());
+                start = index + 1;
+            }
+            _ => {}
+        }
+    }
+    fields.push(inner[start..].trim());
+    fields
+        .into_iter()
+        .filter(|field| !field.is_empty())
+        .collect()
 }
 
 /// The keys an object of the panel's `interface` must have, plus the contract's `added` ones.
 fn expected(interface: &str, added: &[&str]) -> BTreeSet<String> {
     let mut keys = panel_interfaces()
         .remove(interface)
-        .unwrap_or_else(|| panic!("types.ts has no interface {interface}"));
+        .unwrap_or_else(|| panic!("generated.ts has no object type {interface}"));
     keys.extend(added.iter().map(|key| (*key).to_owned()));
     keys
 }
@@ -544,10 +587,11 @@ fn changes_calls() {
         value: None,
     }));
     let mut variable_keys = set(&target);
-    variable_keys.extend(set(&["name", "kind", "value"]));
+    variable_keys.extend(set(&["name", "kind", "value", "reference"]));
     assert_eq!(keys(&reference), variable_keys);
     assert_eq!(reference["type"], "variable");
     assert_eq!(reference["value"], Value::Null);
+    assert_eq!(reference["reference"], true);
 
     let removal = body(&world.stage(NewChangeDto::VariableRemoval {
         service_id: service.clone(),

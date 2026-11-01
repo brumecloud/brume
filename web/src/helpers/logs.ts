@@ -27,6 +27,16 @@ export function parseLogsSearch(raw: Record<string, unknown>): LogsSearch {
   };
 }
 
+// After the log stream closes for good (the server refused the handshake, during a restart of
+// telemetry or the engine), the panel opens it again: 1 s, then twice as long each time, up to
+// 30 s. A stream that opens starts over from `undefined`.
+const FIRST_RETRY_MS = 1000;
+const MAX_RETRY_MS = 30_000;
+
+export function nextLogRetryDelay(previous: number | undefined): number {
+  return previous === undefined ? FIRST_RETRY_MS : Math.min(previous * 2, MAX_RETRY_MS);
+}
+
 export function parseLogLines(raw: unknown): LogLine[] {
   return decodeArray(raw, parseLogLine, "log lines");
 }
