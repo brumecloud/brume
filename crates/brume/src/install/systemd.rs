@@ -213,7 +213,8 @@ impl Service {
         match self {
             Self::Telemetry => "PrivateNetwork=yes\nRestrictAddressFamilies=AF_UNIX\n",
             Self::Agent => "RestrictAddressFamilies=AF_UNIX\nIPAddressDeny=any\n",
-            Self::Engine => "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6\n",
+            // Nothing in the engine talks over IP in 0.1: S3 and the updater will open it.
+            Self::Engine => "RestrictAddressFamilies=AF_UNIX\nIPAddressDeny=any\n",
             Self::Api => {
                 "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6\nIPAddressDeny=any\n\
                  IPAddressAllow=localhost\n"

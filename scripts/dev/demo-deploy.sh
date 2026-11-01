@@ -96,7 +96,8 @@ fi
 token=${link##*token=}
 token=${token%%[[:space:]]*}
 [[ -n $token ]] || die "no token in the login link"
-jq -n --arg token "$token" '{token: $token}' >"$tmp/login.json"
+# Through a file descriptor, never as an argument: `ps` would show it.
+jq -n --rawfile token <(printf %s "$token") '{token: $token}' >"$tmp/login.json"
 api POST /api/session "$tmp/login.json" >/dev/null
 echo "Logged in as $(api GET /api/session | jq -r .admin)"
 
@@ -164,7 +165,7 @@ if [[ -n $(shared_secret_id) ]]; then
 else
   (
     umask 077
-    jq -n --arg env "$environment" --arg value "$(head -c 24 /dev/urandom | base64 | tr -d '+/=')" \
+    jq -n --arg env "$environment" --rawfile value <(head -c 24 /dev/urandom | base64 | tr -d '+/=\n') \
       '{level: "environment", ownerId: $env, name: "POSTGRES_PASSWORD", kind: "secret",
         value: $value}' >"$tmp/secret.json"
   )

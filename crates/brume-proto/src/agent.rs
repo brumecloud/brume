@@ -81,7 +81,8 @@ pub struct IngressRoute {
     pub host: String,
     /// The service's edge network, which Traefik joins.
     pub network: String,
-    /// The service's alias on that network: its slug.
+    /// The name Traefik reaches the service by: the edge network's own name, which is also the
+    /// container's alias on it. Never the slug, which another environment can share.
     pub target: String,
     /// The port the service listens on.
     pub port: u16,
