@@ -5,8 +5,11 @@ use std::rc::Rc;
 use brume_domain::Zone;
 use secrecy::SecretString;
 
-use super::fake::{API_TOKEN, FakeCloudflare, State};
-use super::{Client, Cloudflare, Permission, Site, check, parse_zone, steps, tunnel_name};
+use super::fake::{ACCOUNT, API_TOKEN, FakeCloudflare, State, ZONE_ID};
+use super::{
+    Client, Cloudflare, Permission, Site, check, hidden, no_terminal, parse_zone, steps,
+    tunnel_name,
+};
 use crate::install::host::Host;
 use crate::install::host::fake::FakeSystem;
 use crate::install::wait::fake::FakeConsole;
@@ -141,20 +144,16 @@ fn a_fresh_zone_gets_the_tunnel_the_wildcard_and_https() {
     let (outcomes, _, printed) = install(&api, &fake);
     assert_eq!(outcomes.expect("runs"), vec![Outcome::AlreadyDone; 4]);
     assert_eq!(fake.changes(), Vec::<String>::new());
-    // The checks probe the permissions with writes that Cloudflare refuses or that change
-    // nothing; the steps write nothing.
+    // The checks probe the permissions to edit DNS and settings with writes that change
+    // nothing, and the tunnels' with a read; the steps write nothing.
     let state = api.state();
     assert_eq!(state.tunnels.len(), 1);
     assert_eq!(state.records.len(), 1);
     assert_eq!(
         state.writes(),
         [
-            format!("POST /accounts/{}/cfd_tunnel", super::fake::ACCOUNT),
-            format!("POST /zones/{}/dns_records/batch", super::fake::ZONE_ID),
-            format!(
-                "PATCH /zones/{}/settings/always_use_https",
-                super::fake::ZONE_ID
-            ),
+            format!("POST /zones/{ZONE_ID}/dns_records/batch"),
+            format!("PATCH /zones/{ZONE_ID}/settings/always_use_https"),
         ]
     );
     assert_eq!(printed.matches("already done").count(), 4, "{printed}");
@@ -187,14 +186,14 @@ fn reuses_existing_tunnel() {
         ]
     );
     let state = api.state();
-    // No tunnel created: only the probe, which Cloudflare refuses.
+    // No tunnel created, nor asked to be.
     assert_eq!(state.tunnels.len(), 2);
     let created = state
         .requests
         .iter()
         .filter(|request| request.starts_with("POST /accounts/"))
         .count();
-    assert_eq!(created, 1);
+    assert_eq!(created, 0);
     // The record is kept, and proxied.
     assert_eq!(state.records.len(), 1);
     assert!(state.records[0].proxied);
@@ -240,7 +239,8 @@ fn cloudflare_names_missing_permission() {
     for (denied, lacks) in [
         (
             vec![Permission::DnsEdit, Permission::TunnelEdit],
-            "lacks Zone → DNS → Edit, Account → Cloudflare Tunnel → Edit on example.com",
+            "lacks Zone → DNS → Edit, Account → Cloudflare Tunnel → Edit (or Cloudflare One \
+             Connector: cloudflared → Write) on example.com",
         ),
         (
             vec![Permission::ZoneSettingsEdit],
@@ -258,7 +258,7 @@ fn cloudflare_names_missing_permission() {
         assert!(
             message.contains(
                 "Zone → Zone → Read, Zone → DNS → Edit, Zone → Zone Settings → Edit, Account → \
-                 Cloudflare Tunnel → Edit"
+                 Cloudflare Tunnel → Edit (or Cloudflare One Connector: cloudflared → Write)"
             ),
             "{message}"
         );
@@ -340,4 +340,186 @@ fn a_pending_zone_is_noted() {
     let site = check(&host, &client(&api), &zone()).expect("passes");
     assert!(!site.zone_active());
     assert_eq!(site.zone_status, "pending");
+}
+
+/// The probe of the right to edit tunnels: a read of a tunnel that does not exist.
+fn tunnel_probe() -> String {
+    format!("GET /accounts/{ACCOUNT}/cfd_tunnel/00000000-0000-4000-8000-000000000000/token")
+}
+
+#[test]
+fn the_tunnel_check_reads_and_creates_nothing() {
+    let fake = host();
+    let host = Host::new(Box::new(fake.clone()));
+    // A token that may list the tunnels, and not create one.
+    let mut state = State::new(ZONE);
+    state.denied.insert(Permission::TunnelEdit);
+    state.tunnel_read = true;
+    let api = FakeCloudflare::start(state);
+    let error = check(&host, &client(&api), &zone()).expect_err("refused");
+    assert!(
+        error
+            .to_string()
+            .contains("lacks Account → Cloudflare Tunnel → Edit (or Cloudflare One Connector"),
+        "{error}"
+    );
+    let state = api.state();
+    assert!(state.tunnels.is_empty());
+    assert!(
+        state.requests.contains(&tunnel_probe()),
+        "{:#?}",
+        state.requests
+    );
+    // No call to the tunnels but reads: none can create one.
+    let tunnel_writes: Vec<_> = state
+        .writes()
+        .into_iter()
+        .filter(|request| request.contains("/cfd_tunnel"))
+        .collect();
+    assert_eq!(tunnel_writes, Vec::<String>::new());
+    drop(state);
+
+    // A token that may: the same read passes.
+    let api = FakeCloudflare::start(State::new(ZONE));
+    check(&host, &client(&api), &zone()).expect("passes");
+    let state = api.state();
+    assert!(
+        state.requests.contains(&tunnel_probe()),
+        "{:#?}",
+        state.requests
+    );
+    assert!(
+        state
+            .writes()
+            .iter()
+            .all(|request| !request.contains("/cfd_tunnel")),
+        "{:#?}",
+        state.writes()
+    );
+}
+
+#[test]
+fn an_unexpected_answer_to_a_permission_check_is_an_error() {
+    let fake = host();
+    let host = Host::new(Box::new(fake.clone()));
+    for (call, status, code) in [
+        (tunnel_probe(), 429, 971),
+        (
+            format!("PATCH /zones/{ZONE_ID}/settings/always_use_https"),
+            500,
+            1000,
+        ),
+        (
+            format!("POST /zones/{ZONE_ID}/dns_records/batch"),
+            409,
+            1000,
+        ),
+    ] {
+        let mut state = State::new(ZONE);
+        state.forced.push((call.clone(), status, code));
+        let api = FakeCloudflare::start(state);
+        let error = check(&host, &client(&api), &zone()).expect_err(&call);
+        let message = error.to_string();
+        assert!(
+            message.contains(&format!("with HTTP {status}")),
+            "{call}: {message}"
+        );
+        assert!(message.contains("did not expect"), "{call}: {message}");
+        assert!(message.contains("Nothing was changed"), "{call}: {message}");
+        assert!(!message.contains("lacks"), "{call}: {message}");
+    }
+}
+
+#[test]
+fn a_renamed_server_finds_its_tunnel() {
+    let fake = host();
+    // The first install ran while the server was named `old-name`.
+    fake.put_file("/proc/sys/kernel/hostname", "old-name\n");
+    let old = our_tunnel(&fake);
+    fake.put_file("/proc/sys/kernel/hostname", "web-1\n");
+    assert_ne!(our_tunnel(&fake), old);
+    let mut state = State::new(ZONE);
+    // Another server's tunnel, and this server's, with the wildcard pointing to it.
+    state.add_tunnel("brume-web-1-0a0b0c0d");
+    let ours = state.add_tunnel(&old);
+    state.add_record(
+        "CNAME",
+        "*.example.com",
+        &format!("{ours}.cfargotunnel.com"),
+        true,
+    );
+    "on".clone_into(&mut state.always_use_https);
+    let api = FakeCloudflare::start(state);
+
+    let (outcomes, site, _) = install(&api, &fake);
+    assert_eq!(site.tunnel_name, old);
+    assert_eq!(
+        outcomes.expect("installs"),
+        [
+            Outcome::AlreadyDone,
+            Outcome::AlreadyDone,
+            Outcome::AlreadyDone,
+            Outcome::Applied
+        ]
+    );
+    let (ingress, _) = fake.engine_ingress().expect("configured");
+    assert_eq!(ingress.tunnel_id, ours);
+    let state = api.state();
+    assert_eq!(state.tunnels.len(), 2);
+    assert!(
+        state
+            .requests
+            .iter()
+            .any(|request| request.contains("cfd_tunnel?name_prefix=brume-")),
+        "{:#?}",
+        state.requests
+    );
+}
+
+#[test]
+fn the_token_stays_out_of_ps_and_history_without_a_terminal() {
+    let message = no_terminal().to_string();
+    assert!(
+        message.contains("read -rs CLOUDFLARE_API_TOKEN; export CLOUDFLARE_API_TOKEN"),
+        "{message}"
+    );
+    assert!(
+        message.contains("sudo --preserve-env=CLOUDFLARE_API_TOKEN"),
+        "{message}"
+    );
+    // Never on a command line, where `ps` and sudo's log show it.
+    assert!(!message.contains("CLOUDFLARE_API_TOKEN="), "{message}");
+}
+
+#[test]
+fn the_echo_comes_back_on_every_path() {
+    use std::cell::RefCell;
+
+    let settings = RefCell::new(Vec::new());
+    let stty = |setting: &str| {
+        settings.borrow_mut().push(setting.to_owned());
+        Ok(true)
+    };
+    // Read, failed, panicked: the echo is on again.
+    let read = hidden(&stty, || Ok("token".to_owned())).expect("reads");
+    assert_eq!(read, "token");
+    hidden::<String>(&stty, || anyhow::bail!("cannot read the token")).expect_err("fails");
+    let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        hidden::<String>(&stty, || panic!("interrupted"))
+    }));
+    assert!(panicked.is_err());
+    assert_eq!(
+        *settings.borrow(),
+        ["-echo", "echo", "-echo", "echo", "-echo", "echo"]
+    );
+
+    // `stty -echo` fails: no read, and the echo is set on anyway.
+    settings.borrow_mut().clear();
+    let refuse = |setting: &str| {
+        settings.borrow_mut().push(setting.to_owned());
+        Ok(setting == "echo")
+    };
+    let error = hidden(&refuse, || Ok("token".to_owned())).expect_err("no hidden input");
+    assert!(error.to_string().contains("stty -echo"), "{error}");
+    assert_eq!(*settings.borrow(), ["-echo", "echo"]);
 }

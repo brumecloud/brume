@@ -14,7 +14,7 @@ pub mod fake;
 
 use std::collections::BTreeSet;
 use std::fmt;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -57,7 +57,15 @@ const ENGINE_POLL: Duration = Duration::from_millis(500);
 /// The longest host name kept in a tunnel's name.
 const MAX_HOST_LABEL: usize = 40;
 
-/// A permission of a Cloudflare API token, as the dashboard names it.
+/// The start of the names of Brume's tunnels.
+const TUNNEL_PREFIX: &str = "brume-";
+
+/// A well-formed tunnel id that no tunnel has. Reading its token needs the right to edit the
+/// account's tunnels, and finds nothing.
+const PROBE_TUNNEL_ID: &str = "00000000-0000-4000-8000-000000000000";
+
+/// A permission of a Cloudflare API token, as the dashboard names it. The dashboard shows the
+/// tunnels' under either of two names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Permission {
     ZoneRead,
@@ -81,7 +89,10 @@ impl fmt::Display for Permission {
             Self::ZoneRead => "Zone → Zone → Read",
             Self::DnsEdit => "Zone → DNS → Edit",
             Self::ZoneSettingsEdit => "Zone → Zone Settings → Edit",
-            Self::TunnelEdit => "Account → Cloudflare Tunnel → Edit",
+            Self::TunnelEdit => {
+                "Account → Cloudflare Tunnel → Edit (or Cloudflare One Connector: cloudflared → \
+                 Write)"
+            }
         })
     }
 }
@@ -103,7 +114,10 @@ pub struct Site {
     /// `active`, or `pending` until the registrar points to Cloudflare.
     pub zone_status: String,
     account_id: String,
+    /// The name of this server's tunnel: the one found, else the one to create.
     pub tunnel_name: String,
+    /// The end of the names of this server's tunnels: `-` and a hash of its machine id.
+    tunnel_suffix: String,
 }
 
 impl Site {
@@ -156,16 +170,20 @@ fn token_from(raw: &str) -> anyhow::Result<SecretString> {
     Ok(SecretString::from(token))
 }
 
+/// The error when there is no terminal to type the token on. The token goes through the
+/// environment: on a command line, `ps` and sudo's log would show it.
+fn no_terminal() -> anyhow::Error {
+    anyhow::anyhow!(
+        "--domain needs a Cloudflare API token, and there is no terminal to type it. Give it in \
+         {TOKEN_ENV}, kept through sudo: `read -rs {TOKEN_ENV}; export {TOKEN_ENV}` (it stays \
+         out of the shell's history), then `sudo --preserve-env={TOKEN_ENV} brume install …`, \
+         or `curl … | sudo --preserve-env={TOKEN_ENV} bash -s -- …`."
+    )
+}
+
 /// Asks for the token on the terminal, without echo. `stty` turns the echo off and on: no
 /// unsafe code, and no crate.
 fn prompt_token(zone: &Zone) -> anyhow::Result<SecretString> {
-    let no_terminal = || {
-        anyhow::anyhow!(
-            "--domain needs a Cloudflare API token, and there is no terminal to type it. Set \
-             {TOKEN_ENV}, and keep it through sudo: sudo --preserve-env={TOKEN_ENV} brume \
-             install …, or curl … | sudo {TOKEN_ENV}=… bash -s -- …"
-        )
-    };
     let mut tty = OpenOptions::new()
         .read(true)
         .write(true)
@@ -181,54 +199,74 @@ fn prompt_token(zone: &Zone) -> anyhow::Result<SecretString> {
     )?;
     write!(tty, "Cloudflare API token (hidden): ")?;
     tty.flush()?;
-    let line = {
-        let _hidden = Echo::off(&tty)?;
+    let line = hidden(&|setting| stty(&tty, setting), || {
         let mut line = String::new();
         BufReader::new((&tty).take(MAX_TOKEN_BYTES as u64 + 2))
             .read_line(&mut line)
             .context("cannot read the token")?;
-        line
-    };
+        Ok(line)
+    })?;
     writeln!(tty)?;
     token_from(&line)
 }
 
-/// The terminal's echo, off until dropped.
-struct Echo {
-    tty: std::fs::File,
+/// Sets the terminal `tty`, such as `-echo`, and returns whether `stty` could.
+fn stty(tty: &File, setting: &str) -> anyhow::Result<bool> {
+    let status = Command::new("stty")
+        .arg(setting)
+        .env_remove(TOKEN_ENV)
+        .stdin(Stdio::from(tty.try_clone()?))
+        .status()
+        .context("cannot run stty")?;
+    Ok(status.success())
 }
 
-impl Echo {
-    fn off(tty: &std::fs::File) -> anyhow::Result<Self> {
-        let echo = Self {
-            tty: tty.try_clone()?,
-        };
-        if !echo.stty("-echo")? {
+/// A terminal setting, such as `-echo`, made by `stty`: whether it could.
+type Stty<'a> = &'a dyn Fn(&str) -> anyhow::Result<bool>;
+
+/// Runs `read` with the terminal's echo off, and turns the echo back on however `read` ends:
+/// it returns, fails or panics.
+///
+/// Ctrl-C kills the install before the echo comes back: the shell then restores the terminal
+/// it had, as bash and zsh do after a command that a signal killed, and `stty echo` restores
+/// it elsewhere. Restoring it here would need a signal handler: unsafe code, or a crate.
+fn hidden<T>(stty: Stty<'_>, read: impl FnOnce() -> anyhow::Result<T>) -> anyhow::Result<T> {
+    let _echo = Echo::off(stty)?;
+    read()
+}
+
+/// The terminal's echo, off until dropped.
+struct Echo<'a> {
+    stty: Stty<'a>,
+}
+
+impl<'a> Echo<'a> {
+    fn off(stty: Stty<'a>) -> anyhow::Result<Self> {
+        // Made first: a `stty -echo` that fails may have turned the echo off.
+        let echo = Self { stty };
+        if !(echo.stty)("-echo")? {
             bail!("Cannot hide the token as it is typed: `stty -echo` failed.");
         }
         Ok(echo)
     }
-
-    fn stty(&self, setting: &str) -> anyhow::Result<bool> {
-        let status = Command::new("stty")
-            .arg(setting)
-            .env_remove(TOKEN_ENV)
-            .stdin(Stdio::from(self.tty.try_clone()?))
-            .status()
-            .context("cannot run stty")?;
-        Ok(status.success())
-    }
 }
 
-impl Drop for Echo {
+impl Drop for Echo<'_> {
     fn drop(&mut self) {
-        let _ = self.stty("echo");
+        let _ = (self.stty)("echo");
     }
 }
 
-/// The tunnel's name: `brume-`, the host name, and a hash of the machine id. Stable for this
-/// server, so that a rerun finds its tunnel, and never another server's of the same name.
+/// The tunnel's name: `brume-`, the host name, and a hash of the machine id.
+#[cfg(test)]
 pub fn tunnel_name(host: &Host) -> anyhow::Result<String> {
+    Ok(tunnel_names(host)?.0)
+}
+
+/// The name of a new tunnel for this server, and the end of the names of its tunnels: `-` and
+/// a hash of the machine id. The hash never changes: a rerun finds the server's tunnel by it,
+/// after a change of host name too, and never another server's of the same host name.
+fn tunnel_names(host: &Host) -> anyhow::Result<(String, String)> {
     let hostname = host
         .read(Path::new("/proc/sys/kernel/hostname"))?
         .unwrap_or_default();
@@ -257,7 +295,8 @@ pub fn tunnel_name(host: &Host) -> anyhow::Result<String> {
         "host".clone_into(&mut label);
     }
     let digest = Sha256::digest(format!("brume tunnel {machine_id}"));
-    Ok(format!("brume-{label}-{}", hex::encode(&digest[..4])))
+    let suffix = format!("-{}", hex::encode(&digest[..4]));
+    Ok((format!("{TUNNEL_PREFIX}{label}{suffix}"), suffix))
 }
 
 /// The DNS name of the tunnel `id`.
@@ -294,12 +333,28 @@ fn wildcard_records(client: &Client, site: &Site) -> Result<Vec<DnsRecord>, ApiE
         .collect())
 }
 
-/// The live tunnel named `name`.
+/// This server's live tunnel: one named `brume-<host name><suffix>`, under the current name
+/// first.
 fn find_tunnel(client: &Client, site: &Site) -> Result<Option<TunnelInfo>, ApiError> {
-    Ok(client
-        .tunnels(&site.account_id, &site.tunnel_name)?
+    let suffix = &site.tunnel_suffix;
+    let mut ours: Vec<TunnelInfo> = client
+        .tunnels(&site.account_id, TUNNEL_PREFIX)?
         .into_iter()
-        .find(|tunnel| tunnel.name == site.tunnel_name && tunnel.deleted_at.is_none()))
+        .filter(|tunnel| {
+            tunnel.deleted_at.is_none()
+                && tunnel.name.len() > TUNNEL_PREFIX.len() + suffix.len()
+                && tunnel.name.starts_with(TUNNEL_PREFIX)
+                && tunnel.name.ends_with(suffix.as_str())
+        })
+        .collect();
+    if ours.is_empty() {
+        return Ok(None);
+    }
+    let current = ours
+        .iter()
+        .position(|tunnel| tunnel.name == site.tunnel_name)
+        .unwrap_or(0);
+    Ok(Some(ours.swap_remove(current)))
 }
 
 /// Records `permission` as missing if `result` says so, and returns the rest.
@@ -318,11 +373,34 @@ fn note<T>(
     }
 }
 
+/// Whether the token has `permission`, as the call `method path` tells: Cloudflare refuses it
+/// for a missing permission, or answers one of the `expected` statuses. Any other answer, such
+/// as 429 when Cloudflare throttles the token, is an error that says so.
+fn may(
+    client: &Client,
+    method: Method,
+    path: &str,
+    body: Option<&serde_json::Value>,
+    expected: &[u16],
+    permission: Permission,
+) -> anyhow::Result<bool> {
+    client.may(method, path, body, expected).map_err(|error| {
+        if error.answered() {
+            anyhow::anyhow!(
+                "{error}. Brume did not expect this answer as it checked that the token has \
+                 {permission}. Nothing was changed: run the same command again in a minute."
+            )
+        } else {
+            error.into()
+        }
+    })
+}
+
 /// Checks, before any change, that the token can set up `zone`, and that no other record
-/// holds `*.<zone>`. Creates and changes nothing: the probes of the permissions to edit are
-/// writes that Cloudflare refuses as invalid, or that set what is already set.
+/// holds `*.<zone>`. Creates and changes nothing: the right to edit tunnels is probed with a
+/// read that needs it, the others with writes that change nothing.
 pub fn check(host: &Host, client: &Client, zone: &Zone) -> anyhow::Result<Site> {
-    let tunnel_name = tunnel_name(host)?;
+    let (tunnel_name, tunnel_suffix) = tunnel_names(host)?;
     let zones = client.zones(zone.as_str()).map_err(|error| {
         let hint = if error.answered() {
             " Check the API token: it may be mistyped, expired or revoked."
@@ -351,36 +429,62 @@ pub fn check(host: &Host, client: &Client, zone: &Zone) -> anyhow::Result<Site> 
              that serves {zone}."
         ),
     };
-    let site = Site {
+    let mut site = Site {
         zone: zone.clone(),
         zone_id: info.id,
         zone_status: info.status,
         account_id: info.account.id,
         tunnel_name,
+        tunnel_suffix,
     };
 
     let mut missing = BTreeSet::new();
-    let tunnels_path = format!("/accounts/{}/cfd_tunnel", site.account_id);
     let tunnel = note(
         &mut missing,
         Permission::TunnelEdit,
         find_tunnel(client, &site),
     )?;
-    // A tunnel without a name is invalid: Cloudflare refuses it as such if the token may
-    // create tunnels.
-    if tunnel.is_some() && !client.may(Method::POST, &tunnels_path, &json!({ "name": "" }))? {
+    // The token of a tunnel that does not exist: Cloudflare answers 404 if the token may edit
+    // tunnels, and refuses the call if not.
+    let probe = format!(
+        "/accounts/{}/cfd_tunnel/{PROBE_TUNNEL_ID}/token",
+        site.account_id
+    );
+    if tunnel.is_some()
+        && !may(
+            client,
+            Method::GET,
+            &probe,
+            None,
+            &[404],
+            Permission::TunnelEdit,
+        )?
+    {
         missing.insert(Permission::TunnelEdit);
     }
     let tunnel = tunnel.flatten();
+    if let Some(tunnel) = &tunnel {
+        tunnel.name.clone_into(&mut site.tunnel_name);
+    }
 
     let records = note(
         &mut missing,
         Permission::DnsEdit,
         wildcard_records(client, &site),
     )?;
-    // An empty batch of DNS changes is invalid.
+    // An empty batch of DNS changes changes nothing, whether Cloudflare takes it or refuses it
+    // as invalid.
     let batch = format!("/zones/{}/dns_records/batch", site.zone_id);
-    if records.is_some() && !client.may(Method::POST, &batch, &json!({}))? {
+    if records.is_some()
+        && !may(
+            client,
+            Method::POST,
+            &batch,
+            Some(&json!({})),
+            &[200, 400],
+            Permission::DnsEdit,
+        )?
+    {
         missing.insert(Permission::DnsEdit);
     }
 
@@ -392,7 +496,15 @@ pub fn check(host: &Host, client: &Client, zone: &Zone) -> anyhow::Result<Site> 
     // Sets the setting to what it is.
     if let Some(value) = setting {
         let path = format!("/zones/{}/settings/{ALWAYS_USE_HTTPS}", site.zone_id);
-        if !client.may(Method::PATCH, &path, &json!({ "value": value }))? {
+        let body = json!({ "value": value });
+        if !may(
+            client,
+            Method::PATCH,
+            &path,
+            Some(&body),
+            &[200],
+            Permission::ZoneSettingsEdit,
+        )? {
             missing.insert(Permission::ZoneSettingsEdit);
         }
     }

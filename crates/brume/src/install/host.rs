@@ -237,7 +237,7 @@ impl Host {
 }
 
 /// The last `MAX_QUOTED_BYTES` of `text`, on a character boundary.
-fn tail(text: &str) -> &str {
+pub(super) fn tail(text: &str) -> &str {
     let mut start = text.len().saturating_sub(MAX_QUOTED_BYTES);
     while !text.is_char_boundary(start) {
         start += 1;
