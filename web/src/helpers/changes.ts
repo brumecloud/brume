@@ -20,7 +20,7 @@ import {
   readString,
 } from "./decode";
 import { parseImageReference } from "./new-project";
-import { domainUrl, formatCpu, formatMemory } from "./services";
+import { formatCpu, formatMemory } from "./services";
 import { type ResolvedVariable, readVariableValue } from "./variables";
 
 const FIELDS: readonly SettingField[] = [
@@ -34,7 +34,6 @@ const FIELDS: readonly SettingField[] = [
   "cpuLimit",
   "memoryLimitMb",
   "egress",
-  "domains",
   "domain",
 ];
 const KINDS: readonly VariableKind[] = ["plain", "build", "secret"];
@@ -50,7 +49,6 @@ const FIELD_LABELS: Record<SettingField, string> = {
   cpuLimit: "CPU limit",
   memoryLimitMb: "Memory limit",
   egress: "Outbound internet access",
-  domains: "Public domains",
   domain: "Public domain",
 };
 
@@ -118,7 +116,6 @@ function parseSettingValue(raw: unknown): SettingValue {
 // The current value of a field, undefined when the field does not apply to this source.
 export function settingValue(
   settings: ServiceSettings,
-  domains: readonly string[],
   field: SettingField,
 ): SettingValue | undefined {
   const { source } = settings;
@@ -131,8 +128,6 @@ export function settingValue(
       return source.kind === "github" ? source.autoDeploy : undefined;
     case "image":
       return source.kind === "image" ? source.image : undefined;
-    case "domains":
-      return domains;
     case "startCommand":
       return settings.startCommand ?? "";
     case "port":
@@ -148,9 +143,8 @@ export function settingValue(
 
 export function withStagedSettings(
   settings: ServiceSettings,
-  domains: readonly string[],
   changes: readonly StagedChange[],
-): { readonly settings: ServiceSettings; readonly domains: readonly string[] } {
+): ServiceSettings {
   const staged = new Map<SettingField, SettingValue>();
   for (const change of changes) {
     if (change.type === "setting") {
@@ -165,7 +159,7 @@ export function withStagedSettings(
     const value = staged.get(field);
     return typeof value === "string" ? value || null : current;
   };
-  const number = (field: SettingField, current: number) => {
+  const number = <T extends number | null>(field: SettingField, current: T) => {
     const value = staged.get(field);
     return typeof value === "number" ? value : current;
   };
@@ -173,32 +167,28 @@ export function withStagedSettings(
     const value = staged.get(field);
     return typeof value === "boolean" ? value : current;
   };
-  const stagedDomains = staged.get("domains");
   const { source } = settings;
 
   return {
-    settings: {
-      ...settings,
-      source:
-        source.kind === "github"
-          ? {
-              ...source,
-              repository: text("repository", source.repository),
-              branch: text("branch", source.branch),
-              autoDeploy: flag("autoDeploy", source.autoDeploy),
-            }
-          : source.kind === "image"
-            ? { ...source, image: text("image", source.image) }
-            : source,
-      startCommand: optionalText("startCommand", settings.startCommand),
-      port: settings.port === null ? null : number("port", settings.port),
-      healthcheckPath: optionalText("healthcheckPath", settings.healthcheckPath),
-      cpuLimit: number("cpuLimit", settings.cpuLimit),
-      memoryLimitMb: number("memoryLimitMb", settings.memoryLimitMb),
-      egress: flag("egress", settings.egress),
-      domain: optionalText("domain", settings.domain),
-    },
-    domains: Array.isArray(stagedDomains) ? stagedDomains : domains,
+    ...settings,
+    source:
+      source.kind === "github"
+        ? {
+            ...source,
+            repository: text("repository", source.repository),
+            branch: text("branch", source.branch),
+            autoDeploy: flag("autoDeploy", source.autoDeploy),
+          }
+        : source.kind === "image"
+          ? { ...source, image: text("image", source.image) }
+          : source,
+    startCommand: optionalText("startCommand", settings.startCommand),
+    port: number("port", settings.port),
+    healthcheckPath: optionalText("healthcheckPath", settings.healthcheckPath),
+    cpuLimit: number("cpuLimit", settings.cpuLimit),
+    memoryLimitMb: number("memoryLimitMb", settings.memoryLimitMb),
+    egress: flag("egress", settings.egress),
+    domain: optionalText("domain", settings.domain),
   };
 }
 
@@ -231,7 +221,12 @@ export function settingChange(
   return { action: "stage" };
 }
 
-type TextField = "image" | "startCommand" | "port" | "healthcheckPath";
+type TextField = "image" | "startCommand" | "port" | "healthcheckPath" | "domain";
+
+// A DNS label, as the engine checks a subdomain: `demo` gives `demo.<zone>`.
+export function isSubdomain(raw: string): boolean {
+  return /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(raw);
+}
 
 export function validateSetting(
   field: TextField,
@@ -257,12 +252,14 @@ export function validateSetting(
       return text.length <= MAX_COMMAND_LENGTH
         ? { value: text }
         : { error: `${MAX_COMMAND_LENGTH} characters at most.` };
+    case "domain": {
+      // Empty removes the domain.
+      const subdomain = text.toLowerCase();
+      return subdomain === "" || isSubdomain(subdomain)
+        ? { value: subdomain }
+        : { error: "Letters, digits and inner hyphens, 63 at most." };
+    }
   }
-}
-
-export function parseDomain(raw: string): string | undefined {
-  const domain = raw.trim().toLowerCase();
-  return domainUrl(domain) ? domain : undefined;
 }
 
 export function changeCountLabel(count: number): string {
@@ -281,6 +278,9 @@ function formatSetting(field: SettingField, value: SettingValue): string {
   }
   if (field === "memoryLimitMb" && typeof value === "number") {
     return formatMemory(value);
+  }
+  if (field === "domain") {
+    return String(value) || "none";
   }
   return String(value) || "default";
 }

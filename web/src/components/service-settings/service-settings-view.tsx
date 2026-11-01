@@ -24,7 +24,7 @@ import {
 import { formatCpu, formatMemory, isDatabase } from "~/helpers/services";
 
 import { DeleteServiceDialog } from "./delete-service-dialog";
-import { DomainsSetting } from "./domains-setting";
+import { DomainSetting } from "./domain-setting";
 import { BranchSetting, RepositorySetting } from "./github-source-settings";
 import { LimitSetting } from "./limit-setting";
 import { SettingsSection } from "./settings-section";
@@ -88,10 +88,10 @@ function SettingsForm({
   settings,
   changes,
 }: SettingsFormProps) {
-  const { commit, error } = useSettingCommit(service.id, settings, service.domains, changes);
-  const staged = withStagedSettings(settings, service.domains, changes);
+  const { commit, error } = useSettingCommit(service.id, settings, changes);
+  const staged = withStagedSettings(settings, changes);
   const fields = stagedFields(changes);
-  const { source } = staged.settings;
+  const { source } = staged;
   const sections = settingsSections(service);
   const [current, setCurrent] = useState(sections[0]);
   // A click on the nav pins its section, even when the bottom of the page stops it short of the
@@ -166,10 +166,12 @@ function SettingsForm({
         {sections.includes("network") && (
           <SettingsSection id="settings-network" {...SECTIONS.network}>
             {!isDatabase(service.kind) && (
-              <DomainsSetting
-                domains={staged.domains}
-                staged={fields.has("domains")}
-                onCommit={(domains) => commit("domains", domains)}
+              <DomainSetting
+                key={`domain:${staged.domain ?? ""}`}
+                value={staged.domain ?? ""}
+                domains={service.domains}
+                staged={fields.has("domain")}
+                onCommit={(value) => commit("domain", value)}
               />
             )}
             <ReadOnlySetting
@@ -187,7 +189,7 @@ function SettingsForm({
                 label="Outbound internet access"
                 description="Turn it off for a service that makes no outside calls."
                 text="Allow outbound connections"
-                checked={staged.settings.egress}
+                checked={staged.egress}
                 staged={fields.has("egress")}
                 onCommit={(checked) => commit("egress", checked)}
               />
@@ -197,31 +199,31 @@ function SettingsForm({
         {sections.includes("deploy") && (
           <SettingsSection id="settings-deploy" {...SECTIONS.deploy}>
             <TextSetting
-              key={`startCommand:${staged.settings.startCommand ?? ""}`}
+              key={`startCommand:${staged.startCommand ?? ""}`}
               field="startCommand"
               label="Start command"
               description="Leave empty to use the image's command."
-              value={staged.settings.startCommand ?? ""}
+              value={staged.startCommand ?? ""}
               placeholder="pnpm start"
               staged={fields.has("startCommand")}
               onCommit={(value) => commit("startCommand", value)}
             />
             <TextSetting
-              key={`port:${staged.settings.port ?? ""}`}
+              key={`port:${staged.port ?? ""}`}
               field="port"
               label="Port"
               description="The port the service listens on."
-              value={String(staged.settings.port ?? "")}
+              value={String(staged.port ?? "")}
               placeholder="3000"
               staged={fields.has("port")}
               onCommit={(value) => commit("port", value)}
             />
             <TextSetting
-              key={`healthcheckPath:${staged.settings.healthcheckPath ?? ""}`}
+              key={`healthcheckPath:${staged.healthcheckPath ?? ""}`}
               field="healthcheckPath"
               label="Healthcheck"
               description="Traffic switches over once this path returns 200. Leave empty to use the image's."
-              value={staged.settings.healthcheckPath ?? ""}
+              value={staged.healthcheckPath ?? ""}
               placeholder="/health"
               staged={fields.has("healthcheckPath")}
               onCommit={(value) => commit("healthcheckPath", value)}
@@ -231,19 +233,19 @@ function SettingsForm({
         {sections.includes("resources") && (
           <SettingsSection id="settings-resources" {...SECTIONS.resources}>
             <LimitSetting
-              key={`cpu:${staged.settings.cpuLimit}`}
+              key={`cpu:${staged.cpuLimit}`}
               label="CPU"
               steps={CPU_LIMITS}
-              value={staged.settings.cpuLimit}
+              value={staged.cpuLimit}
               format={formatCpu}
               staged={fields.has("cpuLimit")}
               onCommit={(value) => commit("cpuLimit", value)}
             />
             <LimitSetting
-              key={`memory:${staged.settings.memoryLimitMb}`}
+              key={`memory:${staged.memoryLimitMb}`}
               label="Memory"
               steps={MEMORY_LIMITS_MB}
-              value={staged.settings.memoryLimitMb}
+              value={staged.memoryLimitMb}
               format={formatMemory}
               staged={fields.has("memoryLimitMb")}
               onCommit={(value) => commit("memoryLimitMb", value)}

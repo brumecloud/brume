@@ -101,7 +101,7 @@ export type Session = {
  * The logged-in admin.
  */
 admin: string, };
-export type SettingField = "repository" | "branch" | "autoDeploy" | "image" | "startCommand" | "port" | "healthcheckPath" | "cpuLimit" | "memoryLimitMb" | "egress" | "domains" | "domain";
+export type SettingField = "repository" | "branch" | "autoDeploy" | "image" | "startCommand" | "port" | "healthcheckPath" | "cpuLimit" | "memoryLimitMb" | "egress" | "domain";
 export type SettingValue = boolean | number | string | ReadonlyArray<string>;
 export type SharedVariableRemoved = { deployments: ReadonlyArray<Deployment>, };
 export type SharedVariableResult = { variable: Variable, 

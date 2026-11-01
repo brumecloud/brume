@@ -14,13 +14,12 @@ import { settingChange, settingValue } from "~/helpers/changes";
 export function useSettingCommit(
   serviceId: ServiceId,
   settings: ServiceSettings,
-  domains: readonly string[],
   changes: readonly StagedChange[],
 ) {
   const mutation = useMutation({ mutationFn: stageChange });
 
   const commit = (field: SettingField, value: SettingValue) => {
-    const decision = settingChange(field, value, settingValue(settings, domains, field), changes);
+    const decision = settingChange(field, value, settingValue(settings, field), changes);
     if (decision.action === "stage") {
       mutation.mutate({ serviceId, type: "setting", field, value });
     } else if (decision.action === "unstage") {

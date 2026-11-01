@@ -582,7 +582,6 @@ pub enum SettingField {
     CpuLimit,
     MemoryLimitMb,
     Egress,
-    Domains,
     /// The public subdomain, as `Text`: empty removes it.
     Domain,
 }
@@ -1048,13 +1047,19 @@ mod tests {
         );
         assert_eq!(
             parse(
-                json!({"serviceId": "svc", "type": "setting", "field": "domains", "value": ["a.example"]})
+                json!({"serviceId": "svc", "type": "setting", "field": "domain", "value": "demo"})
             ),
             Some(NewChangeDto::Setting {
                 service_id: "svc".to_owned(),
-                field: SettingField::Domains,
-                value: SettingValueDto::List(vec!["a.example".to_owned()]),
+                field: SettingField::Domain,
+                value: SettingValueDto::Text("demo".to_owned()),
             })
+        );
+        assert_eq!(
+            parse(
+                json!({"serviceId": "svc", "type": "setting", "field": "domains", "value": ["a.example"]})
+            ),
+            None
         );
         assert_eq!(
             parse(

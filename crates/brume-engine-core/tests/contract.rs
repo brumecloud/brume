@@ -663,10 +663,6 @@ fn settings_are_validated_when_staged() {
     let service = world.service.clone();
     for (field, value) in [
         (
-            SettingField::Domains,
-            SettingValueDto::List(vec!["a.com".to_owned()]),
-        ),
-        (
             SettingField::Repository,
             SettingValueDto::Text("org/app".to_owned()),
         ),

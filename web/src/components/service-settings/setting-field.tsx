@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 interface SettingFieldProps {
   readonly label: string;
-  readonly description?: string;
+  readonly description?: ReactNode;
   // Next to the label, such as a badge.
   readonly aside?: ReactNode;
   // A value waits for the next deploy: the control gets a blue outline.
