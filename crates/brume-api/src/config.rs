@@ -93,7 +93,7 @@ fn local_hosts(port: u16) -> [String; 2] {
 }
 
 /// `/etc/brume/api.toml`: how a host reaches the panel. `brume install` writes it, `brume api
-/// --system` and `brume login` read it.
+/// --system` and `brume admin login` read it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ApiFileConfig {
@@ -108,7 +108,7 @@ pub struct ApiFileConfig {
     /// tunnel, which `tailscale serve` does not pass through.
     #[serde(default)]
     pub tailscale_logins: Vec<String>,
-    /// The panel's URL, such as `https://brume.tail1234.ts.net`, for the links of `brume
+    /// The panel's URL, such as `https://brume.tail1234.ts.net`, for the links of `brume admin
     /// login`. Empty for an SSH tunnel.
     #[serde(default)]
     pub public_url: String,

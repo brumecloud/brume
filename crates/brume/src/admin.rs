@@ -1,5 +1,5 @@
-//! Requests to the engine on `admin.sock`, from commands run as root on the host, such as
-//! `brume login`.
+//! Requests to the engine on `admin.sock`, from commands run as root on the host: `brume admin
+//! login` and `brume install`.
 
 use std::io::{ErrorKind, Read as _, Write as _};
 use std::os::unix::net::UnixStream;
