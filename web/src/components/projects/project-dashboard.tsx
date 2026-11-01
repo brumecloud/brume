@@ -32,7 +32,11 @@ export function ProjectDashboard({ search }: { readonly search: ProjectsSearch }
               <FolderSearchIcon />
             </EmptyMedia>
             <EmptyTitle>No projects</EmptyTitle>
-            <EmptyDescription>No projects match this search.</EmptyDescription>
+            <EmptyDescription>
+              {projects.length === 0
+                ? "Create a project to deploy your first service."
+                : "No projects match this search."}
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}
