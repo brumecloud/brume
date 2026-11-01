@@ -148,10 +148,13 @@ pub fn desired_state(
                 internal: true,
                 environment_id: service.environment.to_string(),
             });
+            // Traefik is on every edge network, and Docker's DNS answers a name from the
+            // first network that knows it: the target is the edge network's name, unique on
+            // the machine, never the slug, which another environment can share.
             routes.push(IngressRoute {
                 host,
+                target: network.clone(),
                 network,
-                target: service.slug.to_string(),
                 port,
             });
         }
@@ -269,11 +272,13 @@ fn container(
             aliases: Vec::new(),
         });
     }
-    // Traefik reaches the container that holds the alias on the service's edge network.
+    // Traefik reaches the container that holds the alias on the service's edge network, by
+    // the network's own name, unique on the machine.
     if alias && public_host(world, deployment).is_some() {
+        let edge = edge_network(service.id.as_str());
         networks.push(NetworkAttachment {
-            network: edge_network(service.id.as_str()),
-            aliases: vec![service.slug.to_string()],
+            aliases: vec![edge.clone()],
+            network: edge,
         });
     }
 

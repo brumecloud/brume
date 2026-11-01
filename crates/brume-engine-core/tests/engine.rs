@@ -1483,8 +1483,9 @@ fn desired_state_routes_service_with_domain() {
     let deployment = newest_deployment(&mut harness, &service);
     let state = harness.activate(&deployment, &[]);
 
-    // then its container joins its own internal edge network under its slug, and the entry
-    // routes `demo.example.com` there;
+    // then its container joins its own internal edge network under that network's name, unique
+    // on the machine (Traefik is on every edge network, so a slug could resolve to another
+    // environment's service), and the entry routes `demo.example.com` there;
     let edge = edge_network(&service);
     assert_eq!(edge, format!("brume-edge-{service}"));
     assert!(state.networks.contains(&NetworkSpec {
@@ -1498,7 +1499,7 @@ fn desired_state_routes_service_with_domain() {
         container.networks.last(),
         Some(&NetworkAttachment {
             network: edge.clone(),
-            aliases: vec!["nginx".to_owned()],
+            aliases: vec![edge.clone()],
         })
     );
     assert_eq!(
@@ -1508,7 +1509,7 @@ fn desired_state_routes_service_with_domain() {
             routes: vec![IngressRoute {
                 host: "demo.example.com".to_owned(),
                 network: edge.clone(),
-                target: "nginx".to_owned(),
+                target: edge.clone(),
                 port: 8080,
             }],
         })
