@@ -6,5 +6,6 @@
 pub mod backoff;
 pub mod config;
 pub mod health;
+pub mod ingress;
 pub mod observed;
 pub mod plan;

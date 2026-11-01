@@ -1,10 +1,16 @@
 //! The Docker config of a container, built by allowlist: every field Brume sets is fixed here,
 //! nothing is copied as is from the desired state, and every other Docker field keeps its
 //! default. The shell translates it to bollard's types without adding anything.
+//!
+//! An app container comes from the engine's `ContainerSpec`, through `container_config`. The
+//! agent's own components (Traefik and cloudflared, in `ingress`) get a user, a read-only root
+//! file system, fixed addresses and, for Traefik, a read-only mount of a host directory: an app
+//! container never gets them, as `container_config` sets none.
 
 use std::collections::BTreeMap;
 
-use brume_proto::agent::{ContainerSpec, EnvValue, EnvVar, NetworkAttachment};
+use brume_proto::agent::{ContainerSpec, EnvValue, EnvVar};
+use secrecy::ExposeSecret;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -18,6 +24,8 @@ pub const LABEL_SERVICE: &str = "brume.service";
 pub const LABEL_DEPLOYMENT: &str = "brume.deployment";
 /// The hash of a container's config, without secret values: a different hash replaces it.
 pub const LABEL_CONFIG_HASH: &str = "brume.config-hash";
+/// The component of Brume that a container runs, such as `traefik`. App containers lack it.
+pub const LABEL_COMPONENT: &str = "brume.component";
 
 /// The network mode of a container without networks: no network at all, never Docker's bridge.
 pub const NO_NETWORK: &str = "none";
@@ -43,6 +51,25 @@ const PIDS_LIMIT: i64 = 512;
 const BYTES_PER_MIB: i64 = 1024 * 1024;
 const NANO_CPUS_PER_MILLI: i64 = 1_000_000;
 
+/// A container that the agent runs for Brume itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Component {
+    /// Routes each public host to its service.
+    Traefik,
+    /// Runs the Cloudflare tunnel, and hands every request to Traefik.
+    Cloudflared,
+}
+
+impl Component {
+    /// The value of its `brume.component` label.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Traefik => "traefik",
+            Self::Cloudflared => "cloudflared",
+        }
+    }
+}
+
 /// The config of a container: every Docker field that Brume sets, and nothing else.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ContainerConfig {
@@ -56,12 +83,16 @@ pub struct ContainerConfig {
     pub skipped_env: u32,
     /// `Cmd`: the argv, or `None` to keep the image's.
     pub cmd: Option<Vec<String>>,
+    /// `User`, as `uid:gid`, or `None` to keep the image's. A component's only.
+    pub user: Option<String>,
     pub labels: BTreeMap<String, String>,
     /// `StopTimeout`.
     pub stop_timeout_secs: u32,
     pub host_config: HostConfig,
     /// `NetworkingConfig.EndpointsConfig`: every network, with the container's aliases on it.
-    pub endpoints: Vec<NetworkAttachment>,
+    pub endpoints: Vec<Endpoint>,
+    /// The component it runs, or `None` for an app container.
+    pub component: Option<Component>,
 }
 
 impl ContainerConfig {
@@ -73,7 +104,17 @@ impl ContainerConfig {
     }
 }
 
-/// `HostConfig`.
+/// A network in `NetworkingConfig.EndpointsConfig`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Endpoint {
+    pub network: String,
+    pub aliases: Vec<String>,
+    /// `IPAMConfig.IPv4Address`: a fixed address on the network. A component's only.
+    pub ipv4_address: Option<String>,
+}
+
+/// `HostConfig`. The fields that only components set are left out of the config hash when
+/// unset, so that the hash of an app container stays the same across versions of the agent.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct HostConfig {
     /// `NetworkMode`: the first network, or `none`.
@@ -89,10 +130,21 @@ pub struct HostConfig {
     pub pids_limit: i64,
     pub restart_policy: RestartPolicy,
     pub log_config: LogConfig,
-    /// Named volumes only: never a bind mount of the host.
+    /// Named volumes only.
     pub mounts: Vec<VolumeMount>,
     pub privileged: bool,
     pub publish_all_ports: bool,
+    /// `ReadonlyRootfs`. A component's only.
+    #[serde(skip_serializing_if = "is_false")]
+    pub readonly_rootfs: bool,
+    /// Read-only bind mounts of a directory that the agent owns: a component's only, and never
+    /// any other directory of the host.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub binds: Vec<BindMount>,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// `HostConfig.RestartPolicy`.
@@ -109,6 +161,22 @@ pub struct LogConfig {
     pub options: BTreeMap<String, String>,
 }
 
+/// A directory of the host that a component mounts. The shell knows its path: the config
+/// cannot name any other.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub enum HostDir {
+    /// Where the agent writes Traefik's config, `Paths::traefik_dir`.
+    TraefikConfig,
+}
+
+/// A read-only bind mount in `HostConfig.Mounts`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct BindMount {
+    pub source: HostDir,
+    /// An absolute path in the container.
+    pub target: String,
+}
+
 /// A named volume in `HostConfig.Mounts`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct VolumeMount {
@@ -118,25 +186,84 @@ pub struct VolumeMount {
     pub target: String,
 }
 
-/// Builds the config of `spec`'s container, field by field.
+/// Builds the config of `spec`'s app container, field by field.
 ///
 /// A zero CPU or memory limit becomes the smallest one, which Docker refuses, rather than
 /// Docker's zero, which means no limit. A variable whose name is not a POSIX one is left out,
 /// and counted in `skipped_env`.
 pub fn container_config(spec: &ContainerSpec) -> ContainerConfig {
-    let network_mode = spec
+    let endpoints: Vec<Endpoint> = spec
         .networks
+        .iter()
+        .map(|attachment| Endpoint {
+            network: attachment.network.clone(),
+            aliases: attachment.aliases.clone(),
+            ipv4_address: None,
+        })
+        .collect();
+    let host_config = HostConfig {
+        cap_add: CAP_ADD.iter().map(|cap| (*cap).to_owned()).collect(),
+        mounts: spec
+            .mounts
+            .iter()
+            .map(|mount| VolumeMount {
+                source: mount.volume.clone(),
+                target: mount.path.clone(),
+            })
+            .collect(),
+        ..locked_host_config(&endpoints, spec.cpu_millis, spec.memory_mb)
+    };
+    let env: Vec<EnvVar> = spec
+        .env
+        .iter()
+        .filter(|var| is_env_name(&var.name))
+        .cloned()
+        .collect();
+    let skipped_env = u32::try_from(spec.env.len() - env.len()).unwrap_or(u32::MAX);
+    let config = ContainerConfig {
+        name: spec.name.clone(),
+        image: spec.image.clone(),
+        env,
+        skipped_env,
+        cmd: spec.command.clone(),
+        user: None,
+        labels: BTreeMap::from([
+            (LABEL_MANAGED.to_owned(), "1".to_owned()),
+            (LABEL_ENVIRONMENT.to_owned(), spec.environment_id.clone()),
+            (LABEL_SERVICE.to_owned(), spec.service_id.clone()),
+            (LABEL_DEPLOYMENT.to_owned(), spec.deployment_id.clone()),
+        ]),
+        stop_timeout_secs: spec.stop_timeout_secs,
+        host_config,
+        endpoints,
+        component: None,
+    };
+    with_hash(config)
+}
+
+/// The `HostConfig` of a container on `endpoints`, with what every container of Brume shares:
+/// all capabilities dropped, no new privileges, CPU, memory and pids limits, no restart policy,
+/// bounded logs, no privileges, no published ports, and nothing mounted.
+///
+/// A zero CPU or memory limit becomes the smallest one, which Docker refuses, rather than
+/// Docker's zero, which means no limit.
+pub(crate) fn locked_host_config(
+    endpoints: &[Endpoint],
+    cpu_millis: u32,
+    memory_mb: u32,
+) -> HostConfig {
+    let network_mode = endpoints
         .first()
         .map_or_else(|| NO_NETWORK.to_owned(), |first| first.network.clone());
-    let memory_bytes = i64::from(spec.memory_mb.max(1)) * BYTES_PER_MIB;
-    let host_config = HostConfig {
+    let memory_bytes = i64::from(memory_mb.max(1)) * BYTES_PER_MIB;
+    HostConfig {
         network_mode,
         cap_drop: vec!["ALL".to_owned()],
-        cap_add: CAP_ADD.iter().map(|cap| (*cap).to_owned()).collect(),
+        cap_add: Vec::new(),
         security_opt: vec!["no-new-privileges:true".to_owned()],
         memory_bytes,
         memory_swap_bytes: memory_bytes,
-        nano_cpus: i64::from(spec.cpu_millis.max(1)) * NANO_CPUS_PER_MILLI,
+        nano_cpus: i64::from(cpu_millis.max(1)) * NANO_CPUS_PER_MILLI,
         pids_limit: PIDS_LIMIT,
         restart_policy: RestartPolicy::No,
         log_config: LogConfig {
@@ -146,40 +273,17 @@ pub fn container_config(spec: &ContainerSpec) -> ContainerConfig {
                 ("max-size".to_owned(), "10m".to_owned()),
             ]),
         },
-        mounts: spec
-            .mounts
-            .iter()
-            .map(|mount| VolumeMount {
-                source: mount.volume.clone(),
-                target: mount.path.clone(),
-            })
-            .collect(),
+        mounts: Vec::new(),
         privileged: false,
         publish_all_ports: false,
-    };
-    let env: Vec<EnvVar> = spec
-        .env
-        .iter()
-        .filter(|var| is_env_name(&var.name))
-        .cloned()
-        .collect();
-    let skipped_env = u32::try_from(spec.env.len() - env.len()).unwrap_or(u32::MAX);
-    let mut config = ContainerConfig {
-        name: spec.name.clone(),
-        image: spec.image.clone(),
-        env,
-        skipped_env,
-        cmd: spec.command.clone(),
-        labels: BTreeMap::from([
-            (LABEL_MANAGED.to_owned(), "1".to_owned()),
-            (LABEL_ENVIRONMENT.to_owned(), spec.environment_id.clone()),
-            (LABEL_SERVICE.to_owned(), spec.service_id.clone()),
-            (LABEL_DEPLOYMENT.to_owned(), spec.deployment_id.clone()),
-        ]),
-        stop_timeout_secs: spec.stop_timeout_secs,
-        host_config,
-        endpoints: spec.networks.clone(),
-    };
+        readonly_rootfs: false,
+        binds: Vec::new(),
+    }
+}
+
+/// `config` with its `brume.config-hash` label.
+pub(crate) fn with_hash(mut config: ContainerConfig) -> ContainerConfig {
+    config.labels.remove(LABEL_CONFIG_HASH);
     let hash = config_hash(&config);
     config.labels.insert(LABEL_CONFIG_HASH.to_owned(), hash);
     config
@@ -197,7 +301,8 @@ fn is_env_name(name: &str) -> bool {
 /// What the config hash covers: the whole config except secret values, aliases and the
 /// networks after the first. Those change on a live container (`Reattach`, `Disconnect`), so
 /// that egress comes and goes without a restart; the first network is the network mode, in
-/// `host_config`, and everything else needs a new container.
+/// `host_config`, and everything else needs a new container. The fields that only components
+/// set are left out when unset: the hash of an app container does not depend on them.
 #[derive(Serialize)]
 struct HashInput<'a> {
     name: &'a str,
@@ -207,15 +312,29 @@ struct HashInput<'a> {
     labels: &'a BTreeMap<String, String>,
     stop_timeout_secs: u32,
     host_config: &'a HostConfig,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    user: Option<&'a str>,
+    /// The fixed address on each network that has one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    addresses: Vec<(&'a str, &'a str)>,
 }
 
-/// A variable in the hash. A secret contributes its name only: its value must not leak through
-/// a label, and a new version only reaches a container through a new deployment, whose id is in
-/// the labels.
+/// A variable in the hash. An app's secret contributes its name only: its value must not leak
+/// through a label, and a new version only reaches a container through a new deployment, whose
+/// id is in the labels. A component's secret, the tunnel token, has no deployment: its SHA-256
+/// stands for it, so that a new token replaces the container. The token is random and long, so
+/// its hash gives nothing away, and `docker inspect` shows the token itself anyway.
 #[derive(Serialize)]
 enum HashedEnv<'a> {
-    Plain { name: &'a str, value: &'a str },
-    Secret { name: &'a str },
+    Plain {
+        name: &'a str,
+        value: &'a str,
+    },
+    Secret {
+        name: &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        sha256: Option<String>,
+    },
 }
 
 /// The SHA-256 of `config` without its hash label, in lowercase hexadecimal.
@@ -231,13 +350,29 @@ fn config_hash(config: &ContainerConfig) -> String {
                     name: &var.name,
                     value,
                 },
-                EnvValue::Secret(_) => HashedEnv::Secret { name: &var.name },
+                EnvValue::Secret(secret) => HashedEnv::Secret {
+                    name: &var.name,
+                    sha256: config
+                        .component
+                        .map(|_| hex::encode(Sha256::digest(secret.expose_secret().as_bytes()))),
+                },
             })
             .collect(),
         cmd: config.cmd.as_deref(),
         labels: &config.labels,
         stop_timeout_secs: config.stop_timeout_secs,
         host_config: &config.host_config,
+        user: config.user.as_deref(),
+        addresses: config
+            .endpoints
+            .iter()
+            .filter_map(|endpoint| {
+                endpoint
+                    .ipv4_address
+                    .as_deref()
+                    .map(|address| (endpoint.network.as_str(), address))
+            })
+            .collect(),
     };
     let json = serde_json::to_vec(&input).expect("plain structs and strings always serialize");
     hex::encode(Sha256::digest(&json))

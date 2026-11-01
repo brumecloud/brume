@@ -74,12 +74,14 @@ pub fn desired_state(
             name: environment_network(environment.id.as_str()),
             internal: true,
             environment_id: environment.id.to_string(),
+            subnet: None,
         });
         if egress {
             networks.push(NetworkSpec {
                 name: egress_network(environment.id.as_str()),
                 internal: false,
                 environment_id: environment.id.to_string(),
+                subnet: None,
             });
         }
     }
@@ -147,6 +149,7 @@ pub fn desired_state(
                 name: network.clone(),
                 internal: true,
                 environment_id: service.environment.to_string(),
+                subnet: None,
             });
             // Traefik is on every edge network, and Docker's DNS answers a name from the
             // first network that knows it: the target is the edge network's name, unique on

@@ -1492,6 +1492,7 @@ fn desired_state_routes_service_with_domain() {
         name: edge.clone(),
         internal: true,
         environment_id: environment.clone(),
+        subnet: None,
     }));
     let container = &state.containers[0];
     assert_eq!(container.networks[0].aliases, vec!["nginx"]);

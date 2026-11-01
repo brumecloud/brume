@@ -34,6 +34,28 @@ impl DockerSnapshot {
     pub fn volume(&self, name: &str) -> Option<&SnapVolume> {
         self.volumes.iter().find(|volume| volume.name == name)
     }
+
+    /// Whether Docker has the image `reference`, `name@sha256:…` or `name:tag@sha256:…`. Docker
+    /// lists an image by its repository and digest only: a tag beside the digest is left out.
+    pub fn has_image(&self, reference: &str) -> bool {
+        let wanted = without_tag(reference);
+        self.images.iter().any(|image| without_tag(image) == wanted)
+    }
+}
+
+/// A digest reference without the tag of its last path component: `traefik:v3@sha256:…` gives
+/// `traefik@sha256:…`. A registry's port, before a `/`, stays. Any other reference is returned
+/// as is.
+fn without_tag(reference: &str) -> String {
+    let Some((name, digest)) = reference.split_once('@') else {
+        return reference.to_owned();
+    };
+    let start = name.rfind('/').map_or(0, |slash| slash + 1);
+    let repository = match name[start..].find(':') {
+        Some(colon) => &name[..start + colon],
+        None => name,
+    };
+    format!("{repository}@{digest}")
 }
 
 /// A Docker network.
@@ -44,6 +66,8 @@ pub struct SnapNetwork {
     pub internal: bool,
     /// It has the label `brume.managed=1`. No container of Brume joins a network without it.
     pub managed: bool,
+    /// The subnets of its IPAM config, in CIDR form.
+    pub subnets: Vec<String>,
 }
 
 /// A Docker volume.
@@ -88,4 +112,29 @@ pub enum SnapState {
     },
     /// Paused, restarting, being removed or dead.
     Other,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DockerSnapshot;
+
+    #[test]
+    fn an_image_matches_its_digest_with_or_without_a_tag() {
+        let snapshot = DockerSnapshot {
+            images: vec![
+                "traefik@sha256:aa".to_owned(),
+                "localhost:5000/team/app@sha256:bb".to_owned(),
+            ],
+            ..DockerSnapshot::default()
+        };
+        assert!(snapshot.has_image("traefik@sha256:aa"));
+        assert!(snapshot.has_image("traefik:v3.7.17@sha256:aa"));
+        assert!(snapshot.has_image("localhost:5000/team/app:1.0@sha256:bb"));
+        assert!(snapshot.has_image("localhost:5000/team/app@sha256:bb"));
+        // Another digest, another repository, or no digest at all: missing.
+        assert!(!snapshot.has_image("traefik:v3.7.17@sha256:cc"));
+        assert!(!snapshot.has_image("other:v3@sha256:aa"));
+        assert!(!snapshot.has_image("localhost:5000/team/app:1.0"));
+        assert!(!snapshot.has_image("traefik"));
+    }
 }
