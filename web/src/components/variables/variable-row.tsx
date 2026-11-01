@@ -35,7 +35,7 @@ export function VariableRow({ serviceId, row }: VariableRowProps) {
   });
   const removal = useMutation({ mutationFn: stageChange });
   // A reference has no value of its own: the shared secret resolves at deploy time.
-  const shared = Boolean(variable?.reference) && !draft;
+  const shared = row.reference && draft !== "removed";
   const revealable = row.kind === "secret" && variable && !draft && !shared;
 
   return (

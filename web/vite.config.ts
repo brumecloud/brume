@@ -65,10 +65,10 @@ export default defineConfig({
     alias: { "~": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   fmt: {
-    ignorePatterns: ["dist/**", "src/routeTree.gen.ts", "pnpm-lock.yaml"],
+    ignorePatterns: ["dist/**", "src/routeTree.gen.ts", "src/api/generated.ts", "pnpm-lock.yaml"],
   },
   lint: {
-    ignorePatterns: ["dist/**", "src/routeTree.gen.ts"],
+    ignorePatterns: ["dist/**", "src/routeTree.gen.ts", "src/api/generated.ts"],
     plugins: ["eslint", "oxc", "react", "unicorn", "typescript"],
     jsPlugins: ["./oxlint-plugin/index.ts", "@shadcn/lint"],
     settings: { shadcn: { ui: "~/components/ui" } },

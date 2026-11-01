@@ -573,7 +573,9 @@ export function stageChange(raw: unknown): string | StagedChange {
       : change.type !== "setting" && change.name === input.name);
   db.changes = db.changes.filter((change) => !sameTarget(change));
   const change: StagedChange = {
-    ...input,
+    ...(input.type === "variable"
+      ? { ...input, reference: input.kind === "secret" && input.value === null }
+      : input),
     id: crypto.randomUUID() as ChangeId,
     environmentId: service.environmentId,
   };
@@ -636,8 +638,7 @@ function applyVariableChange(change: StagedChange): void {
   if (change.type === "variable-removal") {
     return;
   }
-  // A secret staged without a value references the shared one of the same name.
-  const reference = change.kind === "secret" && change.value === null;
+  const { reference } = change;
   const variable: Variable = {
     id: existing?.id ?? (crypto.randomUUID() as VariableId),
     level: "service",
