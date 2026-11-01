@@ -224,6 +224,9 @@ struct Api {
 impl Api {
     /// Logs in with the link's token.
     async fn login(dev: &Dev) -> Self {
+        // reqwest is built without a default TLS provider (see the workspace Cargo.toml): even a
+        // plain-HTTP client needs one installed.
+        let _ = rustls::crypto::ring::default_provider().install_default();
         let http = reqwest::Client::new();
         let base = format!("http://127.0.0.1:{}", dev.port);
         let response = http
