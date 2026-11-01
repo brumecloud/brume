@@ -10,10 +10,13 @@
 #
 # Usage, on the host, as root (it reads the containers with docker):
 #   sudo scripts/dev/demo-deploy.sh [<login link or token>] [--clean]
+#     [--domain <subdomain> | --no-domain]
 #
 # Without a link, it asks `brume admin login` for one. A second run reuses what the first one
 # created and deploys only what differs. --clean deletes the three services and the shared
-# secret first, the database with them. Needs curl and jq (`apt-get install -y jq`).
+# secret first, the database with them. --domain gives web the public domain
+# <subdomain>.<zone>, which needs `brume install --domain <zone>`; --no-domain removes it.
+# Without either, web's domain is left as it is. Needs curl and jq (`apt-get install -y jq`).
 set -euo pipefail
 # A failure inside $(…) stops the script too.
 shopt -s inherit_errexit
@@ -36,17 +39,28 @@ step() {
   printf '\n==> %s\n' "$*"
 }
 
+command -v jq >/dev/null || die "jq is missing: apt-get install -y jq"
+
 clean=0
 link=
-for arg in "$@"; do
-  case $arg in
+# web's domain setting, as JSON: a subdomain, "" to remove it; unset to leave it.
+domain=
+while [[ $# -gt 0 ]]; do
+  case $1 in
     --clean) clean=1 ;;
-    -*) die "unknown option: $arg" ;;
-    *) link=$arg ;;
+    --domain)
+      [[ $# -ge 2 ]] || die "--domain needs a subdomain, such as --domain demo"
+      domain=$(jq -n --arg sub "$2" '$sub')
+      shift
+      ;;
+    --domain=*) domain=$(jq -n --arg sub "${1#--domain=}" '$sub') ;;
+    --no-domain) domain='""' ;;
+    -*) die "unknown option: $1" ;;
+    *) link=$1 ;;
   esac
+  shift
 done
 [[ $(id -u) == 0 ]] || die "run it as root, with sudo: it reads the containers with docker"
-command -v jq >/dev/null || die "jq is missing: apt-get install -y jq"
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -176,10 +190,12 @@ db=$(ensure_service db "$DB_IMAGE")
 api_service=$(ensure_service api "$API_IMAGE")
 web=$(ensure_service web "$WEB_IMAGE")
 
-# stage_setting SERVICE FIELD VALUE_JSON: stages the setting if it differs.
+# stage_setting SERVICE FIELD VALUE_JSON: stages the setting if it differs. An empty text
+# removes a setting, which then reads null.
 stage_setting() {
   local current
-  current=$(api GET "/api/services/$1/settings" | jq -c --arg field "$2" '.[$field]')
+  current=$(api GET "/api/services/$1/settings" | jq -c --arg field "$2" \
+    '.[$field] | if . == null then "" else . end')
   if [[ $current != "$3" ]]; then
     post /api/changes "$(jq -nc --arg service "$1" --arg field "$2" --argjson value "$3" \
       '{type: "setting", serviceId: $service, field: $field, value: $value}')" >/dev/null
@@ -214,6 +230,9 @@ stage_variable "$api_service" DATABASE_URL plain "$(jq -n --arg url "$DATABASE_U
 stage_variable "$api_service" POSTGRES_PASSWORD secret null
 stage_setting "$web" port 8080
 stage_setting "$web" healthcheckPath '"/healthz"'
+if [[ -n $domain ]]; then
+  stage_setting "$web" domain "$domain"
+fi
 
 staged=$(api GET /api/changes | jq --arg env "$environment" '[.[] | select(.environmentId == $env)] | length')
 if [[ $staged -gt 0 ]]; then
@@ -326,3 +345,7 @@ for pair in "db:$db" "api:$api_service" "web:$web"; do
 done
 
 printf '\nThe demo runs, checked in %ds.\n' $((SECONDS - start))
+sub=$(api GET "/api/services/$web/settings" | jq -r '.domain // empty')
+if [[ -n $sub ]]; then
+  echo "Public: https://$sub.$(api GET /api/ingress | jq -r .zone)/"
+fi
