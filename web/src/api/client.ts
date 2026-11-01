@@ -54,7 +54,7 @@ async function request<T>(
 // which reloads the app and its caches.
 let leaving = false;
 
-function redirectToLogin(): void {
+export function redirectToLogin(): void {
   if (!leaving) {
     leaving = true;
     window.location.assign("/login");
