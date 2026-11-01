@@ -1,23 +1,32 @@
 #!/bin/sh
-# brume.dev/install.sh, until the first release of Brume.
+# Installs Brume 0.1.0-alpha.1 on this server:
+#   curl -sSL https://brume.dev/install.sh | sudo bash -s -- --domain <zone>
 #
-# This placeholder installs nothing: it says Brume is not out yet, and exits 1 so that a script
-# or an AI agent running `curl -sSL https://brume.dev/install.sh | bash` sees it failed.
-# On the first release, site/vercel.json redirects /install.sh to the script of the latest
-# GitHub release again, and this file goes away: see site/README.md, "Hosting".
+# Downloads the archive for this machine from the GitHub release, checks it against the SHA-256
+# written below, puts it in /usr/local/lib/brume, links /usr/local/bin/brume, then runs
+# `brume install` with this script's arguments: everything else is done there, in Rust.
+# BRUME_DOWNLOAD_BASE replaces the download URL (file:// works); the SHA-256 is checked anyway.
+#
+# Everything runs in main(), called on the last line: a cut download runs nothing.
 
-if [ -t 1 ]; then
-  white=$(printf '\033[97m')
-  blue=$(printf '\033[94m')
-  dim=$(printf '\033[2m')
-  bold=$(printf '\033[1m')
-  reset=$(printf '\033[0m')
-else
-  white='' blue='' dim='' bold='' reset=''
-fi
+main() {
+  set -eu
+  # A stricter umask from sudo would leave /usr/local/lib/brume closed to the service users.
+  umask 022
+  version='0.1.0-alpha.1'
+  sha256_arm64='b0b05e508f614f3b64510dec4bb12318ee12ae727191c6bc37475c6c31621228'
+  sha256_amd64='071dab087234af4c126243c737b30404edae84f3f424064dfebd997ac9fa2bca'
+  base="${BRUME_DOWNLOAD_BASE:-https://github.com/brumecloud/brume/releases/download/v$version}"
 
-printf '\n%s' "$white"
-cat <<'CLOUD'
+  if [ -t 1 ]; then
+    white=$(printf '\033[97m') blue=$(printf '\033[94m') dim=$(printf '\033[2m')
+    bold=$(printf '\033[1m') reset=$(printf '\033[0m')
+  else
+    white='' blue='' dim='' bold='' reset=''
+  fi
+
+  printf '\n%s' "$white"
+  cat <<'CLOUD'
                 .-~~~-.
         .-~~~-./       \.-~~-.
        /                      \
@@ -25,17 +34,65 @@ cat <<'CLOUD'
    (                              )
     '-.________________________.-'
 CLOUD
-printf '%s' "$blue"
-cat <<'MIST'
+  printf '%s' "$blue"
+  cat <<'MIST'
   ~  ~~~ ~   ~~  ~~~~  ~  ~~~  ~~ ~
      ~~ ~  ~~~~  ~ ~~ ~~~  ~~  ~
 MIST
-printf '%s\n' "$reset"
-printf '  %sbrume%s %s· just push it%s\n\n' "$bold" "$reset" "$dim" "$reset"
-printf '  Brume is not out yet: alpha 0.1 is in progress.\n'
-printf '  Nothing was installed.\n\n'
-printf '  Watch the repository to know when it ships:\n'
-printf '  %shttps://github.com/brumecloud/brume%s\n\n' "$bold" "$reset"
-printf '  %sMeanwhile, see how it works: https://brume.dev/architecture%s\n\n' "$dim" "$reset"
+  printf '%s\n' "$reset"
+  printf '  %sbrume%s %s· just push it%s\n\n' "$bold" "$reset" "$dim" "$reset"
 
-exit 1
+  [ "$(id -u)" = 0 ] || fail "run it as root: curl -sSL https://brume.dev/install.sh | sudo bash -s -- $*"
+  case "$(uname -m)" in
+    aarch64 | arm64) arch=arm64 sha256=$sha256_arm64 ;;
+    x86_64 | amd64) arch=amd64 sha256=$sha256_amd64 ;;
+    *) fail "Brume runs on arm64 and amd64, not on $(uname -m)" ;;
+  esac
+  [ -n "$sha256" ] || fail "Brume $version has no archive for $arch"
+  for tool in curl tar sha256sum; do
+    command -v "$tool" >/dev/null || fail "$tool is missing"
+  done
+
+  archive="brume-$version-linux-$arch.tar.gz"
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+
+  say "Downloading $archive"
+  curl -fsSL -o "$tmp/$archive" "$base/$archive" || fail "could not download $base/$archive"
+  say "Checking its SHA-256"
+  echo "$sha256  $tmp/$archive" | sha256sum -c --status - ||
+    fail "$archive does not match the SHA-256 of Brume $version: nothing was installed"
+
+  # The same files, byte for byte, stay in place: a replaced binary makes brume install restart
+  # the services that run it.
+  mkdir "$tmp/brume"
+  tar -xzf "$tmp/$archive" -C "$tmp/brume" --strip-components=1 --no-same-owner
+  if diff -r -q "$tmp/brume" /usr/local/lib/brume >/dev/null 2>&1; then
+    say "Brume $version is already in /usr/local/lib/brume"
+  else
+    say "Installing it in /usr/local/lib/brume"
+    install -d -m 0755 /usr/local/lib/brume
+    tar -xzf "$tmp/$archive" -C /usr/local/lib/brume --strip-components=1 --no-same-owner
+  fi
+  ln -sfn /usr/local/lib/brume/brume /usr/local/bin/brume
+  rm -rf "$tmp"
+  trap - EXIT
+
+  say "Running brume install"
+  # Piped into sh, stdin is this script: brume install reads the terminal instead, if any.
+  if (: </dev/tty) 2>/dev/null; then
+    exec /usr/local/bin/brume install "$@" </dev/tty
+  fi
+  exec /usr/local/bin/brume install "$@"
+}
+
+say() {
+  printf '  %s→%s %s\n' "$blue" "$reset" "$1"
+}
+
+fail() {
+  printf '  %serror:%s %s\n' "$bold" "$reset" "$1" >&2
+  exit 1
+}
+
+main "$@"

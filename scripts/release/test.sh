@@ -83,7 +83,7 @@ EOF
     check "$arch install.sh ${tty:-without tty}: installs, then runs brume install" "$out" has \
       'Running brume install' \
       '^link=/usr/local/lib/brume/brume$' \
-      '^lib=brume libduckdb\.so $' \
+      '^lib=LICENSE-duckdb\.txt LICENSE\.md brume libduckdb\.so $' \
       '^tmp=$' \
       "^brume $version\$"
     printf '%s\n' "$out" | grep -A 3 'Running brume install' | sed 's/^/      | /'
