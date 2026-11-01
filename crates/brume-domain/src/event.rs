@@ -12,7 +12,8 @@ use crate::model::{
     VariableOwner,
 };
 use crate::names::{
-    ContainerPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug, VarName, Zone,
+    ContainerPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug, Subdomain, VarName,
+    Zone,
 };
 use crate::time::Timestamp;
 
@@ -97,6 +98,11 @@ pub enum Event {
         service: ServiceId,
         egress: bool,
     },
+    /// The service's public subdomain is set, changed or removed.
+    ServiceDomainChanged {
+        service: ServiceId,
+        domain: Option<Subdomain>,
+    },
     SharedVariableSet {
         variable: VariableId,
         owner: VariableOwner,
@@ -170,6 +176,7 @@ impl Event {
             Self::ServiceDeleted { .. } => "ServiceDeleted",
             Self::ServiceSpecChanged { .. } => "ServiceSpecChanged",
             Self::ServiceEgressChanged { .. } => "ServiceEgressChanged",
+            Self::ServiceDomainChanged { .. } => "ServiceDomainChanged",
             Self::SharedVariableSet { .. } => "SharedVariableSet",
             Self::SharedVariableRemoved { .. } => "SharedVariableRemoved",
             Self::SecretVersionAdded { .. } => "SecretVersionAdded",
@@ -200,6 +207,7 @@ impl Event {
             | Self::ServiceDeleted { service }
             | Self::ServiceSpecChanged { service, .. }
             | Self::ServiceEgressChanged { service, .. }
+            | Self::ServiceDomainChanged { service, .. }
             | Self::RevisionCreated { service, .. } => format!("service:{service}"),
             Self::SharedVariableSet { variable, .. }
             | Self::SharedVariableRemoved { variable }

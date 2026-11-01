@@ -228,11 +228,11 @@ impl<S: Storage> Engine<S> {
             slug: service.slug.to_string(),
             kind: ServiceKindDto::Image,
             status: self.service_status(&service.id),
-            // The public host that the active deployment serves.
+            // The service's public host, once its active deployment serves it.
             domains: self
                 .world
                 .active_deployment(&service.id)
-                .and_then(|active| public_host(&self.world, active))
+                .and_then(|active| public_host(&self.world, service, active))
                 .map(|(host, _)| host)
                 .into_iter()
                 .collect(),
@@ -315,7 +315,7 @@ impl<S: Storage> Engine<S> {
             cpu_limit: f64::from(spec.cpu.get()) / 1000.0,
             memory_limit_mb: spec.memory.get(),
             egress: service.egress,
-            domain: spec.domain.as_ref().map(ToString::to_string),
+            domain: service.domain.as_ref().map(ToString::to_string),
         }))
     }
 

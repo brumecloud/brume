@@ -71,6 +71,7 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
                     name: name.clone(),
                     slug: slug.clone(),
                     egress: false,
+                    domain: None,
                     volumes: Vec::new(),
                     spec: spec.clone(),
                     deleted: false,
@@ -88,6 +89,10 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
         }
         Event::ServiceEgressChanged { service, egress } => {
             service_mut(world, service).egress = *egress;
+            touch_service_project(world, service, at);
+        }
+        Event::ServiceDomainChanged { service, domain } => {
+            service_mut(world, service).domain = domain.clone();
             touch_service_project(world, service, at);
         }
         Event::SharedVariableSet {

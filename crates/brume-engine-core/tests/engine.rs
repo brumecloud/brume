@@ -1525,7 +1525,8 @@ fn desired_state_routes_service_with_domain() {
         other => panic!("unexpected {other:?}"),
     }
 
-    // and removing the domain removes the route and the edge network.
+    // and removing the domain removes the route and the edge network at once, like egress:
+    // the setting is the service's, not the deployment's.
     stage(
         &mut harness,
         setting(
@@ -1535,6 +1536,9 @@ fn desired_state_routes_service_with_domain() {
         ),
     );
     deploy_changes(&mut harness, &environment);
+    let state = harness.desired_now();
+    assert_eq!(state.ingress.map(|spec| spec.routes), Some(Vec::new()));
+    assert!(harness.service(&service).domains.is_empty());
     let deployment = newest_deployment(&mut harness, &service);
     let state = harness.activate(&deployment, &[]);
     assert!(state.networks.iter().all(|network| network.name != edge));
@@ -1546,6 +1550,55 @@ fn desired_state_routes_service_with_domain() {
     }));
     assert_eq!(state.ingress.map(|spec| spec.routes), Some(Vec::new()));
     assert!(harness.service(&service).domains.is_empty());
+}
+
+#[test]
+fn rollback_keeps_the_route() {
+    // Given a service deployed with port 8080 and `demo`, then with port 9090 and `shop`,
+    let mut harness = Harness::new();
+    let (service, environment, _) = active_project(&mut harness, &[]);
+    harness.configure_ingress("example.com", TUNNEL_TOKEN);
+    let deploy = |harness: &mut Harness, port: f64, domain: &str| {
+        stage(
+            harness,
+            setting(&service, SettingField::Port, SettingValueDto::Number(port)),
+        );
+        stage(
+            harness,
+            setting(
+                &service,
+                SettingField::Domain,
+                SettingValueDto::Text(domain.to_owned()),
+            ),
+        );
+        deploy_changes(harness, &environment);
+        let deployment = newest_deployment(harness, &service);
+        harness.activate(&deployment, &[]);
+        deployment
+    };
+    let with_demo = deploy(&mut harness, 8080.0, "demo");
+    deploy(&mut harness, 9090.0, "shop");
+
+    // when it rolls back to the first deployment,
+    harness.ok(ApiCall::Rollback {
+        deployment_id: with_demo,
+    });
+    let deployment = newest_deployment(&mut harness, &service);
+    let state = harness.activate(&deployment, &[]);
+
+    // then the route keeps the service's domain, `shop`, to the port of the revision that
+    // runs again, still by the edge network's name.
+    let edge = edge_network(&service);
+    assert_eq!(
+        state.ingress.map(|spec| spec.routes),
+        Some(vec![IngressRoute {
+            host: "shop.example.com".to_owned(),
+            network: edge.clone(),
+            target: edge,
+            port: 8080,
+        }])
+    );
+    assert_eq!(harness.service(&service).domains, vec!["shop.example.com"]);
 }
 
 #[test]
