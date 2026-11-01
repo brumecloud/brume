@@ -263,6 +263,7 @@ async fn login_token(admin_socket: &Path, timeout: Duration) -> anyhow::Result<S
     };
     let cause = match tokio::time::timeout(timeout, ask).await {
         Ok(Ok(AdminReply::LoginLink { token, .. })) => return Ok(token),
+        Ok(Ok(other)) => format!("unexpected answer {other:?}"),
         Ok(Err(cause)) => format!("{cause:#}"),
         Err(_) => format!("no answer within {} ms", timeout.as_millis()),
     };

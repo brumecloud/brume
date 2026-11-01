@@ -35,6 +35,7 @@ const FIELDS: readonly SettingField[] = [
   "memoryLimitMb",
   "egress",
   "domains",
+  "domain",
 ];
 const KINDS: readonly VariableKind[] = ["plain", "build", "secret"];
 
@@ -50,6 +51,7 @@ const FIELD_LABELS: Record<SettingField, string> = {
   memoryLimitMb: "Memory limit",
   egress: "Outbound internet access",
   domains: "Public domains",
+  domain: "Public domain",
 };
 
 // The steps of the limit sliders.
@@ -137,6 +139,8 @@ export function settingValue(
       return settings.port ?? undefined;
     case "healthcheckPath":
       return settings.healthcheckPath ?? "";
+    case "domain":
+      return settings.domain ?? "";
     default:
       return settings[field];
   }
@@ -192,6 +196,7 @@ export function withStagedSettings(
       cpuLimit: number("cpuLimit", settings.cpuLimit),
       memoryLimitMb: number("memoryLimitMb", settings.memoryLimitMb),
       egress: flag("egress", settings.egress),
+      domain: optionalText("domain", settings.domain),
     },
     domains: Array.isArray(stagedDomains) ? stagedDomains : domains,
   };

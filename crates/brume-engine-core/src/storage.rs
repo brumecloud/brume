@@ -31,6 +31,9 @@ pub trait Storage {
     /// The session or login link whose token hashes to `token_hash`.
     fn session(&self, token_hash: &[u8; 32]) -> Result<Option<StoredSession>, StorageError>;
 
+    /// The Cloudflare tunnel's token, once the public entry is set up.
+    fn ingress_token(&self) -> Result<Option<SecretString>, StorageError>;
+
     /// At most `limit` events with a `seq` below `before` (or the newest ones), newest first.
     fn events_page(
         &self,
@@ -64,6 +67,8 @@ pub struct Transaction {
     pub staged_deletes: Vec<ChangeId>,
     pub sessions_upserts: Vec<StoredSession>,
     pub sessions_deletes: Vec<[u8; 32]>,
+    /// Replaces the tunnel's token. The implementation encrypts it.
+    pub ingress_token: Option<SecretString>,
 }
 
 /// A change waiting for the deploy of its environment.

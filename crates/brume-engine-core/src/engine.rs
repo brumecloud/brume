@@ -219,6 +219,11 @@ impl<S: Storage> Engine<S> {
             Input::Admin { client, request } => {
                 let reply = match request {
                     AdminRequest::CreateLoginLink => self.create_login_link(ctx),
+                    AdminRequest::ConfigureIngress {
+                        zone,
+                        tunnel_id,
+                        tunnel_token,
+                    } => self.configure_ingress(ctx, &zone, tunnel_id, tunnel_token),
                 };
                 out.push(match reply {
                     Ok(reply) => Output::AdminReply { client, reply },
@@ -320,7 +325,8 @@ impl<S: Storage> Engine<S> {
             && tx.staged_upserts.is_empty()
             && tx.staged_deletes.is_empty()
             && tx.sessions_upserts.is_empty()
-            && tx.sessions_deletes.is_empty();
+            && tx.sessions_deletes.is_empty()
+            && tx.ingress_token.is_none();
         if empty {
             return Ok(());
         }

@@ -7,8 +7,8 @@ use brume_domain::{
     Event, EventEnvelope, FailureReason, ImageDigestRef, ImageRef, Level, MachineId, NewService,
     PlainKind, Port, ProjectId, ProjectName, Rejection, RejectionKind, ResolvedSecret, RevisionId,
     RevisionPlan, RevisionValue, SecretSource, ServiceChanges, ServiceId, ServiceName, ServiceSpec,
-    ServiceVariable, ServiceVariableValue, SharedValue, Slug, SpecChange, Timestamp, VarName,
-    VariableId, VariableOwner, World, decide, evolve, impacted_services,
+    ServiceVariable, ServiceVariableValue, SharedValue, Slug, SpecChange, Subdomain, Timestamp,
+    VarName, VariableId, VariableOwner, World, Zone, decide, evolve, impacted_services,
     resolve_revision_variables, resolve_secrets, secret_redeploy_targets, secret_references,
 };
 use rand::SeedableRng;
@@ -53,6 +53,17 @@ fn var(raw: &str) -> VarName {
 fn slug(raw: &str) -> Slug {
     Slug::parse(raw).expect("valid slug")
 }
+
+fn subdomain(raw: &str) -> Subdomain {
+    Subdomain::parse(raw).expect("valid subdomain")
+}
+
+fn port(number: u16) -> Port {
+    Port::new(number).expect("valid port")
+}
+
+/// A Cloudflare tunnel id.
+const TUNNEL: &str = "c1744f8b-faa1-48a4-9e5c-02ac921467fa";
 
 fn envelope(seq: u64, event: Event) -> EventEnvelope {
     EventEnvelope {
@@ -270,6 +281,80 @@ impl Scenario {
 
     fn set_project_secret(&mut self, name: &str) -> VariableId {
         self.set_secret(VariableOwner::Project(self.project.clone()), name)
+    }
+
+    /// Sets up the public entry on `example.com`.
+    fn configure_ingress(&mut self) {
+        self.run(Command::ConfigureIngress {
+            zone: Zone::parse("example.com").expect("valid zone"),
+            tunnel_id: TUNNEL.to_owned(),
+        });
+    }
+
+    /// Creates another project with one active service, and returns the service.
+    fn add_project(&mut self) -> ServiceId {
+        let project = ProjectId::new(&mut self.ctx);
+        let production = EnvironmentId::new(&mut self.ctx);
+        let service = ServiceId::new(&mut self.ctx);
+        let deployment = DeploymentId::new(&mut self.ctx);
+        self.run(Command::CreateProject {
+            project,
+            name: ProjectName::parse("Blog").expect("valid name"),
+            production: production.clone(),
+            first_service: Some(NewService {
+                service: service.clone(),
+                environment: production,
+                name: ServiceName::parse("web").expect("valid name"),
+                slug: slug("web"),
+                image: image("nginx:1.29"),
+                deployment: deployment.clone(),
+                author: self.admin.clone(),
+            }),
+        });
+        self.activate(&deployment);
+        service
+    }
+
+    /// Stages and deploys changes to `service`, in its environment.
+    fn try_deploy_to(
+        &mut self,
+        service: &ServiceId,
+        changes: Vec<SpecChange>,
+    ) -> Result<Vec<Event>, Rejection> {
+        let environment = self
+            .world
+            .service(service)
+            .expect("exists")
+            .environment
+            .clone();
+        let command = Command::DeployChanges {
+            environment,
+            services: vec![ServiceChanges {
+                service: service.clone(),
+                deployment: DeploymentId::new(&mut self.ctx),
+                changes,
+            }],
+            author: self.admin.clone(),
+        };
+        self.try_run(&command)
+    }
+
+    fn domain(&self) -> Option<Subdomain> {
+        self.world
+            .service(&self.service)
+            .expect("exists")
+            .spec
+            .domain
+            .clone()
+    }
+
+    fn active_domain(&self) -> Option<Subdomain> {
+        self.world
+            .revision(&self.active_revision())
+            .expect("exists")
+            .spec
+            .domain
+            .clone()
     }
 
     fn active_revision(&self) -> RevisionId {
@@ -1355,6 +1440,216 @@ fn secret_redeploy_targets_follow_the_resolution_of_the_name() {
         secret_references(&scenario.world, &project, &var("S")),
         vec![scenario.service.clone()]
     );
+}
+
+#[test]
+fn configure_ingress_records_the_zone_and_the_tunnel() {
+    // Given a server without a public entry,
+    let mut scenario = Scenario::active();
+    assert!(scenario.world.ingress().is_none());
+
+    // when the install configures it,
+    let zone = Zone::parse("example.com").expect("valid zone");
+    let events = scenario.run(Command::ConfigureIngress {
+        zone: zone.clone(),
+        tunnel_id: TUNNEL.to_owned(),
+    });
+
+    // then the event holds the zone and the tunnel id, and the world has them.
+    assert_eq!(
+        events,
+        vec![Event::IngressConfigured {
+            zone: zone.clone(),
+            tunnel_id: TUNNEL.to_owned(),
+        }]
+    );
+    let ingress = scenario.world.ingress().expect("configured");
+    assert_eq!((&ingress.zone, ingress.tunnel_id.as_str()), (&zone, TUNNEL));
+
+    // Running it again, as a second install does, records it again: the token changed.
+    let again = scenario.run(Command::ConfigureIngress {
+        zone: zone.clone(),
+        tunnel_id: TUNNEL.to_owned(),
+    });
+    assert_eq!(again, events);
+
+    // A tunnel id that is not one is refused.
+    for tunnel_id in ["", "a b", "x\n", &"a".repeat(65)] {
+        let rejection = scenario
+            .try_run(&Command::ConfigureIngress {
+                zone: zone.clone(),
+                tunnel_id: tunnel_id.to_owned(),
+            })
+            .expect_err("rejected");
+        assert_eq!(rejection.kind, RejectionKind::Invalid, "{tunnel_id:?}");
+    }
+}
+
+#[test]
+fn domain_requires_ingress() {
+    // Given a service with a port, on a server without a public entry,
+    let mut scenario = Scenario::active();
+    scenario.deploy(vec![SpecChange::Port(Some(port(80)))]);
+
+    // when a domain is deployed, it is refused, and nothing changes;
+    let rejection = scenario
+        .try_deploy_to(
+            &scenario.service.clone(),
+            vec![SpecChange::Domain(Some(subdomain("demo")))],
+        )
+        .expect_err("rejected");
+    assert_eq!(rejection.kind, RejectionKind::Conflict);
+    assert!(
+        rejection.message.contains("brume install --domain"),
+        "{rejection}"
+    );
+
+    // once the entry is configured, the domain goes in the spec and in a new revision that
+    // keeps the digest.
+    scenario.configure_ingress();
+    let (deployment, command) =
+        scenario.deploy_changes(vec![SpecChange::Domain(Some(subdomain("demo")))]);
+    let events = scenario.run(command);
+    assert!(matches!(
+        events.as_slice(),
+        [
+            Event::ServiceSpecChanged { spec, .. },
+            Event::DeploymentRequested {
+                revision: RevisionPlan::Reuse { .. },
+                ..
+            },
+        ] if spec.domain == Some(subdomain("demo"))
+    ));
+    scenario.activate(&deployment);
+    assert_eq!(scenario.active_domain(), Some(subdomain("demo")));
+
+    // Removing the domain is a new revision too.
+    scenario.deploy(vec![SpecChange::Domain(None)]);
+    assert_eq!(scenario.active_domain(), None);
+}
+
+#[test]
+fn domain_requires_a_port() {
+    // Given a service without a port, on a server with a public entry,
+    let mut scenario = Scenario::active();
+    scenario.configure_ingress();
+
+    // when it gets a domain, the route would have no port: refused.
+    let rejection = scenario
+        .try_deploy_to(
+            &scenario.service.clone(),
+            vec![SpecChange::Domain(Some(subdomain("demo")))],
+        )
+        .expect_err("rejected");
+    assert_eq!(rejection.kind, RejectionKind::Invalid);
+    assert!(rejection.message.contains("port"), "{rejection}");
+
+    // With the port in the same changes, it passes; removing the port afterwards does not.
+    scenario.deploy(vec![
+        SpecChange::Port(Some(port(8080))),
+        SpecChange::Domain(Some(subdomain("demo"))),
+    ]);
+    let rejection = scenario
+        .try_deploy_to(&scenario.service.clone(), vec![SpecChange::Port(None)])
+        .expect_err("rejected");
+    assert_eq!(rejection.kind, RejectionKind::Invalid);
+}
+
+#[test]
+fn domain_is_unique_across_projects() {
+    // Given `demo` on a service of one project,
+    let mut scenario = Scenario::active();
+    scenario.configure_ingress();
+    scenario.deploy(vec![
+        SpecChange::Port(Some(port(80))),
+        SpecChange::Domain(Some(subdomain("demo"))),
+    ]);
+    let other = scenario.add_project();
+
+    // when a service of another project asks for it, it is refused;
+    let changes = vec![
+        SpecChange::Port(Some(port(80))),
+        SpecChange::Domain(Some(subdomain("demo"))),
+    ];
+    let rejection = scenario
+        .try_deploy_to(&other, changes.clone())
+        .expect_err("rejected");
+    assert_eq!(rejection.kind, RejectionKind::Conflict);
+    assert!(rejection.message.contains("demo"), "{rejection}");
+
+    // a domain that is still active elsewhere stays taken until that deployment goes;
+    let (removal, command) = scenario.deploy_changes(vec![SpecChange::Domain(None)]);
+    scenario.run(command);
+    assert_eq!(
+        scenario
+            .try_deploy_to(&other, changes.clone())
+            .map_err(|rejection| rejection.kind),
+        Err(RejectionKind::Conflict)
+    );
+    scenario.activate(&removal);
+
+    // then it is free.
+    assert!(scenario.try_deploy_to(&other, changes).is_ok());
+}
+
+#[test]
+fn rollback_restores_previous_domain() {
+    // Given a service deployed with `demo`, then with `shop`,
+    let mut scenario = Scenario::active();
+    scenario.configure_ingress();
+    let with_demo = scenario.deploy(vec![
+        SpecChange::Port(Some(port(80))),
+        SpecChange::Domain(Some(subdomain("demo"))),
+    ]);
+    let demo_revision = scenario.active_revision();
+    scenario.deploy(vec![SpecChange::Domain(Some(subdomain("shop")))]);
+    assert_eq!(scenario.domain(), Some(subdomain("shop")));
+
+    // when it rolls back to the first,
+    let events = scenario.try_rollback(&with_demo).expect("accepted");
+    apply(&mut scenario.world, events.clone());
+
+    // then the spec and the deployed revision have `demo` again.
+    assert!(matches!(
+        events.as_slice(),
+        [
+            Event::ServiceSpecChanged { spec, .. },
+            Event::DeploymentRequested {
+                revision: RevisionPlan::Existing { revision },
+                ..
+            },
+            Event::DeploymentStarted { .. },
+        ] if spec.domain == Some(subdomain("demo")) && revision == &demo_revision
+    ));
+    assert_eq!(scenario.domain(), Some(subdomain("demo")));
+}
+
+#[test]
+fn rollback_to_a_domain_taken_since_is_refused() {
+    // Given a service that had `demo`, then gave it up to another service,
+    let mut scenario = Scenario::active();
+    scenario.configure_ingress();
+    let with_demo = scenario.deploy(vec![
+        SpecChange::Port(Some(port(80))),
+        SpecChange::Domain(Some(subdomain("demo"))),
+    ]);
+    scenario.deploy(vec![SpecChange::Domain(None)]);
+    let other = scenario.add_project();
+    scenario
+        .try_deploy_to(
+            &other,
+            vec![
+                SpecChange::Port(Some(port(80))),
+                SpecChange::Domain(Some(subdomain("demo"))),
+            ],
+        )
+        .map(|events| apply(&mut scenario.world, events))
+        .expect("accepted");
+
+    // when it rolls back to the revision with `demo`, it is refused.
+    let rejection = scenario.try_rollback(&with_demo).expect_err("rejected");
+    assert_eq!(rejection.kind, RejectionKind::Conflict);
+    assert!(rejection.message.contains("demo"), "{rejection}");
 }
 
 #[test]

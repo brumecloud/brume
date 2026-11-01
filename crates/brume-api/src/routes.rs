@@ -78,6 +78,7 @@ pub(crate) fn api() -> Router<Arc<AppState>> {
             axum::routing::delete(discard_change),
         )
         .route("/events", get(list_events))
+        .route("/ingress", get(ingress))
         .route("/github", any(github_unavailable))
         .route("/github/{*rest}", any(github_unavailable))
         .fallback(not_found)
@@ -215,6 +216,7 @@ fn value_response(value: ApiValue, status: StatusCode) -> Response {
         ApiValue::Change(change) => (status, Json(change)).into_response(),
         ApiValue::ChangesDeployed(deployed) => (status, Json(deployed)).into_response(),
         ApiValue::Events(page) => (status, Json(page)).into_response(),
+        ApiValue::Ingress(ingress) => (status, Json(ingress)).into_response(),
         // The token goes into the cookie, in `login`, and never into a body.
         ApiValue::Session { .. } | ApiValue::LogStreamOpened => {
             engine_error_response(EngineError::Protocol)
@@ -523,6 +525,11 @@ async fn list_events(
             .min(MAX_EVENTS_LIMIT),
     };
     forward(&state, &headers, call, StatusCode::OK).await
+}
+
+/// The public entry's zone, or `null` before `brume install --domain` sets it up.
+async fn ingress(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
+    forward(&state, &headers, ApiCall::GetIngress, StatusCode::OK).await
 }
 
 async fn github_unavailable() -> Response {

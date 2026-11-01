@@ -8,8 +8,8 @@ use axum::body::Body;
 use axum::http::{Request, Response, StatusCode, header};
 use brume_api::{ApiConfig, app};
 use brume_proto::api::{
-    ApiCall, ApiFailure, ApiReply, ApiRequest, ApiValue, CreatedProjectDto, FailureKind, LogLevel,
-    LogLineDto, ProjectDto,
+    ApiCall, ApiFailure, ApiReply, ApiRequest, ApiValue, CreatedProjectDto, FailureKind,
+    IngressDto, LogLevel, LogLineDto, ProjectDto,
 };
 use brume_proto::telemetry::LogStreamFrame;
 use brume_runtime::framed::{FramedReader, FramedWriter};
@@ -648,4 +648,35 @@ async fn reconnects_after_the_engine_closes_the_connection() {
     }
     assert_eq!(statuses.last(), Some(&StatusCode::OK), "{statuses:?}");
     assert!(engine.requests().len() >= 2);
+}
+
+#[tokio::test]
+async fn ingress_is_null_until_configured() {
+    let home = home();
+    let configured = Arc::new(Mutex::new(false));
+    let seen = Arc::clone(&configured);
+    let answer: Answer = Box::new(move |call| match call {
+        ApiCall::GetIngress => Ok(ApiValue::Ingress(seen.lock().expect("not poisoned").then(
+            || IngressDto {
+                zone: "example.com".to_owned(),
+            },
+        ))),
+        _ => Ok(ApiValue::NoContent),
+    });
+    let _engine = FakeEngine::start(home.path(), answer, vec![]);
+    let router = router(home.path());
+    let get = || {
+        panel("GET", "/api/ingress")
+            .body(Body::empty())
+            .expect("request")
+    };
+
+    let response = send(&router, get()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(body_json(response).await, Value::Null);
+
+    *configured.lock().expect("not poisoned") = true;
+    let response = send(&router, get()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(body_json(response).await, json!({"zone": "example.com"}));
 }

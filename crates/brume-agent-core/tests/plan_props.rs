@@ -131,6 +131,7 @@ fn desired_strategy() -> impl Strategy<Value = DesiredState> {
                 networks,
                 volumes,
                 containers,
+                ingress: None,
             }
         })
 }
@@ -511,6 +512,7 @@ fn one(spec: &ContainerSpec) -> DesiredState {
         networks: vec![network_spec(NETWORKS[0], true)],
         volumes: Vec::new(),
         containers: vec![spec.clone()],
+        ingress: None,
     }
 }
 
@@ -992,6 +994,7 @@ fn only_brume_names_are_created() {
             service_id: "svc".to_owned(),
         }],
         containers: Vec::new(),
+        ingress: None,
     };
     let actions = plan_at(&desired, &empty_docker(Vec::new(), Vec::new()), 0);
     assert_eq!(
@@ -1098,6 +1101,7 @@ fn refusals_name_what_blocks_containers() {
             })
             .collect(),
         containers: Vec::new(),
+        ingress: None,
     };
     let snapshot = empty_docker(
         vec![

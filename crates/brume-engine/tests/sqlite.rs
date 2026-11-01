@@ -238,6 +238,51 @@ fn secrets_are_sealed_on_disk() {
 }
 
 #[test]
+fn ingress_token_is_sealed_and_replaced() {
+    // Given a store without a public entry,
+    let home = tempfile::tempdir().expect("a temporary directory");
+    let mut storage = open(home.path());
+    assert!(storage.ingress_token().expect("reads").is_none());
+
+    // when the tunnel's token is written,
+    storage
+        .commit(Transaction {
+            ingress_token: Some(SecretString::from(SECRET)),
+            ..Transaction::default()
+        })
+        .expect("commits");
+
+    // then it reads back, sealed on disk;
+    let token = storage.ingress_token().expect("reads").expect("a token");
+    assert_eq!(token.expose_secret(), SECRET);
+    let needle = "s3cr3t".as_bytes();
+    assert!(
+        !file_bytes(home.path())
+            .windows(needle.len())
+            .any(|window| window == needle)
+    );
+
+    // a second install replaces it;
+    storage
+        .commit(Transaction {
+            ingress_token: Some(SecretString::from("rotated")),
+            ..Transaction::default()
+        })
+        .expect("commits");
+    let token = storage.ingress_token().expect("reads").expect("a token");
+    assert_eq!(token.expose_secret(), "rotated");
+
+    // and another key cannot open it.
+    drop(storage);
+    let other = SqliteStorage::open(
+        &home.path().join("engine/state.sqlite"),
+        MasterKey::from_bytes([4; 32]),
+    )
+    .expect("opens");
+    assert!(other.ingress_token().is_err());
+}
+
+#[test]
 fn failed_transaction_leaves_nothing() {
     let home = tempfile::tempdir().expect("a temporary directory");
     let mut storage = open(home.path());

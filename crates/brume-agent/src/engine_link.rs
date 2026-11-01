@@ -170,6 +170,7 @@ mod tests {
             networks: Vec::new(),
             volumes: Vec::new(),
             containers: Vec::new(),
+            ingress: None,
         }
     }
 

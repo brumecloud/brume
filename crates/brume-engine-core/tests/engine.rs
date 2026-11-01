@@ -6,20 +6,22 @@ mod harness;
 
 use brume_domain::Timestamp;
 use brume_engine_core::{
-    ClientId, DEPLOYMENT_TIMEOUT_MILLIS, Engine, Input, OpenError, Output, short_id,
+    ClientId, DEPLOYMENT_TIMEOUT_MILLIS, Engine, Input, OpenError, Output, Storage, edge_network,
+    short_id,
 };
 use brume_proto::admin::{AdminReply, AdminRequest};
 use brume_proto::agent::{
-    ContainerHealth, DesiredState, EngineToAgent, EnvValue, EnvVar, Healthcheck, Job,
+    ContainerHealth, DesiredState, EngineToAgent, EnvValue, EnvVar, Healthcheck, IngressRoute,
+    IngressSpec, Job, NetworkAttachment, NetworkSpec,
 };
 use brume_proto::api::{
-    ApiCall, ApiReply, ApiRequest, ApiValue, DeploymentStatusDto, FailureKind, LogStream,
-    NewChangeDto, NewSharedVariableDto, RevealedValueDto, ServiceStatusDto, SettingField,
-    SettingValueDto, StagedChangeDto, VariableKindDto, VariableLevelDto,
+    ApiCall, ApiReply, ApiRequest, ApiValue, DeploymentStatusDto, FailureKind, IngressDto,
+    LogStream, NewChangeDto, NewSharedVariableDto, RevealedValueDto, ServiceStatusDto,
+    SettingField, SettingValueDto, StagedChangeDto, VariableKindDto, VariableLevelDto,
 };
-use secrecy::ExposeSecret;
+use secrecy::{ExposeSecret, SecretString};
 
-use crate::harness::{DIGEST, Harness, jobs, last_desired, wake_at};
+use crate::harness::{DIGEST, Harness, TUNNEL, TUNNEL_TOKEN, jobs, last_desired, wake_at};
 
 const SECRET: &str = "s3cr3t-🚀";
 
@@ -1311,6 +1313,239 @@ fn a_desired_state_that_cannot_be_built_is_reported_once() {
     assert!(unavailable(&out).is_empty(), "{out:?}");
 }
 
+/// The stored events, as text.
+fn logged_events(harness: &Harness) -> Vec<String> {
+    harness
+        .storage
+        .events()
+        .into_iter()
+        .map(|event| String::from_utf8(event.bytes).expect("utf-8"))
+        .collect()
+}
+
+fn ingress(harness: &mut Harness) -> Option<IngressDto> {
+    match harness.ok(ApiCall::GetIngress) {
+        ApiValue::Ingress(ingress) => ingress,
+        other => panic!("unexpected {other:?}"),
+    }
+}
+
+fn stored_token(harness: &Harness) -> Option<String> {
+    harness
+        .storage
+        .ingress_token()
+        .expect("reads")
+        .map(|token| token.expose_secret().to_owned())
+}
+
+#[test]
+fn configure_ingress_records_zone_not_token() {
+    // Given an engine without a public entry,
+    let mut harness = Harness::new();
+    assert_eq!(ingress(&mut harness), None);
+
+    // when `brume install` configures it,
+    let out = harness.configure_ingress("example.com", TUNNEL_TOKEN);
+
+    // then the engine answers, the log has the zone and the tunnel but not the token, which
+    // the store keeps apart;
+    assert!(
+        matches!(
+            out.as_slice(),
+            [Output::AdminReply {
+                reply: AdminReply::IngressConfigured,
+                ..
+            }]
+        ),
+        "{out:?}"
+    );
+    let events = logged_events(&harness);
+    let configured = events
+        .iter()
+        .filter(|event| event.contains(r#""type":"IngressConfigured""#))
+        .collect::<Vec<_>>();
+    assert_eq!(configured.len(), 1);
+    assert!(
+        configured[0].contains(r#""zone":"example.com""#),
+        "{}",
+        configured[0]
+    );
+    assert!(configured[0].contains(TUNNEL), "{}", configured[0]);
+    assert!(events.iter().all(|event| !event.contains(TUNNEL_TOKEN)));
+    assert_eq!(stored_token(&harness).as_deref(), Some(TUNNEL_TOKEN));
+    assert_eq!(
+        ingress(&mut harness),
+        Some(IngressDto {
+            zone: "example.com".to_owned()
+        })
+    );
+
+    // a second install replaces the token, and the agent gets it at once;
+    harness.connect_agent();
+    let out = harness.configure_ingress("example.com", "rotated-token");
+    let state = last_desired(&out).expect("a new desired state");
+    let spec = state.ingress.expect("an ingress");
+    assert_eq!(spec.tunnel_token.expose_secret(), "rotated-token");
+    assert_eq!(stored_token(&harness).as_deref(), Some("rotated-token"));
+
+    // an invalid zone or token is refused without a reply, and changes nothing;
+    let position = harness.engine.position();
+    for (zone, token) in [
+        ("Example.com", TUNNEL_TOKEN),
+        ("com", TUNNEL_TOKEN),
+        ("example.com", ""),
+        ("example.com", "a b"),
+        ("example.com", "line\nbreak"),
+    ] {
+        let out = harness.configure_ingress(zone, token);
+        match out.as_slice() {
+            [Output::AdminRefused { reason, .. }] => {
+                assert!(token.is_empty() || !reason.contains(token), "{reason}");
+            }
+            other => panic!("expected a refusal for {zone:?}, got {other:?}"),
+        }
+    }
+    assert_eq!(harness.engine.position(), position);
+    assert_eq!(stored_token(&harness).as_deref(), Some("rotated-token"));
+
+    // and the entry survives a restart.
+    harness.reopen();
+    assert_eq!(
+        ingress(&mut harness).map(|ingress| ingress.zone),
+        Some("example.com".to_owned())
+    );
+}
+
+#[test]
+fn desired_state_has_no_ingress_before_configuration() {
+    // Given an active service with a port,
+    let mut harness = Harness::new();
+    let (service, environment, _) = active_project(&mut harness, &[]);
+    stage(
+        &mut harness,
+        setting(&service, SettingField::Port, SettingValueDto::Number(80.0)),
+    );
+    deploy_changes(&mut harness, &environment);
+    let deployment = newest_deployment(&mut harness, &service);
+    let state = harness.activate(&deployment, &[]);
+
+    // then the desired state has no public entry, no edge network, and the service only joins
+    // its environment;
+    assert_eq!(state.ingress, None);
+    assert_eq!(state.networks.len(), 1);
+    assert_eq!(state.containers[0].networks.len(), 1);
+    assert!(harness.service(&service).domains.is_empty());
+
+    // once configured, the entry carries the token and no route yet.
+    let out = harness.configure_ingress("example.com", TUNNEL_TOKEN);
+    let spec = last_desired(&out)
+        .expect("a desired state")
+        .ingress
+        .expect("an ingress");
+    assert_eq!(spec.tunnel_token.expose_secret(), TUNNEL_TOKEN);
+    assert!(spec.routes.is_empty());
+
+    // Without its token, the entry cannot be built: the agent keeps the previous state.
+    harness.storage.forget_ingress_token();
+    let out = harness.connect_agent();
+    assert!(last_desired(&out).is_none());
+    assert!(
+        out.iter()
+            .any(|output| matches!(output, Output::DesiredStateUnavailable { .. }))
+    );
+}
+
+#[test]
+fn desired_state_routes_service_with_domain() {
+    // Given an active service and a public entry,
+    let mut harness = Harness::new();
+    let (service, environment, _) = active_project(&mut harness, &[]);
+    harness.configure_ingress("example.com", TUNNEL_TOKEN);
+
+    // when the service gets a port and the domain `demo`, deployed,
+    stage(
+        &mut harness,
+        setting(
+            &service,
+            SettingField::Port,
+            SettingValueDto::Number(8080.0),
+        ),
+    );
+    stage(
+        &mut harness,
+        setting(
+            &service,
+            SettingField::Domain,
+            SettingValueDto::Text("demo".to_owned()),
+        ),
+    );
+    deploy_changes(&mut harness, &environment);
+    let deployment = newest_deployment(&mut harness, &service);
+    let state = harness.activate(&deployment, &[]);
+
+    // then its container joins its own internal edge network under its slug, and the entry
+    // routes `demo.example.com` there;
+    let edge = edge_network(&service);
+    assert_eq!(edge, format!("brume-edge-{service}"));
+    assert!(state.networks.contains(&NetworkSpec {
+        name: edge.clone(),
+        internal: true,
+        environment_id: environment.clone(),
+    }));
+    let container = &state.containers[0];
+    assert_eq!(container.networks[0].aliases, vec!["nginx"]);
+    assert_eq!(
+        container.networks.last(),
+        Some(&NetworkAttachment {
+            network: edge.clone(),
+            aliases: vec!["nginx".to_owned()],
+        })
+    );
+    assert_eq!(
+        state.ingress,
+        Some(IngressSpec {
+            tunnel_token: SecretString::from(TUNNEL_TOKEN),
+            routes: vec![IngressRoute {
+                host: "demo.example.com".to_owned(),
+                network: edge.clone(),
+                target: "nginx".to_owned(),
+                port: 8080,
+            }],
+        })
+    );
+    assert_eq!(harness.service(&service).domains, vec!["demo.example.com"]);
+    match harness.ok(ApiCall::GetServiceSettings {
+        service_id: service.clone(),
+    }) {
+        ApiValue::ServiceSettings(settings) => {
+            assert_eq!(settings.domain.as_deref(), Some("demo"));
+        }
+        other => panic!("unexpected {other:?}"),
+    }
+
+    // and removing the domain removes the route and the edge network.
+    stage(
+        &mut harness,
+        setting(
+            &service,
+            SettingField::Domain,
+            SettingValueDto::Text(String::new()),
+        ),
+    );
+    deploy_changes(&mut harness, &environment);
+    let deployment = newest_deployment(&mut harness, &service);
+    let state = harness.activate(&deployment, &[]);
+    assert!(state.networks.iter().all(|network| network.name != edge));
+    assert!(state.containers.iter().all(|container| {
+        container
+            .networks
+            .iter()
+            .all(|attachment| attachment.network != edge)
+    }));
+    assert_eq!(state.ingress.map(|spec| spec.routes), Some(Vec::new()));
+    assert!(harness.service(&service).domains.is_empty());
+}
+
 #[test]
 fn inputs_and_outputs_mask_secrets_in_debug() {
     let api = |body| Input::Api {
@@ -1338,6 +1573,14 @@ fn inputs_and_outputs_mask_secrets_in_debug() {
             kind: VariableKindDto::Secret,
             value: SECRET.to_owned(),
         })),
+        Input::Admin {
+            client: ClientId(2),
+            request: AdminRequest::ConfigureIngress {
+                zone: "example.com".to_owned(),
+                tunnel_id: TUNNEL.to_owned(),
+                tunnel_token: SecretString::from(SECRET),
+            },
+        },
     ];
     let reply = |value| Output::Reply {
         client: ClientId(1),
@@ -1383,6 +1626,10 @@ fn inputs_and_outputs_mask_secrets_in_debug() {
                 stop_timeout_secs: 10,
                 healthcheck: Healthcheck::Running { grace_secs: 5 },
             }],
+            ingress: Some(IngressSpec {
+                tunnel_token: SecretString::from(SECRET),
+                routes: Vec::new(),
+            }),
         })),
     ];
     for debug in inputs

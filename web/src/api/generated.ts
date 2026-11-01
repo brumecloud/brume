@@ -41,6 +41,11 @@ export type Environment = { id: EnvironmentId, projectId: ProjectId,
  */
 name: string, };
 export type ImpactedService = { serviceId: ServiceId, environmentId: EnvironmentId, };
+export type Ingress = { 
+/**
+ * The zone whose subdomains the services get, such as `example.com`.
+ */
+zone: string, };
 export type LogLevel = "info" | "warn" | "error";
 export type LogLine = { id: string, 
 /**
@@ -84,7 +89,11 @@ cpuLimit: number, memoryLimitMb: number,
 /**
  * Outbound internet access.
  */
-egress: boolean, };
+egress: boolean, 
+/**
+ * The public subdomain, without the zone: `demo` for `demo.<zone>`.
+ */
+domain: string | null, };
 export type ServiceSource = { "kind": "github", repository: string, branch: string, autoDeploy: boolean, } | { "kind": "image", image: string, } | { "kind": "template", template: DatabaseKind, version: string, };
 export type ServiceStatus = "online" | "deploying" | "crashed" | "stopped";
 export type Session = { 
@@ -92,7 +101,7 @@ export type Session = {
  * The logged-in admin.
  */
 admin: string, };
-export type SettingField = "repository" | "branch" | "autoDeploy" | "image" | "startCommand" | "port" | "healthcheckPath" | "cpuLimit" | "memoryLimitMb" | "egress" | "domains";
+export type SettingField = "repository" | "branch" | "autoDeploy" | "image" | "startCommand" | "port" | "healthcheckPath" | "cpuLimit" | "memoryLimitMb" | "egress" | "domains" | "domain";
 export type SettingValue = boolean | number | string | ReadonlyArray<string>;
 export type SharedVariableRemoved = { deployments: ReadonlyArray<Deployment>, };
 export type SharedVariableResult = { variable: Variable, 

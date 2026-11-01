@@ -3,7 +3,7 @@
 use crate::event::{Event, EventEnvelope, RevisionPlan};
 use crate::ids::{DeploymentId, ProjectId, ServiceId};
 use crate::model::{
-    Deployment, DeploymentPhase, Environment, Project, Revision, Service, SharedVariable,
+    Deployment, DeploymentPhase, Environment, Ingress, Project, Revision, Service, SharedVariable,
     VariableOwner, World,
 };
 use crate::time::Timestamp;
@@ -245,6 +245,12 @@ pub(crate) fn apply(world: &mut World, event: &Event, at: Timestamp) {
             );
             target.phase = DeploymentPhase::Failed(reason.clone());
             target.finished_at = Some(at);
+        }
+        Event::IngressConfigured { zone, tunnel_id } => {
+            world.ingress = Some(Ingress {
+                zone: zone.clone(),
+                tunnel_id: tunnel_id.clone(),
+            });
         }
         Event::SecretRevealed { .. }
         | Event::LoginSucceeded { .. }

@@ -16,10 +16,17 @@ use brume_proto::api::{
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
+use secrecy::SecretString;
 
 use crate::fake_storage::FakeStorage;
 
 pub const DIGEST: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+/// A Cloudflare tunnel id.
+pub const TUNNEL: &str = "c1744f8b-faa1-48a4-9e5c-02ac921467fa";
+
+/// The tunnel's token, as Cloudflare gives it: base64 of a JSON object.
+pub const TUNNEL_TOKEN: &str = "eyJhIjoiYWNjb3VudCIsInQiOiJ0dW5uZWwiLCJzIjoic2VjcmV0In0=";
 
 pub struct TestCtx {
     pub now: Timestamp,
@@ -111,6 +118,18 @@ impl Harness {
             ] => token.clone(),
             other => panic!("no login link: {other:?}"),
         }
+    }
+
+    /// Sends `brume install`'s request for the public entry on `zone`.
+    pub fn configure_ingress(&mut self, zone: &str, token: &str) -> Vec<Output> {
+        self.input(Input::Admin {
+            client: ClientId(98),
+            request: AdminRequest::ConfigureIngress {
+                zone: zone.to_owned(),
+                tunnel_id: TUNNEL.to_owned(),
+                tunnel_token: SecretString::from(token),
+            },
+        })
     }
 
     /// Sends a call with the harness's session, and returns its reply.

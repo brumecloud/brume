@@ -192,6 +192,9 @@ pub enum ApiCall {
         /// The page size, at most 200.
         limit: u32,
     },
+    /// `GET /api/ingress`: the public entry, or null before `brume install --domain` sets it
+    /// up. Answer: `Ingress`.
+    GetIngress,
 }
 
 /// A successful answer: one variant per response shape of the HTTP contract. Its `Debug` masks
@@ -249,6 +252,8 @@ pub enum ApiValue {
     ChangesDeployed(ChangesDeployedDto),
     /// `ListEvents`.
     Events(EventsPageDto),
+    /// `GetIngress`: `null` until the public entry is set up.
+    Ingress(Option<IngressDto>),
     /// `OpenLogStream`: the session is valid, and `telemetry::LogStreamFrame`s follow on this
     /// connection.
     LogStreamOpened,
@@ -493,6 +498,17 @@ pub struct ServiceSettingsDto {
     pub memory_limit_mb: u32,
     /// Outbound internet access.
     pub egress: bool,
+    /// The public subdomain, without the zone: `demo` for `demo.<zone>`.
+    pub domain: Option<String>,
+}
+
+/// `Ingress`: the public entry that `brume install --domain` sets up.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "Ingress"))]
+pub struct IngressDto {
+    /// The zone whose subdomains the services get, such as `example.com`.
+    pub zone: String,
 }
 
 /// `LogLevel`.
@@ -567,6 +583,8 @@ pub enum SettingField {
     MemoryLimitMb,
     Egress,
     Domains,
+    /// The public subdomain, as `Text`: empty removes it.
+    Domain,
 }
 
 /// `SettingValue`, untagged: the JSON type tells the variants apart.
@@ -773,12 +791,12 @@ mod tests {
     use super::{
         ActivityEventDto, ApiFailure, ApiReply, ApiValue, ChangesDeployedDto, CommitDto,
         CreatedProjectDto, DatabaseKindDto, DeploymentDto, DeploymentStatusDto, EnvironmentDto,
-        EventsPageDto, FailureKind, ImpactedServiceDto, LogLevel, LogLineDto, NewChangeDto,
-        NewProjectSourceDto, NewSharedVariableDto, ProjectDto, RevealedValueDto, RevisionDto,
-        RevisionVariableDto, ServiceDto, ServiceKindDto, ServiceSettingsDto, ServiceSourceDto,
-        ServiceStatusDto, SessionDto, SettingField, SettingValueDto, SharedVariableSetDto,
-        StagedChangeDto, VariableDto, VariableImpactDto, VariableKindDto, VariableLevelDto,
-        VolumeDto,
+        EventsPageDto, FailureKind, ImpactedServiceDto, IngressDto, LogLevel, LogLineDto,
+        NewChangeDto, NewProjectSourceDto, NewSharedVariableDto, ProjectDto, RevealedValueDto,
+        RevisionDto, RevisionVariableDto, ServiceDto, ServiceKindDto, ServiceSettingsDto,
+        ServiceSourceDto, ServiceStatusDto, SessionDto, SettingField, SettingValueDto,
+        SharedVariableSetDto, StagedChangeDto, VariableDto, VariableImpactDto, VariableKindDto,
+        VariableLevelDto, VolumeDto,
     };
 
     fn to_json<T: serde::Serialize>(value: &T) -> serde_json::Value {
@@ -939,13 +957,14 @@ mod tests {
             cpu_limit: 0.25,
             memory_limit_mb: 512,
             egress: false,
+            domain: Some("demo".to_owned()),
         };
         assert_eq!(
             to_json(&settings),
             json!({
                 "source": {"kind": "image", "image": "nginx:1.29"}, "startCommand": null,
                 "port": 80, "healthcheckPath": "/", "cpuLimit": 0.25, "memoryLimitMb": 512,
-                "egress": false,
+                "egress": false, "domain": "demo",
             })
         );
         let template = ServiceSourceDto::Template {
@@ -1192,6 +1211,29 @@ mod tests {
                     "deploymentId": null, "summary": "Deployment requested for api",
                 }],
                 "nextBefore": null,
+            })
+        );
+    }
+
+    #[test]
+    fn ingress_is_its_zone_or_null() {
+        let configured = ApiValue::Ingress(Some(IngressDto {
+            zone: "example.com".to_owned(),
+        }));
+        assert_eq!(
+            to_json(&configured),
+            json!({"Ingress": {"zone": "example.com"}})
+        );
+        assert_eq!(to_json(&ApiValue::Ingress(None)), json!({"Ingress": null}));
+        assert_eq!(
+            serde_json::from_value::<NewChangeDto>(
+                json!({"serviceId": "svc", "type": "setting", "field": "domain", "value": "demo"})
+            )
+            .ok(),
+            Some(NewChangeDto::Setting {
+                service_id: "svc".to_owned(),
+                field: SettingField::Domain,
+                value: SettingValueDto::Text("demo".to_owned()),
             })
         );
     }

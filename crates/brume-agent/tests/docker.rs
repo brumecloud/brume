@@ -130,6 +130,7 @@ fn desired(suffix: &str, image: &str) -> DesiredState {
                 timeout_secs: 60,
             },
         }],
+        ingress: None,
     }
 }
 

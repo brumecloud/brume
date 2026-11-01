@@ -119,6 +119,7 @@ impl<S: Storage> Engine<S> {
                 before,
                 limit,
             } => self.list_events(&project_id, before, limit),
+            ApiCall::GetIngress => Ok(ApiValue::Ingress(self.ingress_dto())),
         }
     }
 

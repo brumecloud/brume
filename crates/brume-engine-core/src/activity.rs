@@ -380,6 +380,7 @@ impl<S: Storage> Engine<S> {
                 (subject, format!("Revealed secret {name} of {place}."))
             }
             Event::MachineRegistered { .. }
+            | Event::IngressConfigured { .. }
             | Event::AdminCreated { .. }
             | Event::LoginSucceeded { .. }
             | Event::LoginFailed
