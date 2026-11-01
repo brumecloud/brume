@@ -9,6 +9,7 @@ mod api;
 mod deployments;
 mod desired;
 mod engine;
+mod ingress;
 mod queries;
 mod sessions;
 mod staged;
@@ -18,7 +19,7 @@ pub use activity::MAX_EVENTS_PAGE;
 pub use api::LOG_BACKLOG_LINES;
 pub use deployments::DEPLOYMENT_TIMEOUT_MILLIS;
 pub use desired::{
-    HTTP_HEALTHCHECK_TIMEOUT_SECS, RUNNING_GRACE_SECS, container_name, desired_state,
+    HTTP_HEALTHCHECK_TIMEOUT_SECS, RUNNING_GRACE_SECS, container_name, desired_state, edge_network,
     egress_network, environment_network, short_id, volume_name,
 };
 pub use engine::{ClientId, Engine, Input, OpenError, Output};

@@ -73,7 +73,7 @@ pub use crate::time::Timestamp;
 pub use command::{AuditEvent, Command, NewService, ServiceChanges, SpecChange};
 pub use ctx::Ctx;
 pub use decide::{
-    decide, impacted_services, resolve_revision_variables, resolve_secrets,
+    check_subdomain, decide, impacted_services, resolve_revision_variables, resolve_secrets,
     secret_redeploy_targets, secret_references,
 };
 pub use event::{Event, EventEnvelope, GENESIS_PREV_HASH, RevisionPlan, SCHEMA_VERSION};
@@ -84,13 +84,13 @@ pub use ids::{
 };
 pub use model::{
     DEFAULT_CPU_MILLIS, DEFAULT_MEMORY_MB, DeployReason, Deployment, DeploymentPhase, Environment,
-    FailureReason, Level, PlainKind, Project, ResolvedSecret, Revision, RevisionSpec,
+    FailureReason, Ingress, Level, PlainKind, Project, ResolvedSecret, Revision, RevisionSpec,
     RevisionValue, RevisionVariable, SecretSource, Service, ServiceSpec, ServiceVariable,
     ServiceVariableValue, SharedValue, SharedVariable, VariableOwner, VariableRef, World,
 };
 pub use names::{
     ContainerPath, HttpPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug,
-    StartCommand, VarName,
+    StartCommand, Subdomain, VarName, Zone,
 };
 pub use rejection::{Rejection, RejectionKind};
 pub use values::{CpuMillis, MAX_VALUE_BYTES, MemoryMb, PlainValue, Port, SecretValue};

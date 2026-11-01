@@ -16,6 +16,7 @@ use brume_runtime::framed::{FramedReader, FramedWriter};
 use brume_runtime::object_store::{DirStore, ObjectStore};
 use brume_runtime::paths::Paths;
 use brume_runtime::peer::Peers;
+use secrecy::SecretString;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::time::timeout;
@@ -81,11 +82,14 @@ async fn start(paths: &Paths) -> (tokio::task::JoinHandle<anyhow::Result<()>>, S
         .write(&AdminRequest::CreateLoginLink)
         .await
         .expect("writes");
-    let AdminReply::LoginLink { token, .. } = timeout(WAIT, admin.reader.read::<AdminReply>())
+    let reply = timeout(WAIT, admin.reader.read::<AdminReply>())
         .await
         .expect("in time")
         .expect("reads")
         .expect("a reply");
+    let AdminReply::LoginLink { token, .. } = reply else {
+        panic!("expected a login link, got {reply:?}");
+    };
     let mut api = connect(&paths.api_socket()).await;
     let reply = api.call(1, None, ApiCall::Login { token }).await;
     let Ok(ApiValue::Session { token, .. }) = reply.result else {
@@ -439,6 +443,71 @@ async fn a_new_agent_connection_replaces_the_old_one() {
     .await
     .expect("a job in time");
     assert!(matches!(job, Job::ResolveImage { image, .. } if image == "redis:8"));
+
+    engine.abort();
+}
+
+/// Every regular file under `dir`.
+fn files_under(dir: &Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(dir).expect("reads the directory") {
+        let entry = entry.expect("an entry");
+        let kind = entry.file_type().expect("a file type");
+        if kind.is_dir() {
+            files.extend(files_under(&entry.path()));
+        } else if kind.is_file() {
+            files.push(entry.path());
+        }
+    }
+    files
+}
+
+#[tokio::test]
+async fn admin_socket_configures_the_ingress_and_seals_its_token() {
+    let home = home();
+    let paths = Paths::new(home.path().to_path_buf());
+    let (engine, session) = start(&paths).await;
+    let token = "eyJhIjoiYWNjb3VudCJ9-tunnel-token";
+
+    // `brume install` sends the zone, the tunnel and its token on `admin.sock`.
+    let mut admin = connect(&paths.admin_socket()).await;
+    admin
+        .writer
+        .write(&AdminRequest::ConfigureIngress {
+            zone: "example.com".to_owned(),
+            tunnel_id: "c1744f8b-faa1-48a4-9e5c-02ac921467fa".to_owned(),
+            tunnel_token: SecretString::from(token),
+        })
+        .await
+        .expect("writes");
+    let reply = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("in time")
+        .expect("reads");
+    assert!(
+        matches!(reply, Some(AdminReply::IngressConfigured)),
+        "{reply:?}"
+    );
+
+    // The panel reads the zone.
+    let mut api = connect(&paths.api_socket()).await;
+    let reply = api.call(1, Some(&session), ApiCall::GetIngress).await;
+    assert!(
+        matches!(&reply.result, Ok(ApiValue::Ingress(Some(ingress))) if ingress.zone == "example.com"),
+        "{reply:?}"
+    );
+
+    // No file of the home holds the token in clear: the database seals it.
+    for file in files_under(home.path()) {
+        let bytes = std::fs::read(&file).expect("reads");
+        assert!(
+            !bytes
+                .windows(token.len())
+                .any(|window| window == token.as_bytes()),
+            "{}",
+            file.display()
+        );
+    }
 
     engine.abort();
 }

@@ -18,7 +18,7 @@ use brume_proto::api::{
 use secrecy::ExposeSecret;
 
 use crate::api::{invalid, not_found, parse_id};
-use crate::desired::current_volume;
+use crate::desired::{current_volume, public_host};
 use crate::engine::{Actor, Engine, failure, storage_failure};
 use crate::storage::{Storage, Transaction};
 
@@ -228,7 +228,14 @@ impl<S: Storage> Engine<S> {
             slug: service.slug.to_string(),
             kind: ServiceKindDto::Image,
             status: self.service_status(&service.id),
-            domains: Vec::new(),
+            // The public host that the active deployment serves.
+            domains: self
+                .world
+                .active_deployment(&service.id)
+                .and_then(|active| public_host(&self.world, active))
+                .map(|(host, _)| host)
+                .into_iter()
+                .collect(),
             volume: current_volume(&self.world, service).map(|(name, path)| VolumeDto {
                 name,
                 mount_path: path.to_string(),
@@ -308,6 +315,7 @@ impl<S: Storage> Engine<S> {
             cpu_limit: f64::from(spec.cpu.get()) / 1000.0,
             memory_limit_mb: spec.memory.get(),
             egress: service.egress,
+            domain: spec.domain.as_ref().map(ToString::to_string),
         }))
     }
 

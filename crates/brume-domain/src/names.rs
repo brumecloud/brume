@@ -40,29 +40,65 @@ pub struct Slug(String);
 impl Slug {
     /// Checks the DNS label grammar.
     pub fn parse(raw: &str) -> Result<Self, ValidationError> {
-        let is_alphanumeric = |b: u8| b.is_ascii_lowercase() || b.is_ascii_digit();
-        let bytes = raw.as_bytes();
-        let valid = match (bytes.first(), bytes.last()) {
-            (Some(&first), Some(&last)) => {
-                bytes.len() <= 63
-                    && is_alphanumeric(first)
-                    && is_alphanumeric(last)
-                    && bytes.iter().all(|&b| is_alphanumeric(b) || b == b'-')
-            }
-            _ => false,
-        };
-        if !valid {
-            return Err(ValidationError::new(
-                "slug",
-                "must be 1 to 63 lowercase letters, digits or hyphens, and start and end with a \
-                 letter or a digit",
-            ));
+        if !is_dns_label(raw) {
+            return Err(ValidationError::new("slug", DNS_LABEL_RULE));
         }
         Ok(Self(raw.to_owned()))
     }
 }
 
 string_newtype!(Slug);
+
+/// A service's public subdomain: one DNS label, `^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`, under
+/// the zone of the install. `demo` gives `demo.<zone>`.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Subdomain(String);
+
+impl Subdomain {
+    /// Checks the DNS label grammar: a single level, since Cloudflare's free certificate covers
+    /// `*.<zone>` and not `*.*.<zone>`.
+    pub fn parse(raw: &str) -> Result<Self, ValidationError> {
+        if !is_dns_label(raw) {
+            return Err(ValidationError::new("subdomain", DNS_LABEL_RULE));
+        }
+        Ok(Self(raw.to_owned()))
+    }
+}
+
+string_newtype!(Subdomain);
+
+/// The longest zone: a 63-character subdomain, its dot and the zone make a host name of 253
+/// characters at most.
+const MAX_ZONE_LEN: usize = 253 - 64;
+
+/// The DNS zone of the install, such as `example.com`: at least two lowercase DNS labels
+/// separated by dots, without a final dot, at most 189 characters. Its last label is not all
+/// digits, so it is never an IPv4 address.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Zone(String);
+
+impl Zone {
+    /// Checks the length, the number of labels and each label.
+    pub fn parse(raw: &str) -> Result<Self, ValidationError> {
+        let labels = raw.split('.').collect::<Vec<_>>();
+        let valid = raw.len() <= MAX_ZONE_LEN
+            && labels.len() >= 2
+            && labels.iter().all(|label| is_dns_label(label))
+            && labels
+                .last()
+                .is_some_and(|last| !last.bytes().all(|b| b.is_ascii_digit()));
+        if !valid {
+            return Err(ValidationError::new(
+                "zone",
+                "must be a domain name such as example.com: at least two labels of lowercase \
+                 letters, digits or hyphens, separated by dots, 189 characters at most",
+            ));
+        }
+        Ok(Self(raw.to_owned()))
+    }
+}
+
+string_newtype!(Zone);
 
 /// An environment variable's name, `^[A-Za-z_][A-Za-z0-9_]{0,127}$`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -229,6 +265,25 @@ impl ContainerPath {
 
 string_newtype!(ContainerPath);
 
+/// The rule of `is_dns_label`, for a `ValidationError`.
+const DNS_LABEL_RULE: &str = "must be 1 to 63 lowercase letters, digits or hyphens, and start and \
+                              end with a letter or a digit";
+
+/// `^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`.
+fn is_dns_label(raw: &str) -> bool {
+    let is_alphanumeric = |b: u8| b.is_ascii_lowercase() || b.is_ascii_digit();
+    let bytes = raw.as_bytes();
+    match (bytes.first(), bytes.last()) {
+        (Some(&first), Some(&last)) => {
+            bytes.len() <= 63
+                && is_alphanumeric(first)
+                && is_alphanumeric(last)
+                && bytes.iter().all(|&b| is_alphanumeric(b) || b == b'-')
+        }
+        _ => false,
+    }
+}
+
 /// 1 to 64 characters, no control character.
 fn parse_display_name(field: &'static str, raw: &str) -> Result<String, ValidationError> {
     if !(1..=64).contains(&raw.chars().count()) || raw.chars().any(char::is_control) {
@@ -334,7 +389,7 @@ fn is_lower_hex(b: u8) -> bool {
 mod tests {
     use super::{
         ContainerPath, HttpPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug,
-        StartCommand, VarName,
+        StartCommand, Subdomain, VarName, Zone,
     };
 
     const DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -390,6 +445,74 @@ mod tests {
             too_long.as_str(),
         ] {
             assert!(Slug::parse(invalid).is_err(), "{invalid:?}");
+        }
+    }
+
+    #[test]
+    fn subdomain_is_one_dns_label() {
+        let longest = "a".repeat(63);
+        let too_long = "a".repeat(64);
+        for valid in ["demo", "api-prod", "0", "a--b", longest.as_str()] {
+            assert_eq!(
+                Subdomain::parse(valid).map(|s| s.as_str().to_owned()),
+                Ok(valid.to_owned())
+            );
+        }
+        for invalid in [
+            "Demo",
+            "-x",
+            "x-",
+            "a.b",
+            "",
+            "a_b",
+            "a b",
+            "é",
+            "*",
+            too_long.as_str(),
+        ] {
+            let error = Subdomain::parse(invalid).expect_err(invalid);
+            assert_eq!(error.field, "subdomain");
+        }
+    }
+
+    #[test]
+    fn zone_has_at_least_two_lowercase_labels() {
+        let label = "a".repeat(63);
+        let longest = format!("{label}.{label}.{}.com", "b".repeat(57));
+        assert_eq!(longest.len(), 189);
+        let too_long = format!("{label}.{label}.{}.com", "b".repeat(58));
+        for valid in [
+            "example.com",
+            "brume.run",
+            "apps.example.co.uk",
+            "xn--bcher-kva.example",
+            "a-b.c0",
+            longest.as_str(),
+        ] {
+            assert_eq!(
+                Zone::parse(valid).map(|z| z.as_str().to_owned()),
+                Ok(valid.to_owned())
+            );
+        }
+        let long_label = format!("{}.com", "a".repeat(64));
+        for invalid in [
+            "",
+            "com",
+            "Example.com",
+            "example..com",
+            ".example.com",
+            "example.com.",
+            "-a.com",
+            "a-.com",
+            "a_b.com",
+            "*.example.com",
+            "10.0.0.1",
+            "example.com/x",
+            long_label.as_str(),
+            too_long.as_str(),
+        ] {
+            let error = Zone::parse(invalid).expect_err(invalid);
+            assert_eq!(error.field, "zone");
         }
     }
 

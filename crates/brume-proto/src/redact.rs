@@ -113,6 +113,7 @@ impl fmt::Debug for ApiCall {
             } => {
                 debug_struct!(f, "ListEvents", project_id, before, limit)
             }
+            Self::GetIngress => f.write_str("GetIngress"),
         }
     }
 }
@@ -149,6 +150,7 @@ impl fmt::Debug for ApiValue {
             Self::Change(change) => debug_tuple!(f, "Change", change),
             Self::ChangesDeployed(deployed) => debug_tuple!(f, "ChangesDeployed", deployed),
             Self::Events(page) => debug_tuple!(f, "Events", page),
+            Self::Ingress(ingress) => debug_tuple!(f, "Ingress", ingress),
             Self::LogStreamOpened => f.write_str("LogStreamOpened"),
         }
     }
@@ -215,6 +217,7 @@ impl fmt::Debug for AdminReply {
                 .field("token", &Redacted)
                 .field("expires_at", expires_at)
                 .finish(),
+            Self::IngressConfigured => f.write_str("IngressConfigured"),
         }
     }
 }

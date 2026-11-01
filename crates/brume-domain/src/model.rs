@@ -11,7 +11,7 @@ use crate::ids::{
 };
 use crate::names::{
     ContainerPath, HttpPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug,
-    StartCommand, VarName,
+    StartCommand, Subdomain, VarName, Zone,
 };
 use crate::time::Timestamp;
 use crate::values::{CpuMillis, MemoryMb, Port};
@@ -76,6 +76,10 @@ pub struct ServiceSpec {
     pub memory: MemoryMb,
     /// The service-level variables and secrets.
     pub variables: BTreeMap<VarName, ServiceVariable>,
+    /// The public subdomain, under the zone of the public entry. Absent from the log's JSON
+    /// when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub domain: Option<Subdomain>,
 }
 
 impl ServiceSpec {
@@ -89,6 +93,7 @@ impl ServiceSpec {
             cpu: CpuMillis::new(DEFAULT_CPU_MILLIS).expect("the default CPU limit is valid"),
             memory: MemoryMb::new(DEFAULT_MEMORY_MB).expect("the default memory limit is valid"),
             variables: BTreeMap::new(),
+            domain: None,
         }
     }
 }
@@ -187,6 +192,9 @@ pub struct RevisionSpec {
     pub memory: MemoryMb,
     /// Sorted by name.
     pub variables: Vec<RevisionVariable>,
+    /// The public subdomain: a rollback restores it. Absent from the log's JSON when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub domain: Option<Subdomain>,
 }
 
 /// A variable of a revision, with where its value came from.
@@ -324,6 +332,23 @@ pub struct ResolvedSecret {
     pub version: u32,
 }
 
+/// The public entry, set up by `brume install --domain`: a Cloudflare tunnel to Traefik. The
+/// tunnel's token lives in the engine's store, sealed, never here.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Ingress {
+    /// The zone whose subdomains the services get.
+    pub zone: Zone,
+    /// The Cloudflare tunnel.
+    pub tunnel_id: String,
+}
+
+impl Ingress {
+    /// The public host name of a subdomain: `<subdomain>.<zone>`.
+    pub fn host(&self, subdomain: &Subdomain) -> String {
+        format!("{subdomain}.{}", self.zone)
+    }
+}
+
 /// A variable found by its id: shared, or held by a service.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VariableRef<'a> {
@@ -346,6 +371,7 @@ pub struct World {
     pub(crate) revisions: BTreeMap<RevisionId, Revision>,
     pub(crate) deployments: BTreeMap<DeploymentId, Deployment>,
     pub(crate) shared_variables: BTreeMap<VariableId, SharedVariable>,
+    pub(crate) ingress: Option<Ingress>,
 }
 
 impl World {
@@ -357,6 +383,11 @@ impl World {
     /// The machine of the agent, once registered.
     pub fn machine(&self) -> Option<&MachineId> {
         self.machine.as_ref()
+    }
+
+    /// The public entry, once configured.
+    pub fn ingress(&self) -> Option<&Ingress> {
+        self.ingress.as_ref()
     }
 
     /// The admins, with the blob of their identity.
@@ -526,6 +557,20 @@ impl World {
         self.active_deployment(service)
             .and_then(|deployment| deployment.revision.as_ref())
             .and_then(|revision| self.revisions.get(revision))
+    }
+
+    /// A live service other than `except` that holds `subdomain`: in its spec, or in the
+    /// revision it serves, which keeps its route until a deployment replaces it.
+    pub fn domain_holder(&self, subdomain: &Subdomain, except: &ServiceId) -> Option<&Service> {
+        self.services
+            .values()
+            .filter(|service| !service.deleted && &service.id != except)
+            .find(|service| {
+                service.spec.domain.as_ref() == Some(subdomain)
+                    || self
+                        .active_revision(&service.id)
+                        .is_some_and(|revision| revision.spec.domain.as_ref() == Some(subdomain))
+            })
     }
 
     /// The live service of an environment with that slug.

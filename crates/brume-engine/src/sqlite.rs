@@ -1,6 +1,6 @@
 //! The engine's `Storage` on SQLite: the event log and the tables outside it. WAL with
-//! `synchronous=FULL`, so a commit is durable. Secrets are sealed with the master key, bound to
-//! their row. Every query is parameterized.
+//! `synchronous=FULL`, so a commit is durable. Secrets, and the tunnel token, are sealed with the
+//! master key, bound to their row. Every query is parameterized.
 
 use std::fs::{DirBuilder, OpenOptions, Permissions};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
@@ -48,6 +48,10 @@ const SCHEMA: &str = "
         admin TEXT NOT NULL,
         kind TEXT NOT NULL,
         expires_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS ingress_secrets (
+        name TEXT PRIMARY KEY,
+        sealed BLOB NOT NULL
     );
     CREATE TABLE IF NOT EXISTS shipper (
         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -109,6 +113,13 @@ enum ValueRow {
 
 fn secret_aad(variable: &VariableId, version: u32) -> Vec<u8> {
     format!("secret_versions:{variable}:{version}").into_bytes()
+}
+
+/// The row of `ingress_secrets` that holds the Cloudflare tunnel's token.
+const TUNNEL_TOKEN: &str = "tunnel_token";
+
+fn ingress_aad(name: &str) -> Vec<u8> {
+    format!("ingress_secrets:{name}").into_bytes()
 }
 
 fn staged_aad(change: &ChangeId) -> Vec<u8> {
@@ -287,6 +298,13 @@ impl Storage for SqliteStorage {
             .iter()
             .map(|change| Ok((change.id.to_string(), self.change_json(change)?)))
             .collect::<Result<Vec<_>, StorageError>>()?;
+        let ingress_token = tx.ingress_token.as_ref().map(|token| {
+            seal(
+                &self.key,
+                &ingress_aad(TUNNEL_TOKEN),
+                token.expose_secret().as_bytes(),
+            )
+        });
 
         // Dropping the transaction on an error rolls it back.
         let sql = self.connection.transaction().map_err(failed)?;
@@ -347,6 +365,14 @@ impl Storage for SqliteStorage {
             sql.execute(
                 "DELETE FROM sessions WHERE token_hash = ?1",
                 params![token_hash.as_slice()],
+            )
+            .map_err(failed)?;
+        }
+        if let Some(sealed) = &ingress_token {
+            sql.execute(
+                "INSERT INTO ingress_secrets (name, sealed) VALUES (?1, ?2)
+                 ON CONFLICT (name) DO UPDATE SET sealed = excluded.sealed",
+                params![TUNNEL_TOKEN, sealed],
             )
             .map_err(failed)?;
         }
@@ -434,6 +460,25 @@ impl Storage for SqliteStorage {
             kind,
             expires_at: Timestamp::from_millis(u64::try_from(expires_at).map_err(|_| corrupt())?),
         }))
+    }
+
+    fn ingress_token(&self) -> Result<Option<SecretString>, StorageError> {
+        let sealed: Option<Vec<u8>> = self
+            .connection
+            .query_row(
+                "SELECT sealed FROM ingress_secrets WHERE name = ?1",
+                params![TUNNEL_TOKEN],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(failed)?;
+        let Some(sealed) = sealed else {
+            return Ok(None);
+        };
+        let corrupt = || StorageError("the tunnel token does not open".to_owned());
+        let plain = open(&self.key, &ingress_aad(TUNNEL_TOKEN), &sealed).map_err(|_| corrupt())?;
+        let plain = String::from_utf8(plain).map_err(|_| corrupt())?;
+        Ok(Some(SecretString::from(plain)))
     }
 
     fn events_page(

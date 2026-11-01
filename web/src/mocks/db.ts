@@ -493,6 +493,7 @@ function settingsFor(service: Service): ServiceSettings {
         healthcheckPath: runtime ? "/health" : null,
         ...limits,
         egress: true,
+        domain: null,
       };
     }
     case "image": {
@@ -506,6 +507,7 @@ function settingsFor(service: Service): ServiceSettings {
         healthcheckPath: null,
         ...limits,
         egress: true,
+        domain: null,
       };
     }
     default:
@@ -521,6 +523,7 @@ function settingsFor(service: Service): ServiceSettings {
         cpuLimit: 1,
         memoryLimitMb: 1024,
         egress: false,
+        domain: null,
       };
   }
 }

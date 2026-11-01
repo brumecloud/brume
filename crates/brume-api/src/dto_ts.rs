@@ -9,11 +9,11 @@ use std::path::PathBuf;
 use brume_proto::api::{
     ActivityEventDto, ChangesDeployedDto, CommitDto, CreatedProjectDto, DatabaseKindDto,
     DeploymentDto, DeploymentStatusDto, EnvironmentDto, EventsPageDto, ImpactedServiceDto,
-    LogLevel, LogLineDto, LogStream, NewChangeDto, NewProjectSourceDto, NewSharedVariableDto,
-    ProjectDto, RevealedValueDto, RevisionDto, RevisionVariableDto, ServiceDto, ServiceKindDto,
-    ServiceSettingsDto, ServiceSourceDto, ServiceStatusDto, SessionDto, SettingField,
-    SettingValueDto, SharedVariableRemovedDto, SharedVariableSetDto, StagedChangeDto, VariableDto,
-    VariableImpactDto, VariableKindDto, VariableLevelDto, VolumeDto,
+    IngressDto, LogLevel, LogLineDto, LogStream, NewChangeDto, NewProjectSourceDto,
+    NewSharedVariableDto, ProjectDto, RevealedValueDto, RevisionDto, RevisionVariableDto,
+    ServiceDto, ServiceKindDto, ServiceSettingsDto, ServiceSourceDto, ServiceStatusDto, SessionDto,
+    SettingField, SettingValueDto, SharedVariableRemovedDto, SharedVariableSetDto, StagedChangeDto,
+    VariableDto, VariableImpactDto, VariableKindDto, VariableLevelDto, VolumeDto,
 };
 use ts_rs::{Config, TS};
 
@@ -47,6 +47,7 @@ fn declarations() -> Vec<(String, String)> {
         entry::<EnvironmentDto>(&cfg),
         entry::<EventsPageDto>(&cfg),
         entry::<ImpactedServiceDto>(&cfg),
+        entry::<IngressDto>(&cfg),
         entry::<LogLevel>(&cfg),
         entry::<LogLineDto>(&cfg),
         entry::<LogStream>(&cfg),
