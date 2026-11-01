@@ -23,16 +23,19 @@ interface DomainSettingProps {
   // The hosts that the active deployment serves.
   readonly domains: readonly string[];
   readonly staged: boolean;
+  // Why the engine refused the last change of this field, such as a subdomain already taken.
+  readonly refusal?: string | undefined;
   readonly onCommit: (value: SettingValue) => void;
 }
 
 // A subdomain of the server's zone, staged when the field loses focus or on Enter, once valid.
 // The server has no zone until `brume install --domain` sets one up.
-export function DomainSetting({ value, domains, staged, onCommit }: DomainSettingProps) {
+export function DomainSetting({ value, domains, staged, refusal, onCommit }: DomainSettingProps) {
   const { data: ingress } = useSuspenseQuery(ingressQuery);
   const [text, setText] = useState(value);
   const [error, setError] = useState<string>();
   const host = ingress ? publicHost(domains, ingress.zone) : undefined;
+  const url = host ? domainUrl(host) : undefined;
 
   const commit = () => {
     const result = validateSetting("domain", text);
@@ -56,14 +59,14 @@ export function DomainSetting({ value, domains, staged, onCommit }: DomainSettin
           )
         }
         staged={staged}
-        error={error}
+        error={error ?? refusal}
       >
         <InputGroup>
           <InputGroupInput
             value={text}
             disabled={!ingress}
             aria-label="Public domain"
-            aria-invalid={error ? true : undefined}
+            aria-invalid={(error ?? refusal) ? true : undefined}
             placeholder="app"
             onChange={(event) => setText(event.target.value)}
             onBlur={commit}
@@ -80,9 +83,9 @@ export function DomainSetting({ value, domains, staged, onCommit }: DomainSettin
           )}
         </InputGroup>
       </SettingField>
-      {host && (
+      {url && (
         <a
-          href={domainUrl(host)}
+          href={url}
           target="_blank"
           rel="noreferrer"
           className="flex w-fit items-center gap-2 text-sm hover:underline"

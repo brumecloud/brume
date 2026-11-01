@@ -27,5 +27,8 @@ export function useSettingCommit(
     }
   };
 
-  return { commit, error: mutation.error };
+  // The field whose change was refused, so that the form can show the refusal next to it.
+  const failed = mutation.error ? mutation.variables : undefined;
+  const failedField = failed?.type === "setting" ? failed.field : undefined;
+  return { commit, error: mutation.error, failedField };
 }

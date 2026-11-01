@@ -38,13 +38,17 @@ describe("public domain", () => {
     await userEvent.keyboard("{Enter}");
     await expect.element(screen.getByText("Apply 1 change")).toBeVisible();
     expect(staged(domain.element())).toBe(true);
+    // Staged only: nothing serves it yet.
+    await expect
+      .element(screen.getByRole("link", { name: "https://shop.brume.run" }))
+      .not.toBeInTheDocument();
     await screen.getByRole("button", { name: /^Deploy/ }).click();
 
     const link = screen.getByRole("link", { name: "https://shop.brume.run" });
     await expect.element(link).toHaveAttribute("href", "https://shop.brume.run/");
     await expect.element(link).toHaveAttribute("target", "_blank");
     await expect.element(domain).toHaveValue("shop");
-    expect(staged(domain.element())).toBe(false);
+    await expect.poll(() => staged(domain.element())).toBe(false);
 
     await domain.clear();
     await userEvent.keyboard("{Enter}");

@@ -120,9 +120,9 @@ export const environments: readonly Environment[] = [
 ];
 
 export const services: readonly Service[] = [
-  service(northbeanProduction, "storefront", "static", { domains: ["northbean.coffee"] }),
+  service(northbeanProduction, "storefront", "static", { domains: ["northbean.brume.run"] }),
   service(northbeanProduction, "shop-api", "github", {
-    domains: ["api.northbean.coffee"],
+    domains: ["northbean-api.brume.run"],
     dependsOn: ["PostgreSQL", "Redis"],
   }),
   service(northbeanProduction, "order-worker", "github", { dependsOn: ["PostgreSQL", "Redis"] }),
@@ -130,14 +130,14 @@ export const services: readonly Service[] = [
   service(northbeanProduction, "Redis", "redis", { volume: "redis-data" }),
   service(northbeanStaging, "shop-api", "github", {
     status: "deploying",
-    domains: ["api.staging.northbean.coffee"],
+    domains: ["northbean-api-staging.brume.run"],
     dependsOn: ["PostgreSQL"],
   }),
   service(northbeanStaging, "PostgreSQL", "postgres", { volume: "postgres-data" }),
 
-  service(routelaneProduction, "dashboard", "static", { domains: ["routelane.app"] }),
+  service(routelaneProduction, "dashboard", "static", { domains: ["routelane.brume.run"] }),
   service(routelaneProduction, "tracking-api", "github", {
-    domains: ["api.routelane.app"],
+    domains: ["routelane-api.brume.run"],
     dependsOn: ["PostgreSQL", "MongoDB", "Redis"],
   }),
   service(routelaneProduction, "gps-ingest", "github", { dependsOn: ["MongoDB", "Redis"] }),
@@ -149,9 +149,9 @@ export const services: readonly Service[] = [
   service(routelaneProduction, "MongoDB", "mongodb", { volume: "mongodb-data" }),
   service(routelaneProduction, "Redis", "redis", { volume: "redis-data" }),
 
-  service(deskmindProduction, "widget", "static", { domains: ["deskmind.app"] }),
+  service(deskmindProduction, "widget", "static", { domains: ["deskmind.brume.run"] }),
   service(deskmindProduction, "support-api", "github", {
-    domains: ["api.deskmind.app"],
+    domains: ["deskmind-api.brume.run"],
     dependsOn: ["PostgreSQL", "Redis", "inference"],
   }),
   service(deskmindProduction, "inference", "image", {
@@ -161,23 +161,23 @@ export const services: readonly Service[] = [
   service(deskmindProduction, "PostgreSQL", "postgres", { volume: "postgres-data" }),
   service(deskmindProduction, "Redis", "redis", { volume: "redis-data" }),
 
-  service(tallybookProduction, "web-app", "static", { domains: ["app.tallybook.cloud"] }),
+  service(tallybookProduction, "web-app", "static", { domains: ["tallybook.brume.run"] }),
   service(tallybookProduction, "billing-api", "github", {
-    domains: ["api.tallybook.cloud"],
+    domains: ["tallybook-api.brume.run"],
     dependsOn: ["PostgreSQL", "Redis", "pdf-renderer"],
   }),
   service(tallybookProduction, "pdf-renderer", "image"),
   service(tallybookProduction, "PostgreSQL", "postgres", { volume: "postgres-data" }),
   service(tallybookProduction, "Redis", "redis", { volume: "redis-data" }),
   service(tallybookStaging, "billing-api", "github", {
-    domains: ["api.staging.tallybook.cloud"],
+    domains: ["tallybook-api-staging.brume.run"],
     dependsOn: ["PostgreSQL"],
   }),
   service(tallybookStaging, "PostgreSQL", "postgres", { volume: "postgres-data" }),
 
-  service(clinicslotProduction, "booking-web", "static", { domains: ["clinicslot.app"] }),
+  service(clinicslotProduction, "booking-web", "static", { domains: ["clinicslot.brume.run"] }),
   service(clinicslotProduction, "booking-api", "github", {
-    domains: ["api.clinicslot.app"],
+    domains: ["clinicslot-api.brume.run"],
     dependsOn: ["PostgreSQL", "Redis"],
   }),
   service(clinicslotProduction, "reminders-worker", "github", {

@@ -88,7 +88,7 @@ function SettingsForm({
   settings,
   changes,
 }: SettingsFormProps) {
-  const { commit, error } = useSettingCommit(service.id, settings, changes);
+  const { commit, error, failedField } = useSettingCommit(service.id, settings, changes);
   const staged = withStagedSettings(settings, changes);
   const fields = stagedFields(changes);
   const { source } = staged;
@@ -171,6 +171,7 @@ function SettingsForm({
                 value={staged.domain ?? ""}
                 domains={service.domains}
                 staged={fields.has("domain")}
+                refusal={failedField === "domain" ? error?.message : undefined}
                 onCommit={(value) => commit("domain", value)}
               />
             )}

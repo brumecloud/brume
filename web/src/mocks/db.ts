@@ -476,6 +476,13 @@ export function deleteService(serviceId: string): void {
 
 const TEMPLATE_VERSIONS = { postgres: "17.6", mongodb: "8.0.15", redis: "8.2.2" } as const;
 
+// The subdomain of a seeded service whose host is in the zone, as the engine would return it.
+function seededSubdomain(service: Service): string | null {
+  const zone = db.ingress?.zone;
+  const host = service.domains[0];
+  return zone && host?.endsWith(`.${zone}`) ? host.slice(0, -(zone.length + 1)) : null;
+}
+
 function settingsFor(service: Service): ServiceSettings {
   const environment = db.environments.find(({ id }) => id === service.environmentId);
   const limits = { cpuLimit: 1, memoryLimitMb: 512 };
@@ -496,7 +503,7 @@ function settingsFor(service: Service): ServiceSettings {
         healthcheckPath: runtime ? "/health" : null,
         ...limits,
         egress: true,
-        domain: null,
+        domain: seededSubdomain(service),
       };
     }
     case "image": {
@@ -510,7 +517,7 @@ function settingsFor(service: Service): ServiceSettings {
         healthcheckPath: null,
         ...limits,
         egress: true,
-        domain: null,
+        domain: seededSubdomain(service),
       };
     }
     default:
@@ -526,7 +533,7 @@ function settingsFor(service: Service): ServiceSettings {
         cpuLimit: 1,
         memoryLimitMb: 1024,
         egress: false,
-        domain: null,
+        domain: seededSubdomain(service),
       };
   }
 }
