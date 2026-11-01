@@ -248,12 +248,14 @@ mod tests {
     }
 
     const DOCKER: &str = "installed 5:29.0.1-1~ubuntu.24.04~noble";
+    const RUNC: &str = "runc version 1.3.3\ncommit: v1.3.3-0-gd842d771\n";
 
     /// The answers of an installed host to the queries of the steps.
     fn answer_installed(fake: &FakeSystem) {
         for package in ["docker-ce", "docker-ce-cli", "containerd.io"] {
             fake.answer(&docker::package_query(package), Output::ok(DOCKER));
         }
+        fake.answer(&docker::runc_version_query(), Output::ok(RUNC));
         fake.answer(
             &docker::security_options(),
             Output::ok("[\"name=seccomp,profile=builtin\",\"name=userns\"]\n"),
@@ -423,6 +425,7 @@ mod tests {
                 Output::ok(DOCKER),
             );
         }
+        fake.answer_after(&install, &docker::runc_version_query(), Output::ok(RUNC));
         fake.answer_after(
             &Cmd::new("systemctl", &["restart", "docker.service"]),
             &docker::security_options(),

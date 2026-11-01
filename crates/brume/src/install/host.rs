@@ -19,7 +19,7 @@ const MAX_READ_BYTES: u64 = 1024 * 1024;
 const MAX_QUOTED_BYTES: usize = 2048;
 
 /// The exit code of a program that is not installed, as a shell reports it.
-const NOT_FOUND: i32 = 127;
+pub const NOT_FOUND: i32 = 127;
 
 /// A command run on the host: a program and its arguments, never through a shell.
 #[derive(Clone, Debug, PartialEq, Eq)]

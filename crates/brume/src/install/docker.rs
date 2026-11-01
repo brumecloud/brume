@@ -2,6 +2,7 @@
 //! namespaces, no new privileges, bounded logs, Brume's address pools, no default bridge and no
 //! TCP socket.
 
+use std::fmt;
 use std::path::Path;
 
 use anyhow::bail;
@@ -37,12 +38,20 @@ const PACKAGES: [&str; 3] = ["docker-ce", "docker-ce-cli", "containerd.io"];
 /// Packages that are a Docker of another origin.
 const FOREIGN_PACKAGES: [&str; 3] = ["docker.io", "podman-docker", "moby-engine"];
 
-/// The oldest Docker Brume runs on: Docker 28.5.2 ships runc 1.3.3, which fixes the container
-/// escapes of November 2025.
+/// The oldest Docker Brume runs on, 28.5.2: it came out with runc 1.3.3. runc itself comes with
+/// `containerd.io`, and is checked apart.
 const MIN_VERSION: Version = Version {
     major: 28,
     minor: 5,
     patch: 2,
+};
+
+/// The oldest runc Brume runs on: 1.3.3 fixes the container escapes of November 2025
+/// (CVE-2025-31133, CVE-2025-52565, CVE-2025-52881).
+const MIN_RUNC: Version = Version {
+    major: 1,
+    minor: 3,
+    patch: 3,
 };
 
 const UNIT: &str = "docker.service";
@@ -138,8 +147,7 @@ pub fn check_no_foreign_docker(host: &Host) -> anyhow::Result<()> {
              a fresh server: remove the snap first."
         );
     }
-    let present = installed_version(host, "docker-ce")?.is_some()
-        || host.exists(Path::new("/usr/bin/dockerd"));
+    let present = is_installed(host)?;
     match host.read(Path::new(DAEMON_JSON_PATH))? {
         Some(text) if text == daemon_json() => Ok(()),
         Some(_) => bail!(
@@ -155,12 +163,41 @@ pub fn check_no_foreign_docker(host: &Host) -> anyhow::Result<()> {
     }
 }
 
-/// A Docker version, such as 29.0.1.
+/// Whether Docker is installed, by any means.
+pub fn is_installed(host: &Host) -> anyhow::Result<bool> {
+    Ok(installed_version(host, "docker-ce")?.is_some()
+        || host.exists(Path::new("/usr/bin/dockerd")))
+}
+
+/// A version of Docker or runc, such as 29.0.1.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Version {
     major: u32,
     minor: u32,
     patch: u32,
+}
+
+impl fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}
+
+/// The version that `text` starts with, such as `29.0.1` or `1.4.0-rc.1`: the digits that
+/// start each of its first three dot-separated parts.
+fn parse_version(text: &str) -> Option<Version> {
+    let mut numbers = text.split('.').map(|part| {
+        let digits: String = part.chars().take_while(char::is_ascii_digit).collect();
+        digits.parse::<u32>().ok()
+    });
+    let major = numbers.next().flatten()?;
+    let minor = numbers.next().flatten().unwrap_or(0);
+    let patch = numbers.next().flatten().unwrap_or(0);
+    Some(Version {
+        major,
+        minor,
+        patch,
+    })
 }
 
 /// The epoch and the version of a Debian version of Docker, such as
@@ -170,22 +207,24 @@ fn parse_deb_version(deb: &str) -> Option<(Option<u32>, Version)> {
         Some((epoch, rest)) => (Some(epoch.parse().ok()?), rest),
         None => (None, deb),
     };
-    let upstream = rest.split('-').next()?;
-    let mut numbers = upstream.split('.').map(|part| {
-        let digits: String = part.chars().take_while(char::is_ascii_digit).collect();
-        digits.parse::<u32>().ok()
-    });
-    let major = numbers.next().flatten()?;
-    let minor = numbers.next().flatten().unwrap_or(0);
-    let patch = numbers.next().flatten().unwrap_or(0);
-    Some((
-        epoch,
-        Version {
-            major,
-            minor,
-            patch,
-        },
-    ))
+    Some((epoch, parse_version(rest.split('-').next()?)?))
+}
+
+/// Prints runc's version, `runc version 1.3.3`, then its commit and its dependencies.
+pub fn runc_version_query() -> Cmd {
+    Cmd::new("runc", &["--version"])
+}
+
+/// The version of runc, from the first line of `runc --version` (`output`).
+fn parse_runc_version(output: &str) -> Option<Version> {
+    parse_version(output.lines().next()?.strip_prefix("runc version ")?.trim())
+}
+
+/// The version of the runc that Docker runs containers with, if it tells.
+fn runc_version(host: &Host) -> anyhow::Result<Option<Version>> {
+    Ok(host
+        .query_stdout(&runc_version_query())?
+        .and_then(|output| parse_runc_version(&output)))
 }
 
 /// The apt preference that keeps Docker on the major version of `deb`, the installed version.
@@ -258,7 +297,7 @@ impl Step for Config {
     }
 }
 
-/// Installs Docker, at least `MIN_VERSION`.
+/// Installs Docker, at least `MIN_VERSION`, with runc at least `MIN_RUNC`.
 pub struct Packages;
 
 impl Packages {
@@ -284,9 +323,12 @@ impl Step for Packages {
     }
 
     fn is_done(&self, host: &Host) -> anyhow::Result<bool> {
-        Ok(Self::installed(host)?.is_some())
+        Ok(Self::installed(host)?.is_some()
+            && runc_version(host)?.is_some_and(|version| version >= MIN_RUNC))
     }
 
+    /// Installs the packages, or upgrades them: an older runc comes with an older
+    /// `containerd.io`.
     fn apply(&self, host: &mut Host) -> anyhow::Result<()> {
         host.change(&apt_get(&["update"]))?;
         let mut install = vec!["install", "--no-install-recommends"];
@@ -295,11 +337,22 @@ impl Step for Packages {
         if Self::installed(host)?.is_none() {
             let found = installed_version(host, PACKAGES[0])?;
             bail!(
-                "apt installed Docker {}, and Brume needs Docker 28.5.2 or later.",
+                "apt installed Docker {}, and Brume needs Docker {MIN_VERSION} or later.",
                 found.as_deref().unwrap_or("partly")
             );
         }
-        Ok(())
+        match runc_version(host)? {
+            Some(version) if version >= MIN_RUNC => Ok(()),
+            Some(version) => bail!(
+                "Docker runs containers with runc {version}, and Brume needs runc {MIN_RUNC} or \
+                 later: older versions let a container escape to the host (CVE-2025-31133, \
+                 CVE-2025-52565, CVE-2025-52881). runc comes with the package containerd.io."
+            ),
+            None => bail!(
+                "Docker is installed, but brume install cannot tell the version of runc (runc \
+                 --version), and Brume needs runc {MIN_RUNC} or later."
+            ),
+        }
     }
 }
 
@@ -376,7 +429,13 @@ impl Step for Running {
 mod tests {
     use serde_json::json;
 
-    use super::{MIN_VERSION, Version, daemon_json, parse_deb_version, pin, sources};
+    use super::{
+        MIN_RUNC, MIN_VERSION, PACKAGES, Packages, Version, daemon_json, package_query,
+        parse_deb_version, parse_runc_version, pin, runc_version_query, sources,
+    };
+    use crate::install::Step as _;
+    use crate::install::host::fake::FakeSystem;
+    use crate::install::host::{Host, Output};
     use crate::install::preflight::{Distro, Platform};
 
     #[test]
@@ -448,5 +507,72 @@ mod tests {
              https://download.docker.com/linux/debian\nSuites: trixie\nComponents: stable\n\
              Architectures: amd64\nSigned-By: /etc/apt/keyrings/docker.asc\n"
         );
+    }
+
+    #[test]
+    fn reads_runc_versions() {
+        let output = "runc version 1.3.3\ncommit: v1.3.3-0-gd842d771\nspec: 1.2.1\ngo: \
+                      go1.24.9\nlibseccomp: 2.5.5\n";
+        assert_eq!(
+            parse_runc_version(output),
+            Some(Version {
+                major: 1,
+                minor: 3,
+                patch: 3
+            })
+        );
+        let at = |output: &str| parse_runc_version(output).expect("parses");
+        assert!(at(output) >= MIN_RUNC);
+        assert!(at("runc version 1.3.2\n") < MIN_RUNC);
+        assert!(at("runc version 1.2.8\n") < MIN_RUNC);
+        assert!(at("runc version 1.4.0-rc.1\ncommit: x\n") >= MIN_RUNC);
+        assert!(at("runc version 1.5.2\n") >= MIN_RUNC);
+        assert_eq!(parse_runc_version("commit: v1.3.3\n"), None);
+        assert_eq!(parse_runc_version(""), None);
+    }
+
+    /// A host with Docker 29 installed, and `runc` at `runc`, if it answers.
+    fn with_runc(runc: Option<&str>) -> FakeSystem {
+        let fake = FakeSystem::default();
+        for package in PACKAGES {
+            fake.answer(
+                &package_query(package),
+                Output::ok("installed 5:29.0.1-1~ubuntu.24.04~noble"),
+            );
+        }
+        if let Some(version) = runc {
+            fake.answer(
+                &runc_version_query(),
+                Output::ok(&format!(
+                    "runc version {version}\ncommit: v{version}-0-g0\n"
+                )),
+            );
+        }
+        fake
+    }
+
+    #[test]
+    fn an_old_runc_stops_the_install() {
+        let host = Host::new(Box::new(with_runc(Some("1.3.3"))));
+        assert!(Packages.is_done(&host).expect("reads"));
+
+        for (runc, needle) in [
+            (Some("1.3.2"), "runc 1.3.2"),
+            (None, "cannot tell the version of runc"),
+        ] {
+            let fake = with_runc(runc);
+            let mut host = Host::new(Box::new(fake.clone()));
+            assert!(!Packages.is_done(&host).expect("reads"), "{needle}");
+            // apt runs, in case it brings a newer containerd.io, then the install stops.
+            let error = Packages.apply(&mut host).expect_err(needle);
+            let error = error.to_string();
+            assert!(error.contains(needle), "{error}");
+            assert!(error.contains("runc 1.3.3 or later"), "{error}");
+            assert!(
+                fake.changes()
+                    .iter()
+                    .any(|change| change.contains("install --no-install-recommends")),
+            );
+        }
     }
 }

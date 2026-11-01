@@ -207,11 +207,13 @@ impl Service {
     }
 
     /// The network the service may use. Unix sockets live in the file system: `PrivateNetwork`
-    /// does not cut them.
+    /// does not cut them. The agent speaks to Docker, the engine and telemetry over unix sockets
+    /// only, and Docker pulls the images: the agent's HTTP probes run in a container.
     fn network(self) -> &'static str {
         match self {
             Self::Telemetry => "PrivateNetwork=yes\nRestrictAddressFamilies=AF_UNIX\n",
-            Self::Engine | Self::Agent => "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6\n",
+            Self::Agent => "RestrictAddressFamilies=AF_UNIX\nIPAddressDeny=any\n",
+            Self::Engine => "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6\n",
             Self::Api => {
                 "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6\nIPAddressDeny=any\n\
                  IPAddressAllow=localhost\n"
@@ -440,6 +442,11 @@ mod tests {
         let telemetry = Service::Telemetry.unit_text();
         assert_eq!(values(&telemetry, "PrivateNetwork"), ["yes"]);
         assert_eq!(values(&telemetry, "MemoryMax"), ["512M"]);
+        // The agent speaks over unix sockets only: Docker's, the engine's, telemetry's. Its
+        // probes run in containers.
+        assert_eq!(values(&agent, "RestrictAddressFamilies"), ["AF_UNIX"]);
+        assert_eq!(values(&agent, "IPAddressDeny"), ["any"]);
+        assert!(values(&agent, "IPAddressAllow").is_empty());
         let api = Service::Api.unit_text();
         assert_eq!(values(&api, "IPAddressDeny"), ["any"]);
         assert_eq!(values(&api, "IPAddressAllow"), ["localhost"]);
