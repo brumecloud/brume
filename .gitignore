@@ -10,6 +10,9 @@
 # Rust
 /target/
 
+# Release builds: scripts/release/build.sh
+/dist/
+
 # Frontend
 node_modules/
 /web/dist/
