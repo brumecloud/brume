@@ -13,12 +13,13 @@ sources:
   - archi/base/14-architecture-logicielle.md
   - archi/base/16-tests.md
   - archi/base/README.md
+  - crates/brume-api/src/dto_ts.rs
 ---
 
 Brume ships as one signed binary, `brume`, with the React panel compiled and embedded in it. To build it yourself, you build the panel first, then compile the Rust code, which embeds the panel. If you want your servers to accept your builds as updates, you also sign them with your own minisign key.
 
-<Callout title="No code yet">
-  Brume is in its design phase. This page describes the toolchains, checks and signing that the design fixes for alpha 0.1.
+<Callout title="Partly built">
+  The panel and the `brume` binary build today, and run on your machine: see [Run Brume locally](/docs/customize/run-locally). Signing, the CI checks and the systemd services described here are still design for alpha 0.1.
 </Callout>
 
 ## Prerequisites
@@ -66,7 +67,7 @@ Vite+ writes the panel to `web/dist`. The build fails if two chunks import each 
 
 The server never runs npm. The panel reaches it only inside the signed binary.
 
-The API's TypeScript types, in `src/api/`, are generated from the Rust types, with `ts-rs` or `specta`, whichever the implementation picks. See [Panel frontend](/docs/customize/frontend#open-decisions).
+The API's TypeScript types, in `src/api/generated.ts`, are generated from the Rust types with `ts-rs`, by `cargo test -p brume-api export_typescript_bindings`. See [Panel frontend](/docs/customize/frontend#typescript).
 
 </Step>
 
