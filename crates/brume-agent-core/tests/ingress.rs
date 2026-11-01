@@ -167,6 +167,9 @@ fn cloudflared_full_config() {
         cmd: Some(strings(&[
             "tunnel",
             "--no-autoupdate",
+            // Its metrics server stays off the container's networks.
+            "--metrics",
+            "127.0.0.1:20241",
             "run",
             "--url",
             "http://10.213.255.10:8080",
@@ -177,7 +180,7 @@ fn cloudflared_full_config() {
             // Pinned: a change of the config, or of the token, replaces cloudflared.
             (
                 "brume.config-hash".to_owned(),
-                "064d079cf739dc8bd06b0b6621f717c1f93f5c85b5cca6fdee177ca72612682c".to_owned(),
+                "c689f405211343a686bed1015bcb061d88cb13bfbfea86ba622bb8be2e5ef1ec".to_owned(),
             ),
             ("brume.managed".to_owned(), "1".to_owned()),
         ]),
@@ -228,6 +231,25 @@ fn entry_networks_are_the_tunnel_and_a_fixed_ingress_subnet() {
     );
 }
 
+/// The headers middleware of the route to `host`: the app sees the route's host, and none of
+/// the forwarded headers that a client could set through Cloudflare.
+fn forwarded_headers(host: &str) -> serde_json::Value {
+    json!({
+        "headers": {
+            "customRequestHeaders": {
+                "X-Forwarded-Host": host,
+                "X-Real-Ip": "",
+                "X-Forwarded-Port": "",
+                "X-Forwarded-Prefix": "",
+                "X-Forwarded-Server": "",
+                "X-Forwarded-Tls-Client-Cert": "",
+                "X-Forwarded-Tls-Client-Cert-Info": "",
+                "Forwarded": "",
+            },
+        },
+    })
+}
+
 #[test]
 fn dynamic_config_routes_hosts() {
     assert_eq!(
@@ -238,13 +260,19 @@ fn dynamic_config_routes_hosts() {
                     "demo_example_com": {
                         "rule": "Host(`demo.example.com`)",
                         "entryPoints": ["web"],
+                        "middlewares": ["demo_example_com"],
                         "service": "demo_example_com",
                     },
                     "api_example_com": {
                         "rule": "Host(`api.example.com`)",
                         "entryPoints": ["web"],
+                        "middlewares": ["api_example_com"],
                         "service": "api_example_com",
                     },
+                },
+                "middlewares": {
+                    "demo_example_com": forwarded_headers("demo.example.com"),
+                    "api_example_com": forwarded_headers("api.example.com"),
                 },
                 "services": {
                     "demo_example_com": {
@@ -280,6 +308,20 @@ fn invalid_routes_are_left_out() {
         route("host.example.com", "host", 8080),
         route_to("t.example.com", "brume-edge-svc-2", "web/../x", 8080),
         route_to("u.example.com", "brume-edge-svc-2", "web@evil", 8080),
+        // A target other than the route's network: Traefik would resolve it on any of its
+        // networks, cloudflared on the ingress network included.
+        route_to(
+            "v.example.com",
+            "brume-edge-svc-2",
+            "brume-cloudflared",
+            8080,
+        ),
+        route_to(
+            "w.example.com",
+            "brume-edge-svc-2",
+            "brume-edge-svc-5",
+            8080,
+        ),
         route("zero.example.com", "brume-edge-svc-2", 0),
         // A host already routed keeps its first route.
         route("demo.example.com", "brume-edge-svc-3", 80),
@@ -697,4 +739,47 @@ fn traefik_skips_an_edge_network_it_cannot_join() {
         name: "brume-edge-svc-2".to_owned(),
         reason: RefusalReason::Foreign,
     }));
+}
+
+#[test]
+fn engine_networks_get_no_subnet() {
+    // An engine that pins its networks on the host's gateway or the metadata range.
+    let mut state = desired(None);
+    state.networks.push(NetworkSpec {
+        subnet: Some("169.254.169.0/24".to_owned()),
+        ..network("brume-env-1", true)
+    });
+    state.networks.push(NetworkSpec {
+        subnet: Some("172.31.0.0/20".to_owned()),
+        ..network("brume-edge-svc-1", true)
+    });
+    assert_eq!(
+        plan_now(&state, &DockerSnapshot::default()),
+        [
+            Action::CreateNetwork(network("brume-env-1", true)),
+            Action::CreateNetwork(network("brume-edge-svc-1", true)),
+        ]
+    );
+
+    // Docker picked another subnet: the network stays, with its containers.
+    let app_on_env = ContainerSpec {
+        networks: vec![NetworkAttachment {
+            network: "brume-env-1".to_owned(),
+            aliases: strings(&["web"]),
+        }],
+        ..app()
+    };
+    state.containers.push(app_on_env);
+    let snapshot = DockerSnapshot {
+        networks: vec![
+            snap_network("brume-env-1", true, Some("10.213.4.0/24")),
+            snap_network("brume-edge-svc-1", true, Some("10.213.5.0/24")),
+        ],
+        images: strings(&["nginx@sha256:aa"]),
+        ..DockerSnapshot::default()
+    };
+    assert_eq!(
+        created(&plan_now(&state, &snapshot)),
+        ["brume-web-0190a3f2"]
+    );
 }

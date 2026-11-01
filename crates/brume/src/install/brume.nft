@@ -1,7 +1,7 @@
 #!/usr/sbin/nft -f
 # Brume's firewall: the table inet brume. Written by `brume install` to /etc/brume/brume.nft,
-# loaded by brume-nftables.service before Docker starts. The next `brume install` overwrites
-# any change.
+# loaded by brume-nftables.service before Docker starts, and again each time nftables.service
+# flushes the ruleset. The next `brume install` overwrites any change.
 #
 # A drop in this table is final, whatever the rules that Docker adds in its own tables.
 
@@ -40,6 +40,10 @@ table inet brume {
 	chain forward {
 		type filter hook forward priority filter; policy accept;
 
+		# Brume publishes no port: no connection opens to a container from outside Docker's
+		# bridges, whatever Docker's own rules, which a flush of the ruleset deletes.
+		iifname != "br-*" oifname "br-*" ct state new drop
+
 		# From the containers: Docker's bridges, whatever the source address, and Docker's
 		# address pools.
 		iifname "br-*" jump from_containers
@@ -48,10 +52,13 @@ table inet brume {
 	}
 
 	chain from_containers {
+		# The tailnet, whatever the address: its subnet routes and exit nodes reach any.
+		oifname "tailscale0" drop
+
 		# Between containers, Docker's own rules decide.
 		ip daddr 10.213.0.0/16 return
 
-		# The tailnet, its DNS included.
+		# The tailnet's addresses, its DNS included.
 		ip daddr 100.64.0.0/10 drop
 
 		# DNS: Docker's resolver sends the containers' queries from the container, to the

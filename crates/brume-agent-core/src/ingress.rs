@@ -3,6 +3,11 @@
 //! with Traefik alone. The agent runs both from the engine's `IngressSpec`, with configs that it
 //! builds itself: only the tunnel token and the routes come from the engine, and a route is used
 //! only once its host, network, target and port pass `valid_routes`.
+//!
+//! Traefik trusts the forwarded headers from cloudflared, which passes on those that Cloudflare
+//! does not manage as the client sent them. Each route sets `X-Forwarded-Host` itself and
+//! removes the others that Cloudflare does not set: an app sees the client's address and scheme
+//! as Cloudflare saw them, and nothing that the client chose.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -36,6 +41,8 @@ pub const TRAEFIK_ADDRESS: &str = "10.213.255.10";
 pub const CLOUDFLARED_ADDRESS: &str = "10.213.255.11";
 /// The port of Traefik's entrypoint.
 pub const TRAEFIK_PORT: u16 = 8080;
+/// Where cloudflared serves its metrics: inside its container only, not on its networks.
+pub const CLOUDFLARED_METRICS: &str = "127.0.0.1:20241";
 
 /// The container that runs Traefik.
 pub const TRAEFIK_CONTAINER: &str = "brume-traefik";
@@ -62,6 +69,19 @@ const COMPONENT_STOP_TIMEOUT_SECS: u32 = 10;
 const MAX_HOST_BYTES: usize = 253;
 /// The longest DNS label.
 const MAX_LABEL_BYTES: usize = 63;
+/// The forwarded headers that each route removes. Traefik keeps the `X-Forwarded-*` and
+/// `X-Real-Ip` that cloudflared sends, and Cloudflare sets only `X-Forwarded-For` and
+/// `X-Forwarded-Proto`: any other is the client's. `Forwarded` passes through Traefik, and
+/// `X-Forwarded-Server` names Traefik's container.
+const CLIENT_FORWARDED_HEADERS: [&str; 7] = [
+    "X-Real-Ip",
+    "X-Forwarded-Port",
+    "X-Forwarded-Prefix",
+    "X-Forwarded-Server",
+    "X-Forwarded-Tls-Client-Cert",
+    "X-Forwarded-Tls-Client-Cert-Info",
+    "Forwarded",
+];
 
 /// Whether `name` is one of the entry's networks, which only its components join: an engine's
 /// network or container never uses one.
@@ -70,9 +90,10 @@ pub fn is_component_network(name: &str) -> bool {
 }
 
 /// The routes that Traefik uses, in order: a host that is a lowercase DNS name of two labels at
-/// least, an edge network `brume-edge-[a-z0-9-]+`, a target that is one DNS label, and a port
-/// other than 0. A host already routed keeps its first route. The others are left out: a
-/// backtick in a host would inject a condition into Traefik's rule.
+/// least, an edge network `brume-edge-[a-z0-9-]+`, a target that is that network's name and one
+/// DNS label, and a port other than 0. A host already routed keeps its first route. The others
+/// are left out: a backtick in a host would inject a condition into Traefik's rule, and another
+/// target would resolve on any of Traefik's networks, to cloudflared or another service.
 pub fn valid_routes(routes: &[IngressRoute]) -> Vec<&IngressRoute> {
     let mut hosts = BTreeSet::new();
     routes
@@ -80,6 +101,7 @@ pub fn valid_routes(routes: &[IngressRoute]) -> Vec<&IngressRoute> {
         .filter(|route| {
             is_host(&route.host)
                 && is_edge_network(&route.network)
+                && route.target == route.network
                 && is_label(&route.target)
                 && route.port != 0
         })
@@ -110,12 +132,13 @@ pub fn ingress_components(spec: &IngressSpec) -> (Vec<NetworkSpec>, Vec<Containe
 }
 
 /// Traefik's dynamic config: for each valid route, a router on the `web` entrypoint whose rule
-/// is ``Host(`<host>`)`` and a service at `http://<target>:<port>`, both named after the host.
-/// A request for any other host gets Traefik's 404. Without a route, an empty object: Traefik
-/// refuses empty `routers` and `services`, and a config that it refuses at its start is never
-/// watched again.
+/// is ``Host(`<host>`)``, its headers middleware and a service at `http://<target>:<port>`, all
+/// three named after the host. A request for any other host gets Traefik's 404. Without a
+/// route, an empty object: Traefik refuses empty `routers` and `services`, and a config that it
+/// refuses at its start is never watched again.
 pub fn traefik_dynamic_config(routes: &[IngressRoute]) -> Value {
     let mut routers = Map::new();
+    let mut middlewares = Map::new();
     let mut services = Map::new();
     for route in valid_routes(routes) {
         // Injective, as a valid host has no `_`, and free of the `.` and `@` that Traefik reads
@@ -126,9 +149,11 @@ pub fn traefik_dynamic_config(routes: &[IngressRoute]) -> Value {
             json!({
                 "rule": format!("Host(`{}`)", route.host),
                 "entryPoints": [ENTRYPOINT],
+                "middlewares": [name],
                 "service": name,
             }),
         );
+        middlewares.insert(name.clone(), forwarded_headers(&route.host));
         services.insert(
             name,
             json!({
@@ -141,7 +166,21 @@ pub fn traefik_dynamic_config(routes: &[IngressRoute]) -> Value {
     if routers.is_empty() {
         return json!({});
     }
-    json!({ "http": { "routers": routers, "services": services } })
+    json!({
+        "http": { "routers": routers, "middlewares": middlewares, "services": services },
+    })
+}
+
+/// The headers middleware of the route to `host`: `X-Forwarded-Host` is `host`, and an empty
+/// value removes each of `CLIENT_FORWARDED_HEADERS`. It runs after Traefik sets its own
+/// forwarded headers, at the entrypoint.
+fn forwarded_headers(host: &str) -> Value {
+    let mut headers = Map::new();
+    headers.insert("X-Forwarded-Host".to_owned(), json!(host));
+    for header in CLIENT_FORWARDED_HEADERS {
+        headers.insert(header.to_owned(), json!(""));
+    }
+    json!({ "headers": { "customRequestHeaders": headers } })
 }
 
 /// Traefik: on `brume-ingress` at its fixed address, and on each route's edge network; nobody,
@@ -219,6 +258,9 @@ fn cloudflared(spec: &IngressSpec) -> ContainerConfig {
     let cmd = vec![
         "tunnel".to_owned(),
         "--no-autoupdate".to_owned(),
+        // In a container, cloudflared serves its metrics on all its addresses by default.
+        "--metrics".to_owned(),
+        CLOUDFLARED_METRICS.to_owned(),
         "run".to_owned(),
         "--url".to_owned(),
         format!("http://{TRAEFIK_ADDRESS}:{TRAEFIK_PORT}"),

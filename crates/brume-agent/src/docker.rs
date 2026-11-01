@@ -22,6 +22,7 @@ use brume_agent_core::config::{
     ContainerConfig, HostDir, LABEL_COMPONENT, LABEL_CONFIG_HASH, LABEL_DEPLOYMENT,
     LABEL_ENVIRONMENT, LABEL_MANAGED, LABEL_SERVICE, RestartPolicy,
 };
+use brume_agent_core::ingress::is_component_network;
 use brume_agent_core::observed::{
     DockerSnapshot, SnapContainer, SnapNetwork, SnapState, SnapVolume,
 };
@@ -411,7 +412,8 @@ fn snap_network(network: Network) -> Option<SnapNetwork> {
 }
 
 /// The body of `POST /networks/create` for `spec`, with `labels` and the environment's. A
-/// subnet, when the spec has one, is the IPAM config's only one.
+/// subnet, when the spec has one and is one of the public entry's networks, is the IPAM config's
+/// only one: Docker picks the others from its pools.
 fn network_request(
     spec: &NetworkSpec,
     mut labels: HashMap<String, String>,
@@ -419,7 +421,11 @@ fn network_request(
     if !spec.environment_id.is_empty() {
         labels.insert(LABEL_ENVIRONMENT.to_owned(), spec.environment_id.clone());
     }
-    let ipam = spec.subnet.as_ref().map(|subnet| Ipam {
+    let subnet = spec
+        .subnet
+        .as_ref()
+        .filter(|_| is_component_network(&spec.name));
+    let ipam = subnet.map(|subnet| Ipam {
         config: Some(vec![IpamConfig {
             subnet: Some(subnet.clone()),
             ..IpamConfig::default()
@@ -1150,8 +1156,17 @@ mod tests {
             environment_id: "env-1".to_owned(),
             subnet: None,
         };
-        let request = network_request(&environment, labels);
+        let request = network_request(&environment, labels.clone());
         assert_eq!(request.ipam, None, "Docker picks from its pools");
+
+        // An engine's network never gets a subnet, even if the plan let one through: it could
+        // cover the host's gateway or the metadata endpoints.
+        let pinned = NetworkSpec {
+            subnet: Some("169.254.169.0/24".to_owned()),
+            ..environment.clone()
+        };
+        assert_eq!(network_request(&pinned, labels.clone()).ipam, None);
+        let request = network_request(&environment, labels);
         assert_eq!(
             request
                 .labels

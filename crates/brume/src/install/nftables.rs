@@ -1,5 +1,11 @@
 //! Brume's firewall: the table `inet brume`, a static file embedded in the binary, loaded by
 //! `brume-nftables.service` before Docker starts.
+//!
+//! On Debian and Ubuntu, `/etc/nftables.conf` starts with `flush ruleset`, and
+//! `nftables.service` runs it at each start and reload, and flushes the ruleset when it stops:
+//! a `systemctl restart nftables` would delete Brume's table and Docker's rules. A drop-in
+//! loads the table again after each of these, then restarts Docker, which adds its rules again;
+//! its containers keep running (`live-restore`).
 
 use std::path::Path;
 
@@ -14,6 +20,9 @@ pub const RULES_PATH: &str = "/etc/brume/brume.nft";
 
 /// The unit that loads the table.
 pub const UNIT: &str = "brume-nftables.service";
+
+/// The drop-in of the distribution's `nftables.service`.
+const DROP_IN_PATH: &str = "/etc/systemd/system/nftables.service.d/brume.conf";
 
 /// The SSH port that the input chain lets in.
 pub const SSH_PORT: &str = "22";
@@ -47,6 +56,32 @@ ProtectHome=yes
 WantedBy=sysinit.target
 ";
 
+/// The drop-in of `nftables.service`: after each command that flushes the ruleset, the table
+/// comes back, and Docker restarts if it runs. Each command is added to the unit's own, after
+/// them. Docker is ordered after `nftables.service`, so its restart waits for the unit's command
+/// to end, and `--no-block` is required: a blocking restart from that command would wait for
+/// itself. Within one command, the requests merge into one restart. `reset-failed` clears
+/// Docker's limit of 3 starts a minute, which a few reloads in a row would reach, leaving
+/// Docker stopped and its rules gone.
+const DROP_IN_TEXT: &str = "\
+# Written by `brume install`: the next run overwrites any change.
+# /etc/nftables.conf flushes the ruleset: Brume's table is loaded again after it, and Docker
+# restarts to add its rules again. Its containers keep running (live-restore).
+[Unit]
+Before=docker.service
+
+[Service]
+ExecStartPost=/usr/sbin/nft -f /etc/brume/brume.nft
+ExecStartPost=-/usr/bin/systemctl reset-failed docker.service
+ExecStartPost=-/usr/bin/systemctl --no-block try-restart docker.service
+ExecReload=/usr/sbin/nft -f /etc/brume/brume.nft
+ExecReload=-/usr/bin/systemctl reset-failed docker.service
+ExecReload=-/usr/bin/systemctl --no-block try-restart docker.service
+ExecStopPost=/usr/sbin/nft -f /etc/brume/brume.nft
+ExecStopPost=-/usr/bin/systemctl reset-failed docker.service
+ExecStopPost=-/usr/bin/systemctl --no-block try-restart docker.service
+";
+
 /// Installs `nft`, if the distribution did not.
 pub struct NftablesPackage;
 
@@ -70,7 +105,7 @@ impl Step for NftablesPackage {
     }
 }
 
-/// Writes the table and its unit, and loads it.
+/// Writes the table, its unit and the drop-in of `nftables.service`, and loads the table.
 pub struct Firewall;
 
 impl Step for Firewall {
@@ -81,6 +116,7 @@ impl Step for Firewall {
     fn is_done(&self, host: &Host) -> anyhow::Result<bool> {
         Ok(host.has_file(Path::new(RULES_PATH), RULES)?
             && host.has_file(&systemd::unit_path(UNIT), UNIT_TEXT)?
+            && host.has_file(Path::new(DROP_IN_PATH), DROP_IN_TEXT)?
             && systemd::is_enabled(host, UNIT)?
             && systemd::is_active(host, UNIT)?
             && host.query(&list_table())?.success())
@@ -89,6 +125,7 @@ impl Step for Firewall {
     fn apply(&self, host: &mut Host) -> anyhow::Result<()> {
         host.write(Path::new(RULES_PATH), RULES, 0o644)?;
         host.write(&systemd::unit_path(UNIT), UNIT_TEXT, 0o644)?;
+        host.write(Path::new(DROP_IN_PATH), DROP_IN_TEXT, 0o644)?;
         host.change(&systemd::daemon_reload())?;
         host.change(&Cmd::new("systemctl", &["enable", UNIT]))?;
         // Runs `nft -f` again, which replaces the table in one transaction. A reload, when the
@@ -115,7 +152,10 @@ pub fn apt_get(args: &[&str]) -> Cmd {
 
 #[cfg(test)]
 mod tests {
-    use super::{RULES, SSH_PORT, UNIT_TEXT};
+    use super::{DROP_IN_PATH, DROP_IN_TEXT, Firewall, RULES, SSH_PORT, UNIT_TEXT};
+    use crate::install::host::fake::FakeSystem;
+    use crate::install::host::{Host, Output};
+    use crate::install::{Step as _, systemd};
 
     /// The rules, without comments or blank lines.
     fn rules() -> Vec<&'static str> {
@@ -170,6 +210,10 @@ mod tests {
                 .position(|line| *line == rule)
                 .unwrap_or_else(|| panic!("{rule}"))
         };
+        // The tailnet by its interface first: its subnet routes and exit nodes reach any
+        // address.
+        let chain = at("chain from_containers {");
+        assert_eq!(rules[chain + 1], "oifname \"tailscale0\" drop");
         let own = at("ip daddr 10.213.0.0/16 return");
         let tailnet = at("ip daddr 100.64.0.0/10 drop");
         let dns = at("meta nfproto ipv4 meta l4proto { tcp, udp } th dport 53 return");
@@ -191,6 +235,82 @@ mod tests {
         assert!(rules.contains(&"ip6 daddr { fc00::/7, fe80::/10 } drop"));
         // The table replaces itself, in one transaction.
         assert_eq!(rules[..2], ["table inet brume", "delete table inet brume"]);
+    }
+
+    #[test]
+    fn nothing_from_outside_the_bridges_opens_a_connection_to_a_container() {
+        let rules = rules();
+        let at = |rule: &str| {
+            rules
+                .iter()
+                .position(|line| *line == rule)
+                .unwrap_or_else(|| panic!("{rule}"))
+        };
+        let forward = at("chain forward {");
+        // First, before Docker's own rules, which a flush of the ruleset deletes.
+        assert_eq!(
+            rules[forward + 2],
+            "iifname != \"br-*\" oifname \"br-*\" ct state new drop"
+        );
+        assert!(forward + 2 < at("iifname \"br-*\" jump from_containers"));
+    }
+
+    #[test]
+    fn the_table_survives_nftables_service() {
+        let lines: Vec<&str> = DROP_IN_TEXT.lines().collect();
+        let load = "/usr/sbin/nft -f /etc/brume/brume.nft";
+        // Docker's limit of 3 starts a minute would leave it stopped after a few reloads.
+        let reset = "-/usr/bin/systemctl reset-failed docker.service";
+        // `--no-block`: Docker is ordered after nftables.service, so a blocking restart from
+        // its own command would wait for itself.
+        let restart = "-/usr/bin/systemctl --no-block try-restart docker.service";
+        for key in ["ExecStartPost", "ExecReload", "ExecStopPost"] {
+            assert_eq!(
+                lines
+                    .iter()
+                    .filter_map(|line| line.strip_prefix(key)?.strip_prefix('='))
+                    .collect::<Vec<_>>(),
+                [load, reset, restart],
+                "{key}"
+            );
+        }
+        // Appended to the unit's own commands, never reset.
+        assert!(!lines.iter().any(|line| line.ends_with('=')));
+        assert!(lines.contains(&"Before=docker.service"));
+        assert_eq!(
+            DROP_IN_PATH,
+            "/etc/systemd/system/nftables.service.d/brume.conf"
+        );
+    }
+
+    #[test]
+    fn the_firewall_step_installs_the_drop_in() {
+        let fake = FakeSystem::default();
+        fake.answer(
+            &systemd::is_enabled_query("brume-nftables.service"),
+            Output::ok("enabled\n"),
+        );
+        fake.answer(
+            &systemd::is_active_query("brume-nftables.service"),
+            Output::ok("active\n"),
+        );
+        fake.answer(&super::list_table(), Output::ok("table inet brume {}\n"));
+        let mut host = Host::new(Box::new(fake.clone()));
+        assert!(!Firewall.is_done(&host).expect("reads"));
+        Firewall.apply(&mut host).expect("applies");
+        assert_eq!(fake.file(DROP_IN_PATH).as_deref(), Some(DROP_IN_TEXT));
+        let changes = fake.changes();
+        let at = |change: &str| {
+            changes
+                .iter()
+                .position(|line| line == change)
+                .unwrap_or_else(|| panic!("{change} in {changes:#?}"))
+        };
+        assert!(at(&format!("write {DROP_IN_PATH}")) < at("systemctl daemon-reload"));
+        assert!(Firewall.is_done(&host).expect("reads"));
+        // A changed drop-in is written again.
+        fake.put_file(DROP_IN_PATH, "[Service]\n");
+        assert!(!Firewall.is_done(&host).expect("reads"));
     }
 
     #[test]
