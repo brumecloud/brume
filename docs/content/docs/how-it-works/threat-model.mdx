@@ -7,6 +7,7 @@ sources:
   - archi/base/01-modele-de-menace.md
   - archi/base/15-etat-et-restauration.md
   - archi/base/10-developpement.md
+  - archi/base/08-hote-et-installation.md
   - archi/base/README.md
   - archi/base/19-cli-et-agents-ia.md
 ---
@@ -42,7 +43,7 @@ Brume is designed against these attacks:
 2. **A malicious site opened by the admin.** The browser is on the tailnet: CSRF, DNS rebinding, clickjacking, or a WebSocket hijacked toward the panel.
 3. **Attacker-controlled content shown in the panel:** a log line, a branch name, a commit message. An XSS flaw in the panel hands over the panel's actions: every app, its secrets and its data.
 4. **A registry outside the owner's control:** an image that changes behind a tag. This is why Brume deploys by digest.
-5. **Brume's supply chain:** a compromise of brume.dev, of the GitHub account, of a GitHub Action, or of a Rust or npm dependency. brume.dev also serves `latest.json`, the signed update manifest: once compromised, it can freeze updates, but it cannot make a server install a fake or an older version. See [Host and installation](/docs/how-it-works/host-and-installation). The binary embeds two public keys: the signing key, and a backup key kept offline elsewhere. Since brume.dev is deployed from the same repository, a verification channel outside GitHub is still an [open decision](/docs/how-it-works/roadmap#open-decisions).
+5. **Brume's supply chain:** a compromise of brume.dev, of the GitHub account, of a GitHub Action, or of a Rust or npm dependency. brume.dev serves `install.sh`, which pins the SHA-256 of the archives it downloads, so whoever controls brume.dev controls a first install. It will also serve `latest.json`, the signed update manifest: once compromised, it can freeze updates, but it cannot make a server install a fake or an older version. See [Host and installation](/docs/how-it-works/host-and-installation). The binary embeds two public keys: the signing key, and a backup key kept offline elsewhere. Since brume.dev is deployed from the same repository, a verification channel outside GitHub is still an [open decision](/docs/how-it-works/roadmap#open-decisions).
 6. **Access to the tailnet:** a compromised device, a shared tailnet, or a node added by Tailscale's coordination server.
 7. **Data loss:** a destroyed server, ransomware, or backups deleted by an attacker.
 8. **Resource exhaustion:** a build that takes all the RAM, logs that fill the disk, or a flood of logs triggered from outside.

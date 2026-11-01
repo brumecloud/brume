@@ -65,7 +65,7 @@ export const llmsHeader = `# Brume
 
 > Brume is a source-available, self-hostable alternative to Railway, Coolify and Dokploy. It runs on a single VPS, deploys containers and static sites, and keeps the admin panel off the public internet.
 
-There is no release yet. The first milestone of alpha 0.1 runs on your own machine, with \`brume dev\`: see ${siteUrl}${docsRoute}/customize/run-locally.md. Pages marked "planned" describe how the rest of alpha 0.1 is designed to work.
+Brume is an alpha. It installs on a VPS with one command and deploys public images, with public domains: see ${siteUrl}${docsRoute}/use/quickstart.md. It has no backups, no updates and no GitHub builds yet. Pages marked "planned" describe how the rest of alpha 0.1 is designed to work.
 
 For AI agents: append \`.md\` to any docs URL to get the page as Markdown, for example ${siteUrl}${docsRoute}/how-it-works/architecture.md. The full documentation in one file is at ${siteUrl}/llms-full.txt.
 `;
