@@ -20,6 +20,7 @@ struct Inner {
     secrets: BTreeMap<(VariableId, u32), SecretString>,
     staged: BTreeMap<ChangeId, StoredChange>,
     sessions: BTreeMap<[u8; 32], StoredSession>,
+    ingress_token: Option<SecretString>,
     commits: usize,
     fail_next_commit: bool,
 }
@@ -57,6 +58,11 @@ impl FakeStorage {
     /// Loses every secret version, as a database restored without them would.
     pub fn forget_secrets(&self) {
         self.0.borrow_mut().secrets.clear();
+    }
+
+    /// Loses the tunnel's token, as a database restored without it would.
+    pub fn forget_ingress_token(&self) {
+        self.0.borrow_mut().ingress_token = None;
     }
 
     /// Every stored blob.
@@ -98,6 +104,9 @@ impl Storage for FakeStorage {
         for session in tx.sessions_deletes {
             inner.sessions.remove(&session);
         }
+        if let Some(token) = tx.ingress_token {
+            inner.ingress_token = Some(token);
+        }
         inner.commits += 1;
         Ok(())
     }
@@ -125,6 +134,10 @@ impl Storage for FakeStorage {
 
     fn session(&self, token_hash: &[u8; 32]) -> Result<Option<StoredSession>, StorageError> {
         Ok(self.0.borrow().sessions.get(token_hash).cloned())
+    }
+
+    fn ingress_token(&self) -> Result<Option<SecretString>, StorageError> {
+        Ok(self.0.borrow().ingress_token.clone())
     }
 
     fn events_page(

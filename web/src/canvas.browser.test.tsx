@@ -9,7 +9,7 @@ describe("service canvas", () => {
     const screen = await renderApp(`/projects/${northbean.id}/production`);
 
     await expect.element(screen.getByText("order-worker")).toBeVisible();
-    await expect.element(screen.getByText("api.northbean.coffee")).toBeVisible();
+    await expect.element(screen.getByText("northbean-api.brume.run")).toBeVisible();
     await expect.element(screen.getByText("postgres-data")).toBeVisible();
     await expect.element(screen.getByText("redis-data")).toBeVisible();
   });

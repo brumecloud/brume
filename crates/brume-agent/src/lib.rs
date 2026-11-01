@@ -1,5 +1,6 @@
 //! The agent service, the only one that talks to Docker. It applies the engine's desired
-//! state through bollard, resolves images and forwards container logs to telemetry.
+//! state through bollard, runs the public entry (cloudflared and Traefik) and writes Traefik's
+//! config, resolves images and forwards container logs to telemetry.
 
 #![forbid(unsafe_code)]
 
@@ -8,16 +9,22 @@ pub mod engine_link;
 pub mod jobs;
 pub mod logs;
 pub mod probe;
+pub mod traefik;
 
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bollard::Docker;
 use bollard::errors::Error;
 use brume_agent_core::backoff::Restarts;
+use brume_agent_core::config::Component;
 use brume_agent_core::health::{ProbeResults, report};
-use brume_agent_core::observed::DockerSnapshot;
+use brume_agent_core::ingress::{
+    CLOUDFLARED_CONTAINER, TRAEFIK_CONTAINER, traefik_dynamic_config, valid_routes,
+};
+use brume_agent_core::observed::{DockerSnapshot, SnapState};
 use brume_agent_core::plan::{Action, Refusal, Resource, plan, refusals};
 use brume_proto::agent::{AgentToEngine, DesiredState, ObservedState};
 use brume_runtime::paths::Paths;
@@ -53,6 +60,7 @@ pub async fn run(paths: Paths) -> anyhow::Result<()> {
     let (outbox_tx, outbox_rx) = mpsc::channel(OUTBOX);
     let (docker_tx, docker_rx) = watch::channel(None);
     let logs = LogForwarder::start(&paths.telemetry_ingest_socket());
+    let traefik_dir = paths.traefik_dir();
 
     let mut tasks = JoinSet::new();
     tasks.spawn(async move {
@@ -66,7 +74,13 @@ pub async fn run(paths: Paths) -> anyhow::Result<()> {
         .await;
     });
     tasks.spawn(jobs::serve(jobs_rx, docker_rx, outbox_tx.clone()));
-    tasks.spawn(reconcile_forever(desired_rx, docker_tx, outbox_tx, logs));
+    tasks.spawn(reconcile_forever(
+        desired_rx,
+        docker_tx,
+        outbox_tx,
+        logs,
+        traefik_dir,
+    ));
     match tasks.join_next().await {
         Some(Ok(())) | None => anyhow::bail!("a task of the agent stopped"),
         Some(Err(error)) => Err(anyhow::Error::new(error).context("a task of the agent failed")),
@@ -75,12 +89,13 @@ pub async fn run(paths: Paths) -> anyhow::Result<()> {
 
 /// Reconciles every `RECONCILE_INTERVAL` and at each new desired state, once the engine sent
 /// one. Shares the Docker client with the jobs, and reports to the engine when what runs
-/// changes, or every `OBSERVED_HEARTBEAT`.
+/// changes, or every `OBSERVED_HEARTBEAT`. Writes Traefik's config in `traefik_dir`.
 async fn reconcile_forever(
     mut desired: watch::Receiver<Option<DesiredState>>,
     shared_docker: watch::Sender<Option<Docker>>,
     outbox: mpsc::Sender<AgentToEngine>,
     mut logs: LogForwarder,
+    traefik_dir: PathBuf,
 ) {
     let mut reconciler: Option<Reconciler> = None;
     let mut connected = false;
@@ -102,7 +117,7 @@ async fn reconcile_forever(
                 Ok(client) => {
                     tracing::info!("connected to Docker");
                     shared_docker.send_replace(Some(client.clone()));
-                    let shell = DockerShell::new(client);
+                    let shell = DockerShell::new(client).with_traefik_dir(traefik_dir.clone());
                     if let Err(error) = shell.sweep_probes().await {
                         tracing::warn!(%error, "cannot remove leftover probe containers");
                     }
@@ -206,11 +221,14 @@ impl Reconciler {
 
     /// Snapshots Docker, runs the plan, and reports what runs. An action that fails is logged
     /// and retried at the next round; only a failed snapshot is an error. Image pulls start in
-    /// the background, and the probes of a plan run together.
+    /// the background, and the probes of a plan run together. Traefik's config is written
+    /// first: Traefik is created only once it is on disk.
     pub async fn reconcile(&mut self, desired: &DesiredState) -> Result<Round, Error> {
         self.reap_pulls();
+        let traefik_ready = self.write_traefik_config(desired);
         let before = self.shell.observe().await?;
         self.warn_unreadable(&before);
+        self.warn_exited_components(desired, &before.snapshot);
         let now = now_ms();
         self.restarts.settle(&before.snapshot, now);
         self.probes.settle(&before.snapshot);
@@ -226,7 +244,7 @@ impl Reconciler {
 
         let mut probes = Vec::new();
         let mut missing_images = BTreeSet::new();
-        let mut waiting_for_image = BTreeSet::new();
+        let mut held = BTreeSet::new();
         for action in &actions {
             match action {
                 Action::Probe { .. } => {
@@ -240,12 +258,13 @@ impl Reconciler {
                     continue;
                 }
                 Action::CreateContainer(config)
-                    if missing_images.contains(config.image.as_str()) =>
+                    if missing_images.contains(config.image.as_str())
+                        || (config.component == Some(Component::Traefik) && !traefik_ready) =>
                 {
-                    waiting_for_image.insert(config.name.as_str());
+                    held.insert(config.name.as_str());
                     continue;
                 }
-                Action::StartContainer(name) if waiting_for_image.contains(name.as_str()) => {
+                Action::StartContainer(name) if held.contains(name.as_str()) => {
                     continue;
                 }
                 _ => {}
@@ -305,6 +324,60 @@ impl Reconciler {
                 _ => None,
             });
         record_probes(&mut self.probes, snapshot, outcomes, round_ms);
+    }
+
+    /// Writes Traefik's config for the routes of `desired`'s entry, and whether it is on disk,
+    /// so that Traefik may be created. Without an entry, there is nothing to write.
+    fn write_traefik_config(&mut self, desired: &DesiredState) -> bool {
+        let Some(ingress) = &desired.ingress else {
+            return true;
+        };
+        let routes = valid_routes(&ingress.routes).len();
+        let skipped = ingress.routes.len() - routes;
+        if skipped > 0 {
+            self.warn(
+                "route the public hosts".to_owned(),
+                format!("{skipped} invalid routes are left out"),
+            );
+        }
+        let Some(dir) = self.shell.traefik_dir().map(Path::to_path_buf) else {
+            self.warn(
+                "write Traefik's config".to_owned(),
+                "the agent has no directory for it".to_owned(),
+            );
+            return false;
+        };
+        match traefik::write_config(&dir, &traefik_dynamic_config(&ingress.routes)) {
+            Ok(written) => {
+                if written {
+                    tracing::info!(routes, dir = %dir.display(), "wrote Traefik's config");
+                }
+                true
+            }
+            Err(error) => {
+                self.warn("write Traefik's config".to_owned(), error.to_string());
+                false
+            }
+        }
+    }
+
+    /// Logs a component of the entry that exited, at most once per `WARN_INTERVAL`: the engine
+    /// does not see the components. The plan starts it again, with a backoff.
+    fn warn_exited_components(&mut self, desired: &DesiredState, snapshot: &DockerSnapshot) {
+        if desired.ingress.is_none() {
+            return;
+        }
+        for name in [TRAEFIK_CONTAINER, CLOUDFLARED_CONTAINER] {
+            if let Some(container) = snapshot.container(name)
+                && container.managed
+                && let SnapState::Exited { code } = container.state
+            {
+                self.warn(
+                    format!("run {name}"),
+                    format!("it exited with code {code}: see `docker logs {name}`"),
+                );
+            }
+        }
     }
 
     /// Whether the probe image is present; if not, its pull starts.
@@ -468,6 +541,7 @@ impl RefusalLog {
 fn describe(action: &Action) -> String {
     match action {
         Action::CreateNetwork(spec) => format!("create network {}", spec.name),
+        Action::RemoveNetwork(name) => format!("remove network {name}"),
         Action::CreateVolume(spec) => format!("create volume {}", spec.name),
         Action::PullImage(image) => format!("pull {image}"),
         Action::CreateContainer(config) => format!("create container {}", config.name),

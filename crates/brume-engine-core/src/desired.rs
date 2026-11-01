@@ -4,8 +4,8 @@ use brume_domain::{
     ContainerPath, Deployment, DeploymentPhase, RevisionValue, Service, ServiceId, World,
 };
 use brume_proto::agent::{
-    ContainerSpec, DesiredState, EnvValue, EnvVar, Healthcheck, Mount, NetworkAttachment,
-    NetworkSpec, VolumeSpec,
+    ContainerSpec, DesiredState, EnvValue, EnvVar, Healthcheck, IngressRoute, IngressSpec, Mount,
+    NetworkAttachment, NetworkSpec, VolumeSpec,
 };
 
 use crate::storage::{Storage, StorageError};
@@ -36,6 +36,11 @@ pub fn environment_network(environment: &str) -> String {
 /// The network with an internet route of an environment.
 pub fn egress_network(environment: &str) -> String {
     format!("brume-egress-{}", short_id(environment))
+}
+
+/// The internal network that a service with a public domain shares with Traefik alone.
+pub fn edge_network(service: &str) -> String {
+    format!("brume-edge-{service}")
 }
 
 /// The volume of the `index`-th path that the service's images declared.
@@ -69,12 +74,14 @@ pub fn desired_state(
             name: environment_network(environment.id.as_str()),
             internal: true,
             environment_id: environment.id.to_string(),
+            subnet: None,
         });
         if egress {
             networks.push(NetworkSpec {
                 name: egress_network(environment.id.as_str()),
                 internal: false,
                 environment_id: environment.id.to_string(),
+                subnet: None,
             });
         }
     }
@@ -91,6 +98,7 @@ pub fn desired_state(
         .collect();
 
     let mut containers = Vec::new();
+    let mut routes = Vec::new();
     for service in world.services().filter(|service| !service.deleted) {
         let active = world.active_deployment(&service.id);
         let in_progress = world.in_progress_deployment(&service.id);
@@ -112,30 +120,80 @@ pub fn desired_state(
             }
             _ => false,
         };
+        // Each running deployment, and whether it holds the service's alias.
+        let mut running = Vec::with_capacity(2);
         if let Some(active) = active
             && !stop_active
         {
-            containers.push(container(world, storage, service, active, true)?);
+            running.push((active, true));
         }
         if let Some(deployment) = in_progress {
             match deployment.phase {
-                DeploymentPhase::Starting => {
-                    containers.push(container(world, storage, service, deployment, false)?);
-                }
-                DeploymentPhase::Promoting => {
-                    containers.push(container(world, storage, service, deployment, true)?);
-                }
+                DeploymentPhase::Starting => running.push((deployment, false)),
+                DeploymentPhase::Promoting => running.push((deployment, true)),
                 _ => {}
             }
         }
+        for &(deployment, alias) in &running {
+            containers.push(container(world, storage, service, deployment, alias)?);
+        }
+        // The route follows the alias: the service's domain, to the port of the active
+        // deployment's revision, else of the promoting one's.
+        let route = running
+            .iter()
+            .filter(|(_, alias)| *alias)
+            .find_map(|(deployment, _)| public_host(world, service, deployment));
+        if let Some((host, port)) = route {
+            let network = edge_network(service.id.as_str());
+            networks.push(NetworkSpec {
+                name: network.clone(),
+                internal: true,
+                environment_id: service.environment.to_string(),
+                subnet: None,
+            });
+            // Traefik is on every edge network, and Docker's DNS answers a name from the
+            // first network that knows it: the target is the edge network's name, unique on
+            // the machine, never the slug, which another environment can share.
+            routes.push(IngressRoute {
+                host,
+                target: network.clone(),
+                network,
+                port,
+            });
+        }
     }
+
+    let ingress = match world.ingress() {
+        Some(_) => Some(IngressSpec {
+            tunnel_token: storage
+                .ingress_token()?
+                .ok_or_else(|| StorageError("the tunnel token is missing".to_owned()))?,
+            routes,
+        }),
+        None => None,
+    };
 
     Ok(DesiredState {
         position,
         networks,
         volumes,
         containers,
+        ingress,
     })
+}
+
+/// The public host of a service, and the port of the deployment's revision it routes to, when
+/// the service has a domain, the revision a port, and the public entry is set up. The domain is
+/// the service's, so a rollback keeps it.
+pub(crate) fn public_host(
+    world: &World,
+    service: &Service,
+    deployment: &Deployment,
+) -> Option<(String, u16)> {
+    let ingress = world.ingress()?;
+    let domain = service.domain.as_ref()?;
+    let port = world.revision(deployment.revision.as_ref()?)?.spec.port?;
+    Some((ingress.host(domain), port.get()))
 }
 
 /// The volume paths that a deployment's revision mounts; none before it has a revision.
@@ -221,6 +279,15 @@ fn container(
         networks.push(NetworkAttachment {
             network: egress_network(environment),
             aliases: Vec::new(),
+        });
+    }
+    // Traefik reaches the container that holds the alias on the service's edge network, by
+    // the network's own name, unique on the machine.
+    if alias && public_host(world, service, deployment).is_some() {
+        let edge = edge_network(service.id.as_str());
+        networks.push(NetworkAttachment {
+            aliases: vec![edge.clone()],
+            network: edge,
         });
     }
 

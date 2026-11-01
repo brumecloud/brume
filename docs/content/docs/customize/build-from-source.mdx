@@ -87,7 +87,7 @@ This one binary runs every part of Brume, with one subcommand per service. `brum
 
 ### Sign your build
 
-Brume signs its official releases with minisign. The private keys stay offline, and two public keys are embedded in the binary: the signing key, and a backup key kept offline in another place. If the signing key is lost or stolen, a release signed with the backup key replaces it. Because the keys are offline, a compromised GitHub account cannot sign an update. The binaries and `install.sh` are published on GitHub Releases, from an account protected by a physical 2FA key.
+Brume signs its official releases with minisign. The private keys stay offline, and two public keys are embedded in the binary: the signing key, and a backup key kept offline in another place. If the signing key is lost or stolen, a release signed with the backup key replaces it. Because the keys are offline, a compromised GitHub account cannot sign an update. The archives are published on GitHub Releases, from an account protected by a physical 2FA key, and `install.sh` is served by brume.dev.
 
 Each official release also has a signed manifest: the version of the manifest's format, the release's version, whether it compacts the event log, and the hash and GitHub Releases address of the binary. The manifest of the latest release is published as `latest.json` on brume.dev, with an expiry date, and is signed again regularly even without a release.
 
@@ -138,6 +138,6 @@ The updater accepts only binaries signed with one of the two keys embedded in th
 - **A build with your keys** accepts only binaries signed with your keys. Brume's official releases fail the check, so you sign every update yourself.
 - **A build with Brume's keys** accepts Brume's official releases as updates.
 - **No going back.** The updater refuses any version lower than or equal to the installed one, so each of your releases needs a higher version in its signed manifest. An old vulnerable version stays signed forever: without this check, an attacker could reinstall it.
-- **The official `install.sh` installs Brume's releases.** It downloads Brume's binaries from GitHub Releases and checks their signature before running `brume install`.
+- **The official `install.sh` installs Brume's releases.** It downloads Brume's archives from GitHub Releases and checks them against the SHA-256 written in the script before running `brume install`. It will check their signature once releases are signed.
 
 By default, Brume updates itself: the engine reads `https://brume.dev/latest.json`, checks its signature before parsing it, and starts the updater when a newer version exists. The updater does not trust the engine and runs every check again. You can turn the check off on the host, as root: Brume updates then become manual. Some details of automatic updates are still open, such as the time of day they install and a local return to the previous binary if the new one fails to start. See [Host and installation](/docs/how-it-works/host-and-installation) and the [open decisions](/docs/how-it-works/roadmap#open-decisions).

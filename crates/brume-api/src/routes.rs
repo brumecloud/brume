@@ -78,6 +78,7 @@ pub(crate) fn api() -> Router<Arc<AppState>> {
             axum::routing::delete(discard_change),
         )
         .route("/events", get(list_events))
+        .route("/ingress", get(ingress))
         .route("/github", any(github_unavailable))
         .route("/github/{*rest}", any(github_unavailable))
         .fallback(not_found)
@@ -215,6 +216,7 @@ fn value_response(value: ApiValue, status: StatusCode) -> Response {
         ApiValue::Change(change) => (status, Json(change)).into_response(),
         ApiValue::ChangesDeployed(deployed) => (status, Json(deployed)).into_response(),
         ApiValue::Events(page) => (status, Json(page)).into_response(),
+        ApiValue::Ingress(ingress) => (status, Json(ingress)).into_response(),
         // The token goes into the cookie, in `login`, and never into a body.
         ApiValue::Session { .. } | ApiValue::LogStreamOpened => {
             engine_error_response(EngineError::Protocol)
@@ -233,10 +235,12 @@ async fn login(
 ) -> Response {
     let call = ApiCall::Login { token: body.token };
     match state.engine.call(None, call).await {
-        Ok(Ok(ApiValue::Session { token, .. })) => match session::set_cookie(&token) {
-            Some(cookie) => (StatusCode::NO_CONTENT, [cookie]).into_response(),
-            None => engine_error_response(EngineError::Protocol),
-        },
+        Ok(Ok(ApiValue::Session { token, .. })) => {
+            match session::set_cookie(&token, state.cookie) {
+                Some(cookie) => (StatusCode::NO_CONTENT, [cookie]).into_response(),
+                None => engine_error_response(EngineError::Protocol),
+            }
+        }
         Ok(Ok(_)) => engine_error_response(EngineError::Protocol),
         Ok(Err(failure)) => failure_response(failure),
         Err(error) => engine_error_response(error),
@@ -263,7 +267,7 @@ async fn logout(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Respo
         Ok(Err(failure)) => failure_response(failure),
         Err(error) => engine_error_response(error),
     };
-    let (name, value) = session::clear_cookie();
+    let (name, value) = session::clear_cookie(state.cookie);
     response.headers_mut().insert(name, value);
     response
 }
@@ -523,6 +527,11 @@ async fn list_events(
             .min(MAX_EVENTS_LIMIT),
     };
     forward(&state, &headers, call, StatusCode::OK).await
+}
+
+/// The public entry's zone, or `null` before `brume install --domain` sets it up.
+async fn ingress(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
+    forward(&state, &headers, ApiCall::GetIngress, StatusCode::OK).await
 }
 
 async fn github_unavailable() -> Response {

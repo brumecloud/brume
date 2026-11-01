@@ -11,23 +11,29 @@ publish.workspace = true
 anyhow.workspace = true
 brume-agent.workspace = true
 brume-api.workspace = true
+brume-domain.workspace = true
 brume-engine.workspace = true
 brume-proto.workspace = true
 brume-runtime.workspace = true
 brume-telemetry.workspace = true
 clap.workspace = true
 futures-util.workspace = true
+hex.workspace = true
+# `brume install` calls Cloudflare's API over HTTPS.
+reqwest = { workspace = true, features = ["blocking", "rustls-no-provider"] }
+rustls.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
 tokio.workspace = true
+toml.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
 # For the end-to-end test. Only brume-agent depends on bollard outside tests.
 [dev-dependencies]
 bollard.workspace = true
-hex.workspace = true
-reqwest.workspace = true
-serde_json.workspace = true
-sha2.workspace = true
 tempfile.workspace = true
 
 [lints]

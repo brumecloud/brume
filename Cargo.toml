@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2024"
 rust-version = "1.92"
 license = "FSL-1.1-ALv2"
@@ -50,14 +50,18 @@ futures-util = "0.3.34"
 rand = "0.10.3"
 rusqlite = { version = "0.41.1", features = ["bundled"] }
 tokio = { version = "1.54.1", features = ["full"] }
+toml = "1.1.4"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+
+# HTTP. Without features, plain HTTP: the tests use it to 127.0.0.1. `brume install` adds TLS
+# (rustls, with ring's crypto: no C library but ring's own) for Cloudflare's API.
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "stream"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 
 # Tests.
 proptest = "1.12.0"
 rand_chacha = "0.10.0"
-# Plain HTTP to 127.0.0.1 only: no TLS backend.
-reqwest = { version = "0.13.5", default-features = false, features = ["json", "stream"] }
 tempfile = "3.27.0"
 tower = { version = "0.5.3", features = ["util"] }
 

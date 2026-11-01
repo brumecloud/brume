@@ -117,6 +117,7 @@ fn desired_strategy() -> impl Strategy<Value = DesiredState> {
                     name: (*name).to_owned(),
                     internal: *name != EGRESS,
                     environment_id: "env".to_owned(),
+                    subnet: None,
                 })
                 .collect();
             let volumes = VOLUMES
@@ -131,6 +132,7 @@ fn desired_strategy() -> impl Strategy<Value = DesiredState> {
                 networks,
                 volumes,
                 containers,
+                ingress: None,
             }
         })
 }
@@ -243,6 +245,7 @@ fn build_snapshot(
                 name: name.to_owned(),
                 internal: name != EGRESS,
                 managed: true,
+                subnets: Vec::new(),
             })
             .collect(),
         volumes: volumes.into_iter().map(managed_volume).collect(),
@@ -295,7 +298,24 @@ fn apply(
                 name: spec.name.clone(),
                 internal: spec.internal,
                 managed: true,
+                subnets: spec.subnet.iter().cloned().collect(),
             });
+        }
+        Action::RemoveNetwork(name) => {
+            assert!(
+                snapshot
+                    .network(name)
+                    .is_some_and(|network| network.managed),
+                "network missing or foreign"
+            );
+            assert!(
+                snapshot.containers.iter().all(|container| container
+                    .networks
+                    .iter()
+                    .all(|attachment| attachment.network != *name)),
+                "{name} still has containers"
+            );
+            snapshot.networks.retain(|network| network.name != *name);
         }
         Action::CreateVolume(spec) => {
             assert!(snapshot.volume(&spec.name).is_none());
@@ -341,7 +361,14 @@ fn apply(
                 image: config.image.clone(),
                 state: SnapState::Created,
                 started_at_ms: None,
-                networks: config.endpoints.clone(),
+                networks: config
+                    .endpoints
+                    .iter()
+                    .map(|endpoint| NetworkAttachment {
+                        network: endpoint.network.clone(),
+                        aliases: endpoint.aliases.clone(),
+                    })
+                    .collect(),
                 mounts: config
                     .host_config
                     .mounts
@@ -376,6 +403,7 @@ fn apply(
             container,
             network,
             aliases,
+            ..
         } => {
             assert!(
                 snapshot
@@ -511,6 +539,7 @@ fn one(spec: &ContainerSpec) -> DesiredState {
         networks: vec![network_spec(NETWORKS[0], true)],
         volumes: Vec::new(),
         containers: vec![spec.clone()],
+        ingress: None,
     }
 }
 
@@ -519,6 +548,7 @@ fn network_spec(name: &str, internal: bool) -> NetworkSpec {
         name: name.to_owned(),
         internal,
         environment_id: "env".to_owned(),
+        subnet: None,
     }
 }
 
@@ -527,6 +557,7 @@ fn snap_network(name: &str, internal: bool, managed: bool) -> SnapNetwork {
         name: name.to_owned(),
         internal,
         managed,
+        subnets: Vec::new(),
     }
 }
 
@@ -791,6 +822,7 @@ fn actions_follow_the_documented_order() {
         .iter()
         .map(|action| match action {
             Action::CreateNetwork(_) => "network",
+            Action::RemoveNetwork(_) => "remove network",
             Action::CreateVolume(_) => "volume",
             Action::PullImage(_) => "pull",
             Action::CreateContainer(_) => "create",
@@ -992,6 +1024,7 @@ fn only_brume_names_are_created() {
             service_id: "svc".to_owned(),
         }],
         containers: Vec::new(),
+        ingress: None,
     };
     let actions = plan_at(&desired, &empty_docker(Vec::new(), Vec::new()), 0);
     assert_eq!(
@@ -1098,6 +1131,7 @@ fn refusals_name_what_blocks_containers() {
             })
             .collect(),
         containers: Vec::new(),
+        ingress: None,
     };
     let snapshot = empty_docker(
         vec![
@@ -1309,6 +1343,7 @@ fn egress_changes_on_the_running_container() {
             container: open.name.clone(),
             network: EGRESS.to_owned(),
             aliases: Vec::new(),
+            ipv4_address: None,
         }]
     );
 

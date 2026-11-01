@@ -22,6 +22,7 @@ export function parseServiceSettings(raw: unknown): ServiceSettings {
     cpuLimit: readNumber(record, "cpuLimit", "settings"),
     memoryLimitMb: readNumber(record, "memoryLimitMb", "settings"),
     egress: readBoolean(record, "egress", "settings"),
+    domain: readNullable(record, "domain", "settings", readString),
   };
 }
 

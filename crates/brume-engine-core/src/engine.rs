@@ -70,8 +70,9 @@ pub enum Output {
     },
     /// Feed `Input::Tick` at this instant. Replaces any earlier one.
     WakeAt(Timestamp),
-    /// The engine refused the local command's request: the shell logs `reason` and closes the
-    /// connection without a reply, which the command reads as a refusal.
+    /// The engine refused the local command's request: the shell logs `reason`, answers
+    /// `AdminReply::Refused` with it, and closes the connection. `reason` never holds a secret
+    /// of the request.
     AdminRefused {
         client: ClientId,
         reason: String,
@@ -219,6 +220,12 @@ impl<S: Storage> Engine<S> {
             Input::Admin { client, request } => {
                 let reply = match request {
                     AdminRequest::CreateLoginLink => self.create_login_link(ctx),
+                    AdminRequest::GetIngress => Ok(AdminReply::Ingress(self.admin_ingress())),
+                    AdminRequest::ConfigureIngress {
+                        zone,
+                        tunnel_id,
+                        tunnel_token,
+                    } => self.configure_ingress(ctx, &zone, tunnel_id, tunnel_token),
                 };
                 out.push(match reply {
                     Ok(reply) => Output::AdminReply { client, reply },
@@ -320,7 +327,8 @@ impl<S: Storage> Engine<S> {
             && tx.staged_upserts.is_empty()
             && tx.staged_deletes.is_empty()
             && tx.sessions_upserts.is_empty()
-            && tx.sessions_deletes.is_empty();
+            && tx.sessions_deletes.is_empty()
+            && tx.ingress_token.is_none();
         if empty {
             return Ok(());
         }

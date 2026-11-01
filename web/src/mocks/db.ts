@@ -1,4 +1,4 @@
-import { withStagedSettings } from "~/helpers/changes";
+import { isSubdomain, withStagedSettings } from "~/helpers/changes";
 import { parseImageReference } from "~/helpers/new-project";
 import { parseEnvironmentName } from "~/helpers/projects";
 import { isDatabase, serviceNameError } from "~/helpers/services";
@@ -11,6 +11,7 @@ import type {
   CreatedProject,
   Deployment,
   DeploymentId,
+  Ingress,
   NewChange,
   Revision,
   ServiceSettings,
@@ -49,6 +50,8 @@ export const db = {
   settings: new Map<string, ServiceSettings>(),
   // The engine's log, as the activity view reads it. Every mocked action appends to it.
   events: seedEvents(),
+  // Set up by `brume install --domain`: the services get subdomains of this zone.
+  ingress: { zone: "brume.run" } as Ingress | null,
 };
 
 type EventFields = Partial<Pick<ActivityEvent, "environmentId" | "serviceId" | "deploymentId">>;
@@ -473,6 +476,13 @@ export function deleteService(serviceId: string): void {
 
 const TEMPLATE_VERSIONS = { postgres: "17.6", mongodb: "8.0.15", redis: "8.2.2" } as const;
 
+// The subdomain of a seeded service whose host is in the zone, as the engine would return it.
+function seededSubdomain(service: Service): string | null {
+  const zone = db.ingress?.zone;
+  const host = service.domains[0];
+  return zone && host?.endsWith(`.${zone}`) ? host.slice(0, -(zone.length + 1)) : null;
+}
+
 function settingsFor(service: Service): ServiceSettings {
   const environment = db.environments.find(({ id }) => id === service.environmentId);
   const limits = { cpuLimit: 1, memoryLimitMb: 512 };
@@ -493,6 +503,7 @@ function settingsFor(service: Service): ServiceSettings {
         healthcheckPath: runtime ? "/health" : null,
         ...limits,
         egress: true,
+        domain: seededSubdomain(service),
       };
     }
     case "image": {
@@ -506,6 +517,7 @@ function settingsFor(service: Service): ServiceSettings {
         healthcheckPath: null,
         ...limits,
         egress: true,
+        domain: seededSubdomain(service),
       };
     }
     default:
@@ -521,6 +533,7 @@ function settingsFor(service: Service): ServiceSettings {
         cpuLimit: 1,
         memoryLimitMb: 1024,
         egress: false,
+        domain: seededSubdomain(service),
       };
   }
 }
@@ -559,13 +572,19 @@ export function publicChange(change: StagedChange): StagedChange {
 }
 
 // One draft per setting and one per variable name: a new edit replaces the previous one.
-export function stageChange(raw: unknown): string | StagedChange {
-  const body = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+export function stageChange(raw: unknown): StagedChange | Refusal {
+  const body = bodyOf(raw);
   const service = db.services.find(({ id }) => id === body.serviceId);
   if (!service) {
-    return "Service not found.";
+    return refuse(400, "Service not found.");
   }
   const input = body as unknown as NewChange;
+  if (input.type === "setting" && input.field === "domain" && input.value !== "") {
+    const refusal = domainRefusal(service, input.value);
+    if (refusal) {
+      return refusal;
+    }
+  }
   const sameTarget = (change: StagedChange) =>
     change.serviceId === service.id &&
     (input.type === "setting"
@@ -586,14 +605,60 @@ export function stageChange(raw: unknown): string | StagedChange {
   return publicChange(change);
 }
 
+// The engine refuses a subdomain without a zone, or that another service holds or has staged, in
+// any project.
+function domainRefusal(service: Service, value: unknown): Refusal | undefined {
+  if (typeof value !== "string" || !isSubdomain(value)) {
+    return refuse(
+      400,
+      "Invalid subdomain: must be 1 to 63 lowercase letters, digits or hyphens, and start and end with a letter or a digit.",
+    );
+  }
+  if (!db.ingress) {
+    return refuse(
+      409,
+      "Public domains are not set up on this server: brume install --domain <zone> sets them up.",
+    );
+  }
+  const holder = db.services.find(
+    (other) => other.id !== service.id && currentSettings(other).domain === value,
+  );
+  if (holder) {
+    return refuse(409, `The subdomain ${value} is already used by the service ${holder.slug}.`);
+  }
+  const staged = db.changes.find(
+    (change) =>
+      change.serviceId !== service.id &&
+      change.type === "setting" &&
+      change.field === "domain" &&
+      change.value === value,
+  );
+  const stagedFor = db.services.find(({ id }) => id === staged?.serviceId);
+  if (stagedFor) {
+    return refuse(
+      409,
+      `The subdomain ${value} is already staged for the service ${stagedFor.slug}.`,
+    );
+  }
+  return undefined;
+}
+
 export function discardChanges(environmentId: string): void {
   db.changes = db.changes.filter((change) => change.environmentId !== environmentId);
 }
 
-// Applies every staged change of the environment, then deploys each service it touched.
-export function deployChanges(environmentId: string): number {
+// Applies every staged change of the environment, then deploys each service it touched. A public
+// domain needs a port to route to, except on a static site, which the shared nginx serves.
+export function deployChanges(environmentId: string): number | Refusal {
   const changes = db.changes.filter((change) => change.environmentId === environmentId);
   const touched = new Set(changes.map((change) => change.serviceId));
+  for (const service of db.services.filter(({ id }) => touched.has(id))) {
+    const own = changes.filter((change) => change.serviceId === service.id);
+    const next = withStagedSettings(currentSettings(service), own);
+    if (next.domain && next.port === null && service.kind !== "static") {
+      return refuse(400, `${service.slug} needs a port to have a public domain.`);
+    }
+  }
   for (const serviceId of touched) {
     const index = db.services.findIndex(({ id }) => id === serviceId);
     const service = db.services[index];
@@ -610,9 +675,15 @@ export function deployChanges(environmentId: string): number {
         { environmentId: scope.environment.id, serviceId },
       );
     }
-    const next = withStagedSettings(currentSettings(service), service.domains, own);
-    db.settings.set(serviceId, next.settings);
-    db.services[index] = { ...service, domains: next.domains };
+    const next = withStagedSettings(currentSettings(service), own);
+    db.settings.set(serviceId, next);
+    if (own.some((change) => change.type === "setting" && change.field === "domain")) {
+      const zone = db.ingress?.zone;
+      db.services[index] = {
+        ...service,
+        domains: next.domain && zone ? [`${next.domain}.${zone}`] : [],
+      };
+    }
     for (const change of own) {
       applyVariableChange(change);
     }

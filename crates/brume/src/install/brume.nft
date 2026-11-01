@@ -1,0 +1,76 @@
+#!/usr/sbin/nft -f
+# Brume's firewall: the table inet brume. Written by `brume install` to /etc/brume/brume.nft,
+# loaded by brume-nftables.service before Docker starts, and again each time nftables.service
+# flushes the ruleset. The next `brume install` overwrites any change.
+#
+# A drop in this table is final, whatever the rules that Docker adds in its own tables.
+
+# Declares the table, so that the delete never fails, then replaces it. nft applies the whole
+# file in one transaction: the host is never without the table.
+table inet brume
+delete table inet brume
+
+table inet brume {
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iif "lo" accept
+		ct state vmap { invalid : drop, established : accept, related : accept }
+
+		# Containers never open a connection to the host: Docker's bridges, and its address
+		# pools, 10.213.0.0/16.
+		iifname "br-*" drop
+		iifname "docker0" drop
+		ip saddr 10.213.0.0/16 drop
+
+		# Tailscale, and SSH.
+		iifname "tailscale0" accept
+		udp dport 41641 accept
+		tcp dport 22 accept
+
+		# The ICMP that IPv4 and IPv6 need: errors, path MTU, neighbour discovery, ping.
+		icmp type { echo-request, destination-unreachable, time-exceeded, parameter-problem } accept
+		icmpv6 type { echo-request, destination-unreachable, packet-too-big, time-exceeded, parameter-problem, nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert, mld-listener-query } accept
+
+		# DHCP replies, for the host's own addresses.
+		udp sport 67 udp dport 68 accept
+		ip6 saddr fe80::/10 udp sport 547 udp dport 546 accept
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy accept;
+
+		# Brume publishes no port: no connection opens to a container from outside Docker's
+		# bridges, whatever Docker's own rules, which a flush of the ruleset deletes.
+		iifname != "br-*" oifname "br-*" ct state new drop
+
+		# From the containers: Docker's bridges, whatever the source address, and Docker's
+		# address pools.
+		iifname "br-*" jump from_containers
+		iifname "docker0" jump from_containers
+		ip saddr 10.213.0.0/16 jump from_containers
+	}
+
+	chain from_containers {
+		# The tailnet, whatever the address: its subnet routes and exit nodes reach any.
+		oifname "tailscale0" drop
+
+		# Between containers, Docker's own rules decide.
+		ip daddr 10.213.0.0/16 return
+
+		# The tailnet's addresses, its DNS included.
+		ip daddr 100.64.0.0/10 drop
+
+		# DNS: Docker's resolver sends the containers' queries from the container, to the
+		# host's resolvers, often at a private or link-local address (AWS, Azure, GCP).
+		# Port 53 only.
+		meta nfproto ipv4 meta l4proto { tcp, udp } th dport 53 return
+
+		# Private ranges, link-local addresses (the metadata endpoints) and Azure's wire
+		# server.
+		ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 168.63.129.16 } drop
+
+		# Unique local addresses (the tailnet, AWS's metadata endpoint) and link-local ones.
+		ip6 daddr { fc00::/7, fe80::/10 } drop
+	}
+}

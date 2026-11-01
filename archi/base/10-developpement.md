@@ -80,7 +80,7 @@ Le code du panel tourne avec les droits de l'admin : un paquet npm compromis don
 
 ## Releases
 
-- **Binaires et `install.sh` publiés sur GitHub Releases,** un binaire par architecture : amd64 et arm64. Voir [08-hote-et-installation.md](08-hote-et-installation.md#installsh).
+- **Archives publiées sur GitHub Releases,** une par architecture, amd64 et arm64 : le binaire et `libduckdb.so`. `install.sh` est servi par brume.dev, avec la version et les empreintes des archives écrites dedans. Voir [08-hote-et-installation.md](08-hote-et-installation.md#installsh).
 - **Compte GitHub protégé par une clé 2FA physique.**
 
 ### Signature : minisign

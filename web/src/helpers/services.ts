@@ -60,7 +60,9 @@ export function isDatabase(kind: ServiceKind): boolean {
   return kind === "postgres" || kind === "mongodb" || kind === "redis";
 }
 
-const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+// The engine's rule for a zone: DNS labels, the last one not all digits (`example.xn--p1ai`).
+const HOSTNAME =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?!\d+$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
 const NUMBER_FORMAT = new Intl.NumberFormat("en-US");
 
 // Domains come from the API: link to them only over https, and only when they are hostnames.

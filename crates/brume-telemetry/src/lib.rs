@@ -8,7 +8,7 @@ pub mod level;
 mod query;
 pub mod store;
 
-use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+use std::os::unix::fs::DirBuilderExt;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -16,7 +16,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use anyhow::Context as _;
 use brume_proto::telemetry::RawLogLine;
 use brume_runtime::paths::Paths;
-use tokio::net::UnixListener;
+use brume_runtime::peer::{Admission, Peers, SocketRole, peer_uid};
+use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::broadcast;
 
 use crate::store::{Reader, Store, StoredLine};
@@ -31,22 +32,22 @@ const RETENTION: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 /// How often the old lines are deleted.
 const RETENTION_PERIOD: Duration = Duration::from_secs(60 * 60);
 
-/// Runs the service under the Brume home until a socket fails: stores the batches of
-/// `telemetry-ingest.sock` and answers the queries of `telemetry-query.sock`.
-pub async fn run(paths: Paths) -> anyhow::Result<()> {
+/// Runs the service until a socket fails: stores the batches of `telemetry-ingest.sock` and
+/// answers the queries of `telemetry-query.sock`, for `peers` only.
+pub async fn run(paths: Paths, peers: Peers) -> anyhow::Result<()> {
     let db = paths.telemetry_db();
     if let Some(dir) = db.parent() {
         create_private_dir(dir)?;
     }
-    create_private_dir(&paths.run_dir())?;
+    create_private_dir(&paths.telemetry_run_dir())?;
     let store = Store::open(&db)?;
     let shared = Arc::new(Shared::new(store)?);
-    let ingest = bind(&paths.telemetry_ingest_socket())?;
-    let query = bind(&paths.telemetry_query_socket())?;
-    tracing::info!(run_dir = %paths.run_dir().display(), "telemetry is listening");
+    let ingest = listen(&peers, &paths.telemetry_ingest_socket())?;
+    let query = listen(&peers, &paths.telemetry_query_socket())?;
+    tracing::info!(run_dir = %paths.telemetry_run_dir().display(), "telemetry is listening");
     tokio::try_join!(
-        ingest::serve(ingest, Arc::clone(&shared)),
-        query::serve(query, Arc::clone(&shared)),
+        ingest::serve(ingest, peers, Arc::clone(&shared)),
+        query::serve(query, peers, Arc::clone(&shared)),
         retain(Arc::clone(&shared)),
     )?;
     Ok(())
@@ -138,18 +139,21 @@ fn create_private_dir(dir: &Path) -> anyhow::Result<()> {
         .with_context(|| format!("cannot create {}", dir.display()))
 }
 
-/// Listens on `path`, owner only. A socket file left by an earlier run is replaced.
-fn bind(path: &Path) -> anyhow::Result<UnixListener> {
-    match std::fs::remove_file(path) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => {
-            return Err(error).with_context(|| format!("cannot remove {}", path.display()));
+/// Listens on `path` for `peers`. A socket file left by an earlier run is replaced.
+fn listen(peers: &Peers, path: &Path) -> anyhow::Result<UnixListener> {
+    peers
+        .listen(path)
+        .with_context(|| format!("cannot listen on {}", path.display()))
+}
+
+/// Whether the peer of a new connection on `socket` may use it. Logs a refusal.
+pub(crate) fn admit(peers: &Peers, socket: SocketRole, stream: &UnixStream) -> bool {
+    match peers.admit(socket, peer_uid(stream)) {
+        Admission::Allowed => true,
+        Admission::Refused { uid } => {
+            tracing::warn!(?socket, uid, "refused a connection from another user");
+            false
         }
+        Admission::Gone => false,
     }
-    let listener =
-        UnixListener::bind(path).with_context(|| format!("cannot listen on {}", path.display()))?;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
-        .with_context(|| format!("cannot restrict {}", path.display()))?;
-    Ok(listener)
 }

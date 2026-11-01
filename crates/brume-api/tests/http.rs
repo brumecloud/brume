@@ -6,10 +6,10 @@ use std::sync::{Arc, Mutex};
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, Response, StatusCode, header};
-use brume_api::{ApiConfig, app};
+use brume_api::{ApiConfig, ApiFileConfig, app};
 use brume_proto::api::{
-    ApiCall, ApiFailure, ApiReply, ApiRequest, ApiValue, CreatedProjectDto, FailureKind, LogLevel,
-    LogLineDto, ProjectDto,
+    ApiCall, ApiFailure, ApiReply, ApiRequest, ApiValue, CreatedProjectDto, FailureKind,
+    IngressDto, LogLevel, LogLineDto, ProjectDto,
 };
 use brume_proto::telemetry::LogStreamFrame;
 use brume_runtime::framed::{FramedReader, FramedWriter};
@@ -648,4 +648,321 @@ async fn reconnects_after_the_engine_closes_the_connection() {
     }
     assert_eq!(statuses.last(), Some(&StatusCode::OK), "{statuses:?}");
     assert!(engine.requests().len() >= 2);
+}
+
+/// The machine's name on the tailnet, as `tailscale serve` passes it in `Host`.
+const TAILNET_HOST: &str = "brume.tail1234.ts.net";
+
+/// The admin's Tailscale login, the only one in the allowlist.
+const ADMIN_LOGIN: &str = "admin@example.com";
+
+/// The API of a host behind `tailscale serve`, as `/etc/brume/api.toml` configures it.
+fn tailnet_router(home: &Path) -> Router {
+    let file = ApiFileConfig {
+        port: 4000,
+        hosts: vec![TAILNET_HOST.to_owned()],
+        tailscale_logins: vec![ADMIN_LOGIN.to_owned()],
+        public_url: format!("https://{TAILNET_HOST}"),
+    };
+    app(
+        &Paths::new(home.to_path_buf()),
+        &ApiConfig::from_file(&file),
+    )
+}
+
+/// A request from the panel through `tailscale serve`, which sets the admin's login.
+fn tailnet(method: &str, uri: &str) -> axum::http::request::Builder {
+    Request::builder()
+        .method(method)
+        .uri(uri)
+        .header(header::HOST, TAILNET_HOST)
+        .header("sec-fetch-site", "same-origin")
+        .header("x-brume", "1")
+        .header("tailscale-user-login", ADMIN_LOGIN)
+}
+
+/// The same request, without a `Tailscale-User-Login`.
+fn tailnet_anonymous(method: &str, uri: &str, host: &str) -> axum::http::request::Builder {
+    Request::builder()
+        .method(method)
+        .uri(uri)
+        .header(header::HOST, host)
+        .header("sec-fetch-site", "same-origin")
+        .header("x-brume", "1")
+}
+
+#[tokio::test]
+async fn missing_tailscale_login_is_403() {
+    let home = home();
+    let engine = FakeEngine::start(home.path(), default_answer(), vec![]);
+    let router = tailnet_router(home.path());
+    // Through the tailnet, through an SSH tunnel, and on a route that does not exist.
+    for (uri, host) in [
+        ("/api/projects", TAILNET_HOST),
+        ("/api/projects", "127.0.0.1:4000"),
+        ("/api/nothing-here", TAILNET_HOST),
+    ] {
+        let request = tailnet_anonymous("GET", uri, host)
+            .body(Body::empty())
+            .expect("request");
+        let response = send(&router, request).await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "{uri} on {host}");
+        assert_eq!(header_of(&response, "content-security-policy"), Some(CSP));
+        assert!(body_json(response).await["message"].is_string());
+    }
+    // An empty login is no login.
+    let request = tailnet_anonymous("GET", "/api/projects", TAILNET_HOST)
+        .header("tailscale-user-login", "")
+        .body(Body::empty())
+        .expect("request");
+    assert_eq!(send(&router, request).await.status(), StatusCode::FORBIDDEN);
+    assert!(engine.requests().is_empty());
+}
+
+#[tokio::test]
+async fn unknown_tailscale_login_is_403() {
+    let home = home();
+    let engine = FakeEngine::start(home.path(), default_answer(), vec![]);
+    let router = tailnet_router(home.path());
+    for logins in [
+        &["mallory@example.com"][..],
+        &["Admin@example.com"],
+        &["admin@example.com "],
+        // `tailscale serve` sets one; a second one is forged.
+        &[ADMIN_LOGIN, "mallory@example.com"],
+        &[ADMIN_LOGIN, ADMIN_LOGIN],
+    ] {
+        let mut request = tailnet_anonymous("GET", "/api/projects", TAILNET_HOST);
+        for login in logins {
+            request = request.header("tailscale-user-login", *login);
+        }
+        let request = request.body(Body::empty()).expect("request");
+        assert_eq!(
+            send(&router, request).await.status(),
+            StatusCode::FORBIDDEN,
+            "{logins:?}"
+        );
+    }
+    assert!(engine.requests().is_empty());
+}
+
+#[tokio::test]
+async fn allowed_login_passes() {
+    let home = home();
+    let engine = FakeEngine::start(home.path(), default_answer(), vec![]);
+    let router = tailnet_router(home.path());
+    let request = tailnet("GET", "/api/projects")
+        .body(Body::empty())
+        .expect("request");
+    assert_eq!(send(&router, request).await.status(), StatusCode::OK);
+    // Through an SSH tunnel too, with the header set by hand.
+    let request = tailnet_anonymous("GET", "/api/projects", "localhost:4000")
+        .header("tailscale-user-login", ADMIN_LOGIN)
+        .body(Body::empty())
+        .expect("request");
+    assert_eq!(send(&router, request).await.status(), StatusCode::OK);
+    assert_eq!(engine.requests().len(), 2);
+}
+
+#[tokio::test]
+async fn tailnet_host_accepted() {
+    let home = home();
+    let engine = FakeEngine::start(home.path(), default_answer(), vec![]);
+    let dev = router(home.path());
+    let router = tailnet_router(home.path());
+    for host in [
+        TAILNET_HOST,
+        "brume.tail1234.ts.net:443",
+        "BRUME.tail1234.ts.net",
+    ] {
+        let request = tailnet_anonymous("GET", "/api/projects", host)
+            .header("tailscale-user-login", ADMIN_LOGIN)
+            .body(Body::empty())
+            .expect("request");
+        assert_eq!(
+            send(&router, request).await.status(),
+            StatusCode::OK,
+            "{host}"
+        );
+    }
+    // The Host check comes first: 421 even with the admin's login.
+    for host in [
+        "other.tail1234.ts.net",
+        "brume.tail1234.ts.net:80",
+        "brume.tail1234.ts.net.evil.example",
+        "127.0.0.1:5173",
+    ] {
+        let request = tailnet_anonymous("GET", "/api/projects", host)
+            .header("tailscale-user-login", ADMIN_LOGIN)
+            .body(Body::empty())
+            .expect("request");
+        assert_eq!(
+            send(&router, request).await.status(),
+            StatusCode::MISDIRECTED_REQUEST,
+            "{host}"
+        );
+    }
+    // `brume dev` does not serve the tailnet name.
+    let request = tailnet_anonymous("GET", "/api/projects", TAILNET_HOST)
+        .body(Body::empty())
+        .expect("request");
+    assert_eq!(
+        send(&dev, request).await.status(),
+        StatusCode::MISDIRECTED_REQUEST
+    );
+    assert_eq!(engine.requests().len(), 3);
+}
+
+#[tokio::test]
+async fn https_origin_of_tailnet_host_accepted_on_write() {
+    let home = home();
+    let engine = FakeEngine::start(home.path(), default_answer(), vec![]);
+    let router = tailnet_router(home.path());
+    let body = json!({"kind": "empty"});
+    for origin in [
+        "http://brume.tail1234.ts.net",
+        "https://brume.tail1234.ts.net.evil.example",
+        "https://other.tail1234.ts.net",
+        "http://localhost:5173",
+    ] {
+        let request = tailnet("POST", "/api/projects")
+            .header(header::ORIGIN, origin)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(json_body(&body))
+            .expect("request");
+        assert_eq!(
+            send(&router, request).await.status(),
+            StatusCode::FORBIDDEN,
+            "{origin}"
+        );
+    }
+    assert!(engine.requests().is_empty());
+    for origin in ["https://brume.tail1234.ts.net", "http://127.0.0.1:4000"] {
+        let request = tailnet("POST", "/api/projects")
+            .header(header::ORIGIN, origin)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(json_body(&body))
+            .expect("request");
+        assert_eq!(
+            send(&router, request).await.status(),
+            StatusCode::CREATED,
+            "{origin}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn cookie_is_secure_with_https_public_url() {
+    let home = home();
+    let _engine = FakeEngine::start(home.path(), default_answer(), vec![]);
+    let router = tailnet_router(home.path());
+    let request = tailnet("POST", "/api/session")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::ORIGIN, "https://brume.tail1234.ts.net")
+        .body(json_body(&json!({"token": "login-link-token"})))
+        .expect("request");
+    let response = send(&router, request).await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        header_of(&response, "set-cookie"),
+        Some("brume_session=sess-123; HttpOnly; SameSite=Strict; Path=/; Secure")
+    );
+    let request = tailnet("DELETE", "/api/session")
+        .header(header::COOKIE, "brume_session=sess-123")
+        .body(Body::empty())
+        .expect("request");
+    let response = send(&router, request).await;
+    assert_eq!(
+        header_of(&response, "set-cookie"),
+        Some("brume_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0; Secure")
+    );
+
+    // Through an SSH tunnel, the panel is plain HTTP: no `Secure`.
+    let file = ApiFileConfig {
+        port: 4000,
+        hosts: vec![],
+        tailscale_logins: vec![],
+        public_url: String::new(),
+    };
+    let tunnel = app(
+        &Paths::new(home.path().to_path_buf()),
+        &ApiConfig::from_file(&file),
+    );
+    let request = panel("POST", "/api/session")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(json_body(&json!({"token": "login-link-token"})))
+        .expect("request");
+    let response = send(&tunnel, request).await;
+    assert_eq!(
+        header_of(&response, "set-cookie"),
+        Some("brume_session=sess-123; HttpOnly; SameSite=Strict; Path=/")
+    );
+}
+
+#[tokio::test]
+async fn static_panel_also_requires_login() {
+    let home = home();
+    let router = tailnet_router(home.path());
+    let typed = |host: &str| {
+        Request::builder()
+            .uri("/projects/x")
+            .header(header::HOST, host)
+            .header("sec-fetch-site", "none")
+    };
+    let request = typed(TAILNET_HOST).body(Body::empty()).expect("request");
+    let response = send(&router, request).await;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    assert_eq!(header_of(&response, "content-security-policy"), Some(CSP));
+    let request = typed(TAILNET_HOST)
+        .header("tailscale-user-login", "mallory@example.com")
+        .body(Body::empty())
+        .expect("request");
+    assert_eq!(send(&router, request).await.status(), StatusCode::FORBIDDEN);
+    let request = typed("evil.example")
+        .header("tailscale-user-login", ADMIN_LOGIN)
+        .body(Body::empty())
+        .expect("request");
+    assert_eq!(
+        send(&router, request).await.status(),
+        StatusCode::MISDIRECTED_REQUEST
+    );
+    let request = typed(TAILNET_HOST)
+        .header("tailscale-user-login", ADMIN_LOGIN)
+        .body(Body::empty())
+        .expect("request");
+    let response = send(&router, request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = String::from_utf8(body_bytes(response).await).expect("UTF-8");
+    assert!(body.to_ascii_lowercase().contains("<html"), "{body}");
+}
+
+#[tokio::test]
+async fn ingress_is_null_until_configured() {
+    let home = home();
+    let configured = Arc::new(Mutex::new(false));
+    let seen = Arc::clone(&configured);
+    let answer: Answer = Box::new(move |call| match call {
+        ApiCall::GetIngress => Ok(ApiValue::Ingress(seen.lock().expect("not poisoned").then(
+            || IngressDto {
+                zone: "example.com".to_owned(),
+            },
+        ))),
+        _ => Ok(ApiValue::NoContent),
+    });
+    let _engine = FakeEngine::start(home.path(), answer, vec![]);
+    let router = router(home.path());
+    let get = || {
+        panel("GET", "/api/ingress")
+            .body(Body::empty())
+            .expect("request")
+    };
+
+    let response = send(&router, get()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(body_json(response).await, Value::Null);
+
+    *configured.lock().expect("not poisoned") = true;
+    let response = send(&router, get()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(body_json(response).await, json!({"zone": "example.com"}));
 }

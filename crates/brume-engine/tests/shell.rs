@@ -15,6 +15,8 @@ use brume_proto::telemetry::{LogQuery, LogStreamFrame};
 use brume_runtime::framed::{FramedReader, FramedWriter};
 use brume_runtime::object_store::{DirStore, ObjectStore};
 use brume_runtime::paths::Paths;
+use brume_runtime::peer::Peers;
+use secrecy::SecretString;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::time::timeout;
@@ -72,24 +74,80 @@ impl Connection {
 
 /// Starts the engine, and logs in through `admin.sock` and `api.sock`.
 async fn start(paths: &Paths) -> (tokio::task::JoinHandle<anyhow::Result<()>>, String) {
-    let engine = tokio::spawn(brume_engine::run(paths.clone()));
+    let peers = Peers::same_user(&paths.run_dir()).expect("creates the run directory");
+    let engine = tokio::spawn(brume_engine::run(paths.clone(), peers));
     let mut admin = connect(&paths.admin_socket()).await;
     admin
         .writer
         .write(&AdminRequest::CreateLoginLink)
         .await
         .expect("writes");
-    let AdminReply::LoginLink { token, .. } = timeout(WAIT, admin.reader.read::<AdminReply>())
+    let reply = timeout(WAIT, admin.reader.read::<AdminReply>())
         .await
         .expect("in time")
         .expect("reads")
         .expect("a reply");
+    let AdminReply::LoginLink { token, .. } = reply else {
+        panic!("expected a login link, got {reply:?}");
+    };
     let mut api = connect(&paths.api_socket()).await;
     let reply = api.call(1, None, ApiCall::Login { token }).await;
     let Ok(ApiValue::Session { token, .. }) = reply.result else {
         panic!("login failed: {reply:?}");
     };
     (engine, token)
+}
+
+/// On a host, each socket serves its own user and closes any other's connection at once.
+#[tokio::test]
+async fn on_a_host_each_socket_refuses_the_other_users() {
+    let home = home();
+    let paths = Paths::new(home.path().to_path_buf());
+    let Peers::SameUser { uid } = Peers::same_user(&paths.run_dir()).expect("creates it") else {
+        panic!("the peers of a single user");
+    };
+    // This process is the API's user, and no other.
+    let peers = Peers::System {
+        engine: uid + 1,
+        agent: uid + 2,
+        api: uid,
+        telemetry: uid + 3,
+    };
+    let engine = tokio::spawn(brume_engine::run(paths.clone(), peers));
+
+    let mut api = connect(&paths.api_socket()).await;
+    let reply = api.call(7, None, ApiCall::GetSession).await;
+    assert_eq!(reply.id, 7);
+
+    // Root may use `admin.sock` on a host.
+    let mut refused = vec![paths.agent_socket()];
+    if uid != 0 {
+        refused.push(paths.admin_socket());
+    }
+    for socket in refused {
+        let mut connection = connect(&socket).await;
+        // The engine may close before the write: the write's result does not matter.
+        let _ = connection
+            .writer
+            .write(&AdminRequest::CreateLoginLink)
+            .await;
+        let read = timeout(WAIT, connection.reader.read::<AdminReply>())
+            .await
+            .expect("closed in time");
+        assert!(matches!(read, Ok(None) | Err(_)), "{}", socket.display());
+    }
+    for socket in [
+        paths.api_socket(),
+        paths.admin_socket(),
+        paths.agent_socket(),
+    ] {
+        let mode = std::fs::metadata(&socket)
+            .expect("exists")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o660, "{}", socket.display());
+    }
+    engine.abort();
 }
 
 #[tokio::test]
@@ -313,13 +371,25 @@ async fn bucket_conflict_makes_the_engine_read_only() {
     // Reads still work, and the other server's object is untouched.
     let reply = api.call(1000, Some(&session), ApiCall::ListProjects).await;
     assert!(matches!(reply.result, Ok(ApiValue::Projects(_))));
-    // A login link is a write: the admin connection closes without a reply.
+    // A login link is a write: the admin command gets the refusal and its reason, then the
+    // connection closes.
     let mut admin = connect(&paths.admin_socket()).await;
     admin
         .writer
         .write(&AdminRequest::CreateLoginLink)
         .await
         .expect("writes");
+    let refusal = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("refused in time");
+    assert!(
+        matches!(
+            &refusal,
+            Ok(Some(AdminReply::Refused { reason }))
+                if reason == "Another server writes to this bucket."
+        ),
+        "{refusal:?}"
+    );
     let ended = timeout(WAIT, admin.reader.read::<AdminReply>())
         .await
         .expect("closed in time");
@@ -385,6 +455,125 @@ async fn a_new_agent_connection_replaces_the_old_one() {
     .await
     .expect("a job in time");
     assert!(matches!(job, Job::ResolveImage { image, .. } if image == "redis:8"));
+
+    engine.abort();
+}
+
+/// Every regular file under `dir`.
+fn files_under(dir: &Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(dir).expect("reads the directory") {
+        let entry = entry.expect("an entry");
+        let kind = entry.file_type().expect("a file type");
+        if kind.is_dir() {
+            files.extend(files_under(&entry.path()));
+        } else if kind.is_file() {
+            files.push(entry.path());
+        }
+    }
+    files
+}
+
+#[tokio::test]
+async fn admin_socket_configures_the_ingress_and_seals_its_token() {
+    let home = home();
+    let paths = Paths::new(home.path().to_path_buf());
+    let (engine, session) = start(&paths).await;
+    let token = "eyJhIjoiYWNjb3VudCJ9-tunnel-token";
+
+    // `brume install` sends the zone, the tunnel and its token on `admin.sock`.
+    let mut admin = connect(&paths.admin_socket()).await;
+    admin
+        .writer
+        .write(&AdminRequest::ConfigureIngress {
+            zone: "example.com".to_owned(),
+            tunnel_id: "c1744f8b-faa1-48a4-9e5c-02ac921467fa".to_owned(),
+            tunnel_token: SecretString::from(token),
+        })
+        .await
+        .expect("writes");
+    let reply = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("in time")
+        .expect("reads");
+    assert!(
+        matches!(reply, Some(AdminReply::IngressConfigured)),
+        "{reply:?}"
+    );
+
+    // The panel reads the zone.
+    let mut api = connect(&paths.api_socket()).await;
+    let reply = api.call(1, Some(&session), ApiCall::GetIngress).await;
+    assert!(
+        matches!(&reply.result, Ok(ApiValue::Ingress(Some(ingress))) if ingress.zone == "example.com"),
+        "{reply:?}"
+    );
+
+    // No file of the home holds the token in clear: the database seals it.
+    for file in files_under(home.path()) {
+        let bytes = std::fs::read(&file).expect("reads");
+        assert!(
+            !bytes
+                .windows(token.len())
+                .any(|window| window == token.as_bytes()),
+            "{}",
+            file.display()
+        );
+    }
+
+    engine.abort();
+}
+
+#[tokio::test]
+async fn a_refused_admin_request_gets_the_reason_then_the_end() {
+    let home = home();
+    let paths = Paths::new(home.path().to_path_buf());
+    let (engine, _session) = start(&paths).await;
+    let token = "eyJhIjoiYWNjb3VudCJ9-tunnel-token";
+
+    // An invalid zone is refused: the command learns why, without its token.
+    let mut admin = connect(&paths.admin_socket()).await;
+    admin
+        .writer
+        .write(&AdminRequest::ConfigureIngress {
+            zone: "Example.com".to_owned(),
+            tunnel_id: "c1744f8b-faa1-48a4-9e5c-02ac921467fa".to_owned(),
+            tunnel_token: SecretString::from(token),
+        })
+        .await
+        .expect("writes");
+    let reply = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("in time")
+        .expect("reads");
+    let Some(AdminReply::Refused { reason }) = reply else {
+        panic!("expected a refusal, got {reply:?}");
+    };
+    assert!(reason.contains("zone"), "{reason}");
+    assert!(!reason.contains(token), "{reason}");
+
+    // Then the engine closes the connection.
+    let end = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("in time")
+        .expect("reads");
+    assert!(end.is_none(), "{end:?}");
+
+    // `brume install` reads that nothing is configured.
+    let mut admin = connect(&paths.admin_socket()).await;
+    admin
+        .writer
+        .write(&AdminRequest::GetIngress)
+        .await
+        .expect("writes");
+    let reply = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("in time")
+        .expect("reads");
+    assert!(
+        matches!(reply, Some(AdminReply::Ingress(None))),
+        "{reply:?}"
+    );
 
     engine.abort();
 }

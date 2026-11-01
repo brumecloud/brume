@@ -13,9 +13,10 @@ use crate::model::{
     Revision, RevisionSpec, RevisionValue, RevisionVariable, SecretSource, Service, ServiceSpec,
     ServiceVariable, ServiceVariableValue, SharedValue, VariableOwner, World,
 };
-use crate::names::{Slug, VarName};
+use crate::names::{Slug, Subdomain, VarName};
 use crate::rejection::Rejection;
 use crate::time::Timestamp;
+use crate::values::Port;
 
 /// Decides the events of a command, or why it is refused. Pure: the same world and command
 /// always give the same answer.
@@ -289,6 +290,17 @@ pub fn decide(world: &World, command: &Command) -> Result<Vec<Event>, Rejection>
             decision.push(Event::DeploymentFailed {
                 deployment: deployment.clone(),
                 reason: reason.clone(),
+            });
+        }
+        Command::ConfigureIngress { zone, tunnel_id } => {
+            if !is_tunnel_id(tunnel_id) {
+                return Err(Rejection::invalid(
+                    "Invalid tunnel id: must be 1 to 64 letters, digits or hyphens.".to_owned(),
+                ));
+            }
+            decision.push(Event::IngressConfigured {
+                zone: zone.clone(),
+                tunnel_id: tunnel_id.clone(),
             });
         }
         Command::RecordAudit(audit) => decision.push(match audit {
@@ -625,6 +637,7 @@ impl Decision {
             check_new_deployment(&self.world, &changes.deployment)?;
             let mut spec = service.spec.clone();
             let mut egress = service.egress;
+            let mut domain = service.domain.clone();
             let mut versions = Vec::new();
             for change in &changes.changes {
                 match change {
@@ -635,6 +648,7 @@ impl Decision {
                     SpecChange::Cpu(cpu) => spec.cpu = *cpu,
                     SpecChange::Memory(memory) => spec.memory = *memory,
                     SpecChange::Egress(enabled) => egress = *enabled,
+                    SpecChange::Domain(new) => domain = new.clone(),
                     SpecChange::PlainVariable {
                         name,
                         variable,
@@ -690,6 +704,7 @@ impl Decision {
                     }
                 }
             }
+            check_domain(&self.world, &service, domain.as_ref(), spec.port)?;
             if spec != service.spec {
                 self.push(Event::ServiceSpecChanged {
                     service: service.id.clone(),
@@ -703,6 +718,12 @@ impl Decision {
                 self.push(Event::ServiceEgressChanged {
                     service: service.id.clone(),
                     egress,
+                });
+            }
+            if domain != service.domain {
+                self.push(Event::ServiceDomainChanged {
+                    service: service.id.clone(),
+                    domain,
                 });
             }
             check_names(&self.world, &project)?;
@@ -762,6 +783,8 @@ impl Decision {
             .expect("a live service has a project");
         check_new_deployment(&self.world, deployment)?;
         let (spec, mut missing) = restored_spec(&service, &revision);
+        // The domain stays on the service: the revision must still give it a port.
+        check_domain(&self.world, &service, service.domain.as_ref(), spec.port)?;
         self.push(Event::ServiceSpecChanged {
             service: service.id.clone(),
             spec,
@@ -981,6 +1004,54 @@ fn restored_spec(service: &Service, revision: &Revision) -> (ServiceSpec, Vec<Va
         variables,
     };
     (spec, missing)
+}
+
+/// Refuses `subdomain` for `service` when there is no public entry, or when another live
+/// service, in any project, holds it.
+pub fn check_subdomain(
+    world: &World,
+    service: &ServiceId,
+    subdomain: &Subdomain,
+) -> Result<(), Rejection> {
+    if world.ingress.is_none() {
+        return Err(Rejection::conflict(
+            "Public domains are not set up on this server: brume install --domain <zone> sets \
+             them up."
+                .to_owned(),
+        ));
+    }
+    if let Some(holder) = world.domain_holder(subdomain, service) {
+        return Err(Rejection::conflict(format!(
+            "The subdomain {subdomain} is already used by the service {}.",
+            holder.slug
+        )));
+    }
+    Ok(())
+}
+
+/// Refuses a domain that cannot be routed: `check_subdomain`, and a port to route to.
+fn check_domain(
+    world: &World,
+    service: &Service,
+    domain: Option<&Subdomain>,
+    port: Option<Port>,
+) -> Result<(), Rejection> {
+    let Some(domain) = domain else {
+        return Ok(());
+    };
+    check_subdomain(world, &service.id, domain)?;
+    if port.is_none() {
+        return Err(Rejection::invalid(format!(
+            "{} needs a port to have a public domain.",
+            service.slug
+        )));
+    }
+    Ok(())
+}
+
+/// A Cloudflare tunnel id: 1 to 64 ASCII letters, digits or hyphens. Cloudflare gives a UUID.
+fn is_tunnel_id(raw: &str) -> bool {
+    (1..=64).contains(&raw.len()) && raw.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
 fn secret_names(revision: &Revision) -> Vec<VarName> {

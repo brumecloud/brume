@@ -111,6 +111,11 @@ export const handlers = [
     return HttpResponse.json(db.services);
   }),
 
+  http.get("/api/ingress", async () => {
+    await delay(LATENCY_MS);
+    return HttpResponse.json(db.ingress);
+  }),
+
   http.get("/api/github/repositories", async () => {
     await delay(LATENCY_MS * 2);
     return HttpResponse.json(repositories);
@@ -201,10 +206,7 @@ export const handlers = [
 
   http.post("/api/changes", async ({ request }) => {
     await delay(LATENCY_MS);
-    const change = stageChange(await request.json());
-    return typeof change === "string"
-      ? HttpResponse.json({ message: change }, { status: 400 })
-      : HttpResponse.json(change, { status: 201 });
+    return created(stageChange(await request.json()));
   }),
 
   http.delete("/api/changes/:changeId", async ({ params }) => {
@@ -215,7 +217,10 @@ export const handlers = [
 
   http.post("/api/environments/:environmentId/changes/deploy", async ({ params }) => {
     await delay(LATENCY_MS * 4);
-    return HttpResponse.json({ deployed: deployChanges(String(params.environmentId)) });
+    const deployed = deployChanges(String(params.environmentId));
+    return typeof deployed === "number"
+      ? HttpResponse.json({ deployed })
+      : HttpResponse.json({ message: deployed.message }, { status: deployed.status });
   }),
 
   http.delete("/api/environments/:environmentId/changes", async ({ params }) => {

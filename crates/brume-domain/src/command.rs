@@ -8,7 +8,7 @@ use crate::ids::{
 use crate::model::{FailureReason, PlainKind, SharedValue, VariableOwner};
 use crate::names::{
     ContainerPath, HttpPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug,
-    StartCommand, VarName,
+    StartCommand, Subdomain, VarName, Zone,
 };
 use crate::values::{CpuMillis, MemoryMb, Port};
 
@@ -95,6 +95,9 @@ pub enum Command {
         deployment: DeploymentId,
         reason: FailureReason,
     },
+    /// Sets up, or sets up again, the public entry. The engine stores the tunnel's token
+    /// beside the event, sealed.
+    ConfigureIngress { zone: Zone, tunnel_id: String },
     /// An audit fact, which does not change the `World`.
     RecordAudit(AuditEvent),
 }
@@ -129,6 +132,9 @@ pub enum SpecChange {
     Cpu(CpuMillis),
     Memory(MemoryMb),
     Egress(bool),
+    /// The public subdomain. It needs the public entry and the service's port, and no other
+    /// service may hold it.
+    Domain(Option<Subdomain>),
     /// Sets a plain or build variable, whose value the engine wrote in `blob`. `variable` is
     /// the id of the service's variable of that name, or a new one.
     PlainVariable {

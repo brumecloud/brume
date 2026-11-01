@@ -85,4 +85,4 @@ Review an agent's page like code: check every fact against its `sources`, and re
 
 ## Keep the site safe
 
-The docs publish the install command, so a compromised docs site could hand out a malicious one. The site is static, loads no third-party script, and the install command always points to GitHub Releases. See the security rules in `docs/AGENTS.md`.
+The docs publish the install command, so a compromised docs site could hand out a malicious one. The site is static, loads no third-party script, and the install command always points to `https://brume.dev/install.sh`, never to a URL served by the docs. See the security rules in `docs/AGENTS.md`.

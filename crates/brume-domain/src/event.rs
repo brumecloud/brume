@@ -12,7 +12,8 @@ use crate::model::{
     VariableOwner,
 };
 use crate::names::{
-    ContainerPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug, VarName,
+    ContainerPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug, Subdomain, VarName,
+    Zone,
 };
 use crate::time::Timestamp;
 
@@ -97,6 +98,11 @@ pub enum Event {
         service: ServiceId,
         egress: bool,
     },
+    /// The service's public subdomain is set, changed or removed.
+    ServiceDomainChanged {
+        service: ServiceId,
+        domain: Option<Subdomain>,
+    },
     SharedVariableSet {
         variable: VariableId,
         owner: VariableOwner,
@@ -139,6 +145,11 @@ pub enum Event {
         deployment: DeploymentId,
         reason: FailureReason,
     },
+    /// The public entry is set up, or set up again with a new token. The token is never here.
+    IngressConfigured {
+        zone: Zone,
+        tunnel_id: String,
+    },
     // Audit events: they do not change the `World`.
     SecretRevealed {
         variable: VariableId,
@@ -165,6 +176,7 @@ impl Event {
             Self::ServiceDeleted { .. } => "ServiceDeleted",
             Self::ServiceSpecChanged { .. } => "ServiceSpecChanged",
             Self::ServiceEgressChanged { .. } => "ServiceEgressChanged",
+            Self::ServiceDomainChanged { .. } => "ServiceDomainChanged",
             Self::SharedVariableSet { .. } => "SharedVariableSet",
             Self::SharedVariableRemoved { .. } => "SharedVariableRemoved",
             Self::SecretVersionAdded { .. } => "SecretVersionAdded",
@@ -174,6 +186,7 @@ impl Event {
             Self::DeploymentHealthy { .. } => "DeploymentHealthy",
             Self::DeploymentSucceeded { .. } => "DeploymentSucceeded",
             Self::DeploymentFailed { .. } => "DeploymentFailed",
+            Self::IngressConfigured { .. } => "IngressConfigured",
             Self::SecretRevealed { .. } => "SecretRevealed",
             Self::LoginSucceeded { .. } => "LoginSucceeded",
             Self::LoginFailed => "LoginFailed",
@@ -194,6 +207,7 @@ impl Event {
             | Self::ServiceDeleted { service }
             | Self::ServiceSpecChanged { service, .. }
             | Self::ServiceEgressChanged { service, .. }
+            | Self::ServiceDomainChanged { service, .. }
             | Self::RevisionCreated { service, .. } => format!("service:{service}"),
             Self::SharedVariableSet { variable, .. }
             | Self::SharedVariableRemoved { variable }
@@ -205,6 +219,7 @@ impl Event {
             | Self::DeploymentSucceeded { deployment }
             | Self::DeploymentFailed { deployment, .. } => format!("deployment:{deployment}"),
             Self::LoginFailed => "session".to_owned(),
+            Self::IngressConfigured { .. } => "ingress".to_owned(),
         }
     }
 

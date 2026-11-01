@@ -23,6 +23,7 @@ export type {
   DeploymentLogStream,
   DeploymentStatus,
   Environment,
+  Ingress,
   LogLevel,
   LogLine,
   NewChange,

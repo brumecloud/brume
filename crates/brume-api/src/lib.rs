@@ -1,8 +1,9 @@
 //! The API service. It serves the HTTP API and the embedded panel on localhost, checks
-//! hosts, origins and sessions, and forwards each call to the engine.
+//! hosts, Tailscale identities, origins and sessions, and forwards each call to the engine.
 
 #![forbid(unsafe_code)]
 
+mod config;
 mod csrf;
 #[cfg(test)]
 mod dto_ts;
@@ -20,47 +21,28 @@ use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use brume_runtime::paths::Paths;
 
+pub use crate::config::{ApiConfig, ApiFileConfig, DEFAULT_PORT, SYSTEM_CONFIG_PATH};
 use crate::engine_client::EngineClient;
-
-/// The port of the panel's Vite dev server, which proxies `/api` here.
-const VITE_DEV_PORT: u16 = 5173;
-
-/// How the API listens.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ApiConfig {
-    /// The port on 127.0.0.1.
-    pub port: u16,
-    /// The `Host` values accepted, such as `127.0.0.1:8080`. Any other gets a 421, which
-    /// defeats DNS rebinding.
-    pub allowed_hosts: Vec<String>,
-}
-
-impl ApiConfig {
-    /// Listens on `port`, for the panel served here and for the Vite dev server.
-    pub fn new(port: u16) -> Self {
-        let allowed_hosts = [port, VITE_DEV_PORT]
-            .into_iter()
-            .flat_map(|port| [format!("127.0.0.1:{port}"), format!("localhost:{port}")])
-            .collect();
-        Self {
-            port,
-            allowed_hosts,
-        }
-    }
-}
+use crate::session::CookieSecurity;
 
 /// The state that every request shares.
 pub(crate) struct AppState {
     engine: EngineClient,
-    allowed_hosts: Vec<String>,
+    config: ApiConfig,
+    cookie: CookieSecurity,
 }
 
 /// The routes of the API and the panel, behind the checks of `csrf`, calling the engine on
-/// `<home>/run/api.sock`.
+/// `api.sock`.
 pub fn app(paths: &Paths, config: &ApiConfig) -> Router {
     let state = Arc::new(AppState {
         engine: EngineClient::new(paths.api_socket()),
-        allowed_hosts: config.allowed_hosts.clone(),
+        config: config.clone(),
+        cookie: if config.secure_cookie {
+            CookieSecurity::HttpsOnly
+        } else {
+            CookieSecurity::AnyScheme
+        },
     });
     Router::new()
         .nest("/api", routes::api())

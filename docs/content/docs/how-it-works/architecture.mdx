@@ -81,7 +81,9 @@ The agent is the only part of Brume that drives Docker. There is one per machine
 
 ## How the services talk to each other
 
-- **One unix socket per client.** `/run/brume/api.sock` belongs to the `brume-api` group, `/run/brume/webhook.sock` to the `brume-webhook` group, `/run/brume/agent.sock` to the `brume-agent` group. File system permissions do the authorization. The engine also listens on `admin.sock`, for the emergency CLI, root only.
+- **One unix socket per client,** in the folder of the service that listens: `/run/brume/engine/` holds `api.sock`, `agent.sock`, `admin.sock` for the emergency CLI and, with the webhook, `webhook.sock`; `/run/brume/telemetry/` holds `telemetry-ingest.sock` and `telemetry-query.sock`.
+- **Each service checks the peer on every connection.** It reads the peer's uid from the kernel, and refuses any user but the socket's own: `brume-api` on `api.sock`, `brume-agent` on `agent.sock` and `telemetry-ingest.sock`, the engine on `telemetry-query.sock`, root on `admin.sock`. The sockets are `0660`, in the group `brume` that the service users share: file permissions open the door, and the peer check does the authorization.
+- **No service can listen in place of another.** Each socket folder belongs to the service that listens in it, with mode `2750` and the group `brume` set: the other services connect, but cannot remove or replace a socket.
 - **Each socket has its own operations.** The webhook socket exposes only `enqueue_build(repo_id, ref)`.
 - **A typed, versioned protocol,** with bounded message sizes. There is no generic operation such as "run a Docker command".
 - **The engine sends the agent the full desired state of its machine,** never a diff, and one-off jobs such as a build or a backup. The agent sends back what it observes, and the facts that the engine records as events.

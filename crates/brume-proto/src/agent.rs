@@ -50,6 +50,42 @@ pub struct DesiredState {
     pub networks: Vec<NetworkSpec>,
     pub volumes: Vec<VolumeSpec>,
     pub containers: Vec<ContainerSpec>,
+    /// The public entry, once `brume install --domain` set it up.
+    pub ingress: Option<IngressSpec>,
+}
+
+/// The public entry: `cloudflared` runs the tunnel with its token and hands every request to
+/// Traefik, which routes each host to a service.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IngressSpec {
+    /// Serializes its exposed value: this message only travels on `agent.sock`.
+    #[serde(serialize_with = "serialize_exposed")]
+    pub tunnel_token: SecretString,
+    /// One per deployed service with a domain.
+    pub routes: Vec<IngressRoute>,
+}
+
+impl PartialEq for IngressSpec {
+    fn eq(&self, other: &Self) -> bool {
+        self.tunnel_token.expose_secret() == other.tunnel_token.expose_secret()
+            && self.routes == other.routes
+    }
+}
+
+impl Eq for IngressSpec {}
+
+/// A public host that Traefik sends to a service.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IngressRoute {
+    /// `<subdomain>.<zone>`.
+    pub host: String,
+    /// The service's edge network, which Traefik joins.
+    pub network: String,
+    /// The name Traefik reaches the service by: the edge network's own name, which is also the
+    /// container's alias on it. Never the slug, which another environment can share.
+    pub target: String,
+    /// The port the service listens on.
+    pub port: u16,
 }
 
 /// A Docker network.
@@ -59,6 +95,9 @@ pub struct NetworkSpec {
     /// No route to the internet.
     pub internal: bool,
     pub environment_id: String,
+    /// Its IPv4 subnet in CIDR form, or `None` to let Docker pick one from its pools. A network
+    /// that Docker has with another subnet is created again.
+    pub subnet: Option<String>,
 }
 
 /// A named Docker volume.
@@ -119,7 +158,8 @@ impl PartialEq for EnvValue {
 
 impl Eq for EnvValue {}
 
-fn serialize_exposed<S: Serializer>(
+/// Serializes a secret's value, for the messages that carry one over a local socket.
+pub(crate) fn serialize_exposed<S: Serializer>(
     secret: &SecretString,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
@@ -212,7 +252,10 @@ pub enum JobOutcome {
 mod tests {
     use secrecy::{ExposeSecret, SecretString};
 
-    use super::{ContainerSpec, EnvValue, EnvVar, Healthcheck, Mount, NetworkAttachment};
+    use super::{
+        ContainerSpec, DesiredState, EnvValue, EnvVar, Healthcheck, IngressRoute, IngressSpec,
+        Mount, NetworkAttachment,
+    };
 
     #[test]
     fn secret_env_value_debug_hides_the_value() {
@@ -229,6 +272,37 @@ mod tests {
             Ok(EnvValue::Secret(secret)) => assert_eq!(secret.expose_secret(), "s3cr3t-🚀"),
             other => panic!("expected a secret, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn ingress_spec_carries_its_token_to_the_agent_and_masks_it_in_debug() {
+        let state = DesiredState {
+            position: 7,
+            networks: Vec::new(),
+            volumes: Vec::new(),
+            containers: Vec::new(),
+            ingress: Some(IngressSpec {
+                tunnel_token: SecretString::from("s3cr3t-🚀"),
+                routes: vec![IngressRoute {
+                    host: "demo.example.com".to_owned(),
+                    network: "brume-edge-svc".to_owned(),
+                    target: "web".to_owned(),
+                    port: 8080,
+                }],
+            }),
+        };
+        assert!(!format!("{state:?}").contains("s3cr3t"));
+        let json = serde_json::to_string(&state).expect("serializes");
+        assert!(json.contains("s3cr3t-🚀"), "{json}");
+        assert_eq!(
+            serde_json::from_str::<DesiredState>(&json).ok(),
+            Some(state.clone())
+        );
+        let mut other = state.clone();
+        if let Some(ingress) = other.ingress.as_mut() {
+            ingress.tunnel_token = SecretString::from("rotated");
+        }
+        assert_ne!(other, state);
     }
 
     #[test]

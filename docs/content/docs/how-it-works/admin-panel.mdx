@@ -8,6 +8,9 @@ sources:
   - archi/base/03-reseau.md
   - archi/base/19-cli-et-agents-ia.md
   - crates/brume-api/src/csrf.rs
+  - crates/brume-api/src/config.rs
+  - crates/brume/src/install/tailscale.rs
+  - crates/brume/src/login.rs
 ---
 
 In the recommended mode, the admin panel never faces the internet. `brume api` listens only on localhost, and Tailscale exposes it over HTTPS to your tailnet. Every action needs two independent factors: your Tailscale identity and a passkey that the engine checks. Because your browser is on the tailnet and the panel displays content written by outsiders, the panel also defends itself against CSRF, DNS rebinding, XSS and clickjacking.
@@ -16,15 +19,16 @@ In the recommended mode, the admin panel never faces the internet. `brume api` l
 
 This page describes administration over Tailscale, the recommended mode. The other two modes, an SSH tunnel and a public panel, are at the end: see [Without Tailscale](#without-tailscale).
 
-- **`brume api` listens only on `127.0.0.1`.** `tailscale serve` exposes it over HTTPS on the tailnet, with a `*.ts.net` certificate.
+- **`brume api` listens only on `127.0.0.1`.** `tailscale serve` exposes it over HTTPS on the tailnet, with a `*.ts.net` certificate: `brume install` runs `tailscale serve --bg --https=443` to `127.0.0.1:7878`. If HTTPS is off in your tailnet, the install prints Tailscale's link that turns it on, and waits.
 - **HTTPS only.** There is no HTTP listener on the tailnet.
-- **The `Host` header is checked** on every request, against DNS rebinding.
+- **The `Host` header is checked** on every request, against DNS rebinding: the node's name on the tailnet (`brume.xxx.ts.net`), or `127.0.0.1` and `localhost` on the API's port, otherwise a 421.
 - **Never Tailscale Funnel on Brume.** Funnel publishes a tailnet service on the public internet.
 
 ## Tailscale
 
-- **The install auth key** is single-use, pre-authorized, tagged and short-lived.
-- **The node is tagged `tag:brume`,** because a tagged node has no key expiry. Without a tag, the key expires after 180 days and you lose access to the panel. The tailnet policy must also forbid the node from opening connections to your devices: see [Networking](/docs/how-it-works/networking).
+- **No auth key.** `brume install` runs `tailscale up --ssh`, prints the login link and waits for you to open it. There is no key to create or keep.
+- **The node is tagged `tag:brume`,** because a tagged node has no key expiry. Without a tag, the key expires after 180 days and you lose access to the panel. The tailnet policy must also forbid the node from opening connections to your devices: see [Networking](/docs/how-it-works/networking#tailscale).
+- **The tag is not in this release yet.** A tagged node belongs to nobody, and the allowlist is now the login of the node's owner, so the install refuses a tagged node. Until the tag lands, the server's key expires like any device's, and the panel is unreachable until the server logs in to Tailscale again.
 - **Tailnet Lock comes later.** It will stop Tailscale's coordination server, or an account stolen from your identity provider, from adding a node to your tailnet. See the [roadmap](/docs/how-it-works/roadmap#access-and-isolation).
 
 <Callout type="warn" title="Tailscale SSH skips the second factor">
@@ -38,7 +42,8 @@ The panel requires two independent factors.
 ### First factor: your Tailscale identity
 
 - **`tailscale serve` sets the `Tailscale-User-Login` header** from the device that connects, after it removes any `Tailscale-User-*` headers sent by the client. It does not set the header for a tagged device, and any request without it is rejected.
-- **The identity allowlist is set at install.** `brume install` asks for the admin's Tailscale login. There is never a "first to connect becomes admin" step.
+- **The identity allowlist is set at install: the Tailscale login of the node's owner,** the person who opened the install's login link. `brume install` writes it to `/etc/brume/api.toml`, with the node's name. There is never a "first to connect to the panel becomes admin" step.
+- **Checked before any route,** the static panel included: a request without exactly one `Tailscale-User-Login` from the allowlist gets a 403.
 - **A local process that reaches `127.0.0.1` can forge the header.** No container runs on the host network, and without a session issued by the engine, a forged header gets nothing.
 - **Being on the tailnet is not enough.** A compromised device or a shared tailnet would give access to the panel. Hence the second factor.
 
@@ -57,7 +62,8 @@ The second factor is a passkey (WebAuthn, `webauthn-rs` crate). This comparison 
 - **After a rename** of the machine or the tailnet, you reset the passkey with the recovery CLI, then enroll it again.
 - **The engine checks the second factor, not the API.** The engine stores the credentials, generates the challenge, verifies the response and issues the session.
 - **First access:** `brume install` prints a single-use enrollment URL, valid for 15 minutes. It carries a token shown only in the install terminal, because in public administration this URL is reachable from the internet.
-- **Recovery:** the local recovery CLI, `brume`, run from your hosting provider's console, through a unix socket with mode `0600`. It is a different door from the CLI on your laptop: see [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#the-binary).
+- **Not in this release yet.** Until the passkey lands, you sign in with a one-time link, valid for 15 minutes, that the engine issues for root on the host. `brume install` prints one at the end, and `sudo brume admin login` prints a new one, through `admin.sock`. `brume login` stays reserved for the CLI on your laptop: see [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#signing-in).
+- **Recovery:** the local recovery CLI, `brume`, run from your hosting provider's console, through `admin.sock`, which the engine keeps for root. It is a different door from the CLI on your laptop: see [CLI and AI agents](/docs/how-it-works/cli-and-ai-agents#the-binary).
 
 ## Session
 

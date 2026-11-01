@@ -242,7 +242,8 @@ async fn connects(socket: &Path) -> bool {
 }
 
 /// Asks the engine for a one-time login link on `admin.sock`, for `timeout` at most. A
-/// read-only or failing engine closes the connection without an answer.
+/// read-only engine refuses with its reason; a failing one closes the connection without an
+/// answer.
 async fn login_token(admin_socket: &Path, timeout: Duration) -> anyhow::Result<String> {
     let ask = async {
         let stream = UnixStream::connect(admin_socket)
@@ -263,6 +264,12 @@ async fn login_token(admin_socket: &Path, timeout: Duration) -> anyhow::Result<S
     };
     let cause = match tokio::time::timeout(timeout, ask).await {
         Ok(Ok(AdminReply::LoginLink { token, .. })) => return Ok(token),
+        Ok(Ok(AdminReply::Refused { reason })) => {
+            return Err(anyhow!(
+                "The engine refused to create a login link: {reason}"
+            ));
+        }
+        Ok(Ok(other)) => format!("unexpected answer {other:?}"),
         Ok(Err(cause)) => format!("{cause:#}"),
         Err(_) => format!("no answer within {} ms", timeout.as_millis()),
     };
@@ -349,7 +356,7 @@ mod tests {
         let socket = dir.path().join("admin.sock");
         let listener = tokio::net::UnixListener::bind(&socket).expect("binds");
         tokio::spawn(async move {
-            // Reads the request, then closes without an answer, as a read-only engine does.
+            // Reads the request, then closes without an answer, as a failing engine does.
             let (stream, _) = listener.accept().await.expect("accepts");
             let mut reader = brume_runtime::framed::FramedReader::new(stream);
             let _ = reader
@@ -361,6 +368,39 @@ mod tests {
             .await
             .expect_err("refused");
         assert_eq!(error.to_string(), LOGIN_LINK_REFUSED);
+    }
+
+    #[tokio::test]
+    async fn a_refusal_gives_its_reason() {
+        let dir = tempfile::Builder::new()
+            .prefix("brume-dev")
+            .tempdir_in("/tmp")
+            .expect("a temporary directory");
+        let socket = dir.path().join("admin.sock");
+        let listener = tokio::net::UnixListener::bind(&socket).expect("binds");
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accepts");
+            let (read, write) = stream.into_split();
+            let mut reader = brume_runtime::framed::FramedReader::new(read);
+            let _ = reader
+                .read::<brume_proto::admin::AdminRequest>()
+                .await
+                .expect("a request");
+            let mut writer = brume_runtime::framed::FramedWriter::new(write);
+            writer
+                .write(&brume_proto::admin::AdminReply::Refused {
+                    reason: "Another server writes to this bucket.".to_owned(),
+                })
+                .await
+                .expect("writes");
+        });
+        let error = login_token(&socket, Duration::from_secs(10))
+            .await
+            .expect_err("refused");
+        assert_eq!(
+            error.to_string(),
+            "The engine refused to create a login link: Another server writes to this bucket."
+        );
     }
 
     #[tokio::test]

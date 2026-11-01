@@ -11,7 +11,7 @@ use crate::ids::{
 };
 use crate::names::{
     ContainerPath, HttpPath, ImageDigestRef, ImageRef, ProjectName, ServiceName, Slug,
-    StartCommand, VarName,
+    StartCommand, Subdomain, VarName, Zone,
 };
 use crate::time::Timestamp;
 use crate::values::{CpuMillis, MemoryMb, Port};
@@ -53,6 +53,9 @@ pub struct Service {
     pub slug: Slug,
     /// Outbound internet access.
     pub egress: bool,
+    /// The public subdomain, under the zone of the public entry. A link with the outside, like
+    /// `egress`: a rollback keeps it, since its DNS record stays.
+    pub domain: Option<Subdomain>,
     /// Every path that one of its revisions declared as a volume, in the order they appeared:
     /// it names the volumes. The volume of the path at index `n` is the service's volume `n`,
     /// so the list only grows, even with the path of a revision that never ran. What a
@@ -324,6 +327,23 @@ pub struct ResolvedSecret {
     pub version: u32,
 }
 
+/// The public entry, set up by `brume install --domain`: a Cloudflare tunnel to Traefik. The
+/// tunnel's token lives in the engine's store, sealed, never here.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Ingress {
+    /// The zone whose subdomains the services get.
+    pub zone: Zone,
+    /// The Cloudflare tunnel.
+    pub tunnel_id: String,
+}
+
+impl Ingress {
+    /// The public host name of a subdomain: `<subdomain>.<zone>`.
+    pub fn host(&self, subdomain: &Subdomain) -> String {
+        format!("{subdomain}.{}", self.zone)
+    }
+}
+
 /// A variable found by its id: shared, or held by a service.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VariableRef<'a> {
@@ -346,6 +366,7 @@ pub struct World {
     pub(crate) revisions: BTreeMap<RevisionId, Revision>,
     pub(crate) deployments: BTreeMap<DeploymentId, Deployment>,
     pub(crate) shared_variables: BTreeMap<VariableId, SharedVariable>,
+    pub(crate) ingress: Option<Ingress>,
 }
 
 impl World {
@@ -357,6 +378,11 @@ impl World {
     /// The machine of the agent, once registered.
     pub fn machine(&self) -> Option<&MachineId> {
         self.machine.as_ref()
+    }
+
+    /// The public entry, once configured.
+    pub fn ingress(&self) -> Option<&Ingress> {
+        self.ingress.as_ref()
     }
 
     /// The admins, with the blob of their identity.
@@ -526,6 +552,15 @@ impl World {
         self.active_deployment(service)
             .and_then(|deployment| deployment.revision.as_ref())
             .and_then(|revision| self.revisions.get(revision))
+    }
+
+    /// A live service other than `except` that holds `subdomain`. The route follows the
+    /// service's setting, so a subdomain is free as soon as its service gives it up.
+    pub fn domain_holder(&self, subdomain: &Subdomain, except: &ServiceId) -> Option<&Service> {
+        self.services
+            .values()
+            .filter(|service| !service.deleted && &service.id != except)
+            .find(|service| service.domain.as_ref() == Some(subdomain))
     }
 
     /// The live service of an environment with that slug.

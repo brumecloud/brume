@@ -2,14 +2,15 @@
 //! of containers, with the values of their secrets, are built here and nowhere else.
 
 use std::collections::{BTreeMap, HashMap};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use bollard::errors::Error;
 use bollard::models::{
     ContainerCreateBody, ContainerInspectResponse, ContainerStateStatusEnum,
-    ContainerSummaryStateEnum, EndpointSettings, HostConfig, HostConfigLogConfig, Mount,
-    MountPoint, MountType, NetworkConnectRequest, NetworkCreateRequest, NetworkDisconnectRequest,
-    NetworkingConfig, RestartPolicyNameEnum, VolumeCreateRequest,
+    ContainerSummaryStateEnum, EndpointIpamConfig, EndpointSettings, HostConfig,
+    HostConfigLogConfig, Ipam, IpamConfig, Mount, MountPoint, MountType, Network,
+    NetworkConnectRequest, NetworkCreateRequest, NetworkDisconnectRequest, NetworkingConfig,
+    RestartPolicyNameEnum, VolumeCreateRequest,
 };
 use bollard::query_parameters::{
     CreateContainerOptionsBuilder, InspectContainerOptions, ListContainersOptionsBuilder,
@@ -18,14 +19,15 @@ use bollard::query_parameters::{
 };
 use bollard::{API_DEFAULT_VERSION, Docker};
 use brume_agent_core::config::{
-    ContainerConfig, LABEL_CONFIG_HASH, LABEL_DEPLOYMENT, LABEL_ENVIRONMENT, LABEL_MANAGED,
-    LABEL_SERVICE, RestartPolicy,
+    ContainerConfig, HostDir, LABEL_COMPONENT, LABEL_CONFIG_HASH, LABEL_DEPLOYMENT,
+    LABEL_ENVIRONMENT, LABEL_MANAGED, LABEL_SERVICE, RestartPolicy,
 };
+use brume_agent_core::ingress::is_component_network;
 use brume_agent_core::observed::{
     DockerSnapshot, SnapContainer, SnapNetwork, SnapState, SnapVolume,
 };
 use brume_agent_core::plan::Action;
-use brume_proto::agent::{EnvValue, NetworkAttachment};
+use brume_proto::agent::{EnvValue, NetworkAttachment, NetworkSpec};
 use secrecy::ExposeSecret;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
@@ -45,7 +47,8 @@ pub struct LogSource {
     pub running: bool,
 }
 
-/// A Docker snapshot, and the log source of each managed container, by name.
+/// A Docker snapshot, and the log source of each managed app container, by name. The
+/// components' logs stay in Docker.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Observation {
     pub snapshot: DockerSnapshot,
@@ -103,6 +106,8 @@ pub struct DockerShell {
     /// A label added to everything the shell creates, which also limits the containers it
     /// sees to those that carry it. Tests use it to stay away from real containers.
     scope: Option<(String, String)>,
+    /// `HostDir::TraefikConfig`: where the agent writes Traefik's config.
+    traefik_dir: Option<PathBuf>,
 }
 
 impl DockerShell {
@@ -110,7 +115,20 @@ impl DockerShell {
         Self {
             docker,
             scope: None,
+            traefik_dir: None,
         }
+    }
+
+    /// Sets the directory of Traefik's config, which Traefik mounts. Without it, Traefik is
+    /// never created.
+    pub fn with_traefik_dir(mut self, dir: PathBuf) -> Self {
+        self.traefik_dir = Some(dir);
+        self
+    }
+
+    /// The directory of Traefik's config, if set.
+    pub fn traefik_dir(&self) -> Option<&Path> {
+        self.traefik_dir.as_deref()
     }
 
     /// Labels everything the shell creates with `key=value`, and limits the containers it sees
@@ -139,13 +157,7 @@ impl DockerShell {
             .list_networks(None::<ListNetworksOptions>)
             .await?
             .into_iter()
-            .filter_map(|network| {
-                Some(SnapNetwork {
-                    managed: is_managed(network.labels.as_ref()),
-                    name: network.name?,
-                    internal: network.internal.unwrap_or(false),
-                })
-            })
+            .filter_map(snap_network)
             .collect();
         let volumes = self
             .docker
@@ -198,7 +210,9 @@ impl DockerShell {
                 continue;
             };
             let (container, source) = managed(name, inspect);
-            observation.sources.insert(container.name.clone(), source);
+            if let Some(source) = source {
+                observation.sources.insert(container.name.clone(), source);
+            }
             observation.snapshot.containers.push(container);
         }
         observation.snapshot.networks = networks;
@@ -211,16 +225,11 @@ impl DockerShell {
     pub async fn execute(&self, action: &Action) -> Result<Outcome, Error> {
         match action {
             Action::CreateNetwork(spec) => {
-                let mut labels = self.labels();
-                labels.insert(LABEL_ENVIRONMENT.to_owned(), spec.environment_id.clone());
-                let request = NetworkCreateRequest {
-                    name: spec.name.clone(),
-                    driver: Some("bridge".to_owned()),
-                    internal: Some(spec.internal),
-                    labels: Some(labels),
-                    ..NetworkCreateRequest::default()
-                };
+                let request = network_request(spec, self.labels());
                 ignore_status(self.docker.create_network(request).await, CONFLICT)?;
+            }
+            Action::RemoveNetwork(name) => {
+                ignore_status(self.docker.remove_network(name).await, NOT_FOUND)?;
             }
             Action::CreateVolume(spec) => {
                 let mut labels = self.labels();
@@ -246,7 +255,7 @@ impl DockerShell {
                 let options = CreateContainerOptionsBuilder::new()
                     .name(&config.name)
                     .build();
-                let body = create_body(config, &self.extra_labels());
+                let body = create_body(config, &self.extra_labels(), self.traefik_dir())?;
                 self.docker.create_container(Some(options), body).await?;
             }
             Action::StartContainer(name) => {
@@ -277,21 +286,38 @@ impl DockerShell {
                 container,
                 network,
                 aliases,
+                ipv4_address,
             } => {
+                // The container keeps its address: Docker would hand it the lowest free one,
+                // and the connections it opened while it started, such as an API's pool to its
+                // database, would hang without an error.
+                let address = match ipv4_address {
+                    Some(address) => Some(address.clone()),
+                    None => self.address_on(container, network).await,
+                };
                 let disconnect = NetworkDisconnectRequest {
                     container: container.clone(),
                     force: Some(true),
                 };
                 // It fails when the container is not attached, which is fine.
                 let _ = self.docker.disconnect_network(network, disconnect).await;
-                let connect = NetworkConnectRequest {
+                let connect = |address: Option<&str>| NetworkConnectRequest {
                     container: container.clone(),
-                    endpoint_config: Some(EndpointSettings {
-                        aliases: Some(aliases.clone()),
-                        ..EndpointSettings::default()
-                    }),
+                    endpoint_config: Some(endpoint_settings(aliases, address)),
                 };
-                self.docker.connect_network(network, connect).await?;
+                let connected = self
+                    .docker
+                    .connect_network(network, connect(address.as_deref()))
+                    .await;
+                match connected {
+                    Ok(()) => {}
+                    // Another container took the address in between: any address beats none.
+                    Err(error) if ipv4_address.is_none() && address.is_some() => {
+                        tracing::warn!(%error, container, network, "the container changes address");
+                        self.docker.connect_network(network, connect(None)).await?;
+                    }
+                    Err(error) => return Err(error),
+                }
             }
             Action::Disconnect { container, network } => {
                 let disconnect = NetworkDisconnectRequest {
@@ -354,6 +380,87 @@ impl DockerShell {
         let mut labels: HashMap<String, String> = self.extra_labels().into_iter().collect();
         labels.insert(LABEL_MANAGED.to_owned(), "1".to_owned());
         labels
+    }
+
+    /// The address of `container` on `network`; `None` if it is not attached, stopped, or
+    /// Docker fails to inspect it.
+    async fn address_on(&self, container: &str, network: &str) -> Option<String> {
+        let inspect = self
+            .docker
+            .inspect_container(container, None::<InspectContainerOptions>)
+            .await
+            .ok()?;
+        address_on_network(inspect, network)
+    }
+}
+
+/// A network as Docker lists it, with the subnets of its IPAM config; `None` without a name.
+fn snap_network(network: Network) -> Option<SnapNetwork> {
+    let subnets = network
+        .ipam
+        .and_then(|ipam| ipam.config)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|config| config.subnet)
+        .collect();
+    Some(SnapNetwork {
+        managed: is_managed(network.labels.as_ref()),
+        name: network.name?,
+        internal: network.internal.unwrap_or(false),
+        subnets,
+    })
+}
+
+/// The body of `POST /networks/create` for `spec`, with `labels` and the environment's. A
+/// subnet, when the spec has one and is one of the public entry's networks, is the IPAM config's
+/// only one: Docker picks the others from its pools.
+fn network_request(
+    spec: &NetworkSpec,
+    mut labels: HashMap<String, String>,
+) -> NetworkCreateRequest {
+    if !spec.environment_id.is_empty() {
+        labels.insert(LABEL_ENVIRONMENT.to_owned(), spec.environment_id.clone());
+    }
+    let subnet = spec
+        .subnet
+        .as_ref()
+        .filter(|_| is_component_network(&spec.name));
+    let ipam = subnet.map(|subnet| Ipam {
+        config: Some(vec![IpamConfig {
+            subnet: Some(subnet.clone()),
+            ..IpamConfig::default()
+        }]),
+        ..Ipam::default()
+    });
+    NetworkCreateRequest {
+        name: spec.name.clone(),
+        driver: Some("bridge".to_owned()),
+        internal: Some(spec.internal),
+        labels: Some(labels),
+        ipam,
+        ..NetworkCreateRequest::default()
+    }
+}
+
+/// The settings of a container on a network: its aliases, and its fixed address if any.
+/// The IPv4 address of the inspected container on `network`, if it has one there.
+fn address_on_network(inspect: ContainerInspectResponse, network: &str) -> Option<String> {
+    inspect
+        .network_settings?
+        .networks?
+        .remove(network)?
+        .ip_address
+        .filter(|address| !address.is_empty())
+}
+
+fn endpoint_settings(aliases: &[String], ipv4_address: Option<&str>) -> EndpointSettings {
+    EndpointSettings {
+        aliases: Some(aliases.to_vec()),
+        ipam_config: ipv4_address.map(|address| EndpointIpamConfig {
+            ipv4_address: Some(address.to_owned()),
+            ..EndpointIpamConfig::default()
+        }),
+        ..EndpointSettings::default()
     }
 }
 
@@ -443,8 +550,9 @@ fn volume_names(mounts: Option<Vec<MountPoint>>) -> Vec<String> {
         .collect()
 }
 
-/// A managed container from its inspection, and where its logs come from.
-fn managed(name: String, inspect: ContainerInspectResponse) -> (SnapContainer, LogSource) {
+/// A managed container from its inspection, and where its logs come from: nowhere for a
+/// component, whose logs stay in Docker.
+fn managed(name: String, inspect: ContainerInspectResponse) -> (SnapContainer, Option<LogSource>) {
     let state = inspect.state.unwrap_or_default();
     let snap_state = match state.status {
         Some(ContainerStateStatusEnum::CREATED) => SnapState::Created,
@@ -476,12 +584,12 @@ fn managed(name: String, inspect: ContainerInspectResponse) -> (SnapContainer, L
         })
         .collect();
     networks.sort_by(|left, right| left.network.cmp(&right.network));
-    let source = LogSource {
+    let source = (!labels.contains_key(LABEL_COMPONENT)).then(|| LogSource {
         environment_id: label(LABEL_ENVIRONMENT),
         service_id: label(LABEL_SERVICE),
         deployment_id: label(LABEL_DEPLOYMENT),
         running: snap_state == SnapState::Running,
-    };
+    });
     let container = SnapContainer {
         name,
         managed: true,
@@ -513,11 +621,13 @@ fn epoch_ms(instant: &str) -> Option<u64> {
 }
 
 /// The body of `POST /containers/create` for `config`, with `extra_labels`. The only place
-/// where a secret leaves its `SecretString`.
+/// where a secret leaves its `SecretString`. A bind mount of `HostDir::TraefikConfig` takes
+/// `traefik_dir`, read-only; without it, the config cannot be created.
 pub(crate) fn create_body(
     config: &ContainerConfig,
     extra_labels: &BTreeMap<String, String>,
-) -> ContainerCreateBody {
+    traefik_dir: Option<&Path>,
+) -> Result<ContainerCreateBody, Error> {
     let env = config
         .env
         .iter()
@@ -532,6 +642,30 @@ pub(crate) fn create_body(
     let restart_policy = match host.restart_policy {
         RestartPolicy::No => RestartPolicyNameEnum::NO,
     };
+    let mut mounts: Vec<Mount> = host
+        .mounts
+        .iter()
+        .map(|mount| Mount {
+            typ: Some(MountType::VOLUME),
+            source: Some(mount.source.clone()),
+            target: Some(mount.target.clone()),
+            ..Mount::default()
+        })
+        .collect();
+    for bind in &host.binds {
+        let source = match bind.source {
+            HostDir::TraefikConfig => traefik_dir.ok_or_else(|| Error::IOError {
+                err: std::io::Error::other("the agent has no directory for Traefik's config"),
+            })?,
+        };
+        mounts.push(Mount {
+            typ: Some(MountType::BIND),
+            source: Some(source.to_string_lossy().into_owned()),
+            target: Some(bind.target.clone()),
+            read_only: Some(true),
+            ..Mount::default()
+        });
+    }
     let host_config = HostConfig {
         network_mode: Some(host.network_mode.clone()),
         cap_drop: Some(host.cap_drop.clone()),
@@ -549,36 +683,25 @@ pub(crate) fn create_body(
             typ: Some(host.log_config.driver.clone()),
             config: Some(host.log_config.options.clone().into_iter().collect()),
         }),
-        mounts: Some(
-            host.mounts
-                .iter()
-                .map(|mount| Mount {
-                    typ: Some(MountType::VOLUME),
-                    source: Some(mount.source.clone()),
-                    target: Some(mount.target.clone()),
-                    ..Mount::default()
-                })
-                .collect(),
-        ),
+        mounts: Some(mounts),
         privileged: Some(host.privileged),
         publish_all_ports: Some(host.publish_all_ports),
+        readonly_rootfs: Some(host.readonly_rootfs),
         ..HostConfig::default()
     };
     let endpoints = config
         .endpoints
         .iter()
         .map(|endpoint| {
-            let settings = EndpointSettings {
-                aliases: Some(endpoint.aliases.clone()),
-                ..EndpointSettings::default()
-            };
+            let settings = endpoint_settings(&endpoint.aliases, endpoint.ipv4_address.as_deref());
             (endpoint.network.clone(), settings)
         })
         .collect();
-    ContainerCreateBody {
+    Ok(ContainerCreateBody {
         image: Some(config.image.clone()),
         env: Some(env),
         cmd: config.cmd.clone(),
+        user: config.user.clone(),
         labels: Some(labels),
         stop_timeout: Some(i64::from(config.stop_timeout_secs)),
         host_config: Some(host_config),
@@ -586,7 +709,7 @@ pub(crate) fn create_body(
             endpoints_config: Some(endpoints),
         }),
         ..ContainerCreateBody::default()
-    }
+    })
 }
 
 #[cfg(test)]
@@ -600,13 +723,21 @@ mod tests {
         HostConfigLogConfig, Mount, MountPoint, MountType, NetworkSettings, RestartPolicy,
         RestartPolicyNameEnum,
     };
-    use brume_agent_core::config::container_config;
+    use std::path::Path;
+
+    use bollard::models::{EndpointIpamConfig, Ipam, IpamConfig, Network};
+    use brume_agent_core::config::{ContainerConfig, container_config};
+    use brume_agent_core::ingress::{CLOUDFLARED_CONTAINER, TRAEFIK_CONTAINER, ingress_components};
     use brume_agent_core::observed::SnapState;
     use brume_proto::agent::{
-        ContainerSpec, EnvValue, EnvVar, Healthcheck, Mount as SpecMount, NetworkAttachment,
+        ContainerSpec, EnvValue, EnvVar, Healthcheck, IngressRoute, IngressSpec,
+        Mount as SpecMount, NetworkAttachment, NetworkSpec,
     };
 
-    use super::{Observation, create_body, epoch_ms, managed, readable, unmanaged};
+    use super::{
+        Observation, address_on_network, create_body, epoch_ms, managed, network_request, readable,
+        snap_network, unmanaged,
+    };
 
     /// A named volume, a bind mount of the host and a tmpfs, as Docker lists them.
     fn mount_points() -> Vec<MountPoint> {
@@ -723,6 +854,7 @@ mod tests {
             ..ContainerInspectResponse::default()
         };
         let (container, source) = managed("brume-web".to_owned(), inspect);
+        let source = source.expect("an app's logs are forwarded");
         assert!(container.managed);
         assert_eq!(container.mounts, ["brume-vol-a"]);
         assert_eq!(container.state, SnapState::Exited { code: 137 });
@@ -746,6 +878,36 @@ mod tests {
         assert_eq!(source.environment_id, "env");
         assert_eq!(source.service_id, "svc");
         assert!(!source.running);
+    }
+
+    #[test]
+    fn a_reattach_reads_the_address_on_its_network() {
+        let endpoint = |address: &str| EndpointSettings {
+            ip_address: Some(address.to_owned()),
+            ..EndpointSettings::default()
+        };
+        let inspect = ContainerInspectResponse {
+            network_settings: Some(NetworkSettings {
+                networks: Some(HashMap::from([
+                    ("brume-env-a".to_owned(), endpoint("10.213.0.4")),
+                    ("brume-egress-a".to_owned(), endpoint("10.213.1.2")),
+                    // A stopped container keeps its endpoint, without an address.
+                    ("brume-env-b".to_owned(), endpoint("")),
+                ])),
+                ..NetworkSettings::default()
+            }),
+            ..ContainerInspectResponse::default()
+        };
+        assert_eq!(
+            address_on_network(inspect.clone(), "brume-env-a").as_deref(),
+            Some("10.213.0.4")
+        );
+        assert_eq!(address_on_network(inspect.clone(), "brume-env-b"), None);
+        assert_eq!(address_on_network(inspect, "brume-env-c"), None);
+        assert_eq!(
+            address_on_network(ContainerInspectResponse::default(), "brume-env-a"),
+            None
+        );
     }
 
     fn strings(items: &[&str]) -> Vec<String> {
@@ -792,7 +954,7 @@ mod tests {
         };
         let config = container_config(&spec);
         let extra = BTreeMap::from([("brume.test".to_owned(), "1".to_owned())]);
-        let body = create_body(&config, &extra);
+        let body = create_body(&config, &extra, None).expect("a body");
 
         assert_eq!(body.image.as_deref(), Some("nginx@sha256:aa"));
         assert_eq!(body.env, Some(strings(&["GREETING=a=b c", "TOKEN=s3cr3t"])));
@@ -831,6 +993,7 @@ mod tests {
                 }]),
                 privileged: Some(false),
                 publish_all_ports: Some(false),
+                readonly_rootfs: Some(false),
                 ..HostConfig::default()
             })
         );
@@ -870,9 +1033,192 @@ mod tests {
         assert_eq!(
             bollard::models::ContainerCreateBody {
                 networking_config: None,
-                ..create_body(&config, &extra)
+                ..create_body(&config, &extra, None).expect("a body")
             },
             empty
         );
+    }
+
+    fn ingress() -> IngressSpec {
+        IngressSpec {
+            tunnel_token: "eyJ-s3cr3t".into(),
+            routes: vec![IngressRoute {
+                host: "demo.example.com".to_owned(),
+                network: "brume-edge-svc".to_owned(),
+                target: "brume-edge-svc".to_owned(),
+                port: 8080,
+            }],
+        }
+    }
+
+    fn component(name: &str) -> ContainerConfig {
+        let (_, containers) = ingress_components(&ingress());
+        containers
+            .into_iter()
+            .find(|config| config.name == name)
+            .expect("the component")
+    }
+
+    #[test]
+    fn traefik_mounts_its_config_read_only_and_listens_on_its_address() {
+        let config = component(TRAEFIK_CONTAINER);
+        let dir = Path::new("/var/lib/brume/agent/traefik");
+        let body = create_body(&config, &BTreeMap::new(), Some(dir)).expect("a body");
+        assert_eq!(body.user.as_deref(), Some("65534:65534"));
+        let host = body.host_config.expect("a host config");
+        assert_eq!(host.readonly_rootfs, Some(true));
+        assert_eq!(host.cap_drop, Some(strings(&["ALL"])));
+        assert_eq!(host.cap_add, Some(Vec::new()));
+        assert_eq!(host.network_mode.as_deref(), Some("brume-ingress"));
+        assert_eq!(
+            host.mounts,
+            Some(vec![Mount {
+                typ: Some(MountType::BIND),
+                source: Some("/var/lib/brume/agent/traefik".to_owned()),
+                target: Some("/etc/traefik/dynamic".to_owned()),
+                read_only: Some(true),
+                ..Mount::default()
+            }])
+        );
+        assert_eq!(
+            host.binds, None,
+            "no -v style bind, which creates a missing source"
+        );
+        let endpoints = body
+            .networking_config
+            .and_then(|networking| networking.endpoints_config)
+            .expect("endpoints");
+        assert_eq!(
+            endpoints["brume-ingress"].ipam_config,
+            Some(EndpointIpamConfig {
+                ipv4_address: Some("10.213.255.10".to_owned()),
+                ..EndpointIpamConfig::default()
+            })
+        );
+        assert_eq!(endpoints["brume-edge-svc"].ipam_config, None);
+
+        // Without the directory, Traefik cannot be created.
+        assert!(create_body(&config, &BTreeMap::new(), None).is_err());
+    }
+
+    #[test]
+    fn cloudflared_gets_its_token_at_the_docker_call_only() {
+        let config = component(CLOUDFLARED_CONTAINER);
+        assert!(!format!("{config:?}").contains("s3cr3t"));
+        let body = create_body(&config, &BTreeMap::new(), None).expect("a body");
+        assert_eq!(body.env, Some(strings(&["TUNNEL_TOKEN=eyJ-s3cr3t"])));
+        assert_eq!(body.user.as_deref(), Some("65532:65532"));
+        let host = body.host_config.expect("a host config");
+        assert_eq!(host.readonly_rootfs, Some(true));
+        assert_eq!(host.mounts, Some(Vec::new()));
+        let endpoints = body
+            .networking_config
+            .and_then(|networking| networking.endpoints_config)
+            .expect("endpoints");
+        let mut networks: Vec<&String> = endpoints.keys().collect();
+        networks.sort();
+        assert_eq!(networks, ["brume-ingress", "brume-tunnel"]);
+        assert_eq!(
+            endpoints["brume-ingress"]
+                .ipam_config
+                .as_ref()
+                .and_then(|ipam| ipam.ipv4_address.as_deref()),
+            Some("10.213.255.11")
+        );
+    }
+
+    #[test]
+    fn network_request_pins_the_subnet() {
+        let labels = HashMap::from([("brume.managed".to_owned(), "1".to_owned())]);
+        let ingress = NetworkSpec {
+            name: "brume-ingress".to_owned(),
+            internal: true,
+            environment_id: String::new(),
+            subnet: Some("10.213.255.0/24".to_owned()),
+        };
+        let request = network_request(&ingress, labels.clone());
+        assert_eq!(request.internal, Some(true));
+        assert_eq!(request.labels, Some(labels.clone()), "no empty environment");
+        assert_eq!(
+            request.ipam,
+            Some(Ipam {
+                config: Some(vec![IpamConfig {
+                    subnet: Some("10.213.255.0/24".to_owned()),
+                    ..IpamConfig::default()
+                }]),
+                ..Ipam::default()
+            })
+        );
+
+        let environment = NetworkSpec {
+            name: "brume-env-1".to_owned(),
+            internal: true,
+            environment_id: "env-1".to_owned(),
+            subnet: None,
+        };
+        let request = network_request(&environment, labels.clone());
+        assert_eq!(request.ipam, None, "Docker picks from its pools");
+
+        // An engine's network never gets a subnet, even if the plan let one through: it could
+        // cover the host's gateway or the metadata endpoints.
+        let pinned = NetworkSpec {
+            subnet: Some("169.254.169.0/24".to_owned()),
+            ..environment.clone()
+        };
+        assert_eq!(network_request(&pinned, labels.clone()).ipam, None);
+        let request = network_request(&environment, labels);
+        assert_eq!(
+            request
+                .labels
+                .as_ref()
+                .and_then(|labels| labels.get("brume.environment"))
+                .map(String::as_str),
+            Some("env-1")
+        );
+    }
+
+    #[test]
+    fn listed_network_carries_its_subnets() {
+        let network = Network {
+            name: Some("brume-ingress".to_owned()),
+            internal: Some(true),
+            labels: Some(HashMap::from([(
+                "brume.managed".to_owned(),
+                "1".to_owned(),
+            )])),
+            ipam: Some(Ipam {
+                config: Some(vec![
+                    IpamConfig {
+                        subnet: Some("10.213.255.0/24".to_owned()),
+                        gateway: Some("10.213.255.1".to_owned()),
+                        ..IpamConfig::default()
+                    },
+                    IpamConfig::default(),
+                ]),
+                ..Ipam::default()
+            }),
+            ..Network::default()
+        };
+        let snap = snap_network(network).expect("a named network");
+        assert!(snap.managed && snap.internal);
+        assert_eq!(snap.subnets, ["10.213.255.0/24"]);
+        assert!(snap_network(Network::default()).is_none());
+    }
+
+    #[test]
+    fn components_keep_their_logs_in_docker() {
+        let inspect = ContainerInspectResponse {
+            config: Some(DockerConfig {
+                labels: Some(HashMap::from([
+                    ("brume.managed".to_owned(), "1".to_owned()),
+                    ("brume.component".to_owned(), "cloudflared".to_owned()),
+                ])),
+                ..DockerConfig::default()
+            }),
+            ..ContainerInspectResponse::default()
+        };
+        let (container, source) = managed(CLOUDFLARED_CONTAINER.to_owned(), inspect);
+        assert!(container.managed);
+        assert_eq!(source, None);
     }
 }

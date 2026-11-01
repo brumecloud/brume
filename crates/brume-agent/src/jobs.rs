@@ -63,19 +63,53 @@ async fn run_job(docker: Option<&Docker>, job: Job) -> AgentToEngine {
     }
 }
 
+/// How many times a resolve tries its pull while the registry throttles it.
+const THROTTLED_ATTEMPTS: u32 = 5;
+
+/// The wait after the first throttled pull, doubled after each next one: 2, 4, 8 then 16 s.
+const THROTTLED_FIRST_WAIT: Duration = Duration::from_secs(2);
+
 /// Pulls `image`, then reads its digest, the paths it declares as volumes and its exposed ports.
+/// A pull that the registry throttles is tried again a few seconds later.
 pub async fn resolve_image(docker: &Docker, image: &str) -> JobOutcome {
     let reference = pull_reference(image);
-    let message = match pull_and_inspect(docker, &reference).await {
-        Ok(outcome) => return outcome,
-        Err(Error::RequestTimeoutError) => format!(
-            "Pulling {reference} took more than {} minutes.",
-            PULL_TIMEOUT.as_secs() / 60
-        ),
-        Err(error) => error.to_string(),
+    let mut wait = THROTTLED_FIRST_WAIT;
+    let mut attempt = 1;
+    let message = loop {
+        match pull_and_inspect(docker, &reference).await {
+            Ok(outcome) => return outcome,
+            Err(error) if attempt < THROTTLED_ATTEMPTS && is_throttled(&error) => {
+                tracing::info!(%reference, attempt, "the registry throttles the pull, retrying");
+                tokio::time::sleep(wait).await;
+                wait *= 2;
+                attempt += 1;
+            }
+            Err(Error::RequestTimeoutError) => {
+                break format!(
+                    "Pulling {reference} took more than {} minutes.",
+                    PULL_TIMEOUT.as_secs() / 60
+                );
+            }
+            Err(error) => break error.to_string(),
+        }
     };
     JobOutcome::Failed {
         message: truncate(&message, MAX_FAILURE_MESSAGE_BYTES),
+    }
+}
+
+/// Whether `error` is a registry's rate limit, which passes a few seconds later: ECR Public
+/// answers anonymous pulls over about one a second with `toomanyrequests: Rate exceeded`.
+fn is_throttled(error: &Error) -> bool {
+    match error {
+        Error::DockerResponseServerError {
+            status_code: 429, ..
+        } => true,
+        Error::DockerResponseServerError { message, .. }
+        | Error::DockerStreamError { error: message } => {
+            message.to_ascii_lowercase().contains("toomanyrequests")
+        }
+        _ => false,
     }
 }
 
@@ -188,13 +222,16 @@ fn last_component(reference: &str) -> &str {
 mod tests {
     use std::time::Duration;
 
+    use bollard::errors::Error;
     use bollard::{API_DEFAULT_VERSION, Docker};
     use brume_proto::agent::Job;
     use tokio::net::UnixListener;
     use tokio::sync::{mpsc, watch};
     use tokio::time::timeout;
 
-    use super::{exposed_port, pick_digest, pull_reference, repository, serve, truncate};
+    use super::{
+        exposed_port, is_throttled, pick_digest, pull_reference, repository, serve, truncate,
+    };
 
     #[tokio::test]
     async fn at_most_three_pulls_run_at_once() {
@@ -280,6 +317,31 @@ mod tests {
         assert_eq!(exposed_port("8080"), Some(8080));
         assert_eq!(exposed_port("70000/tcp"), None);
         assert_eq!(exposed_port("http/tcp"), None);
+    }
+
+    #[test]
+    fn a_registry_rate_limit_is_throttled() {
+        // What Docker 29 answers when ECR Public throttles the pull.
+        let ecr = Error::DockerResponseServerError {
+            status_code: 429,
+            message: "toomanyrequests: Rate exceeded".to_owned(),
+        };
+        assert!(is_throttled(&ecr));
+        let other_status = Error::DockerResponseServerError {
+            status_code: 500,
+            message: "toomanyrequests: Rate exceeded".to_owned(),
+        };
+        assert!(is_throttled(&other_status));
+        let mid_stream = Error::DockerStreamError {
+            error: "TOOMANYREQUESTS: You have reached your pull rate limit".to_owned(),
+        };
+        assert!(is_throttled(&mid_stream));
+        let missing = Error::DockerResponseServerError {
+            status_code: 404,
+            message: "manifest unknown".to_owned(),
+        };
+        assert!(!is_throttled(&missing));
+        assert!(!is_throttled(&Error::RequestTimeoutError));
     }
 
     #[test]

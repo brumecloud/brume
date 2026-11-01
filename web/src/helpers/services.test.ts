@@ -43,6 +43,12 @@ describe("domainUrl", () => {
     expect(domainUrl("api.brume.dev")).toBe("https://api.brume.dev/");
   });
 
+  it("accepts every zone the engine accepts", () => {
+    expect(domainUrl("demo.example.xn--p1ai")).toBe("https://demo.example.xn--p1ai/");
+    expect(domainUrl("demo.a-b.c0")).toBe("https://demo.a-b.c0/");
+    expect(domainUrl("demo.example.123")).toBeUndefined();
+  });
+
   it.each(["data:text/html,x", "evil.com/@x", "a b", "", "x".repeat(254)])("refuses %j", (raw) => {
     expect(domainUrl(raw)).toBeUndefined();
   });

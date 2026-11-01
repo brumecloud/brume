@@ -5,7 +5,8 @@ use std::collections::BTreeMap;
 use brume_domain::{
     AdminId, BlobId, ChangeId, Command, CpuMillis, Ctx, DeploymentId, EnvironmentId, HttpPath,
     ImageRef, MemoryMb, PlainKind, PlainValue, Port, SecretValue, Service, ServiceChanges,
-    ServiceId, ServiceVariableValue, SpecChange, StartCommand, VarName, VariableId, VariableOwner,
+    ServiceId, ServiceVariableValue, SpecChange, StartCommand, Subdomain, VarName, VariableId,
+    VariableOwner, check_subdomain,
 };
 use brume_proto::api::{
     ApiFailure, ApiValue, ChangesDeployedDto, FailureKind, NewChangeDto, SettingField,
@@ -13,7 +14,7 @@ use brume_proto::api::{
 };
 
 use crate::api::{invalid, not_found, parse_id};
-use crate::engine::{Actor, Engine, failure, storage_failure};
+use crate::engine::{Actor, Engine, failure, rejected, storage_failure};
 use crate::storage::{StagedBody, StagedValue, Storage, StoredChange, Transaction};
 
 /// What a staged change targets: a newer change to the same target replaces it.
@@ -88,21 +89,37 @@ pub(crate) fn setting_change(
             Ok(SpecChange::Memory(MemoryMb::new(memory).map_err(invalid)?))
         }
         (SettingField::Egress, SettingValueDto::Bool(egress)) => Ok(SpecChange::Egress(*egress)),
-        (
-            SettingField::Repository
-            | SettingField::Branch
-            | SettingField::AutoDeploy
-            | SettingField::Domains,
-            _,
-        ) => Err(failure(
-            FailureKind::Invalid,
-            format!(
-                "The {} setting is not available for an image service yet.",
-                field_name(field)
-            ),
-        )),
+        (SettingField::Domain, SettingValueDto::Text(domain)) if domain.is_empty() => {
+            Ok(SpecChange::Domain(None))
+        }
+        (SettingField::Domain, SettingValueDto::Text(domain)) => Ok(SpecChange::Domain(Some(
+            Subdomain::parse(domain).map_err(invalid)?,
+        ))),
+        (SettingField::Repository | SettingField::Branch | SettingField::AutoDeploy, _) => {
+            Err(failure(
+                FailureKind::Invalid,
+                format!(
+                    "The {} setting is not available for an image service yet.",
+                    field_name(field)
+                ),
+            ))
+        }
         _ => Err(wrong_type()),
     }
+}
+
+/// The spec change of a stored setting.
+fn stored_setting_change(
+    field: SettingField,
+    value: serde_json::Value,
+) -> Result<SpecChange, ApiFailure> {
+    let value = serde_json::from_value(value).map_err(|_| {
+        failure(
+            FailureKind::Internal,
+            "A staged setting is corrupt.".to_owned(),
+        )
+    })?;
+    setting_change(field, &value)
 }
 
 /// Whether a setting change would leave the service as it is.
@@ -116,6 +133,7 @@ fn setting_is_applied(service: &Service, change: &SpecChange) -> bool {
         SpecChange::Cpu(cpu) => &spec.cpu == cpu,
         SpecChange::Memory(memory) => &spec.memory == memory,
         SpecChange::Egress(egress) => &service.egress == egress,
+        SpecChange::Domain(domain) => &service.domain == domain,
         _ => false,
     }
 }
@@ -176,6 +194,13 @@ impl<S: Storage> Engine<S> {
             } => {
                 let service = self.live_service(&service_id)?;
                 let change = setting_change(field, &value)?;
+                match &change {
+                    SpecChange::Domain(Some(domain)) => {
+                        self.check_staged_domain(service, domain)?
+                    }
+                    SpecChange::Port(None) => self.check_staged_port_removal(service)?,
+                    _ => {}
+                }
                 let applied = setting_is_applied(service, &change);
                 let value = serde_json::to_value(&value).map_err(|_| {
                     failure(FailureKind::Invalid, "Invalid setting value.".to_owned())
@@ -241,6 +266,82 @@ impl<S: Storage> Engine<S> {
         };
         self.write(tx)?;
         Ok(ApiValue::Change(dto))
+    }
+
+    /// Refuses a domain that the deploy would refuse, which would block every other change of
+    /// the environment: no public entry, a subdomain that another service holds or has staged,
+    /// or no port, staged or applied, to route to.
+    fn check_staged_domain(&self, service: &Service, domain: &Subdomain) -> Result<(), ApiFailure> {
+        check_subdomain(&self.world, &service.id, domain).map_err(rejected)?;
+        let staged_elsewhere = self
+            .storage
+            .staged_changes()
+            .map_err(storage_failure)?
+            .into_iter()
+            .find(|change| {
+                change.service != service.id
+                    && matches!(
+                        &change.body,
+                        StagedBody::Setting {
+                            field: SettingField::Domain,
+                            value,
+                        } if value.as_str() == Some(domain.as_str())
+                    )
+            });
+        if let Some(change) = staged_elsewhere {
+            let slug = self.world.service(&change.service).map_or_else(
+                || "another service".to_owned(),
+                |other| other.slug.to_string(),
+            );
+            return Err(failure(
+                FailureKind::Conflict,
+                format!("The subdomain {domain} is already staged for the service {slug}."),
+            ));
+        }
+        let port = match self.staged_setting(&service.id, SettingField::Port)? {
+            Some(SpecChange::Port(port)) => port,
+            _ => service.spec.port,
+        };
+        if port.is_none() {
+            return Err(failure(
+                FailureKind::Invalid,
+                format!("{} needs a port to have a public domain.", service.slug),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Refuses removing the port of a service whose domain, staged or applied, routes to it.
+    fn check_staged_port_removal(&self, service: &Service) -> Result<(), ApiFailure> {
+        let domain = match self.staged_setting(&service.id, SettingField::Domain)? {
+            Some(SpecChange::Domain(domain)) => domain,
+            _ => service.domain.clone(),
+        };
+        if let Some(domain) = domain {
+            return Err(failure(
+                FailureKind::Invalid,
+                format!(
+                    "{} needs a port for its public domain {domain}: remove the domain first.",
+                    service.slug
+                ),
+            ));
+        }
+        Ok(())
+    }
+
+    /// The staged change of a service's setting, if there is one.
+    fn staged_setting(
+        &self,
+        service: &ServiceId,
+        field: SettingField,
+    ) -> Result<Option<SpecChange>, ApiFailure> {
+        match self.staged(service, &Target::Setting(field))? {
+            Some(StoredChange {
+                body: StagedBody::Setting { field, value },
+                ..
+            }) => stored_setting_change(field, value).map(Some),
+            _ => Ok(None),
+        }
     }
 
     /// The staged change of a service with that target.
@@ -454,15 +555,7 @@ impl<S: Storage> Engine<S> {
                         .map(|variable| variable.id.clone())
                 };
                 let spec_change = match change.body {
-                    StagedBody::Setting { field, value } => {
-                        let value = serde_json::from_value(value).map_err(|_| {
-                            failure(
-                                FailureKind::Internal,
-                                "A staged setting is corrupt.".to_owned(),
-                            )
-                        })?;
-                        setting_change(field, &value)?
-                    }
+                    StagedBody::Setting { field, value } => stored_setting_change(field, value)?,
                     StagedBody::Variable {
                         name,
                         kind,

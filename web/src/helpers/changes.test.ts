@@ -15,8 +15,8 @@ import {
   changesByService,
   describeChange,
   limitStep,
+  isSubdomain,
   parseChanges,
-  parseDomain,
   settingChange,
   settingValue,
   stagedFields,
@@ -38,13 +38,14 @@ const settings: ServiceSettings = {
   cpuLimit: 1,
   memoryLimitMb: 512,
   egress: true,
+  domain: null,
 };
 
 describe("parseChanges", () => {
   it("decodes the three kinds of change", () => {
     const raw = [
       { id: "c-1", ...target, type: "setting", field: "port", value: 8080 },
-      { id: "c-2", ...target, type: "setting", field: "domains", value: ["a.dev"] },
+      { id: "c-2", ...target, type: "setting", field: "domain", value: "demo" },
       {
         id: "c-3",
         ...target,
@@ -80,6 +81,9 @@ describe("parseChanges", () => {
       parseChanges([{ id: "c", ...target, type: "setting", field: "x", value: 1 }]),
     ).toThrow(DecodeError);
     expect(() =>
+      parseChanges([{ id: "c", ...target, type: "setting", field: "domains", value: ["a.dev"] }]),
+    ).toThrow(DecodeError);
+    expect(() =>
       parseChanges([{ id: "c", ...target, type: "setting", field: "port", value: {} }]),
     ).toThrow(DecodeError);
   });
@@ -87,31 +91,38 @@ describe("parseChanges", () => {
 
 describe("settingValue and withStagedSettings", () => {
   it("reads the current value of each field", () => {
-    expect(settingValue(settings, [], "repository")).toBe("planchon/brume");
-    expect(settingValue(settings, [], "branch")).toBe("main");
-    expect(settingValue(settings, ["api.brume.dev"], "domains")).toEqual(["api.brume.dev"]);
-    expect(settingValue(settings, [], "image")).toBeUndefined();
+    expect(settingValue(settings, "repository")).toBe("planchon/brume");
+    expect(settingValue(settings, "branch")).toBe("main");
+    expect(settingValue(settings, "domain")).toBe("");
+    expect(settingValue({ ...settings, domain: "demo" }, "domain")).toBe("demo");
+    expect(settingValue(settings, "image")).toBeUndefined();
   });
 
   it("applies the staged values on top of the current settings", () => {
-    const staged = withStagedSettings(
-      settings,
-      ["api.brume.dev"],
-      [
-        setting("repository", "brumecloud/brume"),
-        setting("branch", "develop"),
-        setting("port", 8080),
-        setting("domains", []),
-      ],
-    );
+    const staged = withStagedSettings(settings, [
+      setting("repository", "brumecloud/brume"),
+      setting("branch", "develop"),
+      setting("port", 8080),
+      setting("domain", "demo"),
+    ]);
 
-    expect(staged.settings.source).toEqual({
+    expect(staged.source).toEqual({
       ...settings.source,
       repository: "brumecloud/brume",
       branch: "develop",
     });
-    expect(staged.settings.port).toBe(8080);
-    expect(staged.domains).toEqual([]);
+    expect(staged.port).toBe(8080);
+    expect(staged.domain).toBe("demo");
+  });
+
+  it("gives a port to a service that had none, and removes a domain staged empty", () => {
+    const staged = withStagedSettings({ ...settings, port: null, domain: "demo" }, [
+      setting("port", 8080),
+      setting("domain", ""),
+    ]);
+
+    expect(staged.port).toBe(8080);
+    expect(staged.domain).toBeNull();
   });
 });
 
@@ -143,8 +154,11 @@ describe("settingChange", () => {
     expect(settingChange("port", 8080, 3000, [setting("port", 8080)])).toEqual({ action: "none" });
   });
 
-  it("compares lists by content", () => {
-    expect(settingChange("domains", ["a.dev"], ["a.dev"], [])).toEqual({ action: "none" });
+  it("unstages a domain removal when the service has no domain", () => {
+    expect(settingChange("domain", "", "", [setting("domain", "demo")])).toEqual({
+      action: "unstage",
+      changeId: "c-domain",
+    });
   });
 });
 
@@ -156,6 +170,8 @@ describe("validateSetting", () => {
     expect(validateSetting("startCommand", "node dist/index.js")).toEqual({
       value: "node dist/index.js",
     });
+    expect(validateSetting("domain", " Demo ")).toEqual({ value: "demo" });
+    expect(validateSetting("domain", "")).toEqual({ value: "" });
   });
 
   it.each([
@@ -164,15 +180,23 @@ describe("validateSetting", () => {
     ["healthcheckPath", "ready"],
     ["image", "Not An Image"],
     ["startCommand", "x".repeat(501)],
+    ["domain", "demo.brume.run"],
+    ["domain", "-demo"],
+    ["domain", "my_app"],
   ] as const)("rejects %s = %j", (field, raw) => {
     expect(validateSetting(field, raw)).toHaveProperty("error");
   });
 });
 
-describe("parseDomain", () => {
-  it("lowercases a valid domain and rejects anything else", () => {
-    expect(parseDomain(" API.Brume.dev ")).toBe("api.brume.dev");
-    expect(parseDomain("https://brume.dev")).toBeUndefined();
+describe("isSubdomain", () => {
+  it("follows the engine's DNS label rule", () => {
+    const longest = "a".repeat(63);
+    for (const valid of ["a", "0", "demo", "my-app-2", longest]) {
+      expect(isSubdomain(valid), valid).toBe(true);
+    }
+    for (const invalid of ["", "-a", "a-", "Demo", "a.b", "a_b", `${longest}a`, "é"]) {
+      expect(isSubdomain(invalid), invalid).toBe(false);
+    }
   });
 });
 
@@ -190,7 +214,8 @@ describe("describeChange", () => {
     [setting("branch", "develop"), "Branch → develop"],
     [setting("autoDeploy", false), "Auto deploy → off"],
     [setting("memoryLimitMb", 2048), "Memory limit → 2 GB"],
-    [setting("domains", []), "Public domains → none"],
+    [setting("domain", "demo"), "Public domain → demo"],
+    [setting("domain", ""), "Public domain → none"],
     [
       {
         id: "v" as ChangeId,

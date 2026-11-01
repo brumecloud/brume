@@ -7,6 +7,9 @@ use std::time::Duration;
 
 use bollard::Docker;
 use bollard::errors::Error;
+use bollard::models::{
+    EndpointIpamConfig, EndpointSettings, NetworkConnectRequest, NetworkDisconnectRequest,
+};
 use bollard::query_parameters::{
     InspectContainerOptions, ListContainersOptionsBuilder, ListNetworksOptionsBuilder,
     ListVolumesOptionsBuilder, RemoveContainerOptionsBuilder, RemoveVolumeOptions,
@@ -91,6 +94,7 @@ fn desired(suffix: &str, image: &str) -> DesiredState {
             name: network.clone(),
             internal: true,
             environment_id: "env-test".to_owned(),
+            subnet: None,
         }],
         volumes: vec![VolumeSpec {
             name: volume.clone(),
@@ -130,6 +134,7 @@ fn desired(suffix: &str, image: &str) -> DesiredState {
                 timeout_secs: 60,
             },
         }],
+        ingress: None,
     }
 }
 
@@ -266,6 +271,35 @@ async fn reattaches_with_new_aliases(
         .expect("inspects");
     let started_at = before.state.and_then(|state| state.started_at);
 
+    // The container moves to a high address, with a lower one free, which Docker would hand
+    // out again: the reattach must keep the high one, or the connections that the container
+    // opened would hang.
+    let low = address_of(docker, &name, &network).await;
+    let high = format!("{}.200", low.rsplit_once('.').expect("an IPv4 address").0);
+    let disconnect = NetworkDisconnectRequest {
+        container: name.clone(),
+        force: Some(true),
+    };
+    docker
+        .disconnect_network(&network, disconnect)
+        .await
+        .expect("disconnects");
+    let connect = NetworkConnectRequest {
+        container: name.clone(),
+        endpoint_config: Some(EndpointSettings {
+            aliases: Some(vec!["web".to_owned()]),
+            ipam_config: Some(EndpointIpamConfig {
+                ipv4_address: Some(high.clone()),
+                ..EndpointIpamConfig::default()
+            }),
+            ..EndpointSettings::default()
+        }),
+    };
+    docker
+        .connect_network(&network, connect)
+        .await
+        .expect("connects at a high address");
+
     state.position = 2;
     state.containers[0].networks[0].aliases = vec!["www".to_owned(), "web-2".to_owned()];
     let mut observed = None;
@@ -300,6 +334,21 @@ async fn reattaches_with_new_aliases(
     assert!(aliases.contains("www"), "{aliases:?}");
     assert!(aliases.contains("web-2"), "{aliases:?}");
     assert!(!aliases.contains("web"), "{aliases:?}");
+    assert_eq!(address_of(docker, &name, &network).await, high);
+}
+
+/// The address of the container `name` on `network`.
+async fn address_of(docker: &Docker, name: &str, network: &str) -> String {
+    docker
+        .inspect_container(name, None::<InspectContainerOptions>)
+        .await
+        .expect("inspects")
+        .network_settings
+        .and_then(|settings| settings.networks)
+        .and_then(|mut networks| networks.remove(network))
+        .and_then(|endpoint| endpoint.ip_address)
+        .filter(|address| !address.is_empty())
+        .expect("an address on the network")
 }
 
 /// The networks the container `name` is attached to.
@@ -338,6 +387,7 @@ async fn egress_comes_and_goes_live(
         name: egress.clone(),
         internal: false,
         environment_id: "env-test".to_owned(),
+        subnet: None,
     });
     state.containers[0].networks.push(NetworkAttachment {
         network: egress.clone(),

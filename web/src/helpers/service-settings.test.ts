@@ -13,6 +13,7 @@ const raw = {
   cpuLimit: 1,
   memoryLimitMb: 512,
   egress: true,
+  domain: null,
 };
 
 describe("parseServiceSettings", () => {
