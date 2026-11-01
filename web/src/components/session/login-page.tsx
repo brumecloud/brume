@@ -19,7 +19,8 @@ export function LoginPage({ refused }: { readonly refused: boolean }) {
         <EmptyTitle>{refused ? "This login link no longer works" : "Sign in to Brume"}</EmptyTitle>
         {refused && <EmptyDescription>The link has expired or was already used.</EmptyDescription>}
         <EmptyDescription>
-          Run <code>brume dev</code> and open the login link it prints.
+          Open the login link that <code>sudo brume admin login</code> prints on the server, or that{" "}
+          <code>brume dev</code> prints on your machine.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>

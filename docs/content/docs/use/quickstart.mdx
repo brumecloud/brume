@@ -104,6 +104,8 @@ On your laptop, on your tailnet, open the login link. It works once, within 15 m
 sudo brume admin login
 ```
 
+- **If the browser says the site can't be reached** (`DNS_PROBE_FINISHED_NXDOMAIN` in Chrome), it is bypassing MagicDNS: its secure DNS (DNS over HTTPS) asks a public resolver, which does not know your tailnet's names. Turn off secure DNS in the browser's settings, or use a browser that follows the system's DNS, such as Safari.
+
 The panel is reachable only from your tailnet, over HTTPS. `brume api` listens on `127.0.0.1` only, and `tailscale serve` exposes it on your tailnet. Every request must carry your Tailscale login, which Tailscale sets: a request from another login, or from a tagged device, gets a 403. See [Admin panel](/docs/how-it-works/admin-panel).
 
 </Step>

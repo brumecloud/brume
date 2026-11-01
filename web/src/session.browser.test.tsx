@@ -19,7 +19,8 @@ describe("login", () => {
     network.use(http.get("/api/session", unauthorized));
     const screen = await renderApp("/login");
 
-    await expect.element(screen.getByText(/open the login link it prints/)).toBeVisible();
+    await expect.element(screen.getByText(/Open the login link that/)).toBeVisible();
+    await expect.element(screen.getByText("sudo brume admin login")).toBeVisible();
     await expect.element(screen.getByText("brume dev")).toBeVisible();
   });
 
