@@ -160,7 +160,7 @@ function LogsPage() {
 - **Rien ne pousse les statuts vers le panel :** les collections des services et des déploiements se rechargent toutes les 2 s (`refetchInterval`, `IN_FLIGHT_POLL_MS`) tant que l'une de leurs lignes est `building` ou `deploying`, et s'arrêtent dès qu'aucune ne l'est.
 - **TanStack Query seul** pour ce qui n'est pas une entité : séries de métriques, statistiques d'une base, logs de build, page d'activité (`infiniteQueryOptions`, pages de 100 événements, de la plus récente vers la plus ancienne, affichées dans l'ordre du log).
 - **TanStack DB est encore en 0.x.** La 1.0 arrivera par une mise à jour normale, une fois passé le délai de `minimumReleaseAge`.
-- **Révéler un secret est une mutation :** c'est un `POST`, journalisé. Elle tourne avec `gcTime: 0`, et la valeur n'entre jamais dans le cache des queries.
+- **Révéler un secret est une mutation :** c'est un `POST`, journalisé. Elle tourne avec `gcTime: 0`, et la valeur n'entre jamais dans le cache des queries. Il en va de même de toute mutation dont les variables portent la valeur d'un secret (en attente, ou variable partagée) : sans `gcTime: 0`, la valeur resterait cinq minutes dans le cache des mutations.
 - **Logs en direct par SSE,** comme le prévoit [04-panel-admin.md](04-panel-admin.md). L'onglet garde les 50 000 dernières lignes. Un flux reconnecté renvoie son historique : les lignes déjà reçues sont ignorées.
 - **Liste virtualisée (TanStack Virtual)** : seules les lignes visibles sont dans le DOM, chacune mesurée puisqu'une ligne peut passer à la ligne. Voir l'exception au React Compiler ci-dessous.
 - **`EventSource` ne peut pas envoyer `X-Brume`.** Le flux de logs est un `GET` sans effet de bord : le serveur le protège par Fetch Metadata (`Sec-Fetch-Site: same-origin`), et aucun CORS ne le rend lisible depuis un autre site.
@@ -178,7 +178,7 @@ Un réglage ou une variable modifiés ne s'appliquent pas tout de suite : ils at
 - **Mettre en attente n'est pas optimiste** (`stageChange` envoie puis recharge la collection), pour la même raison que la création d'un secret. Annuler un changement l'est.
 - **Une barre flotte en haut du canvas,** centrée sur ce que le panneau du service laisse libre (`--spacing-panel`), et compte les changements de l'environnement : « Détails » les liste par service, « Déployer » (ou ⇧ Entrée) les applique tous, une nouvelle révision par service touché. Le menu ⋮ les annule tous.
 - **Ce qu'affichent les onglets est l'état après le prochain déploiement :** `withStagedSettings` et `stagedVariableRows` superposent les changements aux valeurs appliquées.
-- **Référencer un secret partagé** depuis l'onglet Variables d'un service (« Shared secret ») met en attente une variable secrète sans valeur (`value: null`), résolue au déploiement sur le service, puis l'environnement, puis le projet. En attente, rien ne la distingue d'un secret propre au service ; une fois déployée, la ligne porte le badge « Shared » et ne se révèle ni ne se modifie.
+- **Référencer un secret partagé** depuis l'onglet Variables d'un service (« Shared secret ») met en attente une variable secrète sans valeur (`value: null`), résolue au déploiement sur le service, puis l'environnement, puis le projet. Le changement en attente porte `reference: true` : la ligne montre déjà le badge « Shared » et « Resolved at deploy time ». Une fois déployée, elle garde le badge et ne se révèle ni ne se modifie.
 
 ### Variables partagées et activité
 
@@ -187,8 +187,8 @@ Un réglage ou une variable modifiés ne s'appliquent pas tout de suite : ils at
 
 ### Vraie API et données simulées
 
-- **`pnpm dev` parle à la vraie API.** En mode `development`, un plugin de `vite.config.ts` (`brume:real-api`) envoie `/api` à `http://127.0.0.1:7878`, l'API de `brume dev`, sur la même origine. Le serveur de dev écoute sur le port 5173, `strictPort` : l'allowlist `Host` de l'API connaît 5173 et aucun autre port de dev, donc Vite refuse de démarrer plutôt que de prendre un port refusé. Le proxy garde le `Host` du navigateur.
-- **`pnpm dev:mock`** (`vp dev --mode mock`) garde l'API simulée, sans proxy. Les tests (mode `test`) et la démo ne quittent jamais MSW.
+- **`vp dev` (le script `dev`) parle à la vraie API.** En mode `development`, un plugin de `vite.config.ts` (`brume:real-api`) envoie `/api` à `http://127.0.0.1:7878`, l'API de `brume dev`, sur la même origine. Le serveur de dev écoute sur le port 5173, `strictPort` : l'allowlist `Host` de l'API connaît 5173 et aucun autre port de dev, donc Vite refuse de démarrer plutôt que de prendre un port refusé. Le proxy garde le `Host` du navigateur.
+- **`vp dev --mode mock`** (le script `dev:mock`) garde l'API simulée, sans proxy. Les tests (mode `test`) et la démo ne quittent jamais MSW.
 
 MSW simule l'API dans le navigateur :
 

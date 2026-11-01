@@ -6,6 +6,7 @@ status: planned
 sources:
   - archi/base/04-panel-admin.md
   - archi/base/03-reseau.md
+  - crates/brume-api/src/csrf.rs
 ---
 
 In the recommended mode, the admin panel never faces the internet. `brume api` listens only on localhost, and Tailscale exposes it over HTTPS to your tailnet. Every action needs two independent factors: your Tailscale identity and a passkey that the engine checks. Because your browser is on the tailnet and the panel displays content written by outsiders, the panel also defends itself against CSRF, DNS rebinding, XSS and clickjacking.
@@ -74,6 +75,7 @@ Your Tailscale identity is implicit authentication, added by the network, like a
 - **No side effect on a `GET`.**
 - **No CORS.**
 - **WebSockets:** `Origin` is checked at the handshake, because WebSockets are not subject to CORS. For live logs, the panel prefers SSE, which is safer by default.
+- **Accepted deviation.** A request with no `Sec-Fetch-Site`, or a write with no `Origin`, passes (`crates/brume-api/src/csrf.rs`). A browser sends these headers. A client that is not a browser, such as the end-to-end tests or `curl`, does not, and CSRF is a browser attack. `X-Brume` and the JSON `Content-Type` are still required, which covers a browser that would not send Fetch Metadata.
 
 ## XSS
 

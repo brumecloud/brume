@@ -5,6 +5,7 @@ type: guide
 status: planned
 sources:
   - README.md
+  - .cargo/config.toml
   - rustfmt.toml
   - archi/base/02-architecture.md
   - archi/base/08-hote-et-installation.md
@@ -26,7 +27,8 @@ Brume ships as one signed binary, `brume`, with the React panel compiled and emb
 
 - **Stable Rust.** Brume builds on the stable toolchain, and the code uses no unstable feature.
 - **Nightly Rust, for formatting only.** Three options in `rustfmt.toml` are unstable, so formatting runs with `cargo +nightly fmt`.
-- **pnpm 12,** pinned by `packageManager` in `web/package.json`. pnpm's trust policy checks that version too. Corepack cannot run pnpm 12 yet: use `npx pnpm@<version>` until it can.
+- **The DuckDB library,** version 2.0.0: `brew install duckdb`, then `brew pin duckdb` so that an upgrade does not move the library to another version. Brume links to it instead of compiling DuckDB. `.cargo/config.toml` expects it under `/opt/homebrew/opt/duckdb`; to use another copy, set `DUCKDB_LIB_DIR` and `DUCKDB_INCLUDE_DIR`.
+- **pnpm 12,** pinned by `packageManager` in `web/package.json` (12.15.0). pnpm's trust policy checks that version too. Corepack cannot run pnpm 12 yet, and an older pnpm can fail when it tries to switch to it: use `npx pnpm@12.15.0` until Corepack can.
 - **`cargo deny` and `cargo audit`,** to run the dependency checks of CI.
 - **Chromium, through Playwright,** for the panel's browser tests.
 - **minisign,** to sign your builds.
@@ -42,7 +44,7 @@ Brume ships as one signed binary, `brume`, with the React panel compiled and emb
 The pnpm workspace lives in `web/`, not at the repository root, which stays for the Rust code. In `web/`, run:
 
 ```bash
-pnpm install --frozen-lockfile
+npx pnpm@12.15.0 install --frozen-lockfile
 ```
 
 The panel's code runs with the admin's rights: a compromised npm package gets every action of the panel. So `web/pnpm-workspace.yaml` makes the install strict:
@@ -60,7 +62,7 @@ The panel's code runs with the admin's rights: a compromised npm package gets ev
 ### Build the panel
 
 ```bash
-vp build
+./node_modules/.bin/vp build
 ```
 
 Vite+ writes the panel to `web/dist`. The build fails if two chunks import each other: a cycle can run a chunk before its dependencies and leave a blank page.
@@ -111,15 +113,15 @@ cargo clippy -- -D warnings
 
 CI also runs `cargo deny` and `cargo audit` on the dependencies, and `cargo deny` checks the crate graph too. On every PR, CI runs the deterministic simulation and the conformance tests. A failing simulation prints its seed, and `BRUME_SEED=0x… cargo test -p brume-sim` replays it exactly. See [Development rules](/docs/customize/development#tests).
 
-For the panel, in `web/`, after `pnpm install --frozen-lockfile`:
+For the panel, in `web/`, after the install:
 
 ```bash
-vp fmt --check
-vp lint
-tsc --noEmit
-vp test run
-knip
-vp build
+./node_modules/.bin/vp fmt --check
+./node_modules/.bin/vp lint
+./node_modules/.bin/tsc --noEmit
+./node_modules/.bin/vp test run
+./node_modules/.bin/knip
+./node_modules/.bin/vp build
 ```
 
 - **`vp lint`** runs oxlint with Brume's security and React rules.

@@ -99,7 +99,7 @@ Le jalon serait raté, même s'il marche, si :
 
 ## Contraintes
 
-- **Mac Apple Silicon, Docker Desktop 29.4** (dockerd dans une VM Linux arm64), Rust stable 1.92, nightly pour `cargo fmt`.
+- **Mac Apple Silicon, Docker Desktop ou OrbStack (Docker 29.4)**, dockerd dans une VM Linux arm64, Rust stable 1.92, nightly pour `cargo fmt`.
 - **Docker Desktop n'est pas le VPS cible :** pas de systemd, pas de nftables, pas de `userns-remap`, et dockerd ne joint pas un socket unix du Mac. Ces écarts restent confinés à la coquille (`brume dev`, la collecte des logs), jamais dans les cœurs.
 - **Règles de code** de [10-developpement.md](../base/10-developpement.md) et du `AGENTS.md` : style Google Rust, `#![forbid(unsafe_code)]`, `secrecy`, newtypes validés, aucune I/O ni `HashMap` dans les crates du cœur, `cargo +nightly fmt`, `cargo clippy -- -D warnings`.
 - **Règles du panel** de [front-architecture.md](../base/front-architecture.md) : couches, lint, React Compiler, `vp fmt`, `tsc`, `vp test`, `knip`.
@@ -132,6 +132,7 @@ Le jalon serait raté, même s'il marche, si :
 | Logs des containers : collectés par le moyen qui marche sur Docker Desktop, sans passer par l'engine ; le choix est confirmé par un essai au premier lot | Claude, accepté par Paul |
 | Capabilities : toutes retirées, puis une courte liste rendue, celle dont les images publiques courantes ont besoin (nginx, postgres, redis) ; `NET_RAW`, `MKNOD`, `SYS_*` jamais rendues | Claude |
 | Un « healthcheck » sans chemin = le container tourne encore après un court délai | Claude |
+| L'egress reste sur le service, et un rollback ne le rétablit pas (rouvrir l'egress est une action sensible, voir [04-panel-admin.md](../base/04-panel-admin.md) et [13-modele-de-donnees.md](../base/13-modele-de-donnees.md)) ; un changement d'egress seul redéploie quand même le service (arrêt puis démarrage pour un service à volume) | Claude |
 
 ## Laissé au builder
 

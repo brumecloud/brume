@@ -10,6 +10,8 @@ sources:
   - web/tsconfig.json
   - web/pnpm-workspace.yaml
   - web/src/routes/projects/$projectId/$env/logs.tsx
+  - web/src/components/variables/variable-dialog.tsx
+  - web/src/components/variables/variable-row.tsx
 ---
 
 The admin panel is a React single-page app. CI compiles it and embeds it in the signed binary, so the server never runs npm (see [Development rules](/docs/customize/development#frontend)). `brume api` serves it with the API, on the same origin.
@@ -181,7 +183,7 @@ function LogsPage() {
 - **Nothing pushes status changes to the panel.** The services and deployments collections refetch every 2 seconds (`refetchInterval`, `IN_FLIGHT_POLL_MS`) while one of their rows is `building` or `deploying`, and stop once none is.
 - **TanStack Query alone** for what is not an entity: metric series, database statistics, build logs, the activity pages (`infiniteQueryOptions`, pages of 100 events from the newest back, shown in log order).
 - **TanStack DB is still at 0.x.** Version 1.0 will come through a normal update, once the [`minimumReleaseAge`](/docs/customize/frontend#dependencies) delay has passed.
-- **Revealing a secret is a mutation:** it is a `POST`, and it is logged. It runs with `gcTime: 0`, and the value never enters the query cache.
+- **Revealing a secret is a mutation:** it is a `POST`, and it is logged. It runs with `gcTime: 0`, and the value never enters the query cache. So does every mutation whose variables carry the value of a secret (staging one, or saving a shared one): without `gcTime: 0`, the value would stay five minutes in the mutation cache.
 - **Live logs arrive over SSE,** as [Admin panel](/docs/how-it-works/admin-panel) specifies. The tab keeps the last 50,000 lines. A reconnected stream sends its history again, and the lines already received are skipped.
 - **The log list is virtualized (TanStack Virtual):** only the visible lines are in the DOM, each one measured, since a line can wrap. See the [React Compiler exception](/docs/customize/frontend#the-react-compiler-memoizes-for-you).
 - **`EventSource` cannot send `X-Brume`.** The log stream is a `GET` without side effects: the server protects it with Fetch Metadata (`Sec-Fetch-Site: same-origin`), and no CORS makes it readable from another site. See [CSRF and cross-site requests](/docs/how-it-works/admin-panel#csrf-and-cross-site-requests).
@@ -199,7 +201,7 @@ A changed setting or variable does not apply right away: it waits for the next d
 - **Staging is not optimistic** (`stageChange` sends the change, then reloads the collection), for the same reason as creating a secret. Discarding a change is optimistic.
 - **A bar floats at the top of the canvas,** centered on the space the service panel leaves free (`--spacing-panel`), and counts the changes of the environment. "Détails" lists them by service. "Déployer" (or ⇧ Enter) applies them all, with one new revision per service touched. The ⋮ menu discards them all.
 - **The tabs show the state after the next deployment:** `withStagedSettings` and `stagedVariableRows` lay the changes over the applied values.
-- **Referencing a shared secret** from a service's Variables tab ("Shared secret") stages a secret variable with no value (`value: null`), resolved at deploy time on the service, then the environment, then the project. While staged, it looks like a secret of the service itself. Once deployed, the row carries a "Shared" badge and cannot be revealed or edited.
+- **Referencing a shared secret** from a service's Variables tab ("Shared secret") stages a secret variable with no value (`value: null`), resolved at deploy time on the service, then the environment, then the project. The staged change carries `reference: true`: the row already shows the "Shared" badge and "Resolved at deploy time". Once deployed, it keeps the badge and cannot be revealed or edited.
 
 ### Shared variables and activity
 
@@ -208,8 +210,8 @@ A changed setting or variable does not apply right away: it waits for the next d
 
 ### Real API and mock API
 
-- **`pnpm dev` talks to the real API.** In `development` mode, a plugin in `vite.config.ts` (`brume:real-api`) proxies `/api` to `http://127.0.0.1:7878`, the API of `brume dev`, on the same origin. The dev server listens on port 5173 with `strictPort`: the API's `Host` allowlist knows 5173 and no other dev port, so Vite fails to start rather than move to a port the API would refuse. The proxy keeps the browser's `Host`. See [Run Brume locally](/docs/customize/run-locally).
-- **`pnpm dev:mock`** (`vp dev --mode mock`) keeps the mock API, with no proxy. The tests (`test` mode) and the demo never leave MSW.
+- **`vp dev` (the `dev` script) talks to the real API.** In `development` mode, a plugin in `vite.config.ts` (`brume:real-api`) proxies `/api` to `http://127.0.0.1:7878`, the API of `brume dev`, on the same origin. The dev server listens on port 5173 with `strictPort`: the API's `Host` allowlist knows 5173 and no other dev port, so Vite fails to start rather than move to a port the API would refuse. The proxy keeps the browser's `Host`. See [Run Brume locally](/docs/customize/run-locally).
+- **`vp dev --mode mock`** (the `dev:mock` script) keeps the mock API, with no proxy. The tests (`test` mode) and the demo never leave MSW.
 
 MSW mocks the API in the browser:
 

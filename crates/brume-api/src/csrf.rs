@@ -65,6 +65,11 @@ fn check(allowed_hosts: &[String], request: &Request, api: bool) -> Result<(), R
     }
     // `none` is a typed address, a bookmark, or the login link opened from the terminal: it
     // may open the panel, but never call the API.
+    //
+    // Accepted deviation: a request with no `Sec-Fetch-Site` at all passes (`all` of nothing is
+    // true). A browser always sends it; a client that is not a browser, such as the e2e tests,
+    // does not, and CSRF is a browser attack. `X-Brume` below still covers a browser that would
+    // not send it.
     let same_origin = headers
         .get_all("sec-fetch-site")
         .iter()
@@ -89,6 +94,8 @@ fn check(allowed_hosts: &[String], request: &Request, api: bool) -> Result<(), R
         ));
     }
     if !matches!(*request.method(), Method::GET | Method::HEAD) {
+        // Accepted deviation, as for `Sec-Fetch-Site`: a write with no `Origin` passes. A
+        // browser sends `Origin` on every write, a client that is not a browser does not.
         let known_origin = |origin: &HeaderValue| {
             allowed_hosts
                 .iter()
