@@ -32,6 +32,22 @@ describe("project shell", () => {
     await expect.element(screen.getByText("Deploying…")).toBeVisible();
   });
 
+  it("renders no inline style element, which the panel's CSP refuses", async () => {
+    const screen = await renderApp(`/projects/${northbean.id}/production`);
+
+    await screen.getByRole("combobox", { name: "Environment" }).click();
+    const list = screen.getByRole("option", { name: "staging" });
+    await expect.element(list).toBeVisible();
+
+    expect(document.querySelectorAll("style[data-href]")).toHaveLength(0);
+    // The stylesheet hides the scrollbars Base UI's inline style used to hide.
+    const probe = document.createElement("div");
+    probe.className = "base-ui-disable-scrollbar";
+    document.body.append(probe);
+    expect(getComputedStyle(probe).scrollbarWidth).toBe("none");
+    probe.remove();
+  });
+
   it("shows a not-found page for a hostile project id", async () => {
     const screen = await renderApp("/projects/%3Cscript%3E/production");
 
