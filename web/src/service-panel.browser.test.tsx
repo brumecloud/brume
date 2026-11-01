@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
+import { queryClient } from "~/api/query-client";
 import { db } from "~/mocks/db";
 import { northbean } from "~/mocks/seed";
 
@@ -7,6 +8,13 @@ import { renderApp } from "../test/render-app";
 
 const production = `/projects/${northbean.id}/production`;
 const service = (name: string) => `${production}/services/${northbean.id}-production-${name}`;
+
+// The mutations still in the cache whose variables hold the given text.
+const mutationsHolding = (text: string) =>
+  queryClient
+    .getMutationCache()
+    .getAll()
+    .filter((mutation) => JSON.stringify(mutation.state.variables ?? null).includes(text));
 
 describe("service panel", () => {
   it("opens from the canvas on the deployments of the service", async () => {
@@ -55,6 +63,27 @@ describe("service panel", () => {
     await expect.element(screen.getByText(/looks like a secret/)).toBeVisible();
     await screen.getByRole("button", { name: "Add" }).click();
     await expect.element(screen.getByText("STRIPE_KEY")).toBeVisible();
+  });
+
+  it("keeps a staged secret out of the mutation cache", async () => {
+    const secret = "sk_live_9f2c1b7a4d";
+    const screen = await renderApp(`${service("order-worker")}/variables`);
+
+    await screen.getByRole("button", { name: "New variable" }).click();
+    await screen.getByRole("textbox", { name: "Name" }).fill("PAYMENT_TOKEN");
+    await screen.getByRole("combobox", { name: "Type" }).click();
+    await screen.getByRole("option", { name: "Secret" }).click();
+    await screen.getByLabelText("Value").fill(secret);
+    await screen.getByRole("button", { name: "Add" }).click();
+    await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+    await expect.element(screen.getByText("PAYMENT_TOKEN")).toBeVisible();
+
+    // The value is not in the cache once the dialog that held it is gone.
+    await vi.waitFor(() => expect(mutationsHolding(secret)).toHaveLength(0));
+
+    await screen.getByRole("button", { name: "More actions" }).click();
+    await screen.getByRole("menuitem", { name: "Discard all changes" }).click();
+    await expect.element(screen.getByText("PAYMENT_TOKEN")).not.toBeInTheDocument();
   });
 
   it("deletes a service once its name is typed", async () => {

@@ -79,7 +79,8 @@ function VariableForm({ serviceId, initial, onStaged }: VariableFormProps) {
   const [value, setValue] = useState(initial?.value ?? "");
   const [kind, setKind] = useState<VariableKind>(initial?.kind ?? "plain");
   const [nameInvalid, setNameInvalid] = useState(false);
-  const mutation = useMutation({ mutationFn: stageChange, onSuccess: onStaged });
+  // `gcTime: 0`: the mutation holds the value of a secret, it must not linger in the cache.
+  const mutation = useMutation({ mutationFn: stageChange, onSuccess: onStaged, gcTime: 0 });
 
   return (
     <form
