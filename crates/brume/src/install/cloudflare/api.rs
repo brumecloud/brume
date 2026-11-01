@@ -169,10 +169,16 @@ impl Client {
         self.get("/zones", &[("name", name), ("per_page", "50")])
     }
 
-    /// The tunnels of `account` named `name`, deleted ones excluded.
-    pub fn tunnels(&self, account: &str, name: &str) -> Result<Vec<TunnelInfo>, ApiError> {
+    /// The tunnels of `account` whose names start with `prefix`, deleted ones excluded. The
+    /// filter is cloudflared's `--name-prefix`; the caller checks the names all the same.
+    pub fn tunnels(&self, account: &str, prefix: &str) -> Result<Vec<TunnelInfo>, ApiError> {
         let path = format!("/accounts/{}/cfd_tunnel", segment(account)?);
-        self.get(&path, &[("name", name), ("is_deleted", "false")])
+        let query = [
+            ("name_prefix", prefix),
+            ("is_deleted", "false"),
+            ("per_page", "1000"),
+        ];
+        self.get(&path, &query)
     }
 
     /// Creates the tunnel `name` in `account`, configured locally: its routes come from
@@ -242,17 +248,26 @@ impl Client {
         self.call(Method::PATCH, &path, &[], Some(&body)).map(drop)
     }
 
-    /// Whether the token may make a call that changes nothing: a write that Cloudflare refuses
-    /// as invalid, or one that sets what is already set. `Ok(false)` if a permission is
-    /// missing.
-    pub fn may(&self, method: Method, path: &str, body: &Value) -> Result<bool, ApiError> {
+    /// Whether the token may make a call that changes nothing, such as a read or a write that
+    /// sets what is already set: `Ok(false)` if Cloudflare refuses it for a missing
+    /// permission, `Ok(true)` if it answers one of the `expected` statuses. Any other answer is
+    /// an error: it tells nothing of the permission.
+    pub fn may(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&Value>,
+        expected: &[u16],
+    ) -> Result<bool, ApiError> {
         let call = format!("{method} {path}");
-        let (status, envelope) = self.send(method, path, &[], Some(body))?;
+        let (status, envelope) = self.send(method, path, &[], body)?;
         let error = self.api_error(&call, status, &envelope);
-        match status {
-            _ if error.denied() => Ok(false),
-            200..=499 => Ok(true),
-            _ => Err(error),
+        if error.denied() {
+            Ok(false)
+        } else if expected.contains(&status) {
+            Ok(true)
+        } else {
+            Err(error)
         }
     }
 

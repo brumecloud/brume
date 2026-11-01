@@ -45,6 +45,12 @@ pub struct State {
     pub always_use_https: String,
     /// What the token lacks.
     pub denied: BTreeSet<Permission>,
+    /// Whether the token may list the tunnels without the right to edit them: Cloudflare
+    /// Tunnel → Read, with `denied` holding `TunnelEdit`.
+    pub tunnel_read: bool,
+    /// Calls, as `METHOD /path`, that Cloudflare fails with an HTTP status and an error code,
+    /// such as 429 and 971 when it throttles the token.
+    pub forced: Vec<(String, u16, i64)>,
     /// Each request: method, path and query.
     pub requests: Vec<String>,
     next_id: u32,
@@ -59,6 +65,8 @@ impl State {
             records: Vec::new(),
             always_use_https: "off".to_owned(),
             denied: BTreeSet::new(),
+            tunnel_read: false,
+            forced: Vec::new(),
             requests: Vec::new(),
             next_id: 1,
         }
@@ -186,7 +194,19 @@ fn serve(stream: TcpStream, state: &Mutex<State>) {
             None => format!("{method} {path}"),
         };
         state.requests.push(shown);
-        if authorization == format!("Bearer {API_TOKEN}") {
+        let call = format!("{method} {path}");
+        let forced = state
+            .forced
+            .iter()
+            .find(|(forced, ..)| *forced == call)
+            .map(|&(_, status, code)| (status, code));
+        if let Some((status, code)) = forced {
+            failure(
+                status,
+                code,
+                "Please wait and consider throttling your request speed",
+            )
+        } else if authorization == format!("Bearer {API_TOKEN}") {
             route(&mut state, &method, &path, &query, &body)
         } else {
             // Echoes what it got, as a careless server might: the client must scrub it.
@@ -254,6 +274,22 @@ fn record_json(record: &Record) -> Value {
     })
 }
 
+/// The tunnels, filtered as Cloudflare does by `name`, `name_prefix` and `is_deleted`.
+fn list_tunnels(state: &State, query: &[(String, String)]) -> (u16, Value) {
+    let name = param(query, "name");
+    let prefix = param(query, "name_prefix");
+    let live = param(query, "is_deleted") == Some("false");
+    let tunnels: Vec<Value> = state
+        .tunnels
+        .iter()
+        .filter(|tunnel| name.is_none_or(|name| tunnel.name == name))
+        .filter(|tunnel| prefix.is_none_or(|prefix| tunnel.name.starts_with(prefix)))
+        .filter(|tunnel| !(live && tunnel.deleted))
+        .map(tunnel_json)
+        .collect();
+    success(json!(tunnels))
+}
+
 fn route(
     state: &mut State,
     method: &str,
@@ -280,19 +316,11 @@ fn route(
                 .collect();
             success(json!(zones))
         }
-        (_, ["accounts", ACCOUNT, "cfd_tunnel", ..]) if !has(Permission::TunnelEdit) => denied(),
-        ("GET", ["accounts", ACCOUNT, "cfd_tunnel"]) => {
-            let name = param(query, "name");
-            let live = param(query, "is_deleted") == Some("false");
-            let tunnels: Vec<Value> = state
-                .tunnels
-                .iter()
-                .filter(|tunnel| name.is_none_or(|name| tunnel.name == name))
-                .filter(|tunnel| !(live && tunnel.deleted))
-                .map(tunnel_json)
-                .collect();
-            success(json!(tunnels))
+        ("GET", ["accounts", ACCOUNT, "cfd_tunnel"]) if state.tunnel_read => {
+            list_tunnels(state, query)
         }
+        (_, ["accounts", ACCOUNT, "cfd_tunnel", ..]) if !has(Permission::TunnelEdit) => denied(),
+        ("GET", ["accounts", ACCOUNT, "cfd_tunnel"]) => list_tunnels(state, query),
         ("POST", ["accounts", ACCOUNT, "cfd_tunnel"]) => {
             let name = body.get("name").and_then(Value::as_str).unwrap_or("");
             if name.is_empty() {

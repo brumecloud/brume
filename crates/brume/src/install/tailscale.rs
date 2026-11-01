@@ -13,7 +13,7 @@ use anyhow::{Context as _, bail};
 use brume_api::{ApiFileConfig, DEFAULT_PORT};
 use serde::Deserialize;
 
-use super::host::{Cmd, Host, Output};
+use super::host::{Cmd, Host, Output, tail};
 use super::nftables::apt_get;
 use super::preflight::Platform;
 use super::wait::{Console, Poll, Prompt, link, wait_for};
@@ -37,6 +37,17 @@ pub const NODE_NAME: &str = "brume";
 /// asks `tailscale status`.
 const UP_TIMEOUT: &str = "--timeout=10s";
 
+/// What `tailscale up` prints when it hands over after `UP_TIMEOUT`.
+const UP_HANDED_OVER: &str = "timeout waiting for Tailscale service to enter a Running state";
+
+/// How long `tailscale up` may take, in seconds: `UP_TIMEOUT`, and time for tailscaled to
+/// answer.
+const UP_SECONDS: &str = "30";
+
+/// How many polls in a row the login wait takes without a state it knows before it stops: a
+/// `tailscale status` that fails, or a state such as `Stopped`.
+const MAX_ODD_POLLS: u32 = 5;
+
 /// How long `tailscale serve` may wait for HTTPS before the install takes its link and waits
 /// itself, then how long the actual serve may take, in seconds.
 const SERVE_PROBE_SECONDS: &str = "15";
@@ -48,11 +59,20 @@ const TIMED_OUT: i32 = 124;
 /// The backend state of a node on the tailnet.
 pub const RUNNING: &str = "Running";
 
+/// The backend state of a node that waits for the admin to approve it.
+const NEEDS_MACHINE_AUTH: &str = "NeedsMachineAuth";
+
+/// The states of a node that waits for the login.
+const LOGGING_IN: [&str; 3] = ["NeedsLogin", "Starting", "NoState"];
+
 /// Where the admin approves a new device, if the tailnet requires it.
 const MACHINES_URL: &str = "https://login.tailscale.com/admin/machines";
 
 /// Where the admin turns HTTPS on, if `tailscale serve` gives no link.
 const DNS_URL: &str = "https://login.tailscale.com/admin/dns";
+
+/// The start of the links of Tailscale's login server, where the admin acts.
+const LOGIN_SERVER: &str = "https://login.tailscale.com/";
 
 /// The user that owns the tagged devices of a tailnet.
 const TAGGED_DEVICES: &str = "tagged-devices";
@@ -207,21 +227,53 @@ fn running(host: &Host) -> anyhow::Result<Option<Status>> {
 }
 
 /// The link that `tailscale up` or `tailscale serve` printed for the admin: `AuthURL` in the
-/// JSON of `tailscale up --json`, else the first link after "visit:", as both print it. The
-/// warnings around it have links too, to Tailscale's docs.
+/// JSON of `tailscale up --json`, else the first link after "visit:", as both print it, else
+/// the first link to Tailscale's login server. The warnings around it have links too, to
+/// Tailscale's docs.
 pub fn printed_link(output: &Output) -> Option<String> {
     let from_json = serde_json::Deserializer::from_str(&output.stdout)
         .into_iter::<serde_json::Value>()
         .map_while(Result::ok)
         .find_map(|value| value.get("AuthURL")?.as_str().and_then(link));
-    from_json.or_else(|| {
-        [&output.stdout, &output.stderr]
-            .into_iter()
-            .find_map(|text| {
+    let texts = [&output.stdout, &output.stderr];
+    from_json
+        .or_else(|| {
+            texts.into_iter().find_map(|text| {
                 let (_, after) = text.split_once("visit:")?;
                 after.split_whitespace().find_map(link)
             })
-    })
+        })
+        .or_else(|| {
+            texts.into_iter().find_map(|text| {
+                text.split_whitespace()
+                    .filter(|word| word.starts_with(LOGIN_SERVER))
+                    .find_map(link)
+            })
+        })
+}
+
+/// What a `tailscale` command printed, for an error: its end, without the QR code of a login
+/// link, a PNG in base64.
+fn quote(output: &Output) -> String {
+    let lines: Vec<&str> = output
+        .stdout
+        .lines()
+        .chain(output.stderr.lines())
+        .filter(|line| !line.contains("data:image/"))
+        .collect();
+    tail(lines.join("\n").trim()).to_owned()
+}
+
+/// What the install prints for the panel to outlive the node's key: an untagged node's key
+/// expires after 180 days, and the node leaves the tailnet. `name` is the node's name on the
+/// tailnet, such as `brume.tail1234.ts.net`.
+pub fn key_expiry_note(name: &str) -> String {
+    let machine = name.split('.').next().unwrap_or(name);
+    format!(
+        "Disable key expiry for {machine} in Tailscale's admin console (Machines → {machine} → … \
+         → Disable key expiry, {MACHINES_URL}): its key expires after 180 days otherwise, and \
+         the panel with it."
+    )
 }
 
 /// The apt source of Tailscale's repository, signed by `KEY`.
@@ -294,11 +346,14 @@ impl Step for Daemon {
 }
 
 /// `tailscale up`, with Tailscale SSH, without an auth key: it hands over after
-/// `UP_TIMEOUT`, with the login link in its JSON.
+/// `UP_TIMEOUT`, with the login link in its JSON, and `timeout` stops it after `UP_SECONDS`
+/// if tailscaled does not answer.
 pub fn up_command() -> Cmd {
     Cmd::new(
-        "tailscale",
+        "timeout",
         &[
+            UP_SECONDS,
+            "tailscale",
             "up",
             "--ssh",
             &format!("--hostname={NODE_NAME}"),
@@ -326,41 +381,8 @@ impl Step for Up {
         let status = match running(host)? {
             Some(status) => status,
             None => {
-                let mut output = host.attempt(&up_command())?;
-                let mut link = printed_link(&output);
-                if link.is_none() && auth_url(host)?.is_none() {
-                    // Tailscale had no link yet when `tailscale up` handed over: once more.
-                    output = host.attempt(&up_command())?;
-                    link = printed_link(&output);
-                }
-                wait_for(&self.console, "the Tailscale login", || {
-                    let status = status(host)?;
-                    let state = status
-                        .as_ref()
-                        .map(|status| status.backend_state.clone())
-                        .unwrap_or_default();
-                    match (status, state.as_str()) {
-                        (Some(status), RUNNING) => Ok(Poll::Ready(status)),
-                        (_, "NeedsMachineAuth") => Ok(Poll::Waiting(Some(Prompt {
-                            action: "Logged in. Your tailnet requires approving new devices: \
-                                     approve the machine named brume in the admin console:",
-                            link: MACHINES_URL.to_owned(),
-                        }))),
-                        (Some(status), "NeedsLogin" | "Starting" | "NoState") => {
-                            if let Some(url) = super::wait::link(&status.auth_url) {
-                                link = Some(url);
-                            }
-                            Ok(Poll::Waiting(link.clone().map(|link| Prompt {
-                                action: "To put this server on your tailnet, open this link \
-                                         and log in to Tailscale:",
-                                link,
-                            })))
-                        }
-                        // Tailscale stopped, or does not answer: `tailscale up` said why.
-                        _ if !output.success() => Err(host_failure(&output)),
-                        _ => Ok(Poll::Waiting(None)),
-                    }
-                })?
+                let link = start_login(host)?;
+                self.wait_for_login(host, link)?
             }
         };
         // A tagged node is refused here, before the panel is served.
@@ -369,18 +391,107 @@ impl Step for Up {
     }
 }
 
-/// The login link that Tailscale holds, while the node needs a login.
-fn auth_url(host: &Host) -> anyhow::Result<Option<String>> {
-    Ok(status(host)?.and_then(|status| link(&status.auth_url)))
+impl Up {
+    /// Waits until the node runs, and shows the admin what to do: the login `link`, or the
+    /// approval of the device. A poll without a state the wait knows is taken again, up to
+    /// `MAX_ODD_POLLS` in a row.
+    fn wait_for_login(&self, host: &Host, link: Option<String>) -> anyhow::Result<Status> {
+        let login = |link| Prompt {
+            action: "To put this server on your tailnet, open this link and log in to Tailscale:",
+            link,
+        };
+        let mut prompt = link.map(login);
+        let mut odd = 0;
+        wait_for(&self.console, "the Tailscale login", || {
+            let output = host.query(&status_query())?;
+            let status = output
+                .success()
+                .then(|| Status::parse(&output.stdout).ok())
+                .flatten();
+            let why = match status {
+                Some(status) => match status.backend_state() {
+                    RUNNING => return Ok(Poll::Ready(status)),
+                    NEEDS_MACHINE_AUTH => {
+                        odd = 0;
+                        prompt = Some(Prompt {
+                            action: "Logged in. Your tailnet requires approving new devices: \
+                                     approve the machine named brume in the admin console:",
+                            link: MACHINES_URL.to_owned(),
+                        });
+                        return Ok(Poll::Waiting(prompt.clone()));
+                    }
+                    state if LOGGING_IN.contains(&state) => {
+                        odd = 0;
+                        if let Some(url) = super::wait::link(&status.auth_url) {
+                            prompt = Some(login(url));
+                        }
+                        return Ok(Poll::Waiting(prompt.clone()));
+                    }
+                    state => format!(
+                        "Tailscale stays in the state {}, and this server is not on the \
+                         tailnet: check `tailscale status`.",
+                        if state.is_empty() { "(none)" } else { state }
+                    ),
+                },
+                None => format!(
+                    "`tailscale status --json` failed {MAX_ODD_POLLS} times in a row: {}",
+                    quote(&output)
+                ),
+            };
+            odd += 1;
+            if odd >= MAX_ODD_POLLS {
+                bail!(why);
+            }
+            Ok(Poll::Waiting(prompt.clone()))
+        })
+    }
 }
 
-/// The error of a failed `tailscale up`, with what it printed.
-fn host_failure(output: &Output) -> anyhow::Error {
-    let printed = format!("{}{}", output.stdout, output.stderr);
-    anyhow::anyhow!(
-        "`tailscale up` failed, and Tailscale is not up:\n{}",
-        printed.trim()
-    )
+/// Runs `tailscale up`, which hands over after `UP_TIMEOUT` with the login link, and returns
+/// the link if Tailscale has one. Fails at once, with Tailscale's error, if `tailscale up`
+/// failed for another reason than the wait for the login.
+fn start_login(host: &mut Host) -> anyhow::Result<Option<String>> {
+    let mut output = host.attempt(&up_command())?;
+    let mut link = login_link(host, &output);
+    if link.is_none() && !output.success() && handed_over(&output) {
+        // Tailscale had no link yet when `tailscale up` handed over: once more.
+        output = host.attempt(&up_command())?;
+        link = login_link(host, &output);
+    }
+    if link.is_none() && !handed_over(&output) {
+        return Err(up_failure(&output));
+    }
+    Ok(link)
+}
+
+/// Whether `tailscale up` ran to its end: the node is up, or it handed over after
+/// `UP_TIMEOUT`.
+fn handed_over(output: &Output) -> bool {
+    output.success() || output.stderr.contains(UP_HANDED_OVER)
+}
+
+/// The login link that `tailscale up` printed, else the one that Tailscale holds.
+fn login_link(host: &Host, output: &Output) -> Option<String> {
+    printed_link(output).or_else(|| {
+        status(host)
+            .ok()
+            .flatten()
+            .and_then(|status| link(&status.auth_url))
+    })
+}
+
+/// The error of a failed `tailscale up`, with the end of what it printed.
+fn up_failure(output: &Output) -> anyhow::Error {
+    let what = if output.code == Some(TIMED_OUT) {
+        format!("did not finish within {UP_SECONDS} seconds")
+    } else {
+        "failed".to_owned()
+    };
+    let printed = match quote(output) {
+        printed if printed.is_empty() => printed,
+        printed => format!(":\n{printed}"),
+    };
+    anyhow::anyhow!("`tailscale up` {what}, and Tailscale is not up{printed}")
 }
 
 /// `tailscale serve` of the panel in the background, persistent, over HTTPS on port 443, for
@@ -491,30 +602,25 @@ impl Step for Serve {
         let status = running(host)?.context("Tailscale is not up: the panel cannot be served.")?;
         status.dns_name()?;
         if !status.https() {
-            // `tailscale serve` prints the link that turns HTTPS on, then waits for it.
+            // `tailscale serve` prints the link that turns HTTPS on, then waits for it, or exits
+            // with 0 at once when Tailscale tells it not to wait: its exit code does not tell
+            // whether HTTPS is on, the node's status does.
             let output = host.attempt(&serve_command(SERVE_PROBE_SECONDS))?;
-            if !output.success() {
-                let link = match printed_link(&output) {
-                    Some(link) => link,
-                    // Still waiting when `timeout` stopped it, without a link.
-                    None if output.code == Some(TIMED_OUT) => DNS_URL.to_owned(),
-                    None => bail!(
-                        "`tailscale serve` failed:\n{}",
-                        format!("{}{}", output.stdout, output.stderr).trim()
-                    ),
-                };
-                let prompt = Prompt {
-                    action: "Your tailnet has HTTPS turned off, and the panel needs it. To turn \
-                             it on, open:",
-                    link,
-                };
-                wait_for(&self.console, "HTTPS on your tailnet", || {
-                    Ok(match running(host)? {
-                        Some(status) if status.https() => Poll::Ready(()),
-                        _ => Poll::Waiting(Some(prompt.clone())),
-                    })
-                })?;
-            }
+            let printed = printed_link(&output);
+            // Neither a link nor a wait that `timeout` stopped: `tailscale serve` failed.
+            let failed = printed.is_none() && !output.success() && output.code != Some(TIMED_OUT);
+            let prompt = Prompt {
+                action: "Your tailnet has HTTPS turned off, and the panel needs it. To turn it \
+                         on, open:",
+                link: printed.unwrap_or_else(|| DNS_URL.to_owned()),
+            };
+            wait_for(&self.console, "HTTPS on your tailnet", || {
+                match running(host)? {
+                    Some(status) if status.https() => Ok(Poll::Ready(())),
+                    _ if failed => bail!("`tailscale serve` failed:\n{}", quote(&output)),
+                    _ => Ok(Poll::Waiting(Some(prompt.clone()))),
+                }
+            })?;
         }
         host.change(&serve_command(SERVE_SECONDS))?;
         let status = running(host)?.context("Tailscale stopped.")?;
@@ -593,7 +699,7 @@ pub mod fake {
 #[cfg(test)]
 mod tests {
     use super::fake::{SERVING, status_json};
-    use super::{ServeConfig, Status, printed_link, sources};
+    use super::{ServeConfig, Status, printed_link, quote, sources};
     use crate::install::host::Output;
     use crate::install::preflight::{Distro, Platform};
 
@@ -641,8 +747,43 @@ mod tests {
             printed_link(&serve).as_deref(),
             Some("https://login.tailscale.com/f/serve?node=nTSv3h5CNTRL")
         );
+        // A link of Tailscale's login server, whatever the sentence before it.
+        let reworded = Output::ok(
+            "\nHTTPS is off on your tailnet. Turn it on at\n\n         \
+             https://login.tailscale.com/f/serve?node=nTSv3h5CNTRL\n\n",
+        );
+        assert_eq!(
+            printed_link(&reworded).as_deref(),
+            Some("https://login.tailscale.com/f/serve?node=nTSv3h5CNTRL")
+        );
         let nothing = Output::ok("Success.\n");
         assert_eq!(printed_link(&nothing), None);
+        let served = Output::ok(
+            "Available within your tailnet:\n\nhttps://brume.tail1234.ts.net/\n|-- proxy \
+             http://127.0.0.1:7878\n",
+        );
+        assert_eq!(printed_link(&served), None);
+    }
+
+    #[test]
+    fn quotes_tailscale_without_the_qr_code() {
+        let up = Output {
+            code: Some(1),
+            stdout: "{\n\t\"AuthURL\": \"http://login.example/a/1\",\n\t\"QR\": \
+                     \"data:image/png;base64,iVBORw0KGgo=\",\n\t\"BackendState\": \
+                     \"NeedsLogin\"\n}\n"
+                .to_owned(),
+            stderr: "backend error: invalid key\n".to_owned(),
+        };
+        let quoted = quote(&up);
+        assert!(!quoted.contains("base64"), "{quoted}");
+        assert!(quoted.ends_with("backend error: invalid key"), "{quoted}");
+        let long = Output {
+            code: Some(1),
+            stdout: String::new(),
+            stderr: "x".repeat(10_000),
+        };
+        assert_eq!(quote(&long).len(), 2048);
     }
 
     #[test]

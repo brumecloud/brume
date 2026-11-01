@@ -270,10 +270,23 @@ fn finish(host: &Host, site: Option<&Site>) -> anyhow::Result<()> {
     }
     println!("Brume is installed.");
     login::print_link(&file, &link, &login::ssh_destination_from_env());
-    if let Some(site) = site {
-        println!("{}", domains_message(site));
+    for note in final_notes(&file, site) {
+        println!("{note}");
     }
     Ok(())
+}
+
+/// What the install prints after the login link: on a tailnet, how to keep the panel past the
+/// expiry of the node's key; with a domain, how the services get public domains.
+fn final_notes(file: &ApiFileConfig, site: Option<&Site>) -> Vec<String> {
+    let mut notes = Vec::new();
+    if let Some(name) = file.hosts.first() {
+        notes.push(tailscale::key_expiry_note(name));
+    }
+    if let Some(site) = site {
+        notes.push(domains_message(site));
+    }
+    notes
 }
 
 /// How the services get public domains, and whether Cloudflare serves the zone yet.
@@ -297,7 +310,9 @@ fn domains_message(site: &Site) -> String {
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
+    use std::time::Duration;
 
+    use brume_api::ApiFileConfig;
     use secrecy::SecretString;
 
     use super::cloudflare::fake::{API_TOKEN, FakeCloudflare, State};
@@ -308,11 +323,11 @@ mod tests {
     use super::steps::{Context, steps};
     use super::systemd::{self, Service};
     use super::tailscale::fake::{SERVING, status_json};
-    use super::tailscale::{serve_command, serve_status_query, status_query, up_command};
+    use super::tailscale::{Status, serve_command, serve_status_query, status_query, up_command};
     use super::wait::fake::FakeConsole;
     use super::{
-        AdminMode, Options, Outcome, docker, domains_message, failure_message, nftables, run_steps,
-        users,
+        AdminMode, Options, Outcome, docker, domains_message, failure_message, final_notes,
+        nftables, run_steps, users, wait,
     };
 
     fn platform() -> Platform {
@@ -697,7 +712,7 @@ mod tests {
         assert_eq!(
             fake.changes(),
             [
-                "tailscale up --ssh --hostname=brume --json --timeout=10s",
+                "timeout 30 tailscale up --ssh --hostname=brume --json --timeout=10s",
                 "timeout 60 tailscale serve --bg --https=443 http://127.0.0.1:7878",
                 "write /etc/brume/api.toml",
             ]
@@ -848,8 +863,8 @@ mod tests {
         assert_eq!(
             fake.changes(),
             [
-                "tailscale up --ssh --hostname=brume --json --timeout=10s",
-                "tailscale up --ssh --hostname=brume --json --timeout=10s",
+                "timeout 30 tailscale up --ssh --hostname=brume --json --timeout=10s",
+                "timeout 30 tailscale up --ssh --hostname=brume --json --timeout=10s",
             ]
         );
         assert!(
@@ -860,6 +875,226 @@ mod tests {
             "{}",
             console.printed()
         );
+    }
+
+    /// The step named `name` of a Tailscale install, on `fake`, and what it printed.
+    fn run_tailscale_step(
+        fake: &FakeSystem,
+        name: &str,
+    ) -> (anyhow::Result<Vec<Outcome>>, FakeConsole) {
+        let console = FakeConsole::new();
+        let context = Context {
+            console: Rc::clone(&console.console),
+            cloudflare: None,
+        };
+        let all = only(
+            steps(&tailscale(), &platform(), &context).expect("steps"),
+            name,
+        );
+        let mut host = Host::new(Box::new(fake.clone()));
+        let outcomes = run_steps(&all, &mut host, &mut Vec::new());
+        (outcomes, console)
+    }
+
+    const JOIN: &str = "Join your tailnet: open the link printed here";
+    const SERVE: &str = "Serve the panel on your tailnet over HTTPS (tailscale serve)";
+
+    /// `tailscale up` that handed over after its `--timeout`, with the login link.
+    fn handed_over() -> Output {
+        Output {
+            code: Some(1),
+            stdout: "{\n\t\"AuthURL\": \"https://login.tailscale.com/a/1a2b3c4d5e6f\",\n\t\"QR\": \
+                     \"data:image/png;base64,iVBORw0KGgo=\",\n\t\"BackendState\": \"NeedsLogin\"\n}\n"
+                .to_owned(),
+            stderr: "timeout waiting for Tailscale service to enter a Running state; check health \
+                     with \"tailscale status\"\n"
+                .to_owned(),
+        }
+    }
+
+    #[test]
+    fn serve_that_exits_at_once_still_waits_with_its_link() {
+        let fake = FakeSystem::default();
+        let https_off = || Output::ok(&status_json("Running", "paul@example.com", &[], false));
+        fake.answer(&status_query(), https_off());
+        // Tailscale tells `tailscale serve` not to wait: it prints the link and exits 0.
+        fake.answer(
+            &serve_command("15"),
+            Output::ok(
+                "\nServe is not enabled on your tailnet.\nTo enable, visit:\n\n         \
+                 https://login.tailscale.com/f/serve?node=nTSv3h5CNTRL\n\n",
+            ),
+        );
+        fake.answer_after_each(
+            &serve_command("15"),
+            &status_query(),
+            vec![https_off(), https_off(), Output::ok(&running_json())],
+        );
+        fake.answer_after(
+            &serve_command("60"),
+            &serve_status_query(),
+            Output::ok(SERVING),
+        );
+        let (outcomes, console) = run_tailscale_step(&fake, SERVE);
+        outcomes.expect("serves");
+        assert!(
+            console.printed().contains(
+                "To turn it on, open:\n    https://login.tailscale.com/f/serve?node=nTSv3h5CNTRL\n"
+            ),
+            "{}",
+            console.printed()
+        );
+        assert!(console.elapsed() >= Duration::from_secs(4));
+        assert_eq!(
+            fake.changes(),
+            [
+                "timeout 15 tailscale serve --bg --https=443 http://127.0.0.1:7878",
+                "timeout 60 tailscale serve --bg --https=443 http://127.0.0.1:7878",
+            ]
+        );
+
+        // A failure without a link, and HTTPS still off: Tailscale's error, at once.
+        let fake = FakeSystem::default();
+        fake.answer(&status_query(), https_off());
+        fake.answer(
+            &serve_command("15"),
+            Output {
+                code: Some(1),
+                stdout: String::new(),
+                stderr: "error getting serve config: 403 Forbidden\n".to_owned(),
+            },
+        );
+        let (outcomes, console) = run_tailscale_step(&fake, SERVE);
+        let error = format!("{:#}", outcomes.expect_err("fails"));
+        assert!(
+            error.contains("`tailscale serve` failed:\nerror getting serve config: 403 Forbidden"),
+            "{error}"
+        );
+        assert_eq!(console.elapsed(), Duration::ZERO);
+    }
+
+    #[test]
+    fn a_failed_tailscale_up_stops_at_once_with_its_error() {
+        let no_link = status_json("NeedsLogin", "", &[], true)
+            .replace("https://login.tailscale.com/a/1a2b3c4d5e6f", "");
+        for (output, shown) in [
+            (
+                Output {
+                    code: Some(1),
+                    stdout: String::new(),
+                    stderr: "backend error: invalid key: unable to validate API key\n".to_owned(),
+                },
+                "`tailscale up` failed, and Tailscale is not up:\nbackend error: invalid key: \
+                 unable to validate API key",
+            ),
+            (
+                Output::failed(124),
+                "`tailscale up` did not finish within 30 seconds, and Tailscale is not up",
+            ),
+        ] {
+            let fake = FakeSystem::default();
+            fake.answer(&status_query(), Output::ok(&no_link));
+            fake.answer(&up_command(), output);
+            let (outcomes, console) = run_tailscale_step(&fake, JOIN);
+            let error = outcomes.expect_err("fails");
+            assert!(!wait::timed_out(&error), "{error:#}");
+            assert!(format!("{error:#}").contains(shown), "{error:#}");
+            assert_eq!(console.elapsed(), Duration::ZERO);
+            assert_eq!(console.printed(), "");
+            assert_eq!(
+                fake.changes(),
+                ["timeout 30 tailscale up --ssh --hostname=brume --json --timeout=10s"]
+            );
+        }
+    }
+
+    #[test]
+    fn a_failed_status_poll_does_not_stop_the_login_wait() {
+        let fake = FakeSystem::default();
+        let needs_login = || Output::ok(&status_json("NeedsLogin", "", &[], true));
+        fake.answer(&status_query(), needs_login());
+        fake.answer(&up_command(), handed_over());
+        fake.answer_after_each(
+            &up_command(),
+            &status_query(),
+            vec![
+                Output::failed(1),
+                Output::ok("not JSON"),
+                needs_login(),
+                Output::ok(&running_json()),
+            ],
+        );
+        let (outcomes, console) = run_tailscale_step(&fake, JOIN);
+        outcomes.expect("joins");
+        assert!(
+            console
+                .printed()
+                .contains("https://login.tailscale.com/a/1a2b3c4d5e6f"),
+            "{}",
+            console.printed()
+        );
+    }
+
+    #[test]
+    fn an_unknown_tailscale_state_is_named() {
+        for (status, shown) in [
+            (
+                Output::ok(&status_json("InUseOtherUser", "", &[], true)),
+                "Tailscale stays in the state InUseOtherUser",
+            ),
+            (
+                Output {
+                    code: Some(1),
+                    stdout: String::new(),
+                    stderr: "failed to connect to local tailscaled; it doesn't appear to be \
+                             running\n"
+                        .to_owned(),
+                },
+                "`tailscale status --json` failed 5 times in a row: failed to connect to local \
+                 tailscaled",
+            ),
+        ] {
+            let fake = FakeSystem::default();
+            fake.answer(
+                &status_query(),
+                Output::ok(&status_json("NeedsLogin", "", &[], true)),
+            );
+            fake.answer(&up_command(), handed_over());
+            fake.answer_after(&up_command(), &status_query(), status);
+            let (outcomes, console) = run_tailscale_step(&fake, JOIN);
+            let error = outcomes.expect_err("stops");
+            assert!(!wait::timed_out(&error), "{error:#}");
+            let message = format!("{error:#}");
+            assert!(message.contains(shown), "{message}");
+            assert!(!message.contains("base64"), "{message}");
+            // A few polls, not the whole wait.
+            assert!(console.elapsed() < Duration::from_secs(60));
+        }
+    }
+
+    #[test]
+    fn the_closing_notes_ask_to_disable_key_expiry_on_the_tailnet() {
+        let file = Status::parse(&running_json())
+            .expect("parses")
+            .panel_file()
+            .expect("a file");
+        let notes = final_notes(&file, None);
+        assert_eq!(
+            notes,
+            [
+                "Disable key expiry for brume in Tailscale's admin console (Machines → brume → … → \
+                 Disable key expiry, https://login.tailscale.com/admin/machines): its key \
+                 expires after 180 days otherwise, and the panel with it."
+            ]
+        );
+        // An SSH tunnel does not go through Tailscale.
+        let ssh = ApiFileConfig {
+            hosts: Vec::new(),
+            tailscale_logins: Vec::new(),
+            public_url: String::new(),
+            ..file
+        };
+        assert_eq!(final_notes(&ssh, None), Vec::<String>::new());
     }
 
     #[test]
