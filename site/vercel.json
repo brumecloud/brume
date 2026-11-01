@@ -41,6 +41,20 @@
       "continue": true
     },
     {
+      "src": "/index\\.md",
+      "headers": {
+        "Link": "<https://brume.dev/>; rel=\"canonical\""
+      },
+      "continue": true
+    },
+    {
+      "src": "/(architecture|roadmap|vs|vs/[a-z]+)/index\\.md",
+      "headers": {
+        "Link": "<https://brume.dev/$1>; rel=\"canonical\""
+      },
+      "continue": true
+    },
+    {
       "src": "/demo/index\\.html",
       "dest": "/demo/index"
     },
@@ -78,6 +92,41 @@
         "Content-Type": "text/markdown; charset=utf-8"
       },
       "dest": "/index.md"
+    },
+    {
+      "src": "/(architecture|roadmap|vs|vs/[a-z]+)",
+      "headers": {
+        "Vary": "Accept, User-Agent"
+      },
+      "continue": true
+    },
+    {
+      "src": "/(architecture|roadmap|vs|vs/[a-z]+)",
+      "has": [
+        {
+          "type": "header",
+          "key": "accept",
+          "value": ".*text/markdown.*"
+        }
+      ],
+      "headers": {
+        "Content-Type": "text/markdown; charset=utf-8"
+      },
+      "dest": "/$1/index.md"
+    },
+    {
+      "src": "/(architecture|roadmap|vs|vs/[a-z]+)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "node|.*(?:curl/|Wget/|HTTPie/|python-requests/|python-httpx/|Python-urllib/|aiohttp/|Go-http-client/|axios/|node-fetch/|undici|Deno/|Bun/|libwww-perl/|okhttp/|ChatGPT-User|GPTBot|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|anthropic-ai|PerplexityBot|Perplexity-User|cohere-ai|MistralAI-User|DuckAssistBot|meta-externalfetcher).*"
+        }
+      ],
+      "headers": {
+        "Content-Type": "text/markdown; charset=utf-8"
+      },
+      "dest": "/$1/index.md"
     }
   ]
 }

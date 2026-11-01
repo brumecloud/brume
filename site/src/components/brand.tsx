@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 import logo from "~/assets/logo.png";
 
@@ -9,12 +10,12 @@ interface BrandProps {
 
 export function Brand({ size = 28, className = "" }: BrandProps) {
   return (
-    <a
-      href="#top"
+    <Link
+      href="/"
       className={`inline-flex items-center gap-2.5 font-semibold tracking-[-0.02em] ${className}`}
     >
       <Image src={logo} alt="" width={size} height={size} className="rounded-md" />
       brume
-    </a>
+    </Link>
   );
 }

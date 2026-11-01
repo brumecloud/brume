@@ -25,7 +25,7 @@ export function ClosingCta() {
         />
         <p className="mt-4 max-w-[46rem] text-sm text-pretty text-ink-dim">{requirements}</p>
         <p className="mt-6 flex flex-wrap justify-center gap-7 text-sm text-ink-muted">
-          <TextLink href="#how">How it works ↑</TextLink>
+          <TextLink href="#top">Back to top ↑</TextLink>
           <TextLink href={site.repo}>Star on GitHub ↗</TextLink>
         </p>
       </div>

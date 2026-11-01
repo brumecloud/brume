@@ -3,18 +3,19 @@
 // in the same order.
 
 import {
+  agentPoints,
   brumeComparison,
   comparison,
   copy,
-  designDoc,
-  features,
+  deployFeatures,
+  docsPage,
+  heroPoints,
   milestones,
-  principles,
   requirements,
+  securityClaims,
+  setupFeatures,
   site,
   steps,
-  usualSetup,
-  withBrume,
 } from "~/content";
 
 interface Item {
@@ -23,8 +24,13 @@ interface Item {
   readonly text: string;
 }
 
-const heading = (level: 2 | 3, title: string) => `${"#".repeat(level)} ${title}`;
-const list = (items: readonly string[]) => items.map((item) => `- ${item}`).join("\n");
+/** A Markdown twin, as the static export writes it: the HTML pages link to these. */
+export function markdownResponse(body: string): Response {
+  return new Response(body, { headers: { "Content-Type": "text/markdown; charset=utf-8" } });
+}
+
+export const heading = (level: 2 | 3, title: string) => `${"#".repeat(level)} ${title}`;
+export const list = (items: readonly string[]) => items.map((item) => `- ${item}`).join("\n");
 const cards = (items: readonly Item[]) =>
   items
     .map(({ label, title, text }) => `- **${title}** (${label.toLowerCase()}): ${text}`)
@@ -33,48 +39,48 @@ const cards = (items: readonly Item[]) =>
 export function landingMarkdown(): string {
   const current = milestones.find((milestone) => milestone.status === "current");
   const rows = [...comparison, brumeComparison].map(
-    ({ tool, panel, docker, attackerGets }) =>
-      `| ${tool} | ${panel} | ${docker} | ${attackerGets} |`,
+    ({ tool, panel, attackerGets }) => `| ${tool} | ${panel} | ${attackerGets} |`,
   );
 
   return [
     `# ${site.name}: ${copy.hero.title}`,
     `> ${copy.hero.lede}`,
+    heroPoints.join(" · "),
     `This is ${site.url} in Markdown, for agents and terminals.${current ? ` Status: ${current.title} (${current.when}).` : ""} Source: ${site.repo}`,
 
     heading(2, "Install"),
     `\`\`\`sh\n${site.installCommand}\n\`\`\``,
     requirements,
 
-    heading(2, copy.problem.title),
-    copy.problem.lede,
-    `The usual setup:\n\n${list(usualSetup)}`,
-    `With ${site.name}:\n\n${list(withBrume)}`,
+    heading(2, copy.deploy.title),
+    copy.deploy.lede,
+    `${copy.deploy.stack}.`,
+    cards(deployFeatures),
 
-    heading(2, copy.howItWorks.title),
+    heading(2, copy.security.title),
+    copy.security.lede,
+    cards(securityClaims),
+    heading(3, copy.security.comparisonTitle),
+    ["| Tool | Admin panel | Attacker gets |", "| --- | --- | --- |", ...rows].join("\n"),
+    `${copy.security.comparisonSource} Details: ${docsPage("how-it-works/comparison")}`,
+    `${copy.security.more} Threat model: ${docsPage("how-it-works/threat-model")}`,
+
+    heading(2, copy.console.title),
+    copy.console.lede,
+    `A live demo of the console, on demo data, runs in a browser at ${site.url}/#console.`,
+    heading(3, copy.console.agentTitle),
+    copy.console.agentLede,
+    list(agentPoints),
+
+    heading(2, copy.setup.title),
+    copy.setup.lede,
     steps
       .map(
         ({ title, text, command }, index) =>
           `${index + 1}. **${command ? `\`${title}\`` : title}**: ${text}`,
       )
       .join("\n"),
-
-    heading(2, copy.console.title),
-    copy.console.lede,
-    `A live demo of the console, on demo data, runs in a browser at ${site.url}/#console.`,
-
-    heading(2, copy.features.title),
-    cards(features),
-
-    heading(2, copy.security.title),
-    copy.security.lede,
-    `${copy.security.architecture} ${copy.security.architectureCaption}`,
-    cards(principles),
-    heading(3, copy.security.comparisonTitle),
-    ["| Tool | Panel | Docker access | Attacker gets |", "| --- | --- | --- | --- |", ...rows].join(
-      "\n",
-    ),
-    `${copy.security.comparisonSource} Details: ${designDoc("11-comparatif.md")}`,
+    cards(setupFeatures),
 
     heading(2, copy.roadmap.title),
     ...milestones.flatMap(({ when, title, items }) => [
@@ -82,11 +88,15 @@ export function landingMarkdown(): string {
       list(items),
     ]),
 
+    heading(2, copy.closing.title),
+    copy.closing.lede,
+
     heading(2, "Links"),
     list([
       `Source code: ${site.repo}`,
       `Issues: ${site.issues}`,
       `Install script: ${site.url}/install.sh`,
+      `Docs: ${site.repo}/tree/main/docs/content/docs`,
       `Design notes: ${site.repo}/tree/main/archi/base`,
     ]),
   ]

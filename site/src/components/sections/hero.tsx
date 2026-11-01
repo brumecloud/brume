@@ -4,7 +4,7 @@ import { InstallCommand } from "~/components/install-command";
 import { MistCanvas } from "~/components/mist-canvas";
 import { TextLink } from "~/components/text-link";
 import { logoLit } from "~/components/tone";
-import { copy, site } from "~/content";
+import { copy, heroPoints, site } from "~/content";
 
 const worksWith: readonly BrandIconName[] = ["github", "cloudflare", "tailscale", "docker"];
 
@@ -31,10 +31,24 @@ export function Hero() {
           {copy.hero.lede}
         </p>
         <InstallCommand command={site.installCommand} className="mt-9 max-w-[52rem]" />
-        <p className="mt-6 flex flex-wrap gap-7 text-sm text-ink-muted">
-          <TextLink href="#how">How it works ↓</TextLink>
-          <TextLink href={site.repo}>Star on GitHub ↗</TextLink>
-        </p>
+        <div className="mt-6 flex flex-wrap items-center gap-x-7 gap-y-3 text-sm">
+          <ul data-light className="group flex flex-wrap gap-x-6 gap-y-2">
+            {heroPoints.map((point) => (
+              <li key={point} className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="text-ink-dim transition-colors duration-300 lit:text-emerald-400"
+                >
+                  ✓
+                </span>
+                {point}
+              </li>
+            ))}
+          </ul>
+          <p className="text-ink-muted">
+            <TextLink href={site.repo}>Star on GitHub ↗</TextLink>
+          </p>
+        </div>
         <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-ink-muted">
           <span className="text-label text-ink-dim">Works with</span>
           <ul data-light className="flex flex-wrap items-center gap-x-6 gap-y-3">
