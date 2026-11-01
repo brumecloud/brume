@@ -196,7 +196,12 @@ fn arrays_are_read_only() {
     );
     let bindings = bindings();
     assert!(bindings.contains("dependencies: ReadonlyArray<ServiceId>"));
-    assert!(!bindings.contains(" Array<"));
+    assert!(
+        bindings
+            .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .all(|token| token != "Array"),
+        "{bindings}"
+    );
 }
 
 #[test]

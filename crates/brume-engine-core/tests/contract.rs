@@ -455,7 +455,6 @@ fn variables_calls() {
         }
     }
     assert_eq!(reference["value"], Value::Null);
-    assert_eq!(reference["reference"], true);
 
     let revision = body(&world.harness.ok(ApiCall::GetRevision {
         deployment_id: deployment,
@@ -592,6 +591,7 @@ fn changes_calls() {
     assert_eq!(keys(&reference), variable_keys);
     assert_eq!(reference["type"], "variable");
     assert_eq!(reference["value"], Value::Null);
+    assert_eq!(reference["reference"], true);
 
     let removal = body(&world.stage(NewChangeDto::VariableRemoval {
         service_id: service.clone(),
