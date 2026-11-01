@@ -7,7 +7,7 @@ import { heading, list } from "./markdown";
 
 export function roadmapMarkdown(): string {
   return [
-    `# ${site.name}: ${roadmapCopy.title}`,
+    `# ${site.name} roadmap: ${roadmapCopy.title.replace(/\.$/, "").toLowerCase()}`,
     `> ${roadmapCopy.lede}`,
     `${roadmapCopy.badge}. This is ${site.url}/roadmap in Markdown, for agents and terminals. Details: ${docsPage("how-it-works/roadmap")}`,
 

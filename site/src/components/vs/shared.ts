@@ -34,11 +34,6 @@ export function checkedOn(iso: string): string {
   });
 }
 
-/** The comparison at /vs/<slug>, for a slug read from the URL. */
-export function findCompetitor(slug: string): Competitor | undefined {
-  return competitors.find((candidate) => candidate.slug === slug);
-}
-
 export function competitorsOfKind(kind: Competitor["kind"]): readonly Competitor[] {
   return competitors.filter((candidate) => candidate.kind === kind);
 }

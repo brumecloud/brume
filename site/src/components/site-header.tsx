@@ -9,10 +9,11 @@ export function SiteHeader() {
     <header className="absolute inset-x-0 top-0 z-10">
       <nav
         aria-label="Main"
-        className="mx-auto flex w-full max-w-page items-center gap-6 px-6 py-5 text-[17px]"
+        className="mx-auto flex w-full max-w-page flex-wrap items-center gap-x-6 gap-y-3 px-6 py-5 text-[17px]"
       >
         <Brand />
-        <ul className="ml-auto hidden items-center gap-7 text-sm text-ink-muted md:flex">
+        {/* On a phone, the links take their own row under the logo. */}
+        <ul className="order-last flex w-full items-center gap-6 text-sm text-ink-muted md:order-none md:ml-auto md:w-auto md:gap-7">
           {pages.map((page) => (
             <li key={page.path}>
               <Link href={page.path} className="transition-colors hover:text-ink">

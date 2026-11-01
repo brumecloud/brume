@@ -2,11 +2,13 @@
 // link it arrives by. The captions follow the docs: networking, builds-and-deployments,
 // admin-panel, cli-and-ai-agents and secrets-and-backups.
 
-import type { ArchEdge, ComponentId } from "./model";
+import type { EdgeId } from "./edges";
+import type { ComponentId } from "./model";
 
 export interface TourStep {
   readonly focus: ComponentId;
-  readonly edge?: ArchEdge["id"];
+  /** The link it arrives by. Only links drawn in edges.ts type-check. */
+  readonly edge?: EdgeId;
   readonly caption: string;
 }
 
@@ -189,7 +191,6 @@ export const tours: readonly Tour[] = [
       },
       {
         focus: "engine",
-        edge: "engine-s3",
         caption:
           "On a new VPS, brume restore takes the bucket credentials and your age key, then replays the log and checks its hash chain.",
       },
@@ -205,7 +206,6 @@ export const tours: readonly Tour[] = [
       },
       {
         focus: "s3",
-        edge: "agent-s3",
         caption: "It restores the last dump of each database, and shows you how old it is.",
       },
       {

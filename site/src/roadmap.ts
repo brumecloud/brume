@@ -98,7 +98,8 @@ export const roadmapThemes: readonly RoadmapTheme[] = [
       },
       {
         title: "Backups of volumes outside templates",
-        brings: "In 0.1, only the databases created from templates are backed up.",
+        brings:
+          "Backups for every volume. In 0.1, only the databases created from templates are backed up.",
       },
       {
         title: "Major database upgrades",
@@ -132,7 +133,8 @@ export const roadmapThemes: readonly RoadmapTheme[] = [
     items: [
       {
         title: "Web shell into containers",
-        brings: "The panel's most powerful feature, so it needs careful design.",
+        brings:
+          "A shell into your containers, from the panel. Its most powerful feature, so it needs careful design.",
         when: "next",
       },
       {
@@ -148,12 +150,14 @@ export const roadmapThemes: readonly RoadmapTheme[] = [
       },
       {
         title: "PR previews",
-        brings: "One rule is already set: a pull request from a fork is never built with secrets.",
+        brings:
+          "A preview of each pull request. Already decided: a pull request from a fork is never built with secrets.",
         when: "next",
       },
       {
         title: "Outbound internet filtering by domain",
-        brings: "It needs an egress proxy.",
+        brings:
+          "Let a service reach only the domains it needs, such as api.stripe.com. It needs an egress proxy.",
       },
     ],
   },

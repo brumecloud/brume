@@ -63,7 +63,7 @@ export function vsMarkdown(slug: VsSlug): string {
 
 export function vsIndexMarkdown(): string {
   return [
-    `# ${vsCopy.index.title}`,
+    `# ${vsCopy.index.title.replace(/\.$/, "")}`,
     `> ${vsCopy.index.lede}`,
     `${vsCopy.badge}. This is ${site.url}/vs in Markdown, for agents and terminals.`,
     ...vsGroups.flatMap(({ kind, title }) => [

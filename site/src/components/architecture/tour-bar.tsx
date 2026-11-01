@@ -53,17 +53,16 @@ export function TourBar({
           ))}
         </ul>
       </div>
+      {/* Mounted before any tour starts, so screen readers announce the first caption too. */}
+      <p aria-live="polite" className="sr-only">
+        {step ? `Step ${(tour?.step ?? 0) + 1}: ${step.caption}` : ""}
+      </p>
       {tour && current && step ? (
         <div className="pixel-border mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 bg-terminal px-5 py-4">
           <p className="text-label shrink-0 text-ink-dim">
             Step {tour.step + 1} of {current.steps.length}
           </p>
-          <p
-            aria-live="polite"
-            className="min-w-0 flex-1 basis-[26rem] leading-relaxed text-pretty"
-          >
-            {step.caption}
-          </p>
+          <p className="min-w-0 flex-1 basis-[26rem] leading-relaxed text-pretty">{step.caption}</p>
           <div className="flex shrink-0 flex-wrap gap-2">
             <button
               type="button"

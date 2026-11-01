@@ -9,11 +9,11 @@ import { SiteHeader } from "~/components/site-header";
 import { ComparisonTable } from "~/components/vs/comparison-table";
 import { OtherComparisons } from "~/components/vs/other-comparisons";
 import { Picks } from "~/components/vs/picks";
-import { findCompetitor, vsCopy } from "~/components/vs/shared";
+import { vsCopy } from "~/components/vs/shared";
 import { Strengths } from "~/components/vs/strengths";
 import { JsonLd, pageJsonLd } from "~/lib/json-ld";
 import { pageMetadata } from "~/lib/page-metadata";
-import { competitors } from "~/vs";
+import { competitors, findCompetitor } from "~/vs";
 import type { Competitor } from "~/vs/model";
 
 interface VsPageProps {

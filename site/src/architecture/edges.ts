@@ -47,7 +47,7 @@ const middle = (row: number) => row + NODE_HEIGHT / 2;
 const center = (column: number) => column + NODE_WIDTH / 2;
 const bottom = (row: number) => row + NODE_HEIGHT;
 
-export const archEdges: readonly ArchEdge[] = [
+const edgeData = [
   // Public traffic.
   {
     id: "internet-cloudflare",
@@ -167,7 +167,8 @@ export const archEdges: readonly ArchEdge[] = [
     id: "telemetry-engine",
     from: "telemetry",
     to: "engine",
-    flow: "storage",
+    // brume telemetry has no network at all: the engine reads the logs over a unix socket.
+    flow: "socket",
     points: [
       [c3, middle(r3)],
       [right(c2), middle(r3)],
@@ -239,4 +240,9 @@ export const archEdges: readonly ArchEdge[] = [
       [center(c2), r5],
     ],
   },
-];
+] as const satisfies readonly ArchEdge[];
+
+/** The ID of a link that is drawn. Tours refer to links by these. */
+export type EdgeId = (typeof edgeData)[number]["id"];
+
+export const archEdges: readonly ArchEdge[] = edgeData;
