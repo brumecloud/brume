@@ -6,6 +6,7 @@ status: available
 sources:
   - README.md
   - Cargo.toml
+  - .cargo/config.toml
   - .gitignore
   - archi/jalons/2026-10-31-jalon-1-deploiement-local.md
   - archi/base/front-architecture.md
@@ -32,6 +33,7 @@ sources:
 
 - **Docker Desktop or OrbStack,** running. The agent connects to the Docker of `DOCKER_HOST` or the default socket, and falls back to `~/.docker/run/docker.sock`.
 - **Stable Rust,** 1.92 or later (`rust-version` in `Cargo.toml`).
+- **The DuckDB library,** version 2.0.0: `brew install duckdb`. Brume links to it instead of compiling DuckDB. `.cargo/config.toml` expects it under `/opt/homebrew/opt/duckdb`; to use another copy, set `DUCKDB_LIB_DIR` and `DUCKDB_INCLUDE_DIR`.
 - **Node 22.18 or later, with pnpm 12,** for the panel. pnpm is pinned by `packageManager` in `web/package.json`. Corepack cannot run pnpm 12 yet: use `npx pnpm@<version>` until it can. See [Build from source](/docs/customize/build-from-source#prerequisites).
 
 <Callout type="warn" title="One Brume per Docker">
