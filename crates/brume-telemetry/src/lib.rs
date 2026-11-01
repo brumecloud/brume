@@ -3,24 +3,22 @@
 
 #![forbid(unsafe_code)]
 
-pub mod framed;
 mod ingest;
 pub mod level;
-pub mod paths;
 mod query;
 pub mod store;
 
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Context as _;
 use brume_proto::telemetry::RawLogLine;
+use brume_runtime::paths::Paths;
 use tokio::net::UnixListener;
 use tokio::sync::broadcast;
 
-use crate::paths::Paths;
 use crate::store::{Reader, Store, StoredLine};
 
 /// Lines kept for live queries that read slower than the agent writes, at most 64 MiB of
@@ -33,10 +31,9 @@ const RETENTION: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 /// How often the old lines are deleted.
 const RETENTION_PERIOD: Duration = Duration::from_secs(60 * 60);
 
-/// Runs the service under `home` until a socket fails: stores the batches of
+/// Runs the service under the Brume home until a socket fails: stores the batches of
 /// `telemetry-ingest.sock` and answers the queries of `telemetry-query.sock`.
-pub async fn run(home: PathBuf) -> anyhow::Result<()> {
-    let paths = Paths::new(home);
+pub async fn run(paths: Paths) -> anyhow::Result<()> {
     let db = paths.telemetry_db();
     if let Some(dir) = db.parent() {
         create_private_dir(dir)?;

@@ -482,8 +482,11 @@ dependencies = [
  "brume-runtime",
  "brume-telemetry",
  "clap",
+ "futures-util",
+ "hex",
  "reqwest",
  "serde_json",
+ "sha2",
  "tempfile",
  "tokio",
  "tracing",
@@ -536,7 +539,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tower",
- "tower-http 0.7.1",
  "tracing",
  "ts-rs",
 ]
@@ -572,7 +574,6 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
- "sha2",
  "tempfile",
  "thiserror",
  "tokio",
@@ -627,7 +628,6 @@ name = "brume-telemetry"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "brume-domain",
  "brume-proto",
  "brume-runtime",
  "duckdb",
@@ -1952,7 +1952,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tower",
- "tower-http 0.6.11",
+ "tower-http",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -2540,24 +2540,6 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "url",
-]
-
-[[package]]
-name = "tower-http"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08a05a66a4fdd61cbbe0a1d755ffe0ca6aba159dd4820936a0ff8a8278245b9c"
-dependencies = [
- "bitflags",
- "bytes",
- "http",
- "http-body",
- "http-body-util",
- "percent-encoding",
- "pin-project-lite",
- "tower-layer",
- "tower-service",
- "tracing",
 ]
 
 [[package]]

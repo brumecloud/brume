@@ -5,9 +5,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use brume_proto::api::{LogLevel, LogLineDto};
 use brume_proto::telemetry::{LogBatch, LogQuery, LogStreamFrame, RawLogLine, StdStream};
-use brume_telemetry::framed::{FramedReader, FramedWriter};
+use brume_runtime::framed::{FramedReader, FramedWriter};
+use brume_runtime::paths::Paths;
 use brume_telemetry::level::classify;
-use brume_telemetry::paths::Paths;
 use brume_telemetry::store::{HistoryQuery, Store};
 use tokio::net::UnixStream;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
@@ -179,7 +179,7 @@ fn a_long_line_is_cut_on_a_char_boundary() {
 /// Starts the service on a temporary home and waits for its sockets.
 async fn start(home: &Path) -> Paths {
     let paths = Paths::new(home.to_path_buf());
-    let service = tokio::spawn(brume_telemetry::run(home.to_path_buf()));
+    let service = tokio::spawn(brume_telemetry::run(paths.clone()));
     for _ in 0..200 {
         if paths.telemetry_ingest_socket().exists() && paths.telemetry_query_socket().exists() {
             return paths;
@@ -199,7 +199,7 @@ async fn connect(path: PathBuf) -> (FramedReader<OwnedReadHalf>, FramedWriter<Ow
 }
 
 async fn next_lines(reader: &mut FramedReader<OwnedReadHalf>) -> Option<LogStreamFrame> {
-    tokio::time::timeout(Duration::from_secs(5), reader.next::<LogStreamFrame>())
+    tokio::time::timeout(Duration::from_secs(5), reader.read::<LogStreamFrame>())
         .await
         .expect("a frame within 5 s")
         .expect("decodes")
@@ -228,7 +228,7 @@ async fn wait_for_history(paths: &Paths, environment_id: &str) -> Vec<LogLineDto
     for _ in 0..200 {
         let (mut reader, mut writer) = connect(paths.telemetry_query_socket()).await;
         writer
-            .send(&query(environment_id, false))
+            .write(&query(environment_id, false))
             .await
             .expect("sends");
         match next_lines(&mut reader).await {
@@ -252,7 +252,7 @@ async fn history_without_follow_ends() {
     let paths = start(home.path()).await;
     let (_, mut ingest) = connect(paths.telemetry_ingest_socket()).await;
     ingest
-        .send(&LogBatch {
+        .write(&LogBatch {
             lines: vec![raw("env", now_ms(), "one"), raw("other", now_ms(), "skip")],
         })
         .await
@@ -269,7 +269,7 @@ async fn follow_receives_a_line_inserted_after_it_opened() {
     let paths = start(home.path()).await;
     let (_, mut ingest) = connect(paths.telemetry_ingest_socket()).await;
     ingest
-        .send(&LogBatch {
+        .write(&LogBatch {
             lines: vec![raw("env", now_ms(), "before")],
         })
         .await
@@ -279,7 +279,7 @@ async fn follow_receives_a_line_inserted_after_it_opened() {
     // The query subscribes before it reads the history: once the history frame is here, a new
     // line can only come from the live relay.
     let (mut reader, mut writer) = connect(paths.telemetry_query_socket()).await;
-    writer.send(&query("env", true)).await.expect("sends");
+    writer.write(&query("env", true)).await.expect("sends");
     match next_lines(&mut reader).await {
         Some(LogStreamFrame::Lines(lines)) => {
             let messages: Vec<&str> = lines.iter().map(|l| l.message.as_str()).collect();
@@ -288,7 +288,7 @@ async fn follow_receives_a_line_inserted_after_it_opened() {
         other => panic!("expected the history, got {other:?}"),
     }
     ingest
-        .send(&LogBatch {
+        .write(&LogBatch {
             lines: vec![
                 raw("other", now_ms(), "skip"),
                 raw("env", now_ms() + 1, "[warn] after"),

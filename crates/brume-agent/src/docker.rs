@@ -194,7 +194,7 @@ impl DockerShell {
                 .docker
                 .inspect_container(&name, None::<InspectContainerOptions>)
                 .await;
-            let Some(inspect) = readable(&name, inspected, &mut observation) else {
+            let Some(inspect) = readable(&name, inspected, summary.mounts, &mut observation) else {
                 continue;
             };
             let (container, source) = managed(name, inspect);
@@ -365,10 +365,12 @@ fn is_managed(labels: Option<&HashMap<String, String>>) -> bool {
 }
 
 /// The inspection of the container `name`, or `None` to leave it out of the snapshot: removed
-/// since the listing, or unreadable, which `observation` keeps for the logs.
+/// since the listing, or unreadable, which `observation` keeps for the logs. An unreadable
+/// container still holds the volumes that the listing gave, `listed_mounts`.
 fn readable(
     name: &str,
     inspected: Result<ContainerInspectResponse, Error>,
+    listed_mounts: Option<Vec<MountPoint>>,
     observation: &mut Observation,
 ) -> Option<ContainerInspectResponse> {
     match inspected {
@@ -381,6 +383,10 @@ fn readable(
             observation
                 .unreadable
                 .push((name.to_owned(), error.to_string()));
+            observation
+                .snapshot
+                .uninspected_mounts
+                .extend(volume_names(listed_mounts));
             None
         }
     }
@@ -630,27 +636,40 @@ mod tests {
     }
 
     #[test]
-    fn an_unreadable_container_is_left_out_not_fatal() {
+    fn an_unreadable_container_is_left_out_but_keeps_its_volumes() {
         let mut observation = Observation::default();
         let removed = Err(Error::DockerResponseServerError {
             status_code: 404,
             message: "No such container".to_owned(),
         });
-        assert!(readable("brume-gone", removed, &mut observation).is_none());
+        assert!(
+            readable(
+                "brume-gone",
+                removed,
+                Some(mount_points()),
+                &mut observation
+            )
+            .is_none()
+        );
         assert!(observation.unreadable.is_empty());
+        // Gone: it holds nothing.
+        assert!(observation.snapshot.uninspected_mounts.is_empty());
 
         let broken = Err(Error::DockerResponseServerError {
             status_code: 500,
             message: "boom".to_owned(),
         });
-        assert!(readable("brume-web", broken, &mut observation).is_none());
+        assert!(readable("brume-web", broken, Some(mount_points()), &mut observation).is_none());
         assert_eq!(observation.unreadable.len(), 1);
         assert_eq!(observation.unreadable[0].0, "brume-web");
         assert!(observation.unreadable[0].1.contains("500"));
+        // Its named volume, from the listing, still blocks a create on it.
+        assert_eq!(observation.snapshot.uninspected_mounts, ["brume-vol-a"]);
 
         let fine = Ok(ContainerInspectResponse::default());
-        assert!(readable("brume-db", fine, &mut observation).is_some());
+        assert!(readable("brume-db", fine, Some(mount_points()), &mut observation).is_some());
         assert_eq!(observation.unreadable.len(), 1);
+        assert_eq!(observation.snapshot.uninspected_mounts, ["brume-vol-a"]);
     }
 
     #[test]

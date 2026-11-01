@@ -6,13 +6,14 @@ use std::sync::{Arc, Mutex};
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, Response, StatusCode, header};
-use brume_api::framed::{FramedReader, FramedWriter};
 use brume_api::{ApiConfig, app};
 use brume_proto::api::{
     ApiCall, ApiFailure, ApiReply, ApiRequest, ApiValue, CreatedProjectDto, FailureKind, LogLevel,
     LogLineDto, ProjectDto,
 };
 use brume_proto::telemetry::LogStreamFrame;
+use brume_runtime::framed::{FramedReader, FramedWriter};
+use brume_runtime::paths::Paths;
 use serde_json::{Value, json};
 use tokio::net::UnixListener;
 use tower::ServiceExt as _;
@@ -58,7 +59,7 @@ impl FakeEngine {
                     let (read, write) = stream.into_split();
                     let mut reader = FramedReader::new(read);
                     let mut writer = FramedWriter::new(write);
-                    while let Ok(Some(request)) = reader.next::<ApiRequest>().await {
+                    while let Ok(Some(request)) = reader.read::<ApiRequest>().await {
                         recorded.lock().expect("lock").push(request.clone());
                         let result = answer(&request.body);
                         let opened = matches!(result, Ok(ApiValue::LogStreamOpened));
@@ -66,14 +67,14 @@ impl FakeEngine {
                             id: request.id,
                             result,
                         };
-                        if writer.send(&reply).await.is_err()
+                        if writer.write(&reply).await.is_err()
                             || connections == Connections::CloseAfterReply
                         {
                             return;
                         }
                         if opened {
                             for frame in &frames {
-                                if writer.send(frame).await.is_err() {
+                                if writer.write(frame).await.is_err() {
                                     return;
                                 }
                             }
@@ -107,7 +108,7 @@ fn home() -> tempfile::TempDir {
 }
 
 fn router(home: &Path) -> Router {
-    app(home.to_path_buf(), &ApiConfig::new(4000))
+    app(&Paths::new(home.to_path_buf()), &ApiConfig::new(4000))
 }
 
 fn project() -> ProjectDto {

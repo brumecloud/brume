@@ -7,7 +7,7 @@ use brume_proto::telemetry::LogBatch;
 use tokio::net::{UnixListener, UnixStream};
 
 use crate::Shared;
-use crate::framed::FramedReader;
+use brume_runtime::framed::FramedReader;
 
 /// Accepts agent connections until the listener fails.
 pub(crate) async fn serve(listener: UnixListener, shared: Arc<Shared>) -> anyhow::Result<()> {
@@ -30,7 +30,7 @@ pub(crate) async fn serve(listener: UnixListener, shared: Arc<Shared>) -> anyhow
 async fn receive(stream: UnixStream, shared: Arc<Shared>) -> anyhow::Result<()> {
     let (read, _write) = stream.into_split();
     let mut reader = FramedReader::new(read);
-    while let Some(batch) = reader.next::<LogBatch>().await? {
+    while let Some(batch) = reader.read::<LogBatch>().await? {
         let shared = Arc::clone(&shared);
         tokio::task::spawn_blocking(move || shared.insert(batch.lines))
             .await
