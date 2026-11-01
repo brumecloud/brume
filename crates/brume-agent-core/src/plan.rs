@@ -16,7 +16,9 @@
 //! The public entry's components, from `desired.ingress`, are planned like the engine's
 //! containers, with the configs of `ingress`. Their networks, `brume-tunnel` and
 //! `brume-ingress`, are theirs alone: the engine can neither declare them nor attach a container
-//! to them.
+//! to them. Only they have a fixed subnet: Docker picks the engine's networks from its pools,
+//! whatever subnet the engine asks for, which could cover the host's gateway or the metadata
+//! endpoints.
 
 use std::collections::BTreeSet;
 
@@ -156,7 +158,7 @@ pub fn plan(
 
 /// What must run: the engine's networks and containers, and the public entry's.
 struct Target<'a> {
-    /// The engine's networks but those of the entry, then the entry's.
+    /// The engine's networks but those of the entry, without a subnet, then the entry's.
     networks: Vec<NetworkSpec>,
     /// The entry's components first, so that an engine's container cannot take their names,
     /// then the engine's containers.
@@ -184,7 +186,10 @@ impl<'a> Target<'a> {
             .networks
             .iter()
             .filter(|network| !is_component_network(&network.name))
-            .cloned()
+            .map(|network| NetworkSpec {
+                subnet: None,
+                ..network.clone()
+            })
             .collect();
         let mut containers = Vec::with_capacity(desired.containers.len() + 2);
         if let Some(ingress) = &desired.ingress {
