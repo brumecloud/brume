@@ -43,7 +43,9 @@ axum = "0.8.9"
 bollard = "0.21.1"
 chacha20poly1305 = "0.11.0"
 clap = { version = "4.6.7", features = ["derive"] }
-duckdb = { version = "1.20000.1", features = ["bundled"] }
+# Bindings only: DuckDB is never compiled into Brume. brume-telemetry links the libduckdb shared
+# library shipped beside the binary (in development, Homebrew's: see .cargo/config.toml).
+duckdb = { version = "1.20000.1", default-features = false }
 futures-util = "0.3.34"
 rand = "0.10.3"
 rusqlite = { version = "0.41.1", features = ["bundled"] }
@@ -58,3 +60,8 @@ rand_chacha = "0.10.0"
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "stream"] }
 tempfile = "3.27.0"
 tower = { version = "0.5.3", features = ["util"] }
+
+# Dependencies build without debug info: smaller target directories and faster links. Our own
+# crates keep full debug info.
+[profile.dev.package."*"]
+debug = false
