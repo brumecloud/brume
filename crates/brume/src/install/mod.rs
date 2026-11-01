@@ -979,6 +979,7 @@ mod tests {
                 Output::ok(DOCKER),
             );
         }
+        fake.answer_after(&install, &docker::runc_version_query(), Output::ok(RUNC));
         fake.answer_after(
             &Cmd::new("systemctl", &["restart", "docker.service"]),
             &docker::security_options(),
