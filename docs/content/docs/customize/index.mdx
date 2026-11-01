@@ -24,8 +24,8 @@ Brume's source code is available under the [Functional Source License](/docs/cus
 
 Brume is written in Rust (tokio, clap) with a React panel (TanStack Query, Router and DB, coss ui, Tailwind, React Flow). One binary, `brume`, has a subcommand for each service. The engine and the agent keep their decision logic in cores that do no I/O, so the whole of Brume can run in a deterministic simulation. The panel is compiled in CI and embedded in the signed binary: the server never runs npm.
 
-<Callout title="No code yet">
-  Brume is in its design phase. The repository holds the architecture and security design, and these docs. The build instructions describe the planned setup.
+<Callout title="Milestone 1">
+  The first milestone of alpha 0.1 runs on your own machine: see [Run Brume locally](/docs/customize/run-locally). The rest of alpha 0.1, such as the installer, update signing and the CI checks, is still design.
 </Callout>
 
 ## Next steps
@@ -33,6 +33,9 @@ Brume is written in Rust (tokio, clap) with a React panel (TanStack Query, Route
 <Cards>
   <Card title="Build from source" href="/docs/customize/build-from-source">
     Compile Brume and run your own build.
+  </Card>
+  <Card title="Run Brume locally" href="/docs/customize/run-locally">
+    Start every service on your machine with brume dev.
   </Card>
   <Card title="Development rules" href="/docs/customize/development">
     Code style, security rules, code layout, tests and CI.
