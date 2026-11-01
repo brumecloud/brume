@@ -327,7 +327,8 @@ impl Step for Units {
     }
 }
 
-/// Starts the services, now and at each boot.
+/// Starts the services, now and at each boot, and restarts those that still run the binary
+/// that `install.sh` replaced: an upgrade takes effect at once, not at the next boot.
 pub struct Services;
 
 impl Step for Services {
@@ -338,7 +339,10 @@ impl Step for Services {
     fn is_done(&self, host: &Host) -> anyhow::Result<bool> {
         for service in Service::ALL {
             let unit = service.unit();
-            if !is_enabled(host, &unit)? || !is_active(host, &unit)? {
+            if !is_enabled(host, &unit)?
+                || !is_active(host, &unit)?
+                || runs_a_replaced_binary(host, &unit)?
+            {
                 return Ok(false);
             }
         }
@@ -350,8 +354,43 @@ impl Step for Services {
         let mut enable = vec!["enable", "--now"];
         enable.extend(units.iter().map(String::as_str));
         host.change(&Cmd::new("systemctl", &enable))?;
+        let mut stale = Vec::new();
+        for unit in &units {
+            if runs_a_replaced_binary(host, unit)? {
+                stale.push(unit.as_str());
+            }
+        }
+        if !stale.is_empty() {
+            let mut restart = vec!["restart"];
+            restart.extend(stale);
+            host.change(&Cmd::new("systemctl", &restart))?;
+        }
         Ok(())
     }
+}
+
+/// Prints the PID of `unit`'s main process, `0` if it does not run.
+pub fn main_pid_query(unit: &str) -> Cmd {
+    Cmd::new(
+        "systemctl",
+        &["show", "--property=MainPID", "--value", unit],
+    )
+}
+
+/// Prints the binary that the process `pid` runs, with ` (deleted)` once a new file replaced
+/// it.
+pub fn executable_query(pid: &str) -> Cmd {
+    Cmd::new("readlink", &[&format!("/proc/{pid}/exe")])
+}
+
+/// Whether `unit` runs a binary that was replaced since it started.
+fn runs_a_replaced_binary(host: &Host, unit: &str) -> anyhow::Result<bool> {
+    let pid = match host.query_stdout(&main_pid_query(unit))? {
+        Some(pid) if pid != "0" && !pid.is_empty() => pid,
+        _ => return Ok(false),
+    };
+    let executable = host.query_stdout(&executable_query(&pid))?;
+    Ok(executable.is_some_and(|path| path.ends_with(" (deleted)")))
 }
 
 /// The path of the unit `unit` written by `brume install`.
@@ -390,7 +429,55 @@ pub fn checked_units() -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{DIRS, Service, tmpfiles};
+    use crate::install::Step;
+    use crate::install::host::fake::FakeSystem;
+    use crate::install::host::{Host, Output};
+
+    use super::{
+        DIRS, Service, Services, executable_query, is_active_query, is_enabled_query,
+        main_pid_query, tmpfiles,
+    };
+
+    /// A host where the four services run and start at boot, `stale` on a replaced binary.
+    fn running(stale: &[Service]) -> FakeSystem {
+        let fake = FakeSystem::default();
+        for (index, service) in Service::ALL.iter().enumerate() {
+            let unit = service.unit();
+            fake.answer(&is_enabled_query(&unit), Output::ok("enabled\n"));
+            fake.answer(&is_active_query(&unit), Output::ok("active\n"));
+            let pid = format!("{}", 100 + index);
+            fake.answer(&main_pid_query(&unit), Output::ok(&format!("{pid}\n")));
+            let executable = if stale.contains(service) {
+                "/usr/local/lib/brume/brume (deleted)\n"
+            } else {
+                "/usr/local/lib/brume/brume\n"
+            };
+            fake.answer(&executable_query(&pid), Output::ok(executable));
+        }
+        fake
+    }
+
+    #[test]
+    fn running_services_are_done() {
+        let host = Host::new(Box::new(running(&[])));
+        assert!(Services.is_done(&host).expect("checks"));
+    }
+
+    #[test]
+    fn an_upgrade_restarts_the_services_on_the_old_binary() {
+        let fake = running(&[Service::Engine, Service::Api]);
+        let mut host = Host::new(Box::new(fake.clone()));
+        assert!(!Services.is_done(&host).expect("checks"));
+        Services.apply(&mut host).expect("applies");
+        assert_eq!(
+            fake.changes(),
+            [
+                "systemctl enable --now brume-telemetry.service brume-engine.service \
+                 brume-agent.service brume-api.service",
+                "systemctl restart brume-engine.service brume-api.service",
+            ]
+        );
+    }
 
     /// The values of `key` in the unit `text`.
     fn values<'a>(text: &'a str, key: &str) -> Vec<&'a str> {
