@@ -127,4 +127,3 @@ describe("service panel", () => {
     await expect.element(screen.getByText("CURRENCY")).not.toBeInTheDocument();
   });
 });
-
