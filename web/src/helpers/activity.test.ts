@@ -104,7 +104,17 @@ describe("activityEntity", () => {
     );
   });
 
-  it("has nothing to name for a project event or a deleted service", () => {
+  it("names the environment of a deleted service", () => {
+    expect(
+      activityEntity(
+        event(1, { environmentId: production.id, serviceId: "gone" as ServiceId }),
+        [production],
+        [],
+      ),
+    ).toBe("production");
+  });
+
+  it("has nothing to name for a project event or a service it cannot place", () => {
     expect(activityEntity(event(1), [production], [api])).toBeNull();
     expect(
       activityEntity(event(1, { serviceId: "gone" as ServiceId }), [production], []),
