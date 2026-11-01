@@ -15,6 +15,7 @@ use brume_proto::telemetry::{LogQuery, LogStreamFrame};
 use brume_runtime::framed::{FramedReader, FramedWriter};
 use brume_runtime::object_store::{DirStore, ObjectStore};
 use brume_runtime::paths::Paths;
+use brume_runtime::peer::Peers;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::time::timeout;
@@ -72,7 +73,8 @@ impl Connection {
 
 /// Starts the engine, and logs in through `admin.sock` and `api.sock`.
 async fn start(paths: &Paths) -> (tokio::task::JoinHandle<anyhow::Result<()>>, String) {
-    let engine = tokio::spawn(brume_engine::run(paths.clone()));
+    let peers = Peers::same_user(&paths.run_dir()).expect("creates the run directory");
+    let engine = tokio::spawn(brume_engine::run(paths.clone(), peers));
     let mut admin = connect(&paths.admin_socket()).await;
     admin
         .writer
@@ -90,6 +92,58 @@ async fn start(paths: &Paths) -> (tokio::task::JoinHandle<anyhow::Result<()>>, S
         panic!("login failed: {reply:?}");
     };
     (engine, token)
+}
+
+/// On a host, each socket serves its own user and closes any other's connection at once.
+#[tokio::test]
+async fn on_a_host_each_socket_refuses_the_other_users() {
+    let home = home();
+    let paths = Paths::new(home.path().to_path_buf());
+    let Peers::SameUser { uid } = Peers::same_user(&paths.run_dir()).expect("creates it") else {
+        panic!("the peers of a single user");
+    };
+    // This process is the API's user, and no other.
+    let peers = Peers::System {
+        engine: uid + 1,
+        agent: uid + 2,
+        api: uid,
+        telemetry: uid + 3,
+    };
+    let engine = tokio::spawn(brume_engine::run(paths.clone(), peers));
+
+    let mut api = connect(&paths.api_socket()).await;
+    let reply = api.call(7, None, ApiCall::GetSession).await;
+    assert_eq!(reply.id, 7);
+
+    // Root may use `admin.sock` on a host.
+    let mut refused = vec![paths.agent_socket()];
+    if uid != 0 {
+        refused.push(paths.admin_socket());
+    }
+    for socket in refused {
+        let mut connection = connect(&socket).await;
+        // The engine may close before the write: the write's result does not matter.
+        let _ = connection
+            .writer
+            .write(&AdminRequest::CreateLoginLink)
+            .await;
+        let read = timeout(WAIT, connection.reader.read::<AdminReply>())
+            .await
+            .expect("closed in time");
+        assert!(matches!(read, Ok(None) | Err(_)), "{}", socket.display());
+    }
+    for socket in [
+        paths.api_socket(),
+        paths.admin_socket(),
+        paths.agent_socket(),
+    ] {
+        let mode = std::fs::metadata(&socket)
+            .expect("exists")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o660, "{}", socket.display());
+    }
+    engine.abort();
 }
 
 #[tokio::test]

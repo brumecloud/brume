@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::fs::DirBuilder;
-use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -18,7 +18,7 @@ use brume_runtime::crypto::MasterKey;
 use brume_runtime::framed::{FramedReader, FramedWriter};
 use brume_runtime::object_store::DirStore;
 use brume_runtime::paths::Paths;
-use brume_runtime::peer::{owner_uid, peer_uid};
+use brume_runtime::peer::{Admission, Peers, SocketRole, peer_uid};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::mpsc;
 use tokio::time::Instant;
@@ -85,18 +85,28 @@ enum Socket {
     Agent,
 }
 
+impl Socket {
+    fn role(self) -> SocketRole {
+        match self {
+            Self::Api => SocketRole::Api,
+            Self::Admin => SocketRole::Admin,
+            Self::Agent => SocketRole::Agent,
+        }
+    }
+}
+
 /// How long to wait before accepting again after a failed accept, such as too many open files.
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(100);
 
 /// Runs the engine: opens the database and the master key, listens on `api.sock`,
-/// `admin.sock` and `agent.sock`, and ships the log to the bucket. Returns on a fatal error.
-pub async fn run(paths: Paths) -> anyhow::Result<()> {
+/// `admin.sock` and `agent.sock` for `peers`, and ships the log to the bucket. Returns on a
+/// fatal error.
+pub async fn run(paths: Paths, peers: Peers) -> anyhow::Result<()> {
     DirBuilder::new()
         .recursive(true)
         .mode(0o700)
         .create(paths.run_dir())
         .context("creating the run directory")?;
-    let owner = owner_uid(&paths.run_dir()).context("reading the run directory's owner")?;
     let key = MasterKey::load_or_create(&paths.master_key()).context("loading the master key")?;
     let storage = SqliteStorage::open(&paths.engine_db(), key).context("opening the database")?;
     let mut ctx = SystemCtx;
@@ -109,11 +119,13 @@ pub async fn run(paths: Paths) -> anyhow::Result<()> {
         (Socket::Admin, paths.admin_socket()),
         (Socket::Agent, paths.agent_socket()),
     ] {
-        let listener = bind(&path)?;
+        let listener = peers
+            .listen(&path)
+            .with_context(|| format!("binding {}", path.display()))?;
         tokio::spawn(accept(
             listener,
             socket,
-            owner,
+            peers,
             sender.clone(),
             paths.telemetry_query_socket(),
         ));
@@ -128,44 +140,10 @@ pub async fn run(paths: Paths) -> anyhow::Result<()> {
     serve(engine, ctx, receiver, out).await
 }
 
-/// Binds a socket readable by its owner only, replacing a stale one.
-fn bind(path: &Path) -> anyhow::Result<UnixListener> {
-    match std::fs::remove_file(path) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => return Err(error).context("removing a stale socket"),
-    }
-    let listener =
-        UnixListener::bind(path).with_context(|| format!("binding {}", path.display()))?;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
-        .context("restricting a socket to its owner")?;
-    Ok(listener)
-}
-
-/// Who is on the other end of a connection.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Peer {
-    /// The user that owns the run directory: the only one that may talk to the engine.
-    Owner,
-    /// Another user.
-    Stranger,
-    /// A peer gone before its credentials could be read, such as the readiness probe of
-    /// `brume dev`, which connects and leaves at once.
-    Gone,
-}
-
-fn peer(uid: std::io::Result<u32>, owner: u32) -> Peer {
-    match uid {
-        Ok(uid) if uid == owner => Peer::Owner,
-        Ok(_) => Peer::Stranger,
-        Err(_) => Peer::Gone,
-    }
-}
-
 async fn accept(
     listener: UnixListener,
     socket: Socket,
-    owner: u32,
+    peers: Peers,
     sender: mpsc::Sender<LoopMessage>,
     telemetry: PathBuf,
 ) {
@@ -179,13 +157,13 @@ async fn accept(
                 continue;
             }
         };
-        match peer(peer_uid(&stream), owner) {
-            Peer::Owner => {}
-            Peer::Stranger => {
-                tracing::warn!(?socket, "refused a connection from another user");
+        match peers.admit(socket.role(), peer_uid(&stream)) {
+            Admission::Allowed => {}
+            Admission::Refused { uid } => {
+                tracing::warn!(?socket, uid, "refused a connection from another user");
                 continue;
             }
-            Peer::Gone => {
+            Admission::Gone => {
                 tracing::debug!(?socket, "dropped a connection whose peer left at once");
                 continue;
             }
@@ -461,23 +439,5 @@ async fn sleep_until(deadline: Option<Instant>) {
     match deadline {
         Some(deadline) => tokio::time::sleep_until(deadline).await,
         None => std::future::pending().await,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Peer, peer};
-
-    #[test]
-    fn only_the_owner_of_the_run_directory_is_a_peer() {
-        assert_eq!(peer(Ok(501), 501), Peer::Owner);
-        assert_eq!(peer(Ok(502), 501), Peer::Stranger);
-        assert_eq!(peer(Ok(0), 501), Peer::Stranger);
-    }
-
-    #[test]
-    fn a_peer_gone_before_its_credentials_is_not_another_user() {
-        let gone = std::io::Error::from(std::io::ErrorKind::NotConnected);
-        assert_eq!(peer(Err(gone), 501), Peer::Gone);
     }
 }
