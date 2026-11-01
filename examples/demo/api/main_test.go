@@ -138,7 +138,7 @@ func TestNotReady(t *testing.T) {
 }
 
 func TestOpenPostgresHidesTheURL(t *testing.T) {
-	_, err := openPostgres(context.Background(), "postgres://u:s3cret@db:5432/x?sslmode=bogus")
+	_, err := openPostgres(context.Background(), "postgres://u:s3cret@db:5432/x?sslmode=bogus", "")
 	if err == nil || strings.Contains(err.Error(), "s3cret") {
 		t.Fatalf("got %v", err)
 	}

@@ -33,15 +33,19 @@ type postgres struct {
 	where string
 }
 
-// openPostgres prepares a pool for url, without connecting yet. Its errors never quote url:
-// it holds the password.
-func openPostgres(ctx context.Context, url string) (*postgres, error) {
+// openPostgres prepares a pool for url, without connecting yet. A URL without a password
+// takes password, so that the password can be a secret shared with the database while the
+// URL stays a plain variable. Its errors never quote url: it may hold the password.
+func openPostgres(ctx context.Context, url, password string) (*postgres, error) {
 	if url == "" {
 		return nil, errors.New("DATABASE_URL is not set: expected postgres://user:password@host:5432/db")
 	}
 	config, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, errors.New("DATABASE_URL is not a valid postgres URL: expected postgres://user:password@host:5432/db")
+	}
+	if config.ConnConfig.Password == "" {
+		config.ConnConfig.Password = password
 	}
 	config.MaxConns = 4
 	pool, err := pgxpool.NewWithConfig(ctx, config)
@@ -92,10 +96,17 @@ func (p *postgres) list(ctx context.Context, limit int) ([]message, error) {
 	})
 }
 
+// keptMessages is how many messages the guestbook keeps.
+const keptMessages = 1000
+
 func (p *postgres) add(ctx context.Context, name, text string) (message, error) {
 	m := message{Name: name, Text: text}
 	err := p.pool.QueryRow(ctx,
-		`INSERT INTO messages (name, text) VALUES ($1, $2) RETURNING id, created_at`, name, text,
+		// The demo is public: it keeps the last keptMessages only, so a script posting in a
+		// loop cannot fill the server's disk.
+		`WITH new AS (INSERT INTO messages (name, text) VALUES ($1, $2) RETURNING id, created_at),
+		      old AS (DELETE FROM messages WHERE id <= (SELECT id FROM new) - $3)
+		 SELECT id, created_at FROM new`, name, text, keptMessages,
 	).Scan(&m.ID, &m.CreatedAt)
 	return m, err
 }

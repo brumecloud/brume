@@ -19,8 +19,10 @@ services:
   api:
     build: ./api
     image: brume-demo-api:dev
+    # As on Brume: the password is the secret shared with `db`, the URL a plain variable.
     environment:
-      DATABASE_URL: postgres://postgres:local-only-password@db:5432/postgres?sslmode=disable
+      DATABASE_URL: postgres://postgres@db:5432/postgres?sslmode=disable
+      POSTGRES_PASSWORD: local-only-password
     networks: [demo]
     read_only: true
     security_opt: [no-new-privileges:true]

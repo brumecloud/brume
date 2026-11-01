@@ -203,7 +203,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	db, err := openPostgres(ctx, os.Getenv("DATABASE_URL"))
+	db, err := openPostgres(ctx, os.Getenv("DATABASE_URL"), os.Getenv("POSTGRES_PASSWORD"))
 	if err != nil {
 		log.Fatal(err)
 	}

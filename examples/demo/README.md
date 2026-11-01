@@ -38,7 +38,7 @@ Compose runs the services at least as strictly as Brume does: one network, no pu
 | `POST /api/messages` with `{"name","text"}` | 201 and the message. 400 if `name` is not 1 to 64 characters, `text` not 1 to 500, a field is unknown, or the body is over 16 KiB. |
 | `GET /healthz` | 200 `ok` once the table exists, 503 before |
 
-Both trim the spaces around `name` and `text`. Until Postgres answers, `/api/` answers 503 `{"error":"the database is not ready yet"}`.
+Both trim the spaces around `name` and `text`. The guestbook is public: it keeps its last 1000 messages, and nginx accepts 2 posts a second overall (bursts of 20), answering 429 beyond. Until Postgres answers, `/api/` answers 503 `{"error":"the database is not ready yet"}`.
 
 ## Deploy it on Brume
 
@@ -46,9 +46,9 @@ Three services in one environment. Their slugs must be `db` and `api`: the API r
 
 | Service | Image | Variables | Port | Healthcheck | Volume |
 |---|---|---|---|---|---|
-| `db` | `postgres:17` | `POSTGRES_PASSWORD`: a secret | 5432 | the container keeps running | `/var/lib/postgresql/data` |
-| `api` | `public.ecr.aws/c6e9e0x1/brume-demo-api:0.1` | `DATABASE_URL`: `postgres://postgres:<password>@db:5432/postgres?sslmode=disable`, a secret | 8080 | `GET /healthz` | none |
-| `web` | `public.ecr.aws/c6e9e0x1/brume-demo-web:0.1` | none | 8080 | `GET /healthz` | none |
+| `db` | `postgres:17` | `POSTGRES_PASSWORD`: a shared secret | 5432 | the container keeps running | `/var/lib/postgresql/data` |
+| `api` | `public.ecr.aws/c6e9e0x1/brume-demo-api:0.2` | `DATABASE_URL`: `postgres://postgres@db:5432/postgres?sslmode=disable`, a plain variable; `POSTGRES_PASSWORD`: the secret shared with `db` | 8080 | `GET /healthz` | none |
+| `web` | `public.ecr.aws/c6e9e0x1/brume-demo-web:0.2` | none | 8080 | `GET /healthz` | none |
 
 The domain goes on `web`. `api` and `db` stay inside the environment's network.
 
@@ -67,8 +67,8 @@ Public on Amazon ECR Public, for `linux/amd64` and `linux/arm64`, in the registr
 
 | Image | Digest of the multi-arch index |
 |---|---|
-| `public.ecr.aws/c6e9e0x1/brume-demo-api:0.1` | `sha256:7c9c4516580ed37027034f17bcc5ae45b3d27e1a73c6ba930a95a7471dd4a76a` |
-| `public.ecr.aws/c6e9e0x1/brume-demo-web:0.1` | `sha256:cfdf9e7e9c48f12b452eedcf924008804821122bf3702c242015cfaccf159d98` |
+| `public.ecr.aws/c6e9e0x1/brume-demo-api:0.2` | `sha256:69979983362420ee13f5757b07ecf51b5c65c289b01d1df8e805a7a0b4da2a46` |
+| `public.ecr.aws/c6e9e0x1/brume-demo-web:0.2` | `sha256:59a09894f91a0d280fa07a02bbc10f89a43d2dd82b575faddd0c9f52c76c8abd` |
 
 ECR Public throttles anonymous pulls, to about one per second per IP address. Several pulls in a row can get `toomanyrequests: Rate exceeded`; the next try a few seconds later passes.
 
