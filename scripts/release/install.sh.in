@@ -63,9 +63,17 @@ MIST
   echo "$sha256  $tmp/$archive" | sha256sum -c --status - ||
     fail "$archive does not match the SHA-256 of Brume $version: nothing was installed"
 
-  say "Installing it in /usr/local/lib/brume"
-  install -d -m 0755 /usr/local/lib/brume
-  tar -xzf "$tmp/$archive" -C /usr/local/lib/brume --strip-components=1 --no-same-owner
+  # The same files, byte for byte, stay in place: a replaced binary makes brume install restart
+  # the services that run it.
+  mkdir "$tmp/brume"
+  tar -xzf "$tmp/$archive" -C "$tmp/brume" --strip-components=1 --no-same-owner
+  if diff -r -q "$tmp/brume" /usr/local/lib/brume >/dev/null 2>&1; then
+    say "Brume $version is already in /usr/local/lib/brume"
+  else
+    say "Installing it in /usr/local/lib/brume"
+    install -d -m 0755 /usr/local/lib/brume
+    tar -xzf "$tmp/$archive" -C /usr/local/lib/brume --strip-components=1 --no-same-owner
+  fi
   ln -sfn /usr/local/lib/brume/brume /usr/local/bin/brume
   rm -rf "$tmp"
   trap - EXIT
