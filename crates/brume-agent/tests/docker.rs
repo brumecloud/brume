@@ -189,6 +189,7 @@ async fn scenario(docker: &Docker) {
         "KILL",
         "SETGID",
         "SETUID",
+        "SETPCAP",
         "NET_BIND_SERVICE",
     ]
     .iter()
@@ -417,6 +418,48 @@ async fn forwards_logs(reconciler: &mut Reconciler, state: &DesiredState) {
 async fn reconciles_nginx_and_resolves_image() {
     let docker = connect().await.expect("reaches Docker");
     let result = AssertUnwindSafe(scenario(&docker)).catch_unwind().await;
+    cleanup(&docker).await;
+    if let Err(panic) = result {
+        std::panic::resume_unwind(panic);
+    }
+}
+
+/// redis:8's entrypoint drops root with `setpriv`, which needs `CAP_SETPCAP`: without it the
+/// container exits with 127 at once.
+async fn redis_scenario(docker: &Docker) {
+    let outcome = resolve_image(docker, "redis:8").await;
+    let JobOutcome::ImageResolved { digest, .. } = outcome else {
+        panic!("not resolved: {outcome:?}");
+    };
+    let suffix = format!("redis-{}", std::process::id());
+    let mut state = desired(&suffix, &digest);
+    let container = &mut state.containers[0];
+    container.mounts[0].path = "/data".to_owned();
+    container.healthcheck = Healthcheck::Running { grace_secs: 3 };
+    let mut reconciler = Reconciler::new(DockerShell::new(docker.clone()).scoped(TEST_LABEL, "1"));
+
+    let mut health = ContainerHealth::Missing;
+    for _ in 0..60 {
+        let round = reconciler.reconcile(&state).await.expect("reconciles");
+        health = round.observed.containers[0].health.clone();
+        if matches!(
+            health,
+            ContainerHealth::Healthy | ContainerHealth::Exited { .. }
+        ) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    assert_eq!(health, ContainerHealth::Healthy);
+}
+
+#[tokio::test]
+#[ignore = "needs Docker"]
+async fn runs_redis_under_the_dropped_capabilities() {
+    let docker = connect().await.expect("reaches Docker");
+    let result = AssertUnwindSafe(redis_scenario(&docker))
+        .catch_unwind()
+        .await;
     cleanup(&docker).await;
     if let Err(panic) = result {
         std::panic::resume_unwind(panic);

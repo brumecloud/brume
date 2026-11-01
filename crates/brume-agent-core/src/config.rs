@@ -22,8 +22,10 @@ pub const LABEL_CONFIG_HASH: &str = "brume.config-hash";
 /// The network mode of a container without networks: no network at all, never Docker's bridge.
 pub const NO_NETWORK: &str = "none";
 
-/// The capabilities a container keeps, after it drops them all.
-const CAP_ADD: [&str; 8] = [
+/// The capabilities a container keeps, after it drops them all. `SETPCAP` lets an entrypoint
+/// that starts as root shrink its own bounding set while it drops root, as redis:8's `setpriv`
+/// does; `no-new-privileges` still forbids gaining any.
+const CAP_ADD: [&str; 9] = [
     "CHOWN",
     "DAC_OVERRIDE",
     "FOWNER",
@@ -31,6 +33,7 @@ const CAP_ADD: [&str; 8] = [
     "KILL",
     "SETGID",
     "SETUID",
+    "SETPCAP",
     "NET_BIND_SERVICE",
 ];
 
