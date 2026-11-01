@@ -39,7 +39,7 @@ export function DeploymentList({ serviceId }: { readonly serviceId: ServiceId })
           className="ms-auto"
           variant="outline"
           size="sm"
-          disabled={!active}
+          disabled={deployments.length === 0}
           loading={redeployment.isPending}
           onClick={() => redeployment.mutate()}
         >

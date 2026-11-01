@@ -1228,24 +1228,27 @@ fn missing_secret_when_starting_fails_the_deployment() {
 }
 
 #[test]
-fn redeploy_needs_an_active_deployment() {
+fn redeploy_without_an_active_deployment_resolves_the_spec_again() {
     let mut scenario = Scenario::new();
     scenario.run(Command::ImageResolutionFailed {
         deployment: scenario.first.clone(),
         message: "manifest unknown".to_owned(),
     });
-    let rejection = scenario
-        .try_run(&Command::Redeploy {
-            service: scenario.service.clone(),
-            deployment: DeploymentId::new(&mut ctx()),
-            author: scenario.admin.clone(),
-        })
-        .expect_err("rejected");
-    assert_eq!(rejection.kind, RejectionKind::Conflict);
-    assert_eq!(
-        rejection.message,
-        "nginx has no active deployment to redeploy."
-    );
+    let deployment = DeploymentId::new(&mut ctx());
+    let events = scenario.run(Command::Redeploy {
+        service: scenario.service.clone(),
+        deployment: deployment.clone(),
+        author: scenario.admin.clone(),
+    });
+    assert!(matches!(
+        events.as_slice(),
+        [Event::DeploymentRequested {
+            deployment: requested,
+            revision: RevisionPlan::Resolve { image },
+            reason: DeployReason::Redeploy,
+            ..
+        }] if requested == &deployment && image == &self::image("nginx:1.29")
+    ));
 }
 
 #[test]

@@ -105,8 +105,8 @@ pub enum ApiCall {
     },
     /// `GET /api/deployments`. Answer: `Deployments`.
     ListDeployments,
-    /// `POST /api/services/:id/redeploy`: deploys the active revision again. Answer:
-    /// `Deployment`.
+    /// `POST /api/services/:id/redeploy`: deploys the active revision again, or the service as
+    /// it is now when it has none. Answer: `Deployment`.
     Redeploy {
         /// The service.
         service_id: String,

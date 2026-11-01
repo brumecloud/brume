@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { db } from "~/mocks/db";
 import { northbean } from "~/mocks/seed";
 
 import { renderApp } from "../test/render-app";
@@ -85,5 +86,21 @@ describe("service panel", () => {
     );
 
     await expect.element(screen.getByText("Page not found")).toBeVisible();
+  });
+
+  it("redeploys a service whose deployments all failed", async () => {
+    const serviceId = `${northbean.id}-production-order-worker`;
+    for (const [index, deployment] of db.deployments.entries()) {
+      if (deployment.serviceId === serviceId) {
+        db.deployments[index] = { ...deployment, status: "failed" };
+      }
+    }
+    const screen = await renderApp(`${service("order-worker")}/deployments`);
+
+    await expect.element(screen.getByText("No active deployment.")).toBeVisible();
+    await screen.getByRole("button", { name: "Redeploy" }).click();
+
+    await expect.element(screen.getByText("No active deployment.")).not.toBeInTheDocument();
+    await expect.element(screen.getByRole("article").first().getByText("Active")).toBeVisible();
   });
 });
