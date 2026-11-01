@@ -162,6 +162,9 @@ impl Drop for Dev {
         {
             let _ = self.child.kill();
             let _ = self.child.wait();
+            for pid in &self.pids {
+                signal("-KILL", *pid);
+            }
         }
     }
 }
@@ -434,6 +437,10 @@ fn segments(home: &Path) -> Vec<PathBuf> {
             return;
         };
         for entry in entries.flatten() {
+            // A segment being written is a temporary file whose name starts with a dot.
+            if entry.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
             let path = entry.path();
             if path.is_dir() {
                 walk(&path, files);
@@ -552,7 +559,7 @@ async fn e2e_deploy_nginx_from_the_api() {
     ));
     let outcome = scenario.await;
     let mut dev = dev;
-    let status = dev.interrupt();
+    let status = dev.stop();
     let log = dev.log();
     let pids = dev.pids.clone();
     let home = dev.home();
@@ -563,6 +570,7 @@ async fn e2e_deploy_nginx_from_the_api() {
         std::panic::resume_unwind(error.into_panic());
     }
 
+    let status = status.expect("brume dev stops on Ctrl-C");
     assert!(status.success(), "brume dev exited with {status}:\n{log}");
     for pid in pids {
         assert!(!signal("-0", pid), "service {pid} still runs");
@@ -878,4 +886,42 @@ async fn dev_survives_docker_unreachable() {
         dev.log()
     );
     assert!(dev.log().contains("Docker is unreachable"), "{}", dev.log());
+}
+
+#[test]
+#[ignore = "runs the brume binary: cargo test -p brume --test e2e -- --ignored"]
+fn dev_stops_everything_when_a_service_dies() {
+    let dir = tempfile::Builder::new()
+        .prefix("brume-e2e")
+        .tempdir_in("/tmp")
+        .expect("a temporary directory");
+    // No Docker: this agent must not touch the containers of this machine.
+    let nowhere = PathBuf::from("unix:///nonexistent");
+    let fake_home = dir.path().to_path_buf();
+    let mut dev = Dev::start_in(
+        dir,
+        &[("DOCKER_HOST", &nowhere), ("HOME", &fake_home)],
+        &[],
+        None,
+    );
+    // telemetry, engine, agent, api: the agent dies.
+    let agent = dev.pids[2];
+    assert!(signal("-KILL", agent));
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let status = loop {
+        if let Some(status) = dev.child.try_wait().expect("waits") {
+            break status;
+        }
+        assert!(Instant::now() < deadline, "brume dev still runs");
+        std::thread::sleep(POLL);
+    };
+    let log = dev.log();
+    assert_eq!(status.code(), Some(1), "{log}");
+    assert!(
+        log.contains("The agent service stopped (signal: 9"),
+        "{log}"
+    );
+    for pid in dev.pids.clone() {
+        assert!(!signal("-0", pid), "service {pid} still runs");
+    }
 }

@@ -85,9 +85,7 @@ enum Stop {
 
 /// Runs every service until Ctrl-C (success) or until one of them stops (an error).
 pub async fn run(args: DevArgs) -> anyhow::Result<()> {
-    if args.reset && !reset(&args.home)? {
-        bail!("Nothing was deleted.");
-    }
+    // Before a reset: a port in use may be another `brume dev` on the same home.
     let listener = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, args.port)))
         .with_context(|| {
             format!(
@@ -96,6 +94,9 @@ pub async fn run(args: DevArgs) -> anyhow::Result<()> {
             )
         })?;
     drop(listener);
+    if args.reset && !reset(&args.home)? {
+        bail!("Nothing was deleted.");
+    }
     std::fs::DirBuilder::new()
         .recursive(true)
         .mode(0o700)
@@ -244,17 +245,29 @@ async fn connects(socket: &Path) -> bool {
 /// read-only or failing engine closes the connection without an answer.
 async fn login_token(admin_socket: &Path, timeout: Duration) -> anyhow::Result<String> {
     let ask = async {
-        let stream = UnixStream::connect(admin_socket).await.ok()?;
+        let stream = UnixStream::connect(admin_socket)
+            .await
+            .context("cannot connect to admin.sock")?;
         let (read, write) = stream.into_split();
         let mut writer = FramedWriter::new(write);
-        writer.write(&AdminRequest::CreateLoginLink).await.ok()?;
+        writer
+            .write(&AdminRequest::CreateLoginLink)
+            .await
+            .context("cannot send the request")?;
         let mut reader = FramedReader::new(read);
-        reader.read::<AdminReply>().await.ok().flatten()
+        reader
+            .read::<AdminReply>()
+            .await
+            .context("cannot read the answer")?
+            .context("the engine closed admin.sock without an answer")
     };
-    match tokio::time::timeout(timeout, ask).await {
-        Ok(Some(AdminReply::LoginLink { token, .. })) => Ok(token),
-        Ok(None) | Err(_) => Err(anyhow!(LOGIN_LINK_REFUSED)),
-    }
+    let cause = match tokio::time::timeout(timeout, ask).await {
+        Ok(Ok(AdminReply::LoginLink { token, .. })) => return Ok(token),
+        Ok(Err(cause)) => format!("{cause:#}"),
+        Err(_) => format!("no answer within {} ms", timeout.as_millis()),
+    };
+    tracing::warn!(%cause, "no login link");
+    Err(anyhow!(LOGIN_LINK_REFUSED))
 }
 
 /// The login link, the services and their pids.
