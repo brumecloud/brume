@@ -4,15 +4,16 @@
 
 Ce document décrit l'administration par Tailscale, le mode recommandé. Les autres modes sont à la fin : voir [Sans Tailscale](#sans-tailscale).
 
-- **`brume api` écoute uniquement sur `127.0.0.1`.** `tailscale serve` l'expose en HTTPS sur le tailnet, avec un certificat `*.ts.net`.
+- **`brume api` écoute uniquement sur `127.0.0.1`.** `tailscale serve` l'expose en HTTPS sur le tailnet, avec un certificat `*.ts.net` : `brume install` lance `tailscale serve --bg --https=443` vers `127.0.0.1:7878`. Si le tailnet n'a pas activé HTTPS, l'install affiche le lien de Tailscale qui l'active, et attend.
 - **HTTPS uniquement,** aucun listener HTTP sur le tailnet.
-- **Vérifier le header `Host`** sur chaque requête, contre le DNS rebinding.
+- **Vérifier le header `Host`** sur chaque requête, contre le DNS rebinding : le nom du nœud sur le tailnet (`brume.xxx.ts.net`), ou `127.0.0.1` et `localhost` sur le port de l'API, sinon 421.
 - **Jamais de Funnel sur Brume.**
 
 ## Tailscale
 
-- **Clé d'auth de l'install :** à usage unique, pré-autorisée, taguée, de courte durée.
+- **Aucune clé d'auth :** `brume install` lance `tailscale up --ssh`, affiche le lien de connexion et attend que l'admin le suive. Rien à créer ni à garder.
 - **Nœud tagué `tag:brume` :** un nœud tagué n'a pas d'expiration de clé. Sans tag, la clé expire au bout de 180 jours et on perd l'accès au panel. La policy du tailnet doit aussi lui interdire d'ouvrir des connexions vers les appareils : voir [03-reseau.md](03-reseau.md#tailscale).
+- **Pas encore livré :** le tag. Un nœud tagué n'appartient à personne, et l'allowlist est aujourd'hui le login du propriétaire du nœud : l'install refuse donc un nœud tagué. En attendant, la clé du nœud expire comme celle de tout appareil, et le panel devient injoignable jusqu'à une nouvelle connexion du serveur à Tailscale.
 - **Tailscale SSH ne passe pas par le second facteur.** En 0.1, l'identité Tailscale seule donne un shell root. Risque accepté, voir [01-modele-de-menace.md](01-modele-de-menace.md#risques-acceptés-en-01).
 - **Tailnet Lock : plus tard.** Il empêchera le serveur de coordination de Tailscale, ou un compte volé chez le fournisseur d'identité, d'ajouter un nœud au tailnet. Voir [12-plus-tard.md](12-plus-tard.md).
 
@@ -23,7 +24,8 @@ Deux facteurs indépendants.
 ### 1. L'identité Tailscale
 
 - **`tailscale serve` pose le header `Tailscale-User-Login`** selon l'appareil qui se connecte, après avoir supprimé les headers `Tailscale-User-*` envoyés par le client. Il ne le pose pas pour un appareil tagué : toute requête sans ce header est rejetée.
-- **Allowlist d'identités fixée à l'install :** `brume install` demande le login Tailscale de l'admin. Jamais de « le premier qui se connecte devient admin ».
+- **Allowlist d'identités fixée à l'install : le login Tailscale du propriétaire du nœud,** c'est-à-dire de celui qui a suivi le lien de connexion de l'install. `brume install` l'écrit dans `/etc/brume/api.toml`, avec le nom du nœud. Jamais de « le premier qui se connecte au panel devient admin ».
+- **Vérifiée avant toute route,** panel statique compris : une requête sans un et un seul `Tailscale-User-Login` de l'allowlist reçoit un 403.
 - **Un process local qui atteint `127.0.0.1` peut forger le header.** Aucun container n'est en réseau host, et sans session émise par l'engine, un header forgé ne donne rien.
 - **Être sur le tailnet ne suffit pas :** un appareil compromis ou un tailnet partagé donnerait accès au panel. D'où le second facteur.
 
@@ -42,7 +44,8 @@ Deux facteurs indépendants.
 - **Après un changement de nom** de la machine ou du tailnet, la CLI de secours réinitialise la passkey, puis l'admin la ré-enrôle.
 - **Vérifié par l'engine, pas par l'API.** L'engine stocke les identifiants, génère le challenge, vérifie la réponse et émet la session.
 - **Premier accès :** `brume install` affiche une URL d'enrôlement à usage unique, valable 15 minutes. Elle porte un jeton affiché seulement dans le terminal de l'install : en administration publique, cette URL est joignable depuis Internet.
-- **Récupération :** la CLI de secours `brume`, en local, depuis la console de l'hébergeur, via un socket unix en `0600`. C'est une autre porte que la CLI du laptop : voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-code).
+- **Pas encore livré.** En attendant la passkey, la connexion se fait par un lien à usage unique, valable 15 minutes, que l'engine émet pour root sur l'hôte. `brume install` en affiche un à la fin, et `sudo brume admin login` en affiche un nouveau, par `admin.sock`. `brume login` reste réservé à la CLI du laptop : voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#la-connexion--brume-login).
+- **Récupération :** la CLI de secours `brume`, en local, depuis la console de l'hébergeur, via `admin.sock`, que l'engine réserve à root. C'est une autre porte que la CLI du laptop : voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-code).
 
 ## Session
 

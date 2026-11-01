@@ -58,7 +58,9 @@ Le schéma montre les modes recommandés : Cloudflare Tunnel pour le trafic publ
 
 ## Les échanges entre services
 
-- **Un socket unix par client :** `/run/brume/api.sock` appartient au groupe `brume-api`, `/run/brume/webhook.sock` au groupe `brume-webhook`, `/run/brume/agent.sock` au groupe `brume-agent`. Les permissions du système de fichiers font l'autorisation.
+- **Un socket unix par client,** dans le dossier du service qui écoute : `/run/brume/engine/` pour `api.sock`, `agent.sock`, `admin.sock` et, avec le webhook, `webhook.sock` ; `/run/brume/telemetry/` pour `telemetry-ingest.sock` et `telemetry-query.sock`.
+- **Chaque service vérifie le pair à la connexion.** Il lit l'uid du pair donné par le noyau, et refuse tout autre utilisateur que celui du socket : `brume-api` sur `api.sock`, `brume-agent` sur `agent.sock` et `telemetry-ingest.sock`, l'engine sur `telemetry-query.sock`, root sur `admin.sock`. Les sockets sont en `0660`, avec le groupe `brume` que partagent les utilisateurs des services : le système de fichiers ouvre la porte, la vérification du pair fait l'autorisation.
+- **Aucun service ne peut écouter à la place d'un autre.** Chaque dossier de sockets appartient au service qui y écoute, en `2750`, avec le groupe `brume` en setgid : les autres services s'y connectent, mais ne peuvent ni supprimer ni remplacer un socket.
 - **Chaque socket a ses propres opérations.** Celui du webhook n'expose que `enqueue_build(repo_id, ref)`.
 - **Un protocole typé et versionné,** avec des tailles de message limitées. Aucune opération générique du genre « exécuter une commande Docker ».
 - **La collecte des logs ne passe pas par l'engine :** dockerd envoie les logs de chaque container directement à `brume telemetry`. Un flot de logs ne peut donc pas saturer l'engine. Voir [09-observabilite.md](09-observabilite.md#logs-des-apps).

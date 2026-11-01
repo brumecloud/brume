@@ -8,7 +8,7 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 
 - Un seul VPS, un seul propriétaire.
 - Debian 12 ou 13, Ubuntu 24.04 ou 26.04, en amd64 ou arm64.
-- Installation en une commande : `curl -sSL https://github.com/brumecloud/brume/releases/latest/download/install.sh | bash`.
+- Installation en une commande : `curl -sSL https://brume.dev/install.sh | sudo bash -s -- --domain <zone>`.
 - Déploiement de n'importe quel container, et de sites statiques avec rollback instantané.
 - Templates avec bonnes pratiques intégrées : site statique, PostgreSQL, MongoDB, Redis.
 - CI/CD automatique depuis GitHub, build avec Railpack.
@@ -64,8 +64,9 @@ Ce dossier décrit l'architecture et la sécurité de l'alpha 0.1. C'est la base
 1. **Accord de contribution (CLA) :** en demander un aux contributeurs, pour garder la possibilité de changer de licence, ou non. Voir [10-developpement.md](10-developpement.md#licence).
 2. **Mises à jour automatiques, avant la première release :** l'heure d'installation (proposition : la fenêtre de 4 h du reboot), le retour local au binaire précédent si le nouveau ne démarre pas, et le déploiement progressif par un pourcentage dans `latest.json`. Voir [08-hote-et-installation.md](08-hote-et-installation.md#mises-à-jour).
 3. **Canal de vérification de la clé de signature hors de GitHub,** puisque brume.dev est déployé depuis le même dépôt. Voir [10-developpement.md](10-developpement.md#signature--minisign).
-4. **Config locale du tunnel Cloudflare, avant d'écrire l'install :** vérifier dans la documentation de Cloudflare qu'elle empêche bien le dashboard d'ajouter des routes, et qu'un tel tunnel se crée par l'API. Voir [03-reseau.md](03-reseau.md#la-config-du-tunnel).
-5. **Pas de Headscale en 0.1 :** proposition à confirmer, plus tard.
-6. **Un domaine dédié aux apps,** séparé du domaine qui porte les emails : un compte Cloudflare volé ne pourrait plus détourner les MX. Conseil à l'install, ou rien. Plus tard. Voir [03-reseau.md](03-reseau.md#domaines).
-7. **Frontend :** décodage des réponses de l'API, graphiques des métriques. Voir [front-architecture.md](front-architecture.md#décisions-ouvertes).
-8. **Après un `brume deploy` depuis un dossier :** le service suit sa branche, chaque push le redéployant, ou reste sur le commit déployé jusqu'au prochain `deploy`. Voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-dossier-courant).
+4. **Pas de Headscale en 0.1 :** proposition à confirmer, plus tard.
+5. **Un domaine dédié aux apps,** séparé du domaine qui porte les emails : un compte Cloudflare volé ne pourrait plus détourner les MX. Conseil à l'install, ou rien. Plus tard. Voir [03-reseau.md](03-reseau.md#domaines).
+6. **Frontend :** décodage des réponses de l'API, graphiques des métriques. Voir [front-architecture.md](front-architecture.md#décisions-ouvertes).
+7. **Après un `brume deploy` depuis un dossier :** le service suit sa branche, chaque push le redéployant, ou reste sur le commit déployé jusqu'au prochain `deploy`. Voir [19-cli-et-agents-ia.md](19-cli-et-agents-ia.md#le-dossier-courant).
+
+Tranchée au jalon 2 : la config locale du tunnel Cloudflare ne protège pas du compte Cloudflare, qui peut passer le tunnel en config distante et y pousser des routes. La barrière est le réseau de cloudflared. Voir [03-reseau.md](03-reseau.md#la-config-du-tunnel).

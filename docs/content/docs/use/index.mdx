@@ -25,6 +25,8 @@ Brume alpha 0.1 targets one person running their projects on one VPS: side proje
 - **Keep the server closed by default:** the panel is reachable over Tailscale, and public traffic arrives through Cloudflare Tunnel, so no inbound port is open. Administration through an SSH tunnel or from the public internet, and direct ingress on ports 80 and 443, are opt-in and chosen on the server.
 - **Keep all of Brume's state on S3, with its secrets encrypted,** so a lost VPS is rebuilt from the bucket.
 
+The first alpha installs on a VPS with one command and deploys public images, with logs, secrets and public domains. Backups, updates, GitHub builds and templates come next. The [quickstart](/docs/use/quickstart) walks through what works today.
+
 ## What makes it different
 
 Brume treats your server as the thing to protect. By default the panel never faces the internet, a compromised app cannot reach the rest of the server, dangerous options are set on the server and never in the panel, and updates are signed with a key kept offline. [How Brume works](/docs/how-it-works) explains each decision.

@@ -9,13 +9,13 @@
 </p>
 
 > [!WARNING]
-> **Brume is a work in progress.** The first milestone of alpha 0.1 runs locally: from the panel, on your own machine, you deploy public Docker images with variables and secrets, and watch their logs. Nothing is exposed to the Internet, there is no installer yet, and everything is subject to change.
+> **Brume is an alpha.** It installs on a VPS with one command, and deploys public Docker images with variables, secrets, logs and a public domain. It has no backups and no S3 yet, so a lost server cannot be restored. It does not update itself, signs you in with a one-time link instead of a passkey, and does not build from GitHub. Do not run anything you cannot lose on it, and expect everything to change.
 
 ## Goals for alpha 0.1
 
 - A single VPS, a single owner.
 - Debian 12 or 13, Ubuntu 24.04 or 26.04, on amd64 or arm64.
-- One-command install: `curl -sSL https://github.com/brumecloud/brume/releases/latest/download/install.sh | bash`.
+- One-command install: `curl -sSL https://brume.dev/install.sh | sudo bash -s -- --domain <zone>`.
 - Deploy any container, plus static sites with instant rollback.
 - Templates with good practices built in: static site, PostgreSQL, MongoDB, Redis.
 - Automatic CI/CD from GitHub, built with Railpack.
@@ -41,9 +41,17 @@ Rust code follows the [Google Rust style guide](https://google.github.io/stylegu
 
 ## Status
 
-**Milestone 1 of alpha 0.1: run it locally.** `brume dev` starts the engine, the agent, telemetry and the API on your machine, against your local Docker, and prints a login link to the panel on http://127.0.0.1:7878. See [Run Brume locally](docs/content/docs/customize/run-locally.mdx) for the steps, and [`archi/jalons/2026-10-31-jalon-1-deploiement-local.md`](archi/jalons/2026-10-31-jalon-1-deploiement-local.md) (in French) for the scope of the milestone and what it leaves out.
+**Milestone 2 of alpha 0.1: install it on a VPS.** On a fresh server running Ubuntu 24.04 or 26.04, or Debian 12 or 13:
 
-The rest of alpha 0.1 (installer, Tailscale, Cloudflare Tunnel, GitHub builds, templates, backups, S3) is still design. Open questions are tracked in [`archi/base/README.md`](archi/base/README.md#décisions-ouvertes).
+```sh
+curl -sSL https://brume.dev/install.sh | sudo bash -s -- --domain <zone>
+```
+
+`install.sh` downloads the archive for the server's architecture from a GitHub pre-release and checks it against the SHA-256 it pins. `brume install` then sets up a firewall (nftables), Docker with user namespaces, one system user per service, Tailscale with the panel on your tailnet, and with `--domain`, a Cloudflare tunnel for your apps' public domains. It ends with a one-time login link to the panel. See the [quickstart](docs/content/docs/use/quickstart.mdx), and [`archi/jalons/2026-11-01-jalon-2-vps.md`](archi/jalons/2026-11-01-jalon-2-vps.md) (in French) for the scope of the milestone. It was tested on Ubuntu 24.04 on arm64: Debian and amd64 are built, but not yet tested on a VM.
+
+**Milestone 1: run it locally.** `brume dev` starts the engine, the agent, telemetry and the API on your machine, against your local Docker. See [Run Brume locally](docs/content/docs/customize/run-locally.mdx).
+
+**Not there yet:** the S3 bucket, backups and restore, the age keys, minisign signatures and the updater, the passkey, `tag:brume`, closing port 22, the read-only Cloudflare token and HSTS, GitHub builds, templates, static sites, and the CLI on your laptop. Open questions are tracked in [`archi/base/README.md`](archi/base/README.md#décisions-ouvertes).
 
 ## License
 

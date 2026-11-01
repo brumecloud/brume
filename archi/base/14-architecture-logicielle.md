@@ -211,7 +211,7 @@ Chaque événement porte :
 
 ## Le protocole entre l'engine et l'agent
 
-- **En 0.1, un socket unix :** `/run/brume/agent.sock`, ouvert par l'engine, groupe `brume-agent`. **Plus tard,** les agents des autres machines se connecteront en sortie au master par le tailnet, avec les mêmes messages. Le master n'aura aucun accès aux machines.
+- **En 0.1, un socket unix :** `/run/brume/engine/agent.sock`, ouvert par l'engine, qui n'y accepte que l'utilisateur `brume-agent`. Voir [02-architecture.md](02-architecture.md#les-échanges-entre-services). **Plus tard,** les agents des autres machines se connecteront en sortie au master par le tailnet, avec les mêmes messages. Le master n'aura aucun accès aux machines.
 - **Messages typés et versionnés** dans `brume-proto`, avec une taille limitée. Le format de sérialisation est laissé au builder, tant qu'il passe par serde.
 - **De l'engine vers l'agent :**
   - `DesiredState` : l'état voulu complet de la machine, jamais un diff. Containers, réseaux, routes Traefik, ports `tailscale serve`, artefacts à garder dans dockerd, et les secrets résolus de ses containers. Il porte la position du log dont il découle.

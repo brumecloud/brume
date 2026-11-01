@@ -9,10 +9,9 @@
 | Credentials S3 | `brume engine`, `brume agent` | lecture et écriture, sans suppression, sans droit sur le cycle de vie ni le versioning |
 | Clé publique age | `brume engine` | la clé privée reste chez l'utilisateur |
 | Secret HMAC du webhook | `brume webhook` | sauvegardé dans l'état, sur S3 |
-| Secret du tunnel Cloudflare | cloudflared | permet de lancer un connecteur : l'engine détecte les connecteurs inconnus |
+| Secret du tunnel Cloudflare | `brume engine`, cloudflared | permet de lancer un connecteur : l'engine détecte les connecteurs inconnus. L'engine le garde scellé par la clé maître, hors du log |
 | Token Cloudflare en lecture seule | `brume engine` | tunnel et DNS, pour alerter sur un connecteur ou un enregistrement inconnu |
 | Token API Cloudflare | personne | utilisé à l'install puis oublié |
-| Clé d'auth Tailscale | personne après l'install | à usage unique |
 
 ## Secrets des apps
 

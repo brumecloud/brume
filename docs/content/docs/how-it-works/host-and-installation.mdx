@@ -1,89 +1,130 @@
 ---
 title: Host and installation
-description: What the install script and brume install set up on a fresh server, and how Brume, its components and the OS stay patched.
+description: What install.sh and brume install set up on a fresh server, what this alpha leaves out, and how Brume, its components and the OS are designed to stay patched.
 type: concept
-status: planned
+status: available
 sources:
   - archi/base/08-hote-et-installation.md
+  - archi/base/02-architecture.md
+  - archi/base/03-reseau.md
   - archi/base/14-architecture-logicielle.md
   - archi/base/10-developpement.md
   - archi/base/17-telemetrie.md
   - archi/base/06-builds-et-deploiement.md
   - archi/base/12-plus-tard.md
+  - archi/jalons/2026-11-01-jalon-2-vps.md
+  - scripts/release/install.sh.in
+  - scripts/release/README.md
+  - crates/brume/src/install/mod.rs
+  - crates/brume/src/install/steps.rs
+  - crates/brume/src/install/systemd.rs
+  - crates/brume/src/install/docker.rs
+  - crates/brume/src/login.rs
 ---
 
-Brume configures the whole server itself, starting from a fresh VPS. A tiny script downloads and verifies the `brume` binary, then `brume install` does the rest: ingress and administration modes, firewall, Docker, Tailscale and Cloudflare Tunnel if you use them, encryption keys, the S3 bucket, systemd services and automatic updates. All of that host configuration lives in the Rust binary, not in bash: it can be tested, replayed safely, and reapplied at every update.
+Brume configures the whole server itself, starting from a fresh VPS. A short script downloads and checks the `brume` archive, then `brume install` does the rest: the firewall, Docker, Tailscale, the systemd services and, with a domain, Cloudflare Tunnel. All of that host configuration lives in the Rust binary, not in bash: it can be tested, run again safely, and reapplied at every update.
+
+This alpha leaves part of the design out: the S3 bucket, the encryption keys, the passkey and automatic updates are described here but not built yet. See [Not in this release yet](#not-in-this-release-yet).
 
 ## Requirements
 
 - **A fresh VPS.** On an existing server, ports already published and services already exposed would stay open.
 - **Debian 12 or 13, or Ubuntu 24.04 or 26.04,** on amd64 or arm64. systemd credentials need at least Debian 12 or Ubuntu 24.04. The Red Hat family (Alma, Rocky, RHEL) comes later, because it uses SELinux instead of AppArmor and dnf instead of apt: see the [roadmap](/docs/how-it-works/roadmap).
-- **Docker 28.5.2 or later.** [Networking](/docs/how-it-works/networking) explains why.
-- **An S3-compatible bucket,** with versioning or Object Lock, and credentials that can read and write but cannot delete, change lifecycle rules or suspend versioning. Brume can live in a folder of an existing bucket. `brume install` checks this. See [Secrets and backups](/docs/how-it-works/secrets-and-backups#storage).
+- **SSH on port 22,** the only port Brume's firewall opens to SSH.
+- **No other Docker package.** `brume install` installs Docker 28.5.2 or later from Docker's repository. [Networking](/docs/how-it-works/networking#docker-networks) explains why that version.
 - **In the recommended modes:** a domain on Cloudflare DNS and a tailnet. See [Networking](/docs/how-it-works/networking).
+- **With Cloudflare, an API token** with these permissions on the zone and its account: Zone → Zone → Read, Zone → DNS → Edit, Zone → Zone Settings → Edit, and Account → Cloudflare Tunnel → Edit.
+- **An S3-compatible bucket,** once backups land: with versioning or Object Lock, and credentials that can read and write but cannot delete, change lifecycle rules or suspend versioning. See [Secrets and backups](/docs/how-it-works/secrets-and-backups#storage).
 
 ## The install script
 
-The install command downloads `install.sh` from GitHub Releases and runs it:
+The install command downloads `install.sh` from brume.dev and runs it:
 
 ```bash
-curl -sSL https://github.com/brumecloud/brume/releases/latest/download/install.sh | bash
+curl -sSL https://brume.dev/install.sh | sudo bash -s -- --domain <zone>
 ```
 
-- **Tiny, readable in 30 seconds** before you run it: download, verify, run `brume install`.
+- **Tiny, readable in 30 seconds** before you run it. It finds the server's architecture, downloads the archive from the GitHub release, checks its SHA-256, installs it in `/usr/local/lib/brume` with the link `/usr/local/bin/brume`, and runs `brume install` with its own arguments.
 - **Wrapped in a function called on the last line,** so nothing runs partially if the connection drops.
-- **Served by GitHub Releases, like the binaries.** The script decides what to download and whether to verify it, so it comes from the same place as the binaries.
-- **Verifies the [minisign](https://jedisct1.github.io/minisign/) signature of the binary.** Versions are pinned.
-- **Also downloads `libduckdb`,** the DuckDB shared library, from DuckDB's official releases, at the version the Brume release pins. Its SHA-256 is in the signed manifest. Brume never compiles DuckDB: the `brume` binary links to this library, installed next to it, and the updater replaces both together. Without it, no Brume service starts, though only `brume telemetry` uses it.
-- **Manual verification is documented.** The minisign public key is published in the README and on brume.dev, so you can check `install.sh` and the binary before running them. To fool this check, an attacker has to compromise both.
-- **Still open: a verification channel outside GitHub.** brume.dev is deployed from the same GitHub repository, so a compromised GitHub account reaches both. See the [open decisions](/docs/how-it-works/roadmap#open-decisions).
+- **The version and the SHA-256 of each archive are written in the script.** The script comes from brume.dev and the archives from GitHub: replacing an archive on GitHub is not enough, an attacker must also change `install.sh` on brume.dev.
+- **One archive per architecture,** amd64 and arm64: the `brume` binary, with the panel built in, and `libduckdb.so` next to it.
+- **`libduckdb.so` ships in the archive,** instead of being downloaded from DuckDB at install. It is DuckDB's official build of the version Brume links to, checked against its SHA-256 when the release is built. Brume never compiles DuckDB: the binary links to this library next to it. Without it, no Brume service starts, though only `brume telemetry` uses it.
+- **Alpha versions are GitHub pre-releases,** which GitHub never serves as `latest`.
+- **minisign comes with the updater.** Until then, the SHA-256 pinned in `install.sh` is the only check.
+- **Still open: a verification channel outside GitHub.** Once releases are signed, the minisign public key will be published in the README and on brume.dev. But brume.dev is built from the same GitHub repository, so a compromised GitHub account can reach both. See the [open decisions](/docs/how-it-works/roadmap#open-decisions).
 
-<Callout type="warn" title="The first install trusts GitHub">
-  A compromised GitHub account can change `install.sh` so that it skips the verification. The offline signing key only protects updates. To close this gap on your server, verify `install.sh` and the binary by hand before running them.
+<Callout type="warn" title="The first install trusts brume.dev">
+  Whoever controls brume.dev can serve an `install.sh` that downloads something else. The offline signing key will protect updates, not the first install. Read `install.sh` before you pipe it into a shell.
 </Callout>
 
 ## What `brume install` does
 
-The steps run in this order:
+`brume install` runs as root. Its options choose the modes, on the host:
 
-1. Choose the ingress and administration modes. Cloudflare Tunnel and Tailscale are recommended. The other modes are direct ingress for public traffic, and an SSH tunnel or a public panel for administration. You choose them on the host, like every dangerous option, and the panel always shows when a mode that is not recommended is active. See [Networking](/docs/how-it-works/networking).
-2. Install Brume's nftables table, with the systemd unit that loads it before Docker. See [Networking](/docs/how-it-works/networking).
-3. Install Docker from the official apt repository, signed with GPG (not through a second `curl | sh`), and write `daemon.json`.
-4. With Tailscale: join the tailnet with a single-use auth key, pre-authorized and tagged `tag:brume`.
-5. Create the admin account: your Tailscale login for the identity allowlist, or a password without Tailscale.
-6. With Cloudflare: create the tunnel, its local configuration and the wildcard CNAME, and turn on HSTS and the redirect to HTTPS, with an API token, then forget that token. Then ask for a second, read-only token (tunnel and DNS), which the engine keeps to detect an unknown tunnel connector or DNS record. In direct ingress, you point the DNS to the server's IP yourself.
-7. Generate the age key pair and show the private key once, or import your own public keys. Several recipients are advised. You decrypt a code to prove you kept your key.
-8. Configure the S3 bucket, and its optional folder, which must be empty, and test it: write, read, and `If-None-Match`, including when assembling an upload in several parts. Then check that a delete, a lifecycle rule and a versioning suspension all fail. A credential that succeeds at any of these three is refused. Advise a bucket rule that cleans up unfinished uploads after 7 days. [Secrets and backups](/docs/how-it-works/secrets-and-backups#storage) explains why.
-9. Create the system users (including `brume-agent`), the systemd units and the master key (systemd credentials). Store the master key on S3, encrypted for your age keys, then start the services.
-10. Lock down SSH. With Tailscale: enable Tailscale SSH and check that it works. Only then: key-only SSH, port 22 closed to the public, and UFW closed to inbound traffic except from the `ingress` network to the webhook. Without Tailscale: key-only SSH on port 22, the only open port, along with 80 and 443 in direct ingress.
-11. Configure `unattended-upgrades`: the distribution, Docker and Tailscale repositories, the Docker major version pinned, automatic reboot. See [Updates](#updates).
-12. Show the enrollment URL for the second factor, single use and valid for 15 minutes. The [admin panel](/docs/how-it-works/admin-panel) page covers the second factor.
+| Option | What it does |
+|---|---|
+| `--domain <zone>` | Sets up Cloudflare Tunnel for the apps' public domains, `<name>.<zone>`. The API token comes from `CLOUDFLARE_API_TOKEN`, which `sudo` keeps only with `--preserve-env=CLOUDFLARE_API_TOKEN`, or is asked for without echo. It stays in memory, never written anywhere. |
+| `--admin tailscale` | The default. The panel is served on your tailnet over HTTPS. |
+| `--admin ssh-tunnel` | The panel stays on `127.0.0.1:7878`, and you reach it through `ssh -L 7878:127.0.0.1:7878`. The install prints the command. |
+| `--yes` | Installs without asking for confirmation. |
 
-At the first launch of the panel, you create the installation's GitHub App: see [Builds and deployments](/docs/how-it-works/builds-and-deployments#access-to-github).
+Before any change, it checks the server, and with `--domain`, the token and the zone. Then it lists the steps still to do and asks you to confirm. The steps run in this order:
+
+1. **Check the host:** root, systemd, a supported distribution and architecture, SSH on port 22, and no other Docker package. With `--domain`: the token has every permission it needs on the zone, and no other record holds `*.<zone>`. Otherwise the install stops before any change, and names the missing permission or the record.
+2. **Install Brume's firewall,** the nftables table `inet brume`, with the systemd unit that loads it before Docker. See [Networking](/docs/how-it-works/networking#nftables-rules).
+3. **Install Docker** from Docker's official apt repository, signed with GPG (not through a second `curl | sh`), after writing its `daemon.json`. Pin its major version with apt preferences, and check that it remaps containers to unprivileged users.
+4. **With Tailscale, join your tailnet.** Install Tailscale from its apt repository and run `tailscale up --ssh`, without an auth key: the install prints the login link and waits for you to open it. The Tailscale login of the node's owner, the person who opened the link, becomes the panel's allowlist. A tagged node is refused: it belongs to nobody. See [Admin panel](/docs/how-it-works/admin-panel#tailscale).
+5. **With Tailscale, serve the panel** with `tailscale serve`, over HTTPS, to `127.0.0.1:7878`. If HTTPS is off in your tailnet, the install prints Tailscale's link that turns it on, and waits.
+6. **Create the services:** one system user per service, their directories, `/etc/brume/api.toml`, the hardened systemd units, then start them. See [systemd services](#systemd-services).
+7. **With Cloudflare,** once the engine runs: create the tunnel in local config, or find this server's own, point the proxied wildcard CNAME `*.<zone>` at it, and turn on Always Use HTTPS on the zone. Hand the tunnel's token to the engine, which seals it with its master key. Then forget the API token. See [Networking](/docs/how-it-works/networking#cloudflare-tunnel).
+8. **Print the panel's address and a one-time login link,** valid for 15 minutes. `sudo brume admin login` prints a new one.
+
+- **Safe to run again.** Each step first checks whether it is done. After a failure, the same command picks up where it stopped, without creating a second tunnel, user or master key.
+- **Waits are bounded.** A link you must open is printed again every 2 minutes. After 15 minutes, the install stops and tells you to run the same command again.
+
+## Not in this release yet
+
+The design of alpha 0.1 has more steps. These are postponed, not dropped:
+
+- **The age key pair.** The install will generate it and show the private key once, or import your own age public keys, and check that you kept your key.
+- **The S3 bucket.** The install will configure the bucket and test it: write, read and `If-None-Match`, then check that a delete, a lifecycle rule and a versioning suspension all fail. Today the "bucket" is a local folder, `/var/lib/brume/bucket`, so a lost server cannot be restored. [Secrets and backups](/docs/how-it-works/secrets-and-backups#storage) explains what the bucket needs.
+- **The master key in systemd credentials,** and its copy on S3, encrypted for your age keys. Today the engine creates the master key in its own folder at its first start.
+- **HSTS** on the zone. It is a setting of the whole zone, and would affect the other sites it serves.
+- **A second, read-only Cloudflare token,** which the engine will keep to detect an unknown tunnel connector or DNS record, and a tunnel switched to remote config.
+- **Closing port 22.** With Tailscale, the install will check that Tailscale SSH works, and only then close port 22 to the public. Today SSH stays open, and Brume does not change your SSH server's configuration.
+- **`unattended-upgrades` set up by Brume,** with the Docker and Tailscale repositories and automatic reboots. Your distribution's own configuration stays active.
+- **A passkey,** enrolled at install. Today you sign in with the one-time link.
+- **The `tag:brume` tag** and a tailnet policy for the server, the direct ingress mode, and the public admin mode.
+
+At the panel's first launch, once builds land, you create the installation's GitHub App: see [Builds and deployments](/docs/how-it-works/builds-and-deployments#access-to-github).
 
 ## Docker
 
-- **`daemon.json`** sets `no-new-privileges: true`, `live-restore: true`, and log rotation for the default driver and for the local copy. Without a limit, Docker logs fill the disk, and SQLite and Brume go down.
+- **`daemon.json`** sets `no-new-privileges: true`, `live-restore: true`, and log rotation for the default driver. Without a limit, Docker logs fill the disk, and SQLite and Brume go down.
 - **`userns-remap: "default"`** from install. See [Runtime](/docs/how-it-works/runtime).
-- **`default-address-pools` pinned,** outside the hosting provider's private network, so the nftables rules know the Docker subnets.
-- **On Ubuntu, `kernel.apparmor_restrict_unprivileged_userns=0`,** for the whole host: the builder needs unprivileged user namespaces. Debian needs no change. This is still to confirm on Ubuntu 26.04 and Debian 13. See [Builds and deployments](/docs/how-it-works/builds-and-deployments).
+- **`default-address-pools` pinned** to `10.213.0.0/17`, cut into `/24` networks, so the nftables rules know the Docker subnets.
+- **No default bridge** (`"bridge": "none"`). Every container joins one of Brume's networks.
 - **The Docker API never listens on TCP** (port 2375). It is the classic way in for cryptominers.
 - **Default seccomp and AppArmor profiles.**
+- **For builds, on Ubuntu, `kernel.apparmor_restrict_unprivileged_userns=0`,** for the whole host: the builder needs unprivileged user namespaces. Debian needs no change. Builds are not in this release, so the install does not set it yet. See [Builds and deployments](/docs/how-it-works/builds-and-deployments).
 
 ## SSH
 
 - **Key authentication only.**
-- **With Tailscale, Tailscale SSH,** with port 22 closed to the public. Without Tailscale, SSH stays open on port 22, by key only.
+- **With Tailscale, Tailscale SSH,** with port 22 closed to the public. In this release, port 22 stays open: see [Not in this release yet](#not-in-this-release-yet). Without Tailscale, SSH stays open on port 22, by key only.
 - **Fallback:** the hosting provider's console.
 
 ## systemd services
 
-- **One dedicated user per service,** with the hardening described in [Architecture](/docs/how-it-works/architecture).
-- **Brume's files are `0600`,** owned by their service.
-- **OOM priority:** Brume and Traefik get priority protection from the OOM killer.
+- **One dedicated user per service,** with the hardening described in [Architecture](/docs/how-it-works/architecture#service-hardening): `brume-engine`, `brume-agent`, the only one in the `docker` group, `brume-api` and `brume-telemetry`. They share the group `brume`, which opens their sockets to each other.
+- **Paths:** the binary and `libduckdb.so` in `/usr/local/lib/brume`, linked from `/usr/local/bin/brume`; data in `/var/lib/brume`, one `0700` folder per service; sockets in `/run/brume`; configuration in `/etc/brume`.
+- **Brume's files are `0600`,** owned by their service. The exceptions hold no secret and must be read by someone else: `/etc/brume/api.toml`, and Traefik's configuration, which Traefik reads as its remapped user.
+- **OOM priority:** the engine, the agent and the API are protected from the OOM killer, and `brume telemetry` has memory and CPU ceilings.
 - **`systemd-analyze security` in CI** comes later.
 
 ## Updates
+
+This release does not update itself, and does not set up the OS's updates: this section describes the design. Two parts are built: the install pins Docker's major version, and the agent runs Traefik and cloudflared pinned by digest.
 
 Each layer has its own update path: Brume updates itself through a signed manifest and its updater, its components come with each Brume release, and the OS, Docker and Tailscale update through `unattended-upgrades`.
 
@@ -111,7 +152,7 @@ Each layer has its own update path: Brume updates itself through a signed manife
 
 ### Telemetry and the update check
 
-The update check is the only telemetry Brume sends to the Brume project.
+The update check is the only telemetry Brume sends to the Brume project. It is not built yet, so this release sends the project nothing.
 
 - **What the project learns.** When the engine reads `latest.json`, the project learns the server's IP and the installed version: enough to count installs per version.
 - **What the check sends:** only the version, the OS and the architecture. No domain, no account, no installation ID, so the count stays approximate.
@@ -122,10 +163,16 @@ The update check is the only telemetry Brume sends to the Brume project.
 
 ## Restore and verify
 
+Neither is built yet: they need the S3 bucket.
+
 - **`brume restore`** rebuilds a lost server from the bucket. It runs the steps of `brume install`, except the creation of the keys, with your age private key.
 - **`brume verify`** checks, from your own machine, that the bucket can be restored.
 - See [Secrets and backups](/docs/how-it-works/secrets-and-backups#restore).
 
 ## Emergency access
 
-If Tailscale or the panel is unreachable, you still have the hosting provider's console and the local `brume` CLI, through a unix socket in `0600`. The CLI manages the identity allowlist and resets the second factor.
+If Tailscale or the panel is unreachable, you still have the hosting provider's console and the local `brume` CLI, run as root. It talks to the engine through `admin.sock`, which the engine keeps for root. The CLI is designed to manage the identity allowlist and reset the second factor. In this release, it prints a new login link to the panel:
+
+```bash
+sudo brume admin login
+```

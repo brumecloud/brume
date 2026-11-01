@@ -139,7 +139,7 @@ The docs site publishes the install command. A compromised docs site can hand ou
 - **Static site only.** Nothing runs on a server.
 - **No third-party scripts:** no analytics, chat widget, external search, external fonts or embeds. Search runs in the browser on a prerendered index.
 - **New dependencies:** well-known packages only, added with pnpm so the 7-day delay and the install-script ban apply.
-- **The install command** always points to GitHub Releases, never to a URL served by the docs.
+- **The install command** always points to `https://brume.dev/install.sh`, served by the landing site (`site/`), never to a URL served by the docs.
 
 ## Before you finish
 
