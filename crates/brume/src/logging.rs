@@ -47,7 +47,8 @@ pub fn init(name: &'static str) {
         .with(format)
         .try_init();
     if installed.is_ok()
-        && let Some(value) = rust_log.filter(|value| parse(value).is_none())
+        && let Some(value) =
+            rust_log.filter(|value| !value.trim().is_empty() && parse(value).is_none())
     {
         tracing::warn!(rust_log = value, "RUST_LOG does not parse, logging at info");
     }
