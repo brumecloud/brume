@@ -11,6 +11,10 @@ use std::path::Path;
 use std::process::Stdio;
 
 use anyhow::{Context as _, bail};
+use brume_proto::admin::{AdminIngress, AdminReply, AdminRequest};
+use brume_runtime::paths::Paths;
+
+use super::cloudflare::TOKEN_ENV;
 
 /// The largest file that `brume install` reads: `/etc/os-release`, and the files it wrote.
 const MAX_READ_BYTES: u64 = 1024 * 1024;
@@ -131,6 +135,8 @@ pub trait System {
     fn dir(&self, path: &Path) -> anyhow::Result<Option<DirMeta>>;
     /// Whether something exists at `path`.
     fn exists(&self, path: &Path) -> bool;
+    /// Sends `request` to the engine on `admin.sock`. A refusal is an `admin::Refused` error.
+    fn admin(&self, request: &AdminRequest, effect: Effect) -> anyhow::Result<AdminReply>;
 }
 
 /// The host, as the steps see it. A step's `is_done` gets a `&Host`, which only reads; its
@@ -182,6 +188,28 @@ impl Host {
         )
     }
 
+    /// Runs `command`, which changes the host, and returns what it did, success or not: the
+    /// caller reads its output either way.
+    pub fn attempt(&mut self, command: &Cmd) -> anyhow::Result<Output> {
+        self.system.run(command, Effect::Changes)
+    }
+
+    /// The engine's public entry. Fails if the engine does not answer.
+    pub fn engine_ingress(&self) -> anyhow::Result<Option<AdminIngress>> {
+        match self
+            .system
+            .admin(&AdminRequest::GetIngress, Effect::Reads)?
+        {
+            AdminReply::Ingress(ingress) => Ok(ingress),
+            _ => bail!("The engine answered with something other than its public entry."),
+        }
+    }
+
+    /// Sends `request`, which changes the engine's state, on `admin.sock`.
+    pub fn admin_change(&mut self, request: &AdminRequest) -> anyhow::Result<AdminReply> {
+        self.system.admin(request, Effect::Changes)
+    }
+
     /// The contents of the file at `path`, or `None` if it is missing.
     pub fn read(&self, path: &Path) -> anyhow::Result<Option<String>> {
         self.system.read(path)
@@ -224,6 +252,8 @@ impl System for RealSystem {
     fn run(&self, command: &Cmd, _effect: Effect) -> anyhow::Result<Output> {
         let result = std::process::Command::new(command.program)
             .args(&command.args)
+            // No command needs the Cloudflare token: none inherits it.
+            .env_remove(TOKEN_ENV)
             .envs(command.env.iter().copied())
             .stdin(Stdio::null())
             .output();
@@ -329,6 +359,10 @@ impl System for RealSystem {
     fn exists(&self, path: &Path) -> bool {
         path.symlink_metadata().is_ok()
     }
+
+    fn admin(&self, request: &AdminRequest, _effect: Effect) -> anyhow::Result<AdminReply> {
+        crate::admin::admin_request(&Paths::system(), request)
+    }
 }
 
 /// The name of the first entry of `/etc/passwd` or `/etc/group` (`contents`) whose id is `id`,
@@ -353,13 +387,19 @@ pub mod fake {
     use std::path::{Path, PathBuf};
     use std::rc::Rc;
 
-    use super::{Cmd, DirMeta, Effect, Output, System};
+    use anyhow::bail;
+    use brume_proto::admin::{AdminIngress, AdminReply, AdminRequest};
+    use secrecy::ExposeSecret as _;
 
-    /// An answer to a query: given once `after` is among the changes, if set.
+    use super::{Cmd, DirMeta, Effect, Output, System};
+    use crate::admin::Refused;
+
+    /// An answer to a query: given once `after` is among the changes, if set. Each query takes
+    /// the first output, the last one stays.
     struct Answer {
         query: String,
         after: Option<String>,
-        output: Output,
+        outputs: Vec<Output>,
     }
 
     #[derive(Default)]
@@ -369,6 +409,15 @@ pub mod fake {
         paths: BTreeSet<PathBuf>,
         answers: Vec<Answer>,
         changes: Vec<String>,
+        engine: Option<FakeEngine>,
+    }
+
+    /// The engine on `admin.sock`, once started.
+    #[derive(Default)]
+    struct FakeEngine {
+        ingress: Option<AdminIngress>,
+        tunnel_token: Option<String>,
+        refusal: Option<String>,
     }
 
     /// A fake host. Its clones share their state: the test keeps one, the `Host` another.
@@ -381,16 +430,33 @@ pub mod fake {
             self.0.borrow_mut().answers.push(Answer {
                 query: query.to_string(),
                 after: None,
-                output,
+                outputs: vec![output],
+            });
+        }
+
+        /// `query` answers each of `outputs` in turn, then the last one.
+        pub fn answer_each(&self, query: &Cmd, outputs: Vec<Output>) {
+            assert!(!outputs.is_empty(), "an answer");
+            self.0.borrow_mut().answers.push(Answer {
+                query: query.to_string(),
+                after: None,
+                outputs,
             });
         }
 
         /// `query` answers `output` once the change `after` has run.
         pub fn answer_after(&self, after: &Cmd, query: &Cmd, output: Output) {
+            self.answer_after_each(after, query, vec![output]);
+        }
+
+        /// `query` answers each of `outputs` in turn once the change `after` has run, then the
+        /// last one.
+        pub fn answer_after_each(&self, after: &Cmd, query: &Cmd, outputs: Vec<Output>) {
+            assert!(!outputs.is_empty(), "an answer");
             self.0.borrow_mut().answers.push(Answer {
                 query: query.to_string(),
                 after: Some(after.to_string()),
-                output,
+                outputs,
             });
         }
 
@@ -423,6 +489,29 @@ pub mod fake {
         pub fn clear_changes(&self) {
             self.0.borrow_mut().changes.clear();
         }
+
+        /// The engine answers on `admin.sock`.
+        pub fn start_engine(&self) {
+            self.0
+                .borrow_mut()
+                .engine
+                .get_or_insert_with(FakeEngine::default);
+        }
+
+        /// The engine refuses every request with `reason`.
+        pub fn refuse_admin(&self, reason: &str) {
+            self.start_engine();
+            if let Some(engine) = &mut self.0.borrow_mut().engine {
+                engine.refusal = Some(reason.to_owned());
+            }
+        }
+
+        /// The engine's public entry, and the tunnel token it was given.
+        pub fn engine_ingress(&self) -> Option<(AdminIngress, String)> {
+            let state = self.0.borrow();
+            let engine = state.engine.as_ref()?;
+            Some((engine.ingress.clone()?, engine.tunnel_token.clone()?))
+        }
     }
 
     impl System for FakeSystem {
@@ -432,15 +521,19 @@ pub mod fake {
             if effect == Effect::Changes {
                 state.changes.push(line.clone());
             }
-            let answer = state.answers.iter().rev().find(|answer| {
+            let State {
+                answers, changes, ..
+            } = &mut *state;
+            let answer = answers.iter_mut().rev().find(|answer| {
                 answer.query == line
                     && answer
                         .after
                         .as_ref()
-                        .is_none_or(|after| state.changes.contains(after))
+                        .is_none_or(|after| changes.contains(after))
             });
             Ok(match (answer, effect) {
-                (Some(answer), _) => answer.output.clone(),
+                (Some(answer), _) if answer.outputs.len() > 1 => answer.outputs.remove(0),
+                (Some(answer), _) => answer.outputs[0].clone(),
                 // A change succeeds, an unknown query fails.
                 (None, Effect::Changes) => Output::ok(""),
                 (None, Effect::Reads) => Output::failed(1),
@@ -467,6 +560,49 @@ pub mod fake {
             state.paths.contains(path)
                 || state.files.contains_key(path)
                 || state.dirs.contains_key(path)
+        }
+
+        /// Records each change as `admin <request>`, without its token.
+        fn admin(&self, request: &AdminRequest, effect: Effect) -> anyhow::Result<AdminReply> {
+            let mut state = self.0.borrow_mut();
+            if effect == Effect::Changes {
+                let line = match request {
+                    AdminRequest::CreateLoginLink => "admin CreateLoginLink".to_owned(),
+                    AdminRequest::GetIngress => "admin GetIngress".to_owned(),
+                    AdminRequest::ConfigureIngress {
+                        zone, tunnel_id, ..
+                    } => format!("admin ConfigureIngress {zone} {tunnel_id}"),
+                };
+                state.changes.push(line);
+            }
+            let Some(engine) = &mut state.engine else {
+                bail!("Cannot connect to /run/brume/engine/admin.sock. Is the engine running?");
+            };
+            if let Some(reason) = &engine.refusal {
+                return Err(Refused {
+                    reason: reason.clone(),
+                }
+                .into());
+            }
+            Ok(match request {
+                AdminRequest::CreateLoginLink => AdminReply::LoginLink {
+                    token: "login-token".to_owned(),
+                    expires_at: "2026-11-01T12:15:00Z".to_owned(),
+                },
+                AdminRequest::GetIngress => AdminReply::Ingress(engine.ingress.clone()),
+                AdminRequest::ConfigureIngress {
+                    zone,
+                    tunnel_id,
+                    tunnel_token,
+                } => {
+                    engine.ingress = Some(AdminIngress {
+                        zone: zone.clone(),
+                        tunnel_id: tunnel_id.clone(),
+                    });
+                    engine.tunnel_token = Some(tunnel_token.expose_secret().to_owned());
+                    AdminReply::IngressConfigured
+                }
+            })
         }
     }
 }

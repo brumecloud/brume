@@ -1,7 +1,7 @@
 //! The public entry: `brume install` sets it up on `admin.sock`, the panel reads its zone.
 
 use brume_domain::{Command, Ctx, Zone};
-use brume_proto::admin::AdminReply;
+use brume_proto::admin::{AdminIngress, AdminReply};
 use brume_proto::api::{ApiFailure, FailureKind, IngressDto};
 use secrecy::{ExposeSecret, SecretString};
 
@@ -36,6 +36,14 @@ impl<S: Storage> Engine<S> {
             tx,
         )?;
         Ok(AdminReply::IngressConfigured)
+    }
+
+    /// The zone and the tunnel of the public entry, once set up, for `brume install`.
+    pub(crate) fn admin_ingress(&self) -> Option<AdminIngress> {
+        self.world.ingress().map(|ingress| AdminIngress {
+            zone: ingress.zone.to_string(),
+            tunnel_id: ingress.tunnel_id.clone(),
+        })
     }
 
     /// The zone of the public entry, once set up.

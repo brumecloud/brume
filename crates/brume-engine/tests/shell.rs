@@ -371,13 +371,25 @@ async fn bucket_conflict_makes_the_engine_read_only() {
     // Reads still work, and the other server's object is untouched.
     let reply = api.call(1000, Some(&session), ApiCall::ListProjects).await;
     assert!(matches!(reply.result, Ok(ApiValue::Projects(_))));
-    // A login link is a write: the admin connection closes without a reply.
+    // A login link is a write: the admin command gets the refusal and its reason, then the
+    // connection closes.
     let mut admin = connect(&paths.admin_socket()).await;
     admin
         .writer
         .write(&AdminRequest::CreateLoginLink)
         .await
         .expect("writes");
+    let refusal = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("refused in time");
+    assert!(
+        matches!(
+            &refusal,
+            Ok(Some(AdminReply::Refused { reason }))
+                if reason == "Another server writes to this bucket."
+        ),
+        "{refusal:?}"
+    );
     let ended = timeout(WAIT, admin.reader.read::<AdminReply>())
         .await
         .expect("closed in time");
@@ -508,6 +520,60 @@ async fn admin_socket_configures_the_ingress_and_seals_its_token() {
             file.display()
         );
     }
+
+    engine.abort();
+}
+
+#[tokio::test]
+async fn a_refused_admin_request_gets_the_reason_then_the_end() {
+    let home = home();
+    let paths = Paths::new(home.path().to_path_buf());
+    let (engine, _session) = start(&paths).await;
+    let token = "eyJhIjoiYWNjb3VudCJ9-tunnel-token";
+
+    // An invalid zone is refused: the command learns why, without its token.
+    let mut admin = connect(&paths.admin_socket()).await;
+    admin
+        .writer
+        .write(&AdminRequest::ConfigureIngress {
+            zone: "Example.com".to_owned(),
+            tunnel_id: "c1744f8b-faa1-48a4-9e5c-02ac921467fa".to_owned(),
+            tunnel_token: SecretString::from(token),
+        })
+        .await
+        .expect("writes");
+    let reply = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("in time")
+        .expect("reads");
+    let Some(AdminReply::Refused { reason }) = reply else {
+        panic!("expected a refusal, got {reply:?}");
+    };
+    assert!(reason.contains("zone"), "{reason}");
+    assert!(!reason.contains(token), "{reason}");
+
+    // Then the engine closes the connection.
+    let end = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("in time")
+        .expect("reads");
+    assert!(end.is_none(), "{end:?}");
+
+    // `brume install` reads that nothing is configured.
+    let mut admin = connect(&paths.admin_socket()).await;
+    admin
+        .writer
+        .write(&AdminRequest::GetIngress)
+        .await
+        .expect("writes");
+    let reply = timeout(WAIT, admin.reader.read::<AdminReply>())
+        .await
+        .expect("in time")
+        .expect("reads");
+    assert!(
+        matches!(reply, Some(AdminReply::Ingress(None))),
+        "{reply:?}"
+    );
 
     engine.abort();
 }

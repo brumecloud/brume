@@ -218,6 +218,8 @@ impl fmt::Debug for AdminReply {
                 .field("expires_at", expires_at)
                 .finish(),
             Self::IngressConfigured => f.write_str("IngressConfigured"),
+            Self::Ingress(ingress) => f.debug_tuple("Ingress").field(ingress).finish(),
+            Self::Refused { reason } => f.debug_struct("Refused").field("reason", reason).finish(),
         }
     }
 }

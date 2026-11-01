@@ -1,6 +1,7 @@
 //! Requests to the engine on `admin.sock`, from commands run as root on the host: `brume admin
 //! login` and `brume install`.
 
+use std::fmt;
 use std::io::{ErrorKind, Read as _, Write as _};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
@@ -17,11 +18,43 @@ const TIMEOUT: Duration = Duration::from_secs(10);
 /// The size of each read from the socket.
 const READ_CHUNK: usize = 4096;
 
+/// The engine refused a request, and said why: retrying the same request gets the same answer.
+#[derive(Debug)]
+pub struct Refused {
+    pub reason: String,
+}
+
+impl fmt::Display for Refused {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "The engine refused the request: {}", self.reason)
+    }
+}
+
+impl std::error::Error for Refused {}
+
+/// Whether `error` is the engine's refusal, rather than a failure to reach it.
+pub fn is_refusal(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| cause.is::<Refused>())
+}
+
 /// Sends `request` to the engine on `admin.sock` and waits for its answer, 10 s at most.
-/// Blocking. The engine closes the connection without an answer when it refuses, for instance
-/// when it is read-only, and at once when the user is neither root nor the engine's.
-pub fn admin_request(paths: &Paths, request: AdminRequest) -> anyhow::Result<AdminReply> {
-    request_on(&paths.admin_socket(), &request, TIMEOUT)
+/// Blocking. A refusal, such as from a read-only engine, is a `Refused` error with the engine's
+/// reason. The engine closes the connection at once when the user is neither root nor the
+/// engine's.
+pub fn admin_request(paths: &Paths, request: &AdminRequest) -> anyhow::Result<AdminReply> {
+    answer_on(&paths.admin_socket(), request, TIMEOUT)
+}
+
+/// `request_on`, with a refusal as an error.
+fn answer_on(
+    socket: &Path,
+    request: &AdminRequest,
+    timeout: Duration,
+) -> anyhow::Result<AdminReply> {
+    match request_on(socket, request, timeout)? {
+        AdminReply::Refused { reason } => Err(Refused { reason }.into()),
+        reply => Ok(reply),
+    }
 }
 
 fn request_on(
@@ -85,7 +118,7 @@ mod tests {
     use brume_proto::admin::{AdminReply, AdminRequest};
     use brume_proto::frame::{FrameDecoder, encode};
 
-    use super::request_on;
+    use super::{answer_on, is_refusal, request_on};
 
     /// A directory under `/tmp`: macOS limits a unix socket path to 104 bytes.
     fn dir() -> tempfile::TempDir {
@@ -138,6 +171,37 @@ mod tests {
         )
         .expect("an answer");
         assert!(matches!(reply, AdminReply::LoginLink { token, .. } if token == "tok"));
+    }
+
+    #[test]
+    fn a_refusal_is_an_error_with_the_engines_reason() {
+        let dir = dir();
+        let socket = engine(dir.path(), |mut stream| {
+            let reply = AdminReply::Refused {
+                reason: "Another server writes to this bucket.".to_owned(),
+            };
+            stream
+                .write_all(&encode(&reply).expect("encodes"))
+                .expect("writes");
+        });
+        let error = answer_on(
+            &socket,
+            &AdminRequest::CreateLoginLink,
+            Duration::from_secs(10),
+        )
+        .expect_err("refused");
+        assert_eq!(
+            error.to_string(),
+            "The engine refused the request: Another server writes to this bucket."
+        );
+        assert!(is_refusal(&error.context("while installing")));
+        let unreachable = answer_on(
+            Path::new("/nonexistent/admin.sock"),
+            &AdminRequest::CreateLoginLink,
+            Duration::from_secs(10),
+        )
+        .expect_err("no engine");
+        assert!(!is_refusal(&unreachable));
     }
 
     #[test]

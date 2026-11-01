@@ -9,7 +9,7 @@ use brume_engine_core::{
     ClientId, DEPLOYMENT_TIMEOUT_MILLIS, Engine, Input, OpenError, Output, Storage, edge_network,
     short_id,
 };
-use brume_proto::admin::{AdminReply, AdminRequest};
+use brume_proto::admin::{AdminIngress, AdminReply, AdminRequest};
 use brume_proto::agent::{
     ContainerHealth, DesiredState, EngineToAgent, EnvValue, EnvVar, Healthcheck, IngressRoute,
     IngressSpec, Job, NetworkAttachment, NetworkSpec,
@@ -1074,7 +1074,7 @@ fn an_overdue_deadline_that_cannot_be_written_is_retried_later() {
 }
 
 #[test]
-fn read_only_engine_refuses_a_login_link_without_a_reply() {
+fn read_only_engine_refuses_a_login_link_with_its_reason() {
     let mut harness = Harness::new();
     harness.engine.set_read_only();
     let out = harness.input(Input::Admin {
@@ -1086,7 +1086,7 @@ fn read_only_engine_refuses_a_login_link_without_a_reply() {
             .any(|output| matches!(output, Output::AdminReply { .. })),
         "{out:?}"
     );
-    // The shell closes the connection: `brume dev` reads the end without a reply as a refusal.
+    // The shell answers `AdminReply::Refused` with the reason, then closes the connection.
     assert!(
         out.iter().any(|output| matches!(
             output,
@@ -1388,7 +1388,8 @@ fn configure_ingress_records_zone_not_token() {
     assert_eq!(spec.tunnel_token.expose_secret(), "rotated-token");
     assert_eq!(stored_token(&harness).as_deref(), Some("rotated-token"));
 
-    // an invalid zone or token is refused without a reply, and changes nothing;
+    // an invalid zone or token is refused, with a reason that never holds the token, and
+    // changes nothing;
     let position = harness.engine.position();
     for (zone, token) in [
         ("Example.com", TUNNEL_TOKEN),
@@ -1414,6 +1415,47 @@ fn configure_ingress_records_zone_not_token() {
         ingress(&mut harness).map(|ingress| ingress.zone),
         Some("example.com".to_owned())
     );
+}
+
+#[test]
+fn brume_install_reads_the_ingress_it_configured() {
+    // Given an engine without a public entry,
+    let mut harness = Harness::new();
+    let get = |harness: &mut Harness| {
+        harness.input(Input::Admin {
+            client: ClientId(7),
+            request: AdminRequest::GetIngress,
+        })
+    };
+
+    // when `brume install` asks for it, it gets none;
+    assert!(
+        matches!(
+            get(&mut harness).as_slice(),
+            [Output::AdminReply {
+                client: ClientId(7),
+                reply: AdminReply::Ingress(None),
+            }]
+        ),
+        "no ingress yet"
+    );
+
+    // once configured, it gets the zone and the tunnel, and nothing is written to read them,
+    // even on a read-only engine.
+    harness.configure_ingress("example.com", TUNNEL_TOKEN);
+    let position = harness.engine.position();
+    harness.engine.set_read_only();
+    let out = get(&mut harness);
+    let expected = AdminReply::Ingress(Some(AdminIngress {
+        zone: "example.com".to_owned(),
+        tunnel_id: TUNNEL.to_owned(),
+    }));
+    assert!(
+        matches!(out.as_slice(), [Output::AdminReply { reply, .. }] if *reply == expected),
+        "{out:?}"
+    );
+    assert!(!format!("{out:?}").contains(TUNNEL_TOKEN));
+    assert_eq!(harness.engine.position(), position);
 }
 
 #[test]
