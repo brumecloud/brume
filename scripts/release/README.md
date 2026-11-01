@@ -21,6 +21,8 @@ scripts/release/test.sh 0.1.0 all
 - `libduckdb.so` is the official build of the DuckDB version that `libduckdb-sys` in `Cargo.lock` binds, checked against the SHA-256s pinned in `build.sh`. The binary finds it beside itself (rpath `$ORIGIN`). After a DuckDB upgrade, `build.sh` refuses to run until its `DUCKDB_*` values match.
 - The cargo registry and target folder are the Docker volumes `brume-release-cargo-registry` and `brume-release-target`: a rebuild only compiles what changed. `docker volume rm` them to start from scratch.
 - `install.sh` pins every archive of this version present in `dist/`, so arm64 and amd64 can be built one after the other. For a release, build `all`.
+- A build refuses uncommitted changes in `crates/`, `web/` or the manifests, so an archive matches the commit it is dated from. `BRUME_ALLOW_DIRTY=1` lifts that for a test build, never for a release.
+- The base image is pinned by digest in `Dockerfile.build`.
 
 ## Test `install.sh` locally
 

@@ -2,7 +2,7 @@
 # and 13 and Ubuntu 24.04 and 26.04. It compiles for its own architecture natively and for the
 # other one with a cross gcc (SQLite is the only C dependency), and holds the official libduckdb
 # of both architectures. scripts/release/build.sh passes the build arguments.
-FROM rust:1.92-bookworm
+FROM rust:1.92-bookworm@sha256:e90e846de4124376164ddfbaab4b0774c7bdeef5e738866295e5a90a34a307a2
 
 ARG TARGETARCH
 RUN set -eux; \

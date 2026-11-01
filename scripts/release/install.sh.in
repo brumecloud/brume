@@ -11,6 +11,8 @@
 
 main() {
   set -eu
+  # A stricter umask from sudo would leave /usr/local/lib/brume closed to the service users.
+  umask 022
   version='@VERSION@'
   sha256_arm64='@SHA256_ARM64@'
   sha256_amd64='@SHA256_AMD64@'
@@ -40,7 +42,7 @@ MIST
   printf '%s\n' "$reset"
   printf '  %sbrume%s %s· just push it%s\n\n' "$bold" "$reset" "$dim" "$reset"
 
-  [ "$(id -u)" = 0 ] || fail "run it as root: curl -sSL https://brume.dev/install.sh | sudo bash"
+  [ "$(id -u)" = 0 ] || fail "run it as root: curl -sSL https://brume.dev/install.sh | sudo bash -s -- $*"
   case "$(uname -m)" in
     aarch64 | arm64) arch=arm64 sha256=$sha256_arm64 ;;
     x86_64 | amd64) arch=amd64 sha256=$sha256_amd64 ;;
@@ -62,9 +64,9 @@ MIST
     fail "$archive does not match the SHA-256 of Brume $version: nothing was installed"
 
   say "Installing it in /usr/local/lib/brume"
-  mkdir -p /usr/local/lib/brume
+  install -d -m 0755 /usr/local/lib/brume
   tar -xzf "$tmp/$archive" -C /usr/local/lib/brume --strip-components=1 --no-same-owner
-  ln -sf /usr/local/lib/brume/brume /usr/local/bin/brume
+  ln -sfn /usr/local/lib/brume/brume /usr/local/bin/brume
   rm -rf "$tmp"
   trap - EXIT
 

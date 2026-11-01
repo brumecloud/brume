@@ -79,6 +79,10 @@ docker build --tag "$IMAGE" --file "$repo/scripts/release/Dockerfile.build" \
   --build-arg "DUCKDB_SHA256_AMD64=$DUCKDB_SHA256_AMD64" \
   "$repo/scripts/release"
 
+# A release is built from a commit: the archive must match the source it is dated from.
+if [ "${BRUME_ALLOW_DIRTY:-}" != 1 ] && ! git -C "$repo" diff --quiet HEAD -- crates web Cargo.toml Cargo.lock; then
+  die "uncommitted changes in crates/, web/ or the manifests: commit them, or set BRUME_ALLOW_DIRTY=1 for a test build"
+fi
 mkdir -p "$dist"
 source_date=$(git -C "$repo" log -1 --format=%ct)
 for arch in "${archs[@]}"; do
