@@ -287,17 +287,36 @@ impl DockerShell {
                 aliases,
                 ipv4_address,
             } => {
+                // The container keeps its address: Docker would hand it the lowest free one,
+                // and the connections it opened while it started, such as an API's pool to its
+                // database, would hang without an error.
+                let address = match ipv4_address {
+                    Some(address) => Some(address.clone()),
+                    None => self.address_on(container, network).await,
+                };
                 let disconnect = NetworkDisconnectRequest {
                     container: container.clone(),
                     force: Some(true),
                 };
                 // It fails when the container is not attached, which is fine.
                 let _ = self.docker.disconnect_network(network, disconnect).await;
-                let connect = NetworkConnectRequest {
+                let connect = |address: Option<&str>| NetworkConnectRequest {
                     container: container.clone(),
-                    endpoint_config: Some(endpoint_settings(aliases, ipv4_address.as_deref())),
+                    endpoint_config: Some(endpoint_settings(aliases, address)),
                 };
-                self.docker.connect_network(network, connect).await?;
+                let connected = self
+                    .docker
+                    .connect_network(network, connect(address.as_deref()))
+                    .await;
+                match connected {
+                    Ok(()) => {}
+                    // Another container took the address in between: any address beats none.
+                    Err(error) if ipv4_address.is_none() && address.is_some() => {
+                        tracing::warn!(%error, container, network, "the container changes address");
+                        self.docker.connect_network(network, connect(None)).await?;
+                    }
+                    Err(error) => return Err(error),
+                }
             }
             Action::Disconnect { container, network } => {
                 let disconnect = NetworkDisconnectRequest {
@@ -361,6 +380,17 @@ impl DockerShell {
         labels.insert(LABEL_MANAGED.to_owned(), "1".to_owned());
         labels
     }
+
+    /// The address of `container` on `network`; `None` if it is not attached, stopped, or
+    /// Docker fails to inspect it.
+    async fn address_on(&self, container: &str, network: &str) -> Option<String> {
+        let inspect = self
+            .docker
+            .inspect_container(container, None::<InspectContainerOptions>)
+            .await
+            .ok()?;
+        address_on_network(inspect, network)
+    }
 }
 
 /// A network as Docker lists it, with the subnets of its IPAM config; `None` without a name.
@@ -407,6 +437,16 @@ fn network_request(
 }
 
 /// The settings of a container on a network: its aliases, and its fixed address if any.
+/// The IPv4 address of the inspected container on `network`, if it has one there.
+fn address_on_network(inspect: ContainerInspectResponse, network: &str) -> Option<String> {
+    inspect
+        .network_settings?
+        .networks?
+        .remove(network)?
+        .ip_address
+        .filter(|address| !address.is_empty())
+}
+
 fn endpoint_settings(aliases: &[String], ipv4_address: Option<&str>) -> EndpointSettings {
     EndpointSettings {
         aliases: Some(aliases.to_vec()),
@@ -689,8 +729,8 @@ mod tests {
     };
 
     use super::{
-        Observation, create_body, epoch_ms, managed, network_request, readable, snap_network,
-        unmanaged,
+        Observation, address_on_network, create_body, epoch_ms, managed, network_request, readable,
+        snap_network, unmanaged,
     };
 
     /// A named volume, a bind mount of the host and a tmpfs, as Docker lists them.
@@ -832,6 +872,36 @@ mod tests {
         assert_eq!(source.environment_id, "env");
         assert_eq!(source.service_id, "svc");
         assert!(!source.running);
+    }
+
+    #[test]
+    fn a_reattach_reads_the_address_on_its_network() {
+        let endpoint = |address: &str| EndpointSettings {
+            ip_address: Some(address.to_owned()),
+            ..EndpointSettings::default()
+        };
+        let inspect = ContainerInspectResponse {
+            network_settings: Some(NetworkSettings {
+                networks: Some(HashMap::from([
+                    ("brume-env-a".to_owned(), endpoint("10.213.0.4")),
+                    ("brume-egress-a".to_owned(), endpoint("10.213.1.2")),
+                    // A stopped container keeps its endpoint, without an address.
+                    ("brume-env-b".to_owned(), endpoint("")),
+                ])),
+                ..NetworkSettings::default()
+            }),
+            ..ContainerInspectResponse::default()
+        };
+        assert_eq!(
+            address_on_network(inspect.clone(), "brume-env-a").as_deref(),
+            Some("10.213.0.4")
+        );
+        assert_eq!(address_on_network(inspect.clone(), "brume-env-b"), None);
+        assert_eq!(address_on_network(inspect, "brume-env-c"), None);
+        assert_eq!(
+            address_on_network(ContainerInspectResponse::default(), "brume-env-a"),
+            None
+        );
     }
 
     fn strings(items: &[&str]) -> Vec<String> {
