@@ -60,6 +60,10 @@ export function Ok() {
   return <span className={`text-ink-dim ${HOVER} lit:text-emerald-400`}>✓ </span>;
 }
 
+export function Wait() {
+  return <span className={`text-ink-dim ${HOVER} lit:text-amber-400`}>‖ </span>;
+}
+
 export function Arrow() {
   return <span className={`text-ink-dim ${HOVER} lit:text-sky-400`}>→ </span>;
 }

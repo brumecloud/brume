@@ -1,6 +1,6 @@
 import { BrandIcon } from "~/components/brand-icon";
 import { logoLit } from "~/components/tone";
-import { stackItems } from "~/content";
+import { copy, stackItems } from "~/content";
 
 function StackList({ hidden = false }: { readonly hidden?: boolean }) {
   return (
@@ -21,10 +21,8 @@ function StackList({ hidden = false }: { readonly hidden?: boolean }) {
 /** A slow, endless band of the stacks people bring. Hovering pauses it. */
 export function StackMarquee() {
   return (
-    <section aria-labelledby="stack-title" className="py-10">
-      <h2 id="stack-title" className="text-label text-center text-ink-dim">
-        Bring your stack: if it builds into a container, it runs on Brume
-      </h2>
+    <div className="py-14">
+      <h3 className="text-label text-center text-ink-dim">{copy.deploy.stack}</h3>
       <div
         data-light
         className="mt-7 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
@@ -35,6 +33,6 @@ export function StackMarquee() {
           <StackList hidden />
         </div>
       </div>
-    </section>
+    </div>
   );
 }

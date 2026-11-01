@@ -1,6 +1,6 @@
 import { MistCanvas } from "~/components/mist-canvas";
 
-/** The descent: a layer of mist between the features and the security section. */
+/** The descent: a layer of mist between the deploy and the security sections. */
 export function MistBand() {
   return (
     <div

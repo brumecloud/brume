@@ -1,13 +1,8 @@
-import { site } from "~/content";
+import Link from "next/link";
+
+import { pages, site } from "~/content";
 
 import { Brand } from "./brand";
-
-const links = [
-  { href: "#how", label: "How it works" },
-  { href: "#console", label: "Console" },
-  { href: "#features", label: "Features" },
-  { href: "#security", label: "Security" },
-];
 
 export function SiteHeader() {
   return (
@@ -18,11 +13,11 @@ export function SiteHeader() {
       >
         <Brand />
         <ul className="ml-auto hidden items-center gap-7 text-sm text-ink-muted md:flex">
-          {links.map((link) => (
-            <li key={link.href}>
-              <a href={link.href} className="transition-colors hover:text-ink">
-                {link.label}
-              </a>
+          {pages.map((page) => (
+            <li key={page.path}>
+              <Link href={page.path} className="transition-colors hover:text-ink">
+                {page.title}
+              </Link>
             </li>
           ))}
         </ul>
