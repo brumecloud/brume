@@ -3,7 +3,8 @@
 //! With `brume dev`, every service runs as one user, the owner of the run directory: the sockets
 //! are its own (`0600`). On a host, each service runs as its own system user: the sockets are
 //! `0660`, their group shared by the four users, and each listener checks the uid of every peer
-//! against its socket's role.
+//! against its socket's role. Each listening service has its own socket directory, which the
+//! others cannot write: none can put its own listener in place of another's socket.
 
 use std::io;
 use std::os::unix::fs::{DirBuilderExt as _, MetadataExt as _, PermissionsExt as _};

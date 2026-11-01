@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 /// Where the data of a host lives: one directory per service, owned by its user.
 const SYSTEM_DATA_DIR: &str = "/var/lib/brume";
 
-/// Where the sockets of a host live.
+/// Where the sockets of a host live: one directory per listening service.
 const SYSTEM_RUN_DIR: &str = "/run/brume";
 
 /// The layout of a Brume home, or of a host.
@@ -14,28 +14,40 @@ const SYSTEM_RUN_DIR: &str = "/run/brume";
 pub struct Paths {
     /// The databases, the master key and the bucket.
     home: PathBuf,
-    /// The sockets.
+    /// The parent of the socket directories.
     run: PathBuf,
+    /// The sockets the engine listens on.
+    engine_run: PathBuf,
+    /// The sockets telemetry listens on.
+    telemetry_run: PathBuf,
 }
 
 impl Paths {
     /// The layout of `brume dev` under `home`: the sockets in `<home>/run`.
     pub fn new(home: PathBuf) -> Self {
+        let run = home.join("run");
         Self {
-            run: home.join("run"),
+            engine_run: run.clone(),
+            telemetry_run: run.clone(),
+            run,
             home,
         }
     }
 
-    /// The layout of a host: the data in `/var/lib/brume`, the sockets in `/run/brume`.
+    /// The layout of a host: the data in `/var/lib/brume`, the sockets in `/run/brume/engine`
+    /// and `/run/brume/telemetry`.
     ///
     /// `brume install` creates the directories: `engine`, `telemetry` and `bucket`, owned by
-    /// their service's user, and the run directory, whose group the four users of the services
-    /// share, so that each socket's group lets the other services connect.
+    /// their service's user, and the socket directories, each owned by the service that
+    /// listens in it, setgid to the group the four users share and not writable by that group
+    /// (`2750`). The other services can connect to a socket, but none can replace it.
     pub fn system() -> Self {
+        let run = PathBuf::from(SYSTEM_RUN_DIR);
         Self {
             home: PathBuf::from(SYSTEM_DATA_DIR),
-            run: PathBuf::from(SYSTEM_RUN_DIR),
+            engine_run: run.join("engine"),
+            telemetry_run: run.join("telemetry"),
+            run,
         }
     }
 
@@ -44,34 +56,44 @@ impl Paths {
         &self.home
     }
 
-    /// The directory of the sockets.
+    /// The parent of the socket directories. With `brume dev`, it holds every socket.
     pub fn run_dir(&self) -> PathBuf {
         self.run.clone()
     }
 
+    /// The directory of the engine's sockets.
+    pub fn engine_run_dir(&self) -> PathBuf {
+        self.engine_run.clone()
+    }
+
+    /// The directory of telemetry's sockets.
+    pub fn telemetry_run_dir(&self) -> PathBuf {
+        self.telemetry_run.clone()
+    }
+
     /// `brume api` to the engine.
     pub fn api_socket(&self) -> PathBuf {
-        self.run.join("api.sock")
+        self.engine_run.join("api.sock")
     }
 
     /// Local commands, such as `brume dev`, to the engine.
     pub fn admin_socket(&self) -> PathBuf {
-        self.run.join("admin.sock")
+        self.engine_run.join("admin.sock")
     }
 
     /// The agent to the engine.
     pub fn agent_socket(&self) -> PathBuf {
-        self.run.join("agent.sock")
+        self.engine_run.join("agent.sock")
     }
 
     /// The agent's container logs to telemetry.
     pub fn telemetry_ingest_socket(&self) -> PathBuf {
-        self.run.join("telemetry-ingest.sock")
+        self.telemetry_run.join("telemetry-ingest.sock")
     }
 
     /// The engine's log queries to telemetry.
     pub fn telemetry_query_socket(&self) -> PathBuf {
-        self.run.join("telemetry-query.sock")
+        self.telemetry_run.join("telemetry-query.sock")
     }
 
     /// The engine's SQLite database.
@@ -130,16 +152,30 @@ mod tests {
         let paths = Paths::system();
         assert_eq!(paths.home(), PathBuf::from("/var/lib/brume"));
         assert_eq!(paths.run_dir(), PathBuf::from("/run/brume"));
-        assert_eq!(paths.api_socket(), PathBuf::from("/run/brume/api.sock"));
-        assert_eq!(paths.admin_socket(), PathBuf::from("/run/brume/admin.sock"));
-        assert_eq!(paths.agent_socket(), PathBuf::from("/run/brume/agent.sock"));
+        assert_eq!(paths.engine_run_dir(), PathBuf::from("/run/brume/engine"));
+        assert_eq!(
+            paths.telemetry_run_dir(),
+            PathBuf::from("/run/brume/telemetry")
+        );
+        assert_eq!(
+            paths.api_socket(),
+            PathBuf::from("/run/brume/engine/api.sock")
+        );
+        assert_eq!(
+            paths.admin_socket(),
+            PathBuf::from("/run/brume/engine/admin.sock")
+        );
+        assert_eq!(
+            paths.agent_socket(),
+            PathBuf::from("/run/brume/engine/agent.sock")
+        );
         assert_eq!(
             paths.telemetry_ingest_socket(),
-            PathBuf::from("/run/brume/telemetry-ingest.sock")
+            PathBuf::from("/run/brume/telemetry/telemetry-ingest.sock")
         );
         assert_eq!(
             paths.telemetry_query_socket(),
-            PathBuf::from("/run/brume/telemetry-query.sock")
+            PathBuf::from("/run/brume/telemetry/telemetry-query.sock")
         );
         assert_eq!(
             paths.engine_db(),

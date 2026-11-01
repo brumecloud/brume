@@ -39,12 +39,12 @@ pub async fn run(paths: Paths, peers: Peers) -> anyhow::Result<()> {
     if let Some(dir) = db.parent() {
         create_private_dir(dir)?;
     }
-    create_private_dir(&paths.run_dir())?;
+    create_private_dir(&paths.telemetry_run_dir())?;
     let store = Store::open(&db)?;
     let shared = Arc::new(Shared::new(store)?);
     let ingest = listen(&peers, &paths.telemetry_ingest_socket())?;
     let query = listen(&peers, &paths.telemetry_query_socket())?;
-    tracing::info!(run_dir = %paths.run_dir().display(), "telemetry is listening");
+    tracing::info!(run_dir = %paths.telemetry_run_dir().display(), "telemetry is listening");
     tokio::try_join!(
         ingest::serve(ingest, peers, Arc::clone(&shared)),
         query::serve(query, peers, Arc::clone(&shared)),

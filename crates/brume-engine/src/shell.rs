@@ -105,7 +105,7 @@ pub async fn run(paths: Paths, peers: Peers) -> anyhow::Result<()> {
     DirBuilder::new()
         .recursive(true)
         .mode(0o700)
-        .create(paths.run_dir())
+        .create(paths.engine_run_dir())
         .context("creating the run directory")?;
     let key = MasterKey::load_or_create(&paths.master_key()).context("loading the master key")?;
     let storage = SqliteStorage::open(&paths.engine_db(), key).context("opening the database")?;

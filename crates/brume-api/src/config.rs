@@ -81,7 +81,8 @@ impl ApiConfig {
             allowed_hosts,
             allowed_origins,
             tailscale_logins: file.tailscale_logins.clone(),
-            secure_cookie: file.public_url.starts_with("https://"),
+            // Behind `tailscale serve`, the panel is always on HTTPS.
+            secure_cookie: !file.hosts.is_empty() || file.public_url.starts_with("https://"),
         }
     }
 }
@@ -171,6 +172,27 @@ impl ApiFileConfig {
                  device of the tailnet. Add the admin's Tailscale login."
             );
         }
+        if self.hosts.is_empty() && !self.tailscale_logins.is_empty() {
+            bail!(
+                "`tailscale_logins` is set but `hosts` is empty: only `tailscale serve` sets the \
+                 login, and it needs the machine's name on the tailnet in `hosts`."
+            );
+        }
+        if !self.hosts.is_empty() {
+            let url = self.public_url.trim_end_matches('/');
+            let served = self
+                .hosts
+                .iter()
+                .any(|host| url.strip_prefix("https://") == Some(host.as_str()));
+            if !served {
+                bail!(
+                    "`public_url` is {:?}: with `hosts`, it must be https:// followed by one of \
+                     them, such as https://{}",
+                    self.public_url,
+                    self.hosts[0]
+                );
+            }
+        }
         let url = &self.public_url;
         let rest = url
             .strip_prefix("https://")
@@ -208,6 +230,34 @@ hosts = ["brume.tail1234.ts.net"]
 tailscale_logins = ["admin@example.com"]
 public_url = "https://brume.tail1234.ts.net"
 "#;
+
+    #[test]
+    fn public_url_must_be_https_on_one_of_the_hosts() {
+        for public_url in [
+            "",
+            "http://brume.tail1234.ts.net",
+            "https://brume.tail1234.ts.net.",
+            "https://other.tail1234.ts.net",
+            "https://brume.tail1234.ts.net:8443",
+        ] {
+            let text = TAILNET.replace(
+                "public_url = \"https://brume.tail1234.ts.net\"",
+                &format!("public_url = {public_url:?}"),
+            );
+            assert!(ApiFileConfig::parse(&text).is_err(), "{public_url:?}");
+        }
+        let text = TAILNET.replace(
+            "public_url = \"https://brume.tail1234.ts.net\"",
+            "public_url = \"https://brume.tail1234.ts.net/\"",
+        );
+        assert!(ApiFileConfig::parse(&text).is_ok());
+    }
+
+    #[test]
+    fn logins_without_hosts_are_refused() {
+        let text = "tailscale_logins = [\"admin@example.com\"]\n";
+        assert!(ApiFileConfig::parse(text).is_err());
+    }
 
     #[test]
     fn reads_the_file_of_a_tailnet_install() {
