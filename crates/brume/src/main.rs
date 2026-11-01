@@ -1,11 +1,13 @@
 //! The `brume` binary: runs one service (`engine`, `agent`, `api`, `telemetry`), under a Brume
 //! home or on a host with `--system`, or all of them on this machine with `brume dev`. On a
-//! host, `brume login` prints a login link to the panel.
+//! host, `brume install` sets the server up, and `brume admin login` prints a login link to the
+//! panel.
 
 #![forbid(unsafe_code)]
 
 mod admin;
 mod dev;
+mod install;
 mod logging;
 mod login;
 
@@ -37,7 +39,17 @@ enum Command {
     Telemetry(ServiceArgs),
     /// Runs every service on this machine, as child processes, until Ctrl-C.
     Dev(dev::DevArgs),
-    /// Prints a one-time login link to the panel. Run it as root on the host.
+    /// Turns this server into a Brume host: firewall, Docker, system users, services. Run it as
+    /// root, on a fresh server.
+    Install(install::InstallArgs),
+    /// Commands for the admin, run as root on the host.
+    #[command(subcommand)]
+    Admin(AdminCommand),
+}
+
+#[derive(Debug, Subcommand)]
+enum AdminCommand {
+    /// Prints a one-time login link to the panel.
     Login,
 }
 
@@ -102,9 +114,28 @@ fn main() -> ExitCode {
         Command::Api(_) => "api",
         Command::Telemetry(_) => "telemetry",
         Command::Dev(_) => "dev",
-        Command::Login => "login",
+        Command::Install(_) => "install",
+        Command::Admin(_) => "admin",
     };
     logging::init(name);
+    // The commands for a person are blocking: no async runtime.
+    let result = match cli.command {
+        Command::Install(args) => install::run(&args),
+        Command::Admin(AdminCommand::Login) => login::run(),
+        command => return run_service(name, command),
+    };
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        // The message is the whole error.
+        Err(error) => {
+            eprintln!("{error:#}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Runs a service, or `brume dev`, in an async runtime.
+fn run_service(name: &'static str, command: Command) -> ExitCode {
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(runtime) => runtime,
         Err(error) => {
@@ -113,7 +144,7 @@ fn main() -> ExitCode {
         }
     };
     let result = runtime.block_on(async move {
-        match cli.command {
+        match command {
             Command::Engine(args) => {
                 let paths = args.paths();
                 let peers = args.peers(&paths)?;
@@ -130,13 +161,15 @@ fn main() -> ExitCode {
                 brume_telemetry::run(paths, peers).await
             }
             Command::Dev(args) => dev::run(args).await,
-            Command::Login => login::run(),
+            Command::Install(_) | Command::Admin(_) => {
+                unreachable!("main runs the commands for a person")
+            }
         }
     });
     match result {
         Ok(()) => ExitCode::SUCCESS,
-        // `brume dev` and `brume login` speak to a person: the message is the whole error.
-        Err(error) if matches!(name, "dev" | "login") => {
+        // `brume dev` speaks to a person: the message is the whole error.
+        Err(error) if name == "dev" => {
             eprintln!("{error:#}");
             ExitCode::FAILURE
         }
@@ -154,7 +187,8 @@ mod tests {
     use brume_runtime::paths::Paths;
     use clap::Parser as _;
 
-    use super::{Cli, Command};
+    use super::{AdminCommand, Cli, Command};
+    use crate::install::AdminMode;
 
     fn parse(args: &[&str]) -> Result<Cli, clap::Error> {
         Cli::try_parse_from(std::iter::once("brume").chain(args.iter().copied()))
@@ -196,11 +230,36 @@ mod tests {
             panic!("parses");
         };
         assert_eq!(args.port, 8080);
+    }
+
+    #[test]
+    fn the_admin_logs_in_with_brume_admin_login() {
         assert!(matches!(
-            parse(&["login"]),
+            parse(&["admin", "login"]),
             Ok(Cli {
-                command: Command::Login
+                command: Command::Admin(AdminCommand::Login)
             })
         ));
+        // `brume login` is the laptop's CLI, later.
+        assert!(parse(&["login"]).is_err());
+    }
+
+    #[test]
+    fn install_defaults_to_tailscale() {
+        let Ok(Cli {
+            command: Command::Install(args),
+        }) = parse(&["install", "--admin", "ssh-tunnel", "--yes"])
+        else {
+            panic!("parses");
+        };
+        assert_eq!(args.admin(), AdminMode::SshTunnel);
+        let Ok(Cli {
+            command: Command::Install(args),
+        }) = parse(&["install"])
+        else {
+            panic!("parses");
+        };
+        assert_eq!(args.admin(), AdminMode::Tailscale);
+        assert!(parse(&["install", "--admin", "public"]).is_err());
     }
 }

@@ -33,7 +33,7 @@ pub enum SocketRole {
     Api,
     /// `agent.sock`: the agent to the engine.
     Agent,
-    /// `admin.sock`: local commands to the engine, such as `brume login` run as root.
+    /// `admin.sock`: local commands to the engine, such as `brume admin login` run as root.
     Admin,
     /// `telemetry-ingest.sock`: the agent's container logs to telemetry.
     TelemetryIngest,
