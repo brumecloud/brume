@@ -5,20 +5,29 @@
 //!
 //! The agent removes every `brume.managed` container that its engine does not want, so the
 //! test refuses to run while another Brume runs containers on this Docker.
+//!
+//! The scenario ends with the public entry: a fake tunnel token, so cloudflared fails, and
+//! Traefik routes a service's domain, which the test checks from the ingress network.
 
 use std::collections::{BTreeMap, HashMap};
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::net::TcpListener;
+use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use bollard::Docker;
+use bollard::models::{ContainerCreateBody, HostConfig};
 use bollard::query_parameters::{
-    InspectContainerOptions, ListContainersOptionsBuilder, ListNetworksOptionsBuilder,
-    ListVolumesOptionsBuilder, RemoveContainerOptionsBuilder, RemoveVolumeOptions,
+    CreateImageOptionsBuilder, InspectContainerOptions, ListContainersOptionsBuilder,
+    ListNetworksOptionsBuilder, ListVolumesOptionsBuilder, LogsOptionsBuilder,
+    RemoveContainerOptionsBuilder, RemoveVolumeOptions, StartContainerOptions,
+    WaitContainerOptions,
 };
+use brume_proto::admin::{AdminReply, AdminRequest};
+use brume_proto::frame::{FrameDecoder, encode};
 use futures_util::StreamExt as _;
 use reqwest::header::{COOKIE, SET_COOKIE};
 use reqwest::{Method, StatusCode};
@@ -29,6 +38,13 @@ const IMAGE: &str = "nginx:1.29-alpine";
 const MISSING_IMAGE: &str = "nginx:0.0.0-brume-e2e-missing";
 const GREETING: &str = "a\nb=\"c\" 🚀";
 const TOKEN: &str = "s3cr3t-🚀";
+/// A tunnel token that Cloudflare refuses: cloudflared fails, and the rest goes on.
+const TUNNEL_TOKEN: &str = "fake-tunnel-token-s3cr3t";
+const ZONE: &str = "example.test";
+/// The image that checks the entry from inside Docker.
+const CURL_IMAGE: &str = "curlimages/curl:8.17.0";
+/// Traefik's entrypoint, on the ingress network.
+const TRAEFIK_URL: &str = "http://10.213.255.10:8080/";
 
 /// The longest wait for a deployment, a log line or a container.
 const WAIT: Duration = Duration::from_secs(60);
@@ -49,10 +65,21 @@ struct Dev {
 impl Dev {
     /// Starts `brume dev` on a free port with `home` under a temporary directory, and waits for
     /// its login link.
+    ///
+    /// The directory is in `/tmp`, whose paths are short enough for a unix socket (104 bytes on
+    /// macOS), but in `~/.cache` on macOS: OrbStack forwards no file event from `/tmp` to a
+    /// container, and Traefik must see its config change.
     fn start(envs: &[(&str, &Path)], extra: &[&str], stdin: Option<&str>) -> Self {
+        let mut base = PathBuf::from("/tmp");
+        if cfg!(target_os = "macos")
+            && let Some(home) = std::env::var_os("HOME")
+        {
+            base = PathBuf::from(home).join(".cache");
+            std::fs::create_dir_all(&base).expect("creates ~/.cache");
+        }
         let dir = tempfile::Builder::new()
             .prefix("brume-e2e")
-            .tempdir_in("/tmp")
+            .tempdir_in(base)
             .expect("a temporary directory");
         Self::start_in(dir, envs, extra, stdin)
     }
@@ -492,15 +519,18 @@ fn check_chain(files: &[PathBuf]) -> u64 {
     next_seq - 1
 }
 
-/// Removes what the scenario left in Docker: the containers of Brume, and the networks and
-/// volumes of its environments and services.
+/// Removes what the scenario left in Docker: the containers of Brume and of the test, the
+/// networks of the entry, and the networks and volumes of its environments and services.
 async fn clean_docker(environments: &[String], services: &[String]) {
     let docker = docker().await;
     let remove = RemoveContainerOptionsBuilder::new().force(true).build();
-    for label in ["brume.managed=1", "brume.probe=1"] {
+    for label in ["brume.managed=1", "brume.probe=1", "brume.e2e=1"] {
         for id in containers_with(&docker, label).await {
             let _ = docker.remove_container(&id, Some(remove.clone())).await;
         }
+    }
+    for network in ["brume-ingress", "brume-tunnel"] {
+        let _ = docker.remove_network(network).await;
     }
     for environment in environments {
         let filters = HashMap::from([("label", vec![format!("brume.environment={environment}")])]);
@@ -528,6 +558,128 @@ async fn clean_docker(environments: &[String], services: &[String]) {
                 .remove_volume(&volume.name, None::<RemoveVolumeOptions>)
                 .await;
         }
+    }
+}
+
+/// Sets up the public entry on `admin.sock`, as `brume install --domain` does.
+async fn configure_ingress(home: &Path) {
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+
+    let mut stream = tokio::net::UnixStream::connect(home.join("run/admin.sock"))
+        .await
+        .expect("connects to admin.sock");
+    let request = AdminRequest::ConfigureIngress {
+        zone: ZONE.to_owned(),
+        tunnel_id: "c1744f8b-faa1-48a4-9e5c-02ac921467fa".to_owned(),
+        tunnel_token: TUNNEL_TOKEN.into(),
+    };
+    stream
+        .write_all(&encode(&request).expect("encodes"))
+        .await
+        .expect("sends");
+    let mut decoder = FrameDecoder::default();
+    let mut chunk = [0; 1024];
+    let reply = loop {
+        if let Some(reply) = decoder.next::<AdminReply>().expect("decodes") {
+            break reply;
+        }
+        let read = tokio::time::timeout(WAIT, stream.read(&mut chunk))
+            .await
+            .expect("an answer in time")
+            .expect("reads");
+        assert!(read > 0, "the engine refused ConfigureIngress");
+        decoder.push(&chunk[..read]);
+    };
+    assert!(reply == AdminReply::IngressConfigured, "unexpected reply");
+}
+
+/// Runs curl with `args` in a throwaway container on `network`: its exit code and its output.
+async fn curl(docker: &Docker, network: &str, args: &[&str]) -> (i64, String) {
+    let pull = CreateImageOptionsBuilder::new()
+        .from_image(CURL_IMAGE)
+        .build();
+    let mut progress = docker.create_image(Some(pull), None, None);
+    while let Some(item) = progress.next().await {
+        item.expect("pulls curl");
+    }
+    let body = ContainerCreateBody {
+        image: Some(CURL_IMAGE.to_owned()),
+        cmd: Some(args.iter().map(|arg| (*arg).to_owned()).collect()),
+        labels: Some(HashMap::from([("brume.e2e".to_owned(), "1".to_owned())])),
+        host_config: Some(HostConfig {
+            network_mode: Some(network.to_owned()),
+            ..HostConfig::default()
+        }),
+        ..ContainerCreateBody::default()
+    };
+    let id = docker
+        .create_container(
+            None::<bollard::query_parameters::CreateContainerOptions>,
+            body,
+        )
+        .await
+        .expect("creates curl")
+        .id;
+    docker
+        .start_container(&id, None::<StartContainerOptions>)
+        .await
+        .expect("starts curl");
+    // bollard reports a non-zero exit code as an error.
+    let code = match docker
+        .wait_container(&id, None::<WaitContainerOptions>)
+        .next()
+        .await
+    {
+        Some(Ok(response)) => response.status_code,
+        Some(Err(bollard::errors::Error::DockerContainerWaitError { code, .. })) => code,
+        other => panic!("curl did not finish: {other:?}"),
+    };
+    let options = LogsOptionsBuilder::new().stdout(true).build();
+    let mut logs = docker.logs(&id, Some(options));
+    let mut output = String::new();
+    while let Some(chunk) = logs.next().await {
+        output.push_str(&chunk.expect("a log chunk").to_string());
+    }
+    let remove = RemoveContainerOptionsBuilder::new().force(true).build();
+    let _ = docker.remove_container(&id, Some(remove)).await;
+    (code, output)
+}
+
+/// The HTTP status and body that Traefik answers for `host`, from the ingress network.
+async fn through_traefik(docker: &Docker, host: &str) -> (String, String) {
+    let header = format!("Host: {host}");
+    let (_, output) = curl(
+        docker,
+        "brume-ingress",
+        &[
+            "-s",
+            "--max-time",
+            "5",
+            "-H",
+            &header,
+            "-w",
+            "\n%{http_code}",
+            TRAEFIK_URL,
+        ],
+    )
+    .await;
+    let (body, status) = output.rsplit_once('\n').unwrap_or(("", &output));
+    (status.trim().to_owned(), body.to_owned())
+}
+
+/// Waits until Traefik answers `status` for `host`, and returns the body.
+async fn wait_traefik(docker: &Docker, host: &str, status: &str) -> String {
+    let deadline = Instant::now() + WAIT;
+    loop {
+        let (actual, body) = through_traefik(docker, host).await;
+        if actual == status {
+            return body;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "Traefik never answered {status} for {host}: {actual} {body}"
+        );
+        tokio::time::sleep(POLL).await;
     }
 }
 
@@ -816,6 +968,163 @@ async fn scenario(api: Api, home: PathBuf, created: std::sync::Arc<std::sync::Mu
         );
     }
     eprintln!("step 10: {shipped} events in the bucket, chained, without the secret");
+
+    public_entry(&api, &home, &created).await;
+}
+
+/// Step 11: the public entry, with a fake tunnel token.
+async fn public_entry(api: &Api, home: &Path, created: &std::sync::Mutex<Created>) {
+    let docker = docker().await;
+    configure_ingress(home).await;
+    assert_eq!(api.get("/api/ingress").await, json!({ "zone": ZONE }));
+
+    // A service, then its domain.
+    let project = api
+        .call(
+            Method::POST,
+            "/api/projects",
+            Some(json!({ "kind": "image", "image": IMAGE })),
+            StatusCode::CREATED,
+        )
+        .await;
+    let project_id = project["projectId"].as_str().expect("a project id");
+    let environment_id = api
+        .get("/api/environments")
+        .await
+        .as_array()
+        .expect("an array")
+        .iter()
+        .find(|environment| environment["projectId"] == project_id)
+        .and_then(|environment| environment["id"].as_str())
+        .expect("the project's environment")
+        .to_owned();
+    created
+        .lock()
+        .expect("lock")
+        .environments
+        .push(environment_id.clone());
+    let service_id = api
+        .get("/api/services")
+        .await
+        .as_array()
+        .expect("an array")
+        .iter()
+        .find(|service| service["environmentId"] == environment_id.as_str())
+        .and_then(|service| service["id"].as_str())
+        .expect("the image's service")
+        .to_owned();
+    created
+        .lock()
+        .expect("lock")
+        .services
+        .push(service_id.clone());
+    let first = api.wait_new_deployment(&service_id, &[]).await;
+    api.wait_status(&first, "active").await;
+    // A domain needs the port that Traefik sends to.
+    for (field, value) in [("port", json!(80)), ("domain", json!("demo"))] {
+        api.call(
+            Method::POST,
+            "/api/changes",
+            Some(json!({
+                "serviceId": service_id,
+                "type": "setting",
+                "field": field,
+                "value": value,
+            })),
+            StatusCode::CREATED,
+        )
+        .await;
+    }
+    api.call(
+        Method::POST,
+        &format!("/api/environments/{environment_id}/changes/deploy"),
+        None,
+        StatusCode::OK,
+    )
+    .await;
+    let second = api
+        .wait_new_deployment(&service_id, std::slice::from_ref(&first))
+        .await;
+    api.wait_status(&second, "active").await;
+    eprintln!("step 11: deployment {second} active with the domain demo.{ZONE}");
+
+    // Traefik sends the domain to nginx, and any other host to its 404.
+    let host = format!("demo.{ZONE}");
+    let page = wait_traefik(&docker, &host, "200").await;
+    assert!(page.contains("Welcome to nginx"), "{page}");
+    let (status, _) = through_traefik(&docker, &format!("other.{ZONE}")).await;
+    assert_eq!(status, "404");
+    eprintln!("step 11: Traefik routes {host} to nginx, other hosts to 404");
+
+    // On the edge network, the service cannot reach Traefik: it listens on its ingress
+    // address only.
+    let edge = format!("brume-edge-{service_id}");
+    let traefik = docker
+        .inspect_container("brume-traefik", None::<InspectContainerOptions>)
+        .await
+        .expect("Traefik runs");
+    let edge_address = traefik
+        .network_settings
+        .and_then(|settings| settings.networks)
+        .and_then(|networks| networks.get(&edge).cloned())
+        .and_then(|endpoint| endpoint.ip_address)
+        .expect("Traefik is on the edge network");
+    let url = format!("http://{edge_address}:8080/");
+    let (code, _) = curl(
+        &docker,
+        &edge,
+        &[
+            "-s",
+            "--max-time",
+            "5",
+            "-H",
+            &format!("Host: {host}"),
+            &url,
+        ],
+    )
+    .await;
+    // 7: the connection is refused.
+    assert_eq!(code, 7, "Traefik answered on {url}");
+    eprintln!("step 11: Traefik refuses connections on its edge address");
+
+    // cloudflared runs with the fake token, and fails without stopping the rest: on the token,
+    // not on its arguments.
+    let cloudflared = containers_with(&docker, "brume.component=cloudflared").await;
+    assert_eq!(cloudflared.len(), 1, "one cloudflared");
+    let options = LogsOptionsBuilder::new().stdout(true).stderr(true).build();
+    let mut logs = docker.logs(&cloudflared[0], Some(options));
+    let mut output = String::new();
+    while let Some(chunk) = logs.next().await {
+        output.push_str(&chunk.expect("a log chunk").to_string());
+    }
+    eprintln!("step 11: cloudflared says: {}", output.trim());
+    assert!(
+        !output.contains("flag provided but not defined"),
+        "{output}"
+    );
+    assert!(!output.contains("s3cr3t"), "cloudflared logged its token");
+    let config_file = home.join("agent/traefik/dynamic.yml");
+    let mode = std::fs::metadata(&config_file)
+        .expect("the config of Traefik")
+        .permissions()
+        .mode()
+        & 0o777;
+    assert_eq!(mode, 0o644);
+    let config = std::fs::read_to_string(&config_file).expect("reads the config");
+    assert!(config.contains(&format!("Host(`{host}`)")), "{config}");
+    assert!(!config.contains("s3cr3t"), "a secret in Traefik's config");
+    eprintln!("step 11: cloudflared fails with the fake token, Traefik's config is 0644");
+
+    // The service goes, and its route with it.
+    api.call(
+        Method::DELETE,
+        &format!("/api/services/{service_id}"),
+        None,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+    wait_traefik(&docker, &host, "404").await;
+    eprintln!("step 11: service deleted, {host} gets a 404");
 }
 
 #[tokio::test]

@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use brume_agent_core::config::{
-    ContainerConfig, HostConfig, LogConfig, RestartPolicy, VolumeMount, container_config,
+    ContainerConfig, Endpoint, HostConfig, LogConfig, RestartPolicy, VolumeMount, container_config,
 };
 use brume_proto::agent::{ContainerSpec, EnvValue, EnvVar, Healthcheck, Mount, NetworkAttachment};
 use secrecy::SecretString;
@@ -80,6 +80,7 @@ fn full_config_of_an_app_container() {
         ],
         skipped_env: 0,
         cmd: None,
+        user: None,
         labels: BTreeMap::from([
             // Pinned: a change of the hash input replaces every running container.
             (
@@ -125,17 +126,22 @@ fn full_config_of_an_app_container() {
             }],
             privileged: false,
             publish_all_ports: false,
+            readonly_rootfs: false,
+            binds: Vec::new(),
         },
         endpoints: vec![
-            NetworkAttachment {
+            Endpoint {
                 network: "brume-env-1".to_owned(),
                 aliases: strings(&["web"]),
+                ipv4_address: None,
             },
-            NetworkAttachment {
+            Endpoint {
                 network: "brume-egress-1".to_owned(),
                 aliases: Vec::new(),
+                ipv4_address: None,
             },
         ],
+        component: None,
     };
     assert_eq!(container_config(&nginx()), expected);
 }

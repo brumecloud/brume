@@ -94,6 +94,9 @@ pub struct NetworkSpec {
     /// No route to the internet.
     pub internal: bool,
     pub environment_id: String,
+    /// Its IPv4 subnet in CIDR form, or `None` to let Docker pick one from its pools. A network
+    /// that Docker has with another subnet is created again.
+    pub subnet: Option<String>,
 }
 
 /// A named Docker volume.

@@ -91,6 +91,7 @@ fn desired(suffix: &str, image: &str) -> DesiredState {
             name: network.clone(),
             internal: true,
             environment_id: "env-test".to_owned(),
+            subnet: None,
         }],
         volumes: vec![VolumeSpec {
             name: volume.clone(),
@@ -339,6 +340,7 @@ async fn egress_comes_and_goes_live(
         name: egress.clone(),
         internal: false,
         environment_id: "env-test".to_owned(),
+        subnet: None,
     });
     state.containers[0].networks.push(NetworkAttachment {
         network: egress.clone(),

@@ -115,6 +115,13 @@ impl Paths {
     pub fn bucket_dir(&self) -> PathBuf {
         self.home.join("bucket")
     }
+
+    /// The directory where the agent writes Traefik's config, which Traefik mounts read-only.
+    /// `brume install` creates it on a host, owned by the agent's user; `brume dev` lets the
+    /// agent create it.
+    pub fn traefik_dir(&self) -> PathBuf {
+        self.home.join("agent").join("traefik")
+    }
 }
 
 #[cfg(test)]
@@ -145,6 +152,7 @@ mod tests {
             PathBuf::from("/b/telemetry/logs.duckdb")
         );
         assert_eq!(paths.bucket_dir(), PathBuf::from("/b/bucket"));
+        assert_eq!(paths.traefik_dir(), PathBuf::from("/b/agent/traefik"));
     }
 
     #[test]
@@ -190,5 +198,9 @@ mod tests {
             PathBuf::from("/var/lib/brume/telemetry/logs.duckdb")
         );
         assert_eq!(paths.bucket_dir(), PathBuf::from("/var/lib/brume/bucket"));
+        assert_eq!(
+            paths.traefik_dir(),
+            PathBuf::from("/var/lib/brume/agent/traefik")
+        );
     }
 }
